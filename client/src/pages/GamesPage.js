@@ -1,0 +1,355 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiPlay, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import api from '../services/api';
+
+const GamesPage = () => {
+    const [currentBanner, setCurrentBanner] = useState(0);
+    const [games, setGames] = useState([]);
+    const [featuredGames, setFeaturedGames] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch games from database
+    useEffect(() => {
+        const fetchGames = async () => {
+            try {
+                setLoading(true);
+                const [gamesData, featuredData] = await Promise.all([
+                    api.getGames(),
+                    api.getFeaturedGames()
+                ]);
+
+                setGames(gamesData);
+                setFeaturedGames(featuredData);
+                setError(null);
+            } catch (err) {
+                console.error('Error fetching games:', err);
+                setError('Failed to load games. Please try again later.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchGames();
+    }, []);
+
+    // Create banners from featured games
+    const banners = featuredGames.map((game, index) => ({
+        id: index + 1,
+        game: game.name,
+        gameKey: game.id,
+        title: `${game.name.toUpperCase()} CHAMPIONSHIP`,
+        subtitle: game.description,
+        image: game.backgroundImage,
+        logo: game.logo,
+        icon: game.icon,
+        stats: {
+            tournaments: game.tournaments,
+            players: game.activePlayers,
+            prize: game.totalPrize
+        }
+    }));
+
+    // Auto-slide banners
+    useEffect(() => {
+        if (banners.length > 0) {
+            const interval = setInterval(() => {
+                setCurrentBanner((prev) => (prev + 1) % banners.length);
+            }, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [banners.length]);
+
+    const nextBanner = () => {
+        setCurrentBanner((prev) => (prev + 1) % banners.length);
+    };
+
+    const prevBanner = () => {
+        setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
+    };
+
+    const GameCard = ({ game }) => (
+        <Link to={`/game/${game.id}`}>
+            <motion.div
+                whileHover={{ y: -8, scale: 1.02 }}
+                className="relative overflow-hidden rounded-xl border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"
+                style={{ background: game.background }}
+            >
+                <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-all duration-300" />
+
+                <div className="relative p-6 h-64 flex flex-col justify-between">
+                    {/* Game Icon & Category */}
+                    <div className="flex justify-between items-start">
+                        <div className="text-5xl">{game.icon}</div>
+                        <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
+                            {game.category}
+                        </span>
+                    </div>
+
+                    {/* Game Info */}
+                    <div>
+                        <h3 className="text-2xl font-gaming font-bold text-white mb-2 group-hover:text-gaming-gold transition-colors duration-300">
+                            {game.name}
+                        </h3>
+                        <p className="text-gray-300 text-sm mb-4 line-clamp-2">
+                            {game.description}
+                        </p>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="text-center">
+                                <div className="text-gaming-gold font-bold">{game.tournaments}</div>
+                                <div className="text-gray-400">Tournaments</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-gaming-gold font-bold">{game.activePlayers}</div>
+                                <div className="text-gray-400">Players</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-gaming-gold font-bold">{game.totalPrize}</div>
+                                <div className="text-gray-400">Prize Pool</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        </Link>
+    );
+
+    // Loading state
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-gold mx-auto mb-4"></div>
+                    <p className="text-gray-300">Loading games...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Error Loading Games</h2>
+                    <p className="text-gray-300 mb-4">{error}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="btn-gaming"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gaming-dark">
+            {/* Hero Banner Carousel */}
+            {banners.length > 0 && (
+                <section className="relative h-96 overflow-hidden">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentBanner}
+                            initial={{ opacity: 0, x: 300 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -300 }}
+                            transition={{ duration: 0.5 }}
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={{
+                                backgroundImage: `url(${banners[currentBanner].image})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                            }}
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70" />
+
+                            <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
+                                {/* Game Logo */}
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ delay: 0.2 }}
+                                    className="w-32 h-32 mx-auto mb-6 rounded-2xl overflow-hidden border-4 border-gaming-gold/50 shadow-2xl"
+                                    style={{
+                                        backgroundImage: `url(${banners[currentBanner].logo})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center'
+                                    }}
+                                />
+
+                                <motion.h1
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="text-5xl md:text-7xl font-gaming font-bold text-white mb-4"
+                                >
+                                    {banners[currentBanner].game}
+                                </motion.h1>
+
+                                <motion.h2
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="text-2xl md:text-3xl font-bold text-gaming-gold mb-2"
+                                >
+                                    {banners[currentBanner].title}
+                                </motion.h2>
+
+                                <motion.p
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.5 }}
+                                    className="text-xl text-gray-300 mb-8"
+                                >
+                                    {banners[currentBanner].subtitle}
+                                </motion.p>
+
+                                {/* Banner Stats */}
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="bg-gaming-card/80 rounded-2xl border border-gaming-border p-6 shadow-2xl"
+                                >
+                                    <div className="flex justify-center space-x-8 text-center">
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-full flex items-center justify-center mb-2">
+                                                <span className="text-xl">🏆</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-gaming-gold">{banners[currentBanner].stats.tournaments}</div>
+                                            <div className="text-gray-300 text-sm">Tournaments</div>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-2">
+                                                <span className="text-xl">👥</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-gaming-gold">{banners[currentBanner].stats.players}</div>
+                                            <div className="text-gray-300 text-sm">Players</div>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mb-2">
+                                                <span className="text-xl">💰</span>
+                                            </div>
+                                            <div className="text-2xl font-bold text-gaming-gold">{banners[currentBanner].stats.prize}</div>
+                                            <div className="text-gray-300 text-sm">Prize Pool</div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    transition={{ delay: 0.7 }}
+                                    className="mt-8"
+                                >
+                                    <Link
+                                        to={`/game/${banners[currentBanner].game.toLowerCase()}`}
+                                        className="btn-gaming inline-flex items-center space-x-2"
+                                    >
+                                        <FiPlay className="h-5 w-5" />
+                                        <span>Play {banners[currentBanner].game}</span>
+                                    </Link>
+                                </motion.div>
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
+
+                    {/* Navigation Arrows */}
+                    <button
+                        onClick={prevBanner}
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg"
+                    >
+                        <FiChevronLeft className="h-6 w-6" />
+                    </button>
+
+                    <button
+                        onClick={nextBanner}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg"
+                    >
+                        <FiChevronRight className="h-6 w-6" />
+                    </button>
+
+                    {/* Banner Indicators */}
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                        {banners.map((_, index) => (
+                            <button
+                                key={index}
+                                onClick={() => setCurrentBanner(index)}
+                                className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
+                                    }`}
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* Games Grid */}
+            <section className="py-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center mb-12"
+                    >
+                        <h2 className="text-3xl md:text-5xl font-gaming font-bold text-white mb-4">
+                            ALL GAMES
+                        </h2>
+                        <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                            Choose your battlefield and compete with the best players
+                        </p>
+                    </motion.div>
+
+                    {games.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {games.map((game, index) => (
+                                <motion.div
+                                    key={game.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                >
+                                    <GameCard game={game} />
+                                </motion.div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12">
+                            <div className="text-6xl mb-4">🎮</div>
+                            <h3 className="text-2xl font-bold text-white mb-2">No Games Available</h3>
+                            <p className="text-gray-400">Games will be added soon. Stay tuned!</p>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            {/* Call to Action */}
+            <section className="py-16 bg-gaming-charcoal/30">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                    >
+                        <h2 className="text-3xl md:text-5xl font-gaming font-bold text-white mb-6">
+                            Ready to Compete?
+                        </h2>
+                        <p className="text-xl text-gray-300 mb-8">
+                            Join tournaments across all your favorite games and win amazing prizes
+                        </p>
+                        <Link to="/tournaments" className="btn-gaming text-lg px-8 py-4">
+                            Browse All Tournaments
+                        </Link>
+                    </motion.div>
+                </div>
+            </section>
+        </div>
+    );
+};
+
+export default GamesPage;

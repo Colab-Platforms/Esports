@@ -1,0 +1,398 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gaming-charcoal;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gaming-neon rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gaming-neon-blue;
+}
+
+/* Base styles */
+@layer base {
+  * {
+    @apply border-gray-700;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-gaming-dark text-white font-body antialiased;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(241, 196, 15, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(243, 156, 18, 0.05) 0%, transparent 50%),
+      url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23f1c40f" fill-opacity="0.02"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold;
+  }
+  
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+  }
+  
+  h2 {
+    @apply text-3xl md:text-4xl lg:text-5xl;
+  }
+  
+  h3 {
+    @apply text-2xl md:text-3xl lg:text-4xl;
+  }
+  
+  h4 {
+    @apply text-xl md:text-2xl lg:text-3xl;
+  }
+  
+  h5 {
+    @apply text-lg md:text-xl lg:text-2xl;
+  }
+  
+  h6 {
+    @apply text-base md:text-lg lg:text-xl;
+  }
+}
+
+/* Component styles */
+@layer components {
+  /* Button styles */
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gaming-dark disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-gaming-gold to-gaming-accent hover:from-gaming-gold-dark hover:to-gaming-accent text-black shadow-lg hover:shadow-xl transform hover:scale-105;
+  }
+  
+  .btn-secondary {
+    @apply bg-gaming-card hover:bg-gaming-slate text-white border border-gaming-border hover:border-gaming-gold shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-outline {
+    @apply bg-transparent border-2 border-gaming-gold text-gaming-gold hover:bg-gaming-gold hover:text-black shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent hover:bg-gaming-charcoal text-gray-300 hover:text-white;
+  }
+  
+  .btn-danger {
+    @apply bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105;
+  }
+  
+  .btn-success {
+    @apply bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105;
+  }
+  
+  .btn-lg {
+    @apply px-8 py-4 text-base;
+  }
+  
+  .btn-sm {
+    @apply px-4 py-2 text-xs;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply bg-gaming-charcoal border border-gray-700 rounded-xl shadow-lg backdrop-blur-sm;
+  }
+  
+  .card-gaming {
+    @apply card bg-gaming-card border-gaming-border shadow-lg hover:shadow-xl transition-all duration-300 hover:border-gaming-gold/40;
+  }
+  
+  .card-premium {
+    @apply card bg-gradient-to-br from-gaming-charcoal to-gaming-slate border-gaming-neon/30 shadow-gaming-lg;
+  }
+  
+  .card-glass {
+    @apply glass rounded-xl border border-white/10 shadow-2xl;
+  }
+  
+  /* Input styles */
+  .input {
+    @apply w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200;
+  }
+  
+  .input-gaming {
+    @apply input bg-gaming-card border-gaming-border focus:border-gaming-gold focus:shadow-lg;
+  }
+  
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .badge-primary {
+    @apply bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/30;
+  }
+  
+  .badge-secondary {
+    @apply bg-gray-700 text-gray-300 border border-gray-600;
+  }
+  
+  .badge-success {
+    @apply bg-green-500/20 text-green-400 border border-green-500/30;
+  }
+  
+  .badge-warning {
+    @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+  }
+  
+  .badge-danger {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+  
+  .badge-gold {
+    @apply bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/30 shadow-gold;
+  }
+  
+  .badge-silver {
+    @apply bg-gaming-silver/20 text-gaming-silver border border-gaming-silver/30;
+  }
+  
+  .badge-bronze {
+    @apply bg-gaming-bronze/20 text-gaming-bronze border border-gaming-bronze/30;
+  }
+  
+  /* Navigation styles */
+  .nav-link {
+    @apply px-4 py-2 text-gray-300 hover:text-gaming-neon transition-colors duration-200 relative;
+  }
+  
+  .nav-link.active {
+    @apply text-gaming-neon;
+  }
+  
+  .nav-link.active::after {
+    @apply absolute bottom-0 left-0 w-full h-0.5 bg-gaming-gold;
+    content: '';
+  }
+  
+  /* Loading styles */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-600 border-t-gaming-gold;
+  }
+  
+  /* Tournament card styles */
+  .tournament-card {
+    @apply card-gaming p-6 hover:transform hover:scale-105 cursor-pointer;
+  }
+  
+  .tournament-card-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  
+  .tournament-card-title {
+    @apply text-xl font-bold text-white group-hover:text-gaming-gold transition-colors duration-200;
+  }
+  
+  .tournament-card-status {
+    @apply badge text-xs font-medium;
+  }
+  
+  .tournament-card-body {
+    @apply space-y-3;
+  }
+  
+  .tournament-card-stat {
+    @apply flex items-center justify-between text-sm;
+  }
+  
+  .tournament-card-stat-label {
+    @apply text-gray-400;
+  }
+  
+  .tournament-card-stat-value {
+    @apply text-white font-semibold;
+  }
+  
+  .tournament-card-footer {
+    @apply flex items-center justify-between mt-6 pt-4 border-t border-gray-700;
+  }
+  
+  /* Leaderboard styles */
+  .leaderboard-table {
+    @apply w-full bg-gaming-charcoal rounded-xl overflow-hidden;
+  }
+  
+  .leaderboard-header {
+    @apply bg-gaming-slate text-gaming-gold font-semibold;
+  }
+  
+  .leaderboard-row {
+    @apply border-b border-gray-700 hover:bg-gaming-slate/50 transition-colors duration-200;
+  }
+  
+  .leaderboard-cell {
+    @apply px-6 py-4 text-sm;
+  }
+  
+  .rank-1 {
+    @apply text-gaming-gold;
+  }
+  
+  .rank-2 {
+    @apply text-gaming-silver;
+  }
+  
+  .rank-3 {
+    @apply text-gaming-bronze;
+  }
+  
+  /* Wallet styles */
+  .wallet-balance {
+    @apply text-3xl font-bold text-gaming-gold font-gaming;
+  }
+  
+  .transaction-item {
+    @apply flex items-center justify-between p-4 bg-gaming-charcoal rounded-lg border border-gray-700;
+  }
+  
+  .transaction-positive {
+    @apply text-green-400;
+  }
+  
+  .transaction-negative {
+    @apply text-red-400;
+  }
+  
+  /* Match styles */
+  .match-room-card {
+    @apply card-premium p-6 text-center;
+  }
+  
+  .room-credentials {
+    @apply bg-gaming-dark p-4 rounded-lg border border-gaming-neon/30 font-mono;
+  }
+  
+  /* Profile styles */
+  .profile-avatar {
+    @apply w-24 h-24 rounded-full border-4 border-gaming-neon shadow-gaming;
+  }
+  
+  .profile-stat {
+    @apply text-center p-4 bg-gaming-charcoal rounded-lg;
+  }
+  
+  .profile-stat-value {
+    @apply text-2xl font-bold text-gaming-neon;
+  }
+  
+  .profile-stat-label {
+    @apply text-sm text-gray-400 mt-1;
+  }
+  
+  /* Achievement styles */
+  .achievement-badge {
+    @apply inline-flex items-center space-x-2 px-3 py-2 bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/30 rounded-lg text-sm font-semibold;
+  }
+  
+  /* Notification styles */
+  .notification-item {
+    @apply flex items-start space-x-3 p-4 bg-gaming-charcoal rounded-lg border border-gray-700;
+  }
+  
+  .notification-unread {
+    @apply border-gaming-neon/50 bg-gaming-neon/5;
+  }
+  
+  /* Modal styles */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+  
+  .modal-content {
+    @apply bg-gaming-charcoal border border-gray-700 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto;
+  }
+  
+  /* Responsive utilities */
+  .container-gaming {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .section-padding {
+    @apply py-12 md:py-16 lg:py-20;
+  }
+  
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+  
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:transform hover:-translate-y-1;
+  }
+  
+  .hover-glow {
+    @apply transition-shadow duration-200 hover:shadow-gaming;
+  }
+  
+  .hover-scale {
+    @apply transition-transform duration-200 hover:transform hover:scale-105;
+  }
+}/* Additiona
+l gaming-specific utilities */
+@layer utilities {
+  .btn-gaming {
+    @apply bg-gradient-to-r from-gaming-gold to-gaming-accent hover:from-gaming-gold-dark hover:to-gaming-accent text-black font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200;
+  }
+  
+  .gradient-neon {
+    @apply bg-gradient-to-r from-gaming-gold to-gaming-accent;
+  }
+  
+  .text-gradient-neon {
+    @apply bg-gradient-to-r from-gaming-gold to-gaming-accent bg-clip-text text-transparent;
+  }
+  
+  .border-gradient-neon {
+    border-image: linear-gradient(135deg, #00ff88, #00d4ff) 1;
+  }
+}/* Li
+ne clamp utilities */
+@layer utilities {
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}

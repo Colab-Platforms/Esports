@@ -1,0 +1,80 @@
+// Simple API service for making HTTP requests
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+
+class ApiService {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = localStorage.getItem('token');
+    
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    if (config.body && typeof config.body === 'object') {
+      config.body = JSON.stringify(config.body);
+    }
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'GET', ...options });
+  }
+
+  async post(endpoint, data, options = {}) {
+    return this.request(endpoint, { 
+      method: 'POST', 
+      body: data, 
+      ...options 
+    });
+  }
+
+  async put(endpoint, data, options = {}) {
+    return this.request(endpoint, { 
+      method: 'PUT', 
+      body: data, 
+      ...options 
+    });
+  }
+
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'DELETE', ...options });
+  }
+
+  // Games API
+  async getGames() {
+    return this.get('/api/games');
+  }
+
+  async getFeaturedGames() {
+    return this.get('/api/games/featured');
+  }
+
+  async getGame(gameId) {
+    return this.get(`/api/games/${gameId}`);
+  }
+}
+
+const api = new ApiService();
+export default api;
