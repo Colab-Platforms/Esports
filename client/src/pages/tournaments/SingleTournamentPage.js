@@ -34,6 +34,27 @@ const SingleTournamentPage = () => {
   const [showRegistration, setShowRegistration] = useState(false);
   const [tournament, setTournament] = useState(null);
   const [isUserRegistered, setIsUserRegistered] = useState(false);
+  const [registeredTeams, setRegisteredTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+
+  const fetchRegisteredTeams = async () => {
+    try {
+      setLoadingTeams(true);
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const response = await fetch(`/api/tournaments/${id}/participants`, { headers });
+      const data = await response.json();
+
+      if (data.success) {
+        setRegisteredTeams(data.data.participants || []);
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
 
   useEffect(() => {
     // Fetch real tournament data
@@ -172,6 +193,7 @@ const SingleTournamentPage = () => {
     };
 
     fetchTournamentData();
+    fetchRegisteredTeams();
   }, [id, isAuthenticated, user]);
 
   if (!tournament) {
@@ -203,7 +225,8 @@ const SingleTournamentPage = () => {
   const handleRegistrationSuccess = () => {
     setShowRegistration(false);
     setIsUserRegistered(true);
-    // Refresh tournament data to show room details
+    // Refresh tournament data and teams
+    fetchRegisteredTeams();
   };
 
   const tabs = [
@@ -453,33 +476,123 @@ const SingleTournamentPage = () => {
 
       case 'teams':
         return (
-          <div className="relative">
-            {/* Background Image */}
-            <div className="absolute inset-0 opacity-5">
-              <OptimizedImage 
-                src="https://images.unsplash.com/photo-1556438064-2d7646166914?w=800&h=600&fit=crop&crop=center"
-                alt="Teams Background"
-                className="w-full h-full"
-              />
-            </div>
-            
-            <div className="relative z-10 text-center py-12">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <FiUsers className="h-10 w-10 text-white" />
+          <div className="space-y-6">
+            {/* Teams Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">REGISTERED TEAMS</h3>
+                <p className="text-gray-400 text-sm">
+                  {registeredTeams.length} / {tournament?.maxParticipants || 100} teams registered
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">No Teams Registered</h3>
-              <p className="text-gray-400">Teams will appear here once registration opens</p>
-              
-              {/* Team Slots Preview */}
-              <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="bg-gaming-card border border-gaming-border rounded-lg p-4">
-                    <div className="w-12 h-12 bg-gray-700 rounded-full mx-auto mb-2 flex items-center justify-center">
-                      <span className="text-gray-500 text-lg">👥</span>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-gaming-gold">
+                  {registeredTeams.length}
+                </div>
+                <div className="text-xs text-gray-400">Teams</div>
+              </div>
+            </div>
+
+            {loadingTeams ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold"></div>
+                <span className="ml-3 text-gray-300">Loading teams...</span>
+              </div>
+            ) : registeredTeams.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {registeredTeams.map((team, index) => (
+                  <div key={team._id || index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-gaming-neon to-gaming-neon-blue rounded-full flex items-center justify-center text-white font-bold">
+                        {team.teamName ? team.teamName.charAt(0).toUpperCase() : team.playerName?.charAt(0).toUpperCase() || 'T'}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-white font-semibold">
+                          {team.teamName || `Team ${index + 1}`}
+                        </div>
+                        <div className="text-gray-400 text-sm">
+                          {tournament?.mode === 'solo' ? 'Solo Player' : 'Team'}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gaming-gold font-semibold">
+                        #{index + 1}
+                      </div>
                     </div>
-                    <div className="text-gray-500 text-sm">Team Slot {index + 1}</div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Player:</span>
+                        <span className="text-white font-medium">{team.playerName}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Game ID:</span>
+                        <span className="text-gaming-neon font-mono text-xs">
+                          {team.gameId || 'Hidden'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Registered:</span>
+                        <span className="text-gray-300 text-xs">
+                          {team.registeredAt ? new Date(team.registeredAt).toLocaleDateString() : 'Recently'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Team Status */}
+                    <div className="mt-3 pt-3 border-t border-gaming-border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-green-400 flex items-center">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                          Confirmed
+                        </span>
+                        {team.userId === user?.id && (
+                          <span className="text-xs text-gaming-gold">Your Team</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <FiUsers className="h-10 w-10 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">No Teams Registered Yet</h3>
+                <p className="text-gray-400 mb-6">Be the first to register for this tournament!</p>
+                
+                {/* Registration CTA */}
+                {!isUserRegistered && (
+                  <button
+                    onClick={handleJoinTournament}
+                    className="btn-gaming inline-flex items-center space-x-2"
+                  >
+                    <FiUsers className="h-4 w-4" />
+                    <span>Register Now</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Tournament Capacity */}
+            <div className="bg-gaming-dark rounded-lg p-4 border border-gaming-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 text-sm">Tournament Capacity</span>
+                <span className="text-white text-sm font-semibold">
+                  {registeredTeams.length} / {tournament?.maxParticipants || 100}
+                </span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-gaming-neon to-gaming-gold h-2 rounded-full transition-all duration-300"
+                  style={{ 
+                    width: `${Math.min((registeredTeams.length / (tournament?.maxParticipants || 100)) * 100, 100)}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0</span>
+                <span>{tournament?.maxParticipants || 100} teams</span>
               </div>
             </div>
           </div>

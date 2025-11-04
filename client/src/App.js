@@ -25,6 +25,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
 import CS2Page from './pages/CS2Page';
 import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
+import SteamSettingsPage from './pages/SteamSettingsPage';
 
 // Match Components
 import MatchHistory from './components/matches/MatchHistory';
@@ -304,6 +305,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <ProfilePage />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/steam-settings" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <SteamSettingsPage />
                   </motion.div>
                 </ProtectedRoute>
               } 

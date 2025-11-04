@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { FiSettings } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import {
   fetchTournaments,
@@ -11,6 +12,8 @@ import {
   clearError
 } from '../store/slices/tournamentSlice';
 import { selectAuth } from '../store/slices/authSlice';
+import SteamConnectionModal from '../components/steam/SteamConnectionModal';
+import api from '../services/api';
 
 const CS2Page = () => {
   const dispatch = useDispatch();
@@ -108,30 +111,68 @@ const CS2Page = () => {
     }
   };
 
-  const handleJoinTournament = (tournament) => {
+  const handleJoinTournament = async (tournament) => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
     // Check Steam integration before joining CS2 tournament
-    if (!user?.gameIds?.steam) {
+    try {
+      const steamStatus = await api.get('/api/steam/status');
+
+      if (!steamStatus.isConnected) {
+        setShowSteamModal(true);
+        setSteamCheckResult({
+          hasSteam: false,
+          message: 'Steam account connection required for CS2 tournaments',
+          tournament: tournament
+        });
+        return;
+      }
+
+      // Check CS2 eligibility
+      const eligibility = await api.get('/api/steam/cs2/eligibility');
+
+      if (!eligibility.eligible) {
+        setShowSteamModal(true);
+        setSteamCheckResult({
+          hasSteam: true,
+          eligible: false,
+          reason: eligibility.reason,
+          requirements: eligibility.requirements,
+          tournament: tournament
+        });
+        return;
+      }
+
+      // All checks passed, proceed to tournament registration
+      navigate(`/tournaments/${tournament._id}`);
+
+    } catch (error) {
+      console.error('Error checking Steam status:', error);
       setShowSteamModal(true);
       setSteamCheckResult({
         hasSteam: false,
-        message: 'Steam ID required for CS2 tournaments',
+        message: 'Unable to verify Steam connection. Please try again.',
         tournament: tournament
       });
-      return;
     }
-
-    // Proceed to tournament details
-    navigate(`/tournaments/${tournament._id}`);
   };
 
   const handleSteamConnect = () => {
     // In real app, this would redirect to Steam OAuth
     window.open('https://steamcommunity.com/openid/login', '_blank');
+  };
+
+  const handleSteamSuccess = (steamData) => {
+    setSteamCheckResult(steamData);
+    setShowSteamModal(false);
+
+    // If there was a tournament they were trying to join, redirect to it
+    if (steamCheckResult?.tournament && steamData.eligible) {
+      navigate(`/tournaments/${steamCheckResult.tournament._id}`);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -188,7 +229,7 @@ const CS2Page = () => {
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
               Professional CS2 tournaments with dedicated servers and Steam integration
             </p>
-            
+
             {/* Steam Integration Status */}
             <div className="flex justify-center mt-8">
               {isAuthenticated && user?.gameIds?.steam ? (
@@ -235,6 +276,28 @@ const CS2Page = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Steam Connection Status */}
+        {isAuthenticated && (
+          <div className="card-gaming p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="text-3xl">🎮</div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Steam Integration</h3>
+                  <p className="text-gray-400 text-sm">Required for CS2 tournament participation</p>
+                </div>
+              </div>
+              <Link
+                to="/steam-settings"
+                className="btn-gaming inline-flex items-center space-x-2"
+              >
+                <FiSettings className="h-4 w-4" />
+                <span>Manage Steam</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Tournament Tabs */}
         <div className="card-gaming p-6 mb-6">
           <div className="flex flex-wrap gap-2 mb-4">
@@ -246,11 +309,10 @@ const CS2Page = () => {
               <button
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  activeTab === tab.key
-                    ? 'bg-gaming-neon text-gaming-dark'
-                    : 'bg-gaming-charcoal text-gray-300 hover:bg-gaming-slate'
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${activeTab === tab.key
+                  ? 'bg-gaming-neon text-gaming-dark'
+                  : 'bg-gaming-charcoal text-gray-300 hover:bg-gaming-slate'
+                  }`}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -276,7 +338,7 @@ const CS2Page = () => {
                 <option value="singapore">Singapore</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Min Entry Fee
@@ -289,7 +351,7 @@ const CS2Page = () => {
                 className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Max Entry Fee
@@ -302,7 +364,7 @@ const CS2Page = () => {
                 className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
-            
+
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
@@ -344,11 +406,11 @@ const CS2Page = () => {
             <div className="text-gray-400 text-6xl mb-4">⚡</div>
             <h2 className="text-xl font-bold text-white mb-2">No CS2 Tournaments Found</h2>
             <p className="text-gray-300 mb-4">
-              {activeTab === 'upcoming' 
+              {activeTab === 'upcoming'
                 ? 'No upcoming tournaments at the moment. Check back soon!'
                 : activeTab === 'live'
-                ? 'No live tournaments right now.'
-                : 'No completed tournaments to show.'
+                  ? 'No live tournaments right now.'
+                  : 'No completed tournaments to show.'
               }
             </p>
           </div>
@@ -472,61 +534,12 @@ const CS2Page = () => {
       </div>
 
       {/* Steam Integration Modal */}
-      {showSteamModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gaming-charcoal rounded-lg p-6 w-full max-w-md"
-          >
-            <h3 className="text-xl font-bold text-white mb-4">Steam Integration Required</h3>
-            
-            <div className="space-y-4">
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <span className="text-blue-400 text-2xl">🎮</span>
-                  <div>
-                    <div className="text-blue-400 font-bold">Steam Account Required</div>
-                    <div className="text-gray-300 text-sm">CS2 tournaments require Steam integration</div>
-                  </div>
-                </div>
-                
-                {steamCheckResult && (
-                  <div className="mt-3 p-3 bg-black/30 rounded">
-                    <div className="text-sm text-gray-300">{steamCheckResult.message}</div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-sm text-gray-300">
-                  To join CS2 tournaments, you need:
-                </div>
-                <ul className="text-sm text-gray-300 space-y-1 ml-4">
-                  <li>• Valid Steam account</li>
-                  <li>• Counter-Strike 2 ownership</li>
-                  <li>• Steam profile linked to your account</li>
-                </ul>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setShowSteamModal(false)}
-                  className="flex-1 px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSteamConnect}
-                  className="flex-1 btn-gaming"
-                >
-                  Connect Steam
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <SteamConnectionModal
+        isOpen={showSteamModal}
+        onClose={() => setShowSteamModal(false)}
+        onSuccess={handleSteamSuccess}
+        gameType="cs2"
+      />
     </div>
   );
 };

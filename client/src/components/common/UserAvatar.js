@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FiUser } from 'react-icons/fi';
 
-const UserAvatar = ({ 
-  user, 
-  size = 'md', 
-  showStatus = false, 
+const UserAvatar = ({
+  user,
+  size = 'md',
+  showStatus = false,
   showLevel = false,
   className = '',
-  onClick = null 
+  onClick = null
 }) => {
   const [imageError, setImageError] = useState(false);
 
@@ -36,13 +36,13 @@ const UserAvatar = ({
     if (user?.avatarUrl && !imageError) {
       return user.avatarUrl;
     }
-    
+
     // Generate avatar based on username
     if (user?.username) {
       const seed = user.username.toLowerCase();
       return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=1e293b&clothesColor=3b82f6`;
     }
-    
+
     return null;
   };
 
@@ -98,15 +98,14 @@ const UserAvatar = ({
                 {getInitials()}
               </span>
             ) : (
-              <FiUser className={`text-gray-400 ${
-                size === 'xs' ? 'w-3 h-3' :
-                size === 'sm' ? 'w-4 h-4' :
-                size === 'md' ? 'w-5 h-5' :
-                size === 'lg' ? 'w-6 h-6' :
-                size === 'xl' ? 'w-8 h-8' :
-                size === '2xl' ? 'w-10 h-10' :
-                'w-12 h-12'
-              }`} />
+              <FiUser className={`text-gray-400 ${size === 'xs' ? 'w-3 h-3' :
+                  size === 'sm' ? 'w-4 h-4' :
+                    size === 'md' ? 'w-5 h-5' :
+                      size === 'lg' ? 'w-6 h-6' :
+                        size === 'xl' ? 'w-8 h-8' :
+                          size === '2xl' ? 'w-10 h-10' :
+                            'w-12 h-12'
+                }`} />
             )}
           </div>
         )}
@@ -128,7 +127,7 @@ const UserAvatar = ({
       )}
 
       {/* Level Badge */}
-      {showLevel && (
+      {/* {showLevel && (
         <div className="absolute -top-1 -right-1">
           <div className={`
             px-2 
@@ -144,7 +143,7 @@ const UserAvatar = ({
             {getUserLevel()}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Rank Badge */}
       {showLevel && size !== 'xs' && size !== 'sm' && (

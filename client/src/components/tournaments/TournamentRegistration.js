@@ -6,6 +6,7 @@ import { joinTournament } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
 import { checkBalance, fetchWalletDetails } from '../../store/slices/walletSlice';
 import notificationService from '../../services/notificationService';
+import SteamConnectionWidget from '../steam/SteamConnectionWidget';
 
 const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const dispatch = useDispatch();
@@ -22,6 +23,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
+  const [steamConnected, setSteamConnected] = useState(false);
 
   useEffect(() => {
     // Fetch wallet details when component mounts
@@ -61,8 +63,8 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         return false;
       }
     } else if (tournament.gameType === 'cs2') {
-      if (!user?.gameIds?.steam) {
-        setError('Steam ID is required for CS2 tournaments');
+      if (!user?.gameIds?.steam && !steamConnected) {
+        setError('Please connect your Steam account to join CS2 tournaments');
         return false;
       }
     }
@@ -226,9 +228,14 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
               {tournament.gameType.toUpperCase()} ID *
             </label>
             {tournament.gameType === 'cs2' ? (
-              <div className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white">
-                {user?.gameIds?.steam || 'Steam ID not connected'}
-              </div>
+              <SteamConnectionWidget 
+                compact={true}
+                actionText="join CS2 tournaments"
+                onConnectionSuccess={(steamData) => {
+                  setSteamConnected(true);
+                  setError(''); // Clear any previous errors
+                }}
+              />
             ) : (
               <input
                 type="text"

@@ -49,6 +49,32 @@ const userSchema = new mongoose.Schema({
     bgmi: { type: String, default: '' },
     valorant: { type: String, default: '' }
   },
+  steamProfile: {
+    steamId: { type: String, default: '' },
+    profileUrl: { type: String, default: '' },
+    avatar: { type: String, default: '' },
+    displayName: { type: String, default: '' },
+    realName: { type: String, default: '' },
+    countryCode: { type: String, default: '' },
+    isConnected: { type: Boolean, default: false },
+    connectedAt: { type: Date },
+    lastSync: { type: Date }
+  },
+  steamGames: {
+    cs2: {
+      owned: { type: Boolean, default: false },
+      playtime: { type: Number, default: 0 }, // minutes
+      lastPlayed: { type: Date },
+      achievements: { type: Number, default: 0 },
+      verified: { type: Boolean, default: false }
+    },
+    csgo: {
+      owned: { type: Boolean, default: false },
+      playtime: { type: Number, default: 0 },
+      lastPlayed: { type: Date },
+      rank: { type: String, default: '' }
+    }
+  },
   role: {
     type: String,
     enum: ['user', 'admin', 'moderator'],

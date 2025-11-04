@@ -3,6 +3,8 @@ const Tournament = require('../models/Tournament');
 const Match = require('../models/Match');
 const User = require('../models/User');
 const { seedGames } = require('./seedGames');
+const { seedCS2Tournaments } = require('./seedCS2Tournaments');
+const { seedTournamentParticipants } = require('./seedTournamentParticipants');
 
 const seedTournaments = async () => {
   try {
@@ -153,6 +155,8 @@ const seedDatabase = async () => {
     console.log('🌱 Starting database seeding...');
     await seedGames();
     await seedTournaments();
+    await seedCS2Tournaments();
+    await seedTournamentParticipants();
     await seedMatches();
     console.log('✅ Database seeding completed!');
   } catch (error) {

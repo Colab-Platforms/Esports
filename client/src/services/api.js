@@ -74,6 +74,23 @@ class ApiService {
   async getGame(gameId) {
     return this.get(`/api/games/${gameId}`);
   }
+
+  // Steam API
+  async getSteamStatus() {
+    return this.get('/api/steam/status');
+  }
+
+  async getCS2Eligibility() {
+    return this.get('/api/steam/cs2/eligibility');
+  }
+
+  async syncSteamData() {
+    return this.post('/api/steam/sync');
+  }
+
+  async disconnectSteam() {
+    return this.post('/api/steam/disconnect');
+  }
 }
 
 const api = new ApiService();

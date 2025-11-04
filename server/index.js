@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
@@ -43,6 +44,9 @@ app.use('/api/', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Passport middleware
+app.use(passport.initialize());
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -270,6 +274,7 @@ app.get('/api/tournaments/mock', (req, res) => {
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/games', require('./routes/games'));
+app.use('/api/steam', require('./routes/steam'));
 app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
