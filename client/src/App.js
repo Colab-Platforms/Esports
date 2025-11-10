@@ -1,13 +1,18 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Context
+import { ThemeProvider } from './contexts/ThemeContextSimple';
+
+// Redux
+import { selectAuth } from './store/slices/authSlice';
 
 // Components
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import LoadingSpinner from './components/common/LoadingSpinner';
-import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -17,14 +22,14 @@ import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
-import WalletPage from './pages/WalletPage';
-import ProfilePage from './pages/ProfilePage';
+// import WalletPage from './pages/WalletPage';
+// import ProfilePage from './pages/ProfilePage';
 import GamesPage from './pages/GamesPage';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
 import CS2Page from './pages/CS2Page';
-import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
+// import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
 
 // Match Components
@@ -32,13 +37,15 @@ import MatchHistory from './components/matches/MatchHistory';
 import MatchRoom from './components/matches/MatchRoom';
 import ResultSubmission from './components/matches/ResultSubmission';
 
-// Redux
-import { selectAuth } from './store/slices/authSlice';
-
-// Socket connection
+// Services
 import { initializeSocket, disconnectSocket } from './utils/socket';
-import { useParams } from 'react-router-dom';
 import notificationService from './services/notificationService';
+
+// Temporary ProtectedRoute component
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useSelector(selectAuth);
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
 
 // Wrapper components for route parameters
 const MatchRoomWrapper = () => {
@@ -86,7 +93,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gaming-dark text-white flex flex-col">
+    <ThemeProvider>
+      <div className="min-h-screen bg-theme-bg-primary text-theme-text-primary flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
       
@@ -278,21 +286,7 @@ function App() {
               } 
             />
             
-            <Route 
-              path="/wallet" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <WalletPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
+            {/* Wallet route removed - free tournaments only */}
             
             <Route 
               path="/profile" 
@@ -304,7 +298,8 @@ function App() {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <ProfilePage />
+                    {/* <ProfilePage /> */}
+                    <div>Profile Page - Coming Soon</div>
                   </motion.div>
                 </ProtectedRoute>
               } 
@@ -395,7 +390,8 @@ function App() {
       
       {/* Footer */}
       <Footer />
-    </div>
+      </div>
+    </ThemeProvider>
   );
 }
 

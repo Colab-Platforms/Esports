@@ -99,12 +99,12 @@ const UserAvatar = ({
               </span>
             ) : (
               <FiUser className={`text-gray-400 ${size === 'xs' ? 'w-3 h-3' :
-                  size === 'sm' ? 'w-4 h-4' :
-                    size === 'md' ? 'w-5 h-5' :
-                      size === 'lg' ? 'w-6 h-6' :
-                        size === 'xl' ? 'w-8 h-8' :
-                          size === '2xl' ? 'w-10 h-10' :
-                            'w-12 h-12'
+                size === 'sm' ? 'w-4 h-4' :
+                  size === 'md' ? 'w-5 h-5' :
+                    size === 'lg' ? 'w-6 h-6' :
+                      size === 'xl' ? 'w-8 h-8' :
+                        size === '2xl' ? 'w-10 h-10' :
+                          'w-12 h-12'
                 }`} />
             )}
           </div>

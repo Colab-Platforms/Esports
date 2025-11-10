@@ -10,7 +10,7 @@ const cs2TournamentsData = [
     gameType: 'cs2',
     mode: 'team', // Changed from '5v5' to 'team'
     format: 'elimination', // Changed from 'Elimination' to 'elimination'
-    entryFee: 200,
+    entryFee: 0, // Free tournament
     prizePool: 25000,
     prizeDistribution: [
       { position: 1, amount: 12500, percentage: 50 },
@@ -45,7 +45,7 @@ const cs2TournamentsData = [
     gameType: 'cs2',
     mode: 'team',
     format: 'swiss',
-    entryFee: 50,
+    entryFee: 0, // Free tournament
     prizePool: 2000,
     prizeDistribution: [
       { position: 1, amount: 1000, percentage: 50 },
@@ -53,9 +53,9 @@ const cs2TournamentsData = [
       { position: 3, amount: 400, percentage: 20 }
     ],
     maxParticipants: 16,
-    startDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-    endDate: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
-    registrationDeadline: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
+    startDate: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
+    endDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
+    registrationDeadline: new Date(Date.now() + 25 * 60 * 1000), // 25 minutes from now
     status: 'registration_open',
     region: 'delhi',
     rules: 'Fast-paced CS2 matches with shorter rounds. Map pool: de_dust2, de_mirage, de_inferno. Format: MR9 (First to 10 rounds). No overtime - draw allowed. Substitutions not allowed after match starts.',
@@ -77,7 +77,7 @@ const cs2TournamentsData = [
     gameType: 'cs2',
     mode: 'team',
     format: 'round_robin',
-    entryFee: 25,
+    entryFee: 0, // Free tournament
     prizePool: 1000,
     prizeDistribution: [
       { position: 1, amount: 500, percentage: 50 },
@@ -109,7 +109,7 @@ const cs2TournamentsData = [
     gameType: 'cs2',
     mode: 'team',
     format: 'elimination',
-    entryFee: 500,
+    entryFee: 0, // Free tournament
     prizePool: 50000,
     prizeDistribution: [
       { position: 1, amount: 25000, percentage: 50 },

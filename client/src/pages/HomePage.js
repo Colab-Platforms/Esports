@@ -18,7 +18,7 @@ const HomePage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { tournaments, loading } = useSelector((state) => state.tournaments);
-  const { isAuthenticated } = useSelector(selectAuth);
+  const { isAuthenticated, user } = useSelector(selectAuth);
   const [pcTournaments, setPcTournaments] = useState([]);
   const [mobileTournaments, setMobileTournaments] = useState([]);
   const [platformStats, setPlatformStats] = useState({
@@ -67,12 +67,14 @@ const HomePage = () => {
         game: tournament.gameType?.toUpperCase() || 'BGMI',
         gameIcon: getGameIcon(tournament.gameType),
         prizePool: `₹${tournament.prizePool?.toLocaleString() || '0'}`,
-        entryFee: `₹${tournament.entryFee || 0}`,
+        entryFee: 'FREE', // All tournaments are now free
         status: getDisplayStatus(tournament.status),
         participants: `${tournament.currentParticipants || 0}/${tournament.maxParticipants || 100}`,
         timeLeft: getTimeLeft(tournament.registrationDeadline),
         featured: tournament.featured || false,
-        gameType: tournament.gameType
+        gameType: tournament.gameType,
+        registrationDeadline: tournament.registrationDeadline,
+        loginRequired: !isAuthenticated
       }));
 
       // Separate PC and Mobile tournaments
@@ -87,6 +89,9 @@ const HomePage = () => {
       setMobileTournaments(mobile.slice(0, 3));
     }
   }, [tournaments]);
+
+  // Countdown timer disabled to prevent flickering
+  // Time is calculated once when tournaments are loaded
 
   const getGameIcon = (gameType) => {
     switch (gameType) {
@@ -109,7 +114,7 @@ const HomePage = () => {
   };
 
   const getTimeLeft = (deadline) => {
-    if (!deadline) return '2d 5h';
+    if (!deadline) return '2d 5h 30m';
     
     const now = new Date();
     const end = new Date(deadline);
@@ -119,9 +124,60 @@ const HomePage = () => {
     
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
     
-    if (days > 0) return `${days}d ${hours}h`;
-    return `${hours}h`;
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
+  const openSteamForCS2 = (tournament) => {
+    // Get userId from Redux state instead of localStorage
+    const userId = user?.id || user?._id;
+    
+    if (!userId) {
+      notificationService.showCustomNotification(
+        'error',
+        'Authentication Error',
+        'Please login again to continue'
+      );
+      navigate('/login');
+      return;
+    }
+    
+    const userConfirmed = window.confirm(
+      `Steam account is required for "${tournament.name}".\n\n` +
+      'What will happen:\n' +
+      '1. Steam app will open (if installed)\n' +
+      '2. Browser will open for Steam login (required for security)\n' +
+      '3. After login, you will return to tournament page\n\n' +
+      'Note: Browser login is required by Steam for security.\n\n' +
+      'Continue?'
+    );
+
+    if (userConfirmed) {
+      try {
+        // Try to open Steam app
+        const steamUrl = 'steam://open/main';
+        const link = document.createElement('a');
+        link.href = steamUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Wait then redirect to Steam OAuth (use absolute URL to backend)
+        setTimeout(() => {
+          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament.id}`;
+        }, 1500);
+        
+      } catch (error) {
+        console.log('Steam app not available, using web OAuth');
+        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament.id}`;
+      }
+    }
   };
 
   const handleJoinTournament = (tournament) => {
@@ -162,6 +218,14 @@ const HomePage = () => {
       return;
     }
 
+    // Special handling for CS2 tournaments - check Steam connection
+    if (tournament.gameType === 'cs2') {
+      // Check if user has Steam connected (you might need to add this to user state)
+      // For now, we'll assume Steam check is needed for CS2
+      openSteamForCS2(tournament);
+      return;
+    }
+
     // Navigate to tournament details page for registration
     navigate(`/tournaments/${tournament.id}`);
   };
@@ -173,12 +237,12 @@ const HomePage = () => {
     { label: 'Total Transactions', value: platformStats.totalTransactions }
   ];
 
-  const TournamentCard = ({ tournament }) => (
-    // <Link to={`/game/${tournament.game.toLowerCase()}`} className="block">
+  const TournamentCard = React.memo(({ tournament, onJoinClick }) => {
+    return (
       <motion.div
-      whileHover={{ y: -5, scale: 1.02 }}
-      className="relative bg-gaming-charcoal rounded-xl overflow-hidden border border-gray-700 hover:border-gaming-gold/50 transition-all duration-300 group"
-    >
+        whileHover={{ y: -5, scale: 1.02 }}
+        className="relative bg-gaming-charcoal rounded-xl overflow-hidden border border-gray-700 hover:border-gaming-gold/50 transition-all duration-300 group"
+      >
       {/* Tournament Image */}
       <div className="relative h-48 overflow-hidden">
         <OptimizedImage 
@@ -238,7 +302,7 @@ const HomePage = () => {
           
           <div className="flex justify-between">
             <span className="text-gray-400">Entry Fee:</span>
-            <span className="text-white font-semibold">{tournament.entryFee}</span>
+            <span className="text-green-400 font-bold">FREE</span>
           </div>
           
           <div className="flex justify-between">
@@ -254,16 +318,16 @@ const HomePage = () => {
 
         <div className="mt-4 flex space-x-2">
           <button 
-            onClick={() => handleJoinTournament(tournament)}
+            onClick={() => onJoinClick(tournament)}
             disabled={tournament.status === 'ONGOING' || tournament.timeLeft === 'Closed'}
             className={`flex-1 font-bold py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-1 ${
               tournament.status === 'ONGOING' || tournament.timeLeft === 'Closed'
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-gaming-gold text-black hover:bg-gaming-accent'
             }`}
-            title={!isAuthenticated ? 'Login required to join tournaments' : ''}
+            title={tournament.loginRequired ? 'Login required to join tournaments' : ''}
           >
-            {!isAuthenticated && (
+            {tournament.loginRequired && (
               <span className="text-xs">🔒</span>
             )}
             <span>
@@ -271,7 +335,7 @@ const HomePage = () => {
                 ? 'IN PROGRESS' 
                 : tournament.timeLeft === 'Closed' 
                   ? 'CLOSED' 
-                  : !isAuthenticated
+                  : tournament.loginRequired
                     ? 'LOGIN TO JOIN'
                     : 'JOIN NOW'
               }
@@ -286,11 +350,24 @@ const HomePage = () => {
         </div>
       </div>
     </motion.div>
-    // </Link>
-  );
+    );
+  }, (prevProps, nextProps) => {
+    // Only re-render if tournament data actually changed
+    return prevProps.tournament.id === nextProps.tournament.id &&
+           prevProps.tournament.timeLeft === nextProps.tournament.timeLeft &&
+           prevProps.tournament.participants === nextProps.tournament.participants &&
+           prevProps.tournament.status === nextProps.tournament.status &&
+           prevProps.tournament.loginRequired === nextProps.tournament.loginRequired;
+  });
+
+  // Memoize handleJoinTournament to prevent re-renders
+  const handleJoinTournamentCallback = React.useCallback((tournament) => {
+    handleJoinTournament(tournament);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gaming-dark">
+    <div className="min-h-screen bg-theme-bg-primary">
       {/* Hero Section with Dynamic Slider */}
       <HeroImageSlider />
 
@@ -365,7 +442,7 @@ const HomePage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <TournamentCard tournament={tournament} />
+                  <TournamentCard tournament={tournament} onJoinClick={handleJoinTournamentCallback} />
                 </motion.div>
               ))
             ) : (
@@ -427,7 +504,7 @@ const HomePage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <TournamentCard tournament={tournament} />
+                  <TournamentCard tournament={tournament} onJoinClick={handleJoinTournamentCallback} />
                 </motion.div>
               ))
             ) : (

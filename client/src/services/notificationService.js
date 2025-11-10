@@ -201,19 +201,7 @@ class NotificationService {
     );
   }
 
-  // Show wallet update notification
-  showWalletUpdate(amount, type) {
-    const message = type === 'deposit' 
-      ? `₹${amount} added to your wallet`
-      : `₹${amount} deducted from your wallet`;
-    
-    this.showCustomNotification(
-      'wallet',
-      'Wallet Updated',
-      message,
-      '/wallet'
-    );
-  }
+  // Wallet notifications removed - free tournaments only
 
   // Show match notification
   showMatchNotification(matchInfo) {

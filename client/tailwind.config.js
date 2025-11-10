@@ -38,6 +38,20 @@ module.exports = {
           silver: '#bdc3c7',
           bronze: '#cd6155'
         },
+        // Theme-aware colors using CSS variables
+        theme: {
+          'bg-primary': 'var(--theme-bg-primary)',
+          'bg-secondary': 'var(--theme-bg-secondary)',
+          'bg-card': 'var(--theme-bg-card)',
+          'bg-hover': 'var(--theme-bg-hover)',
+          'border': 'var(--theme-border)',
+          'border-hover': 'var(--theme-border-hover)',
+          'text-primary': 'var(--theme-text-primary)',
+          'text-secondary': 'var(--theme-text-secondary)',
+          'text-muted': 'var(--theme-text-muted)',
+          'accent': 'var(--theme-accent)',
+          'accent-hover': 'var(--theme-accent-hover)'
+        },
         success: '#22c55e',
         warning: '#f59e0b',
         error: '#ef4444',

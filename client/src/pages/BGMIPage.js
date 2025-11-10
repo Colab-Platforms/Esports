@@ -35,11 +35,14 @@ const BGMIPage = () => {
     dispatch(fetchTournaments({
       gameType: 'bgmi',
       status,
-      ...filters,
+      entryFeeMin: filters.entryFeeMin,
+      entryFeeMax: filters.entryFeeMax,
+      prizePoolMin: filters.prizePoolMin,
+      mode: filters.mode,
       page: 1,
       limit: 12
     }));
-  }, [dispatch, activeTab, filters]);
+  }, [dispatch, activeTab, filters.entryFeeMin, filters.entryFeeMax, filters.prizePoolMin, filters.mode]);
 
   const getStatusFromTab = (tab) => {
     switch (tab) {
@@ -290,104 +293,15 @@ const BGMIPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tournaments?.map((tournament, index) => (
-              <motion.div
-                key={tournament._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="card-gaming p-6 hover:border-gaming-neon/50 transition-all duration-300 group"
-              >
-                {/* Tournament Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-2xl">{getModeIcon(tournament.mode)}</span>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
-                      {tournament.status.replace('_', ' ').toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-400">Entry Fee</div>
-                    <div className="text-lg font-bold text-gaming-neon">₹{tournament.entryFee}</div>
-                  </div>
-                </div>
-
-                {/* Tournament Info */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-white mb-2 group-hover:text-gaming-neon transition-colors">
-                    {tournament.name}
-                  </h3>
-                  <p className="text-gray-400 text-sm line-clamp-2">
-                    {tournament.description}
-                  </p>
-                </div>
-
-                {/* Tournament Stats */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gaming-neon">₹{tournament.prizePool.toLocaleString()}</div>
-                    <div className="text-xs text-gray-400">Prize Pool</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-white">
-                      {tournament.currentParticipants}/{tournament.maxParticipants}
-                    </div>
-                    <div className="text-xs text-gray-400">Players</div>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-4">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>Registration</span>
-                    <span>{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-gaming-charcoal rounded-full h-2">
-                    <div
-                      className="bg-gaming-neon h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(tournament.currentParticipants / tournament.maxParticipants) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {/* Tournament Dates */}
-                <div className="space-y-2 mb-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Registration:</span>
-                    <span className="text-white">{formatDate(tournament.registrationDeadline)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Starts:</span>
-                    <span className="text-white">{formatDate(tournament.startDate)}</span>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => navigate(`/tournaments/${tournament._id}`)}
-                    className="flex-1 btn-primary text-sm"
-                  >
-                    View Details
-                  </button>
-                  {tournament.status === 'registration_open' && (
-                    <button
-                      onClick={() => navigate(`/tournaments/${tournament._id}`)}
-                      className="flex-1 btn-gaming text-sm"
-                    >
-                      Register Now
-                    </button>
-                  )}
-                  {tournament.status === 'active' && (
-                    <button
-                      onClick={() => navigate(`/tournaments/${tournament._id}/live`)}
-                      className="flex-1 btn-gaming text-sm bg-red-600 hover:bg-red-700"
-                    >
-                      🔴 Live
-                    </button>
-                  )}
-                </div>
-              </motion.div>
+            {tournaments?.map((tournament) => (
+              <TournamentCard 
+                key={tournament._id} 
+                tournament={tournament}
+                navigate={navigate}
+                getModeIcon={getModeIcon}
+                getStatusColor={getStatusColor}
+                formatDate={formatDate}
+              />
             ))}
           </div>
         )}
@@ -465,5 +379,112 @@ const BGMIPage = () => {
     </div>
   );
 };
+
+// Memoized Tournament Card Component
+const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatusColor, formatDate }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="card-gaming p-6 hover:border-gaming-neon/50 transition-all duration-300 group"
+    >
+      {/* Tournament Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="text-2xl">{getModeIcon(tournament.mode)}</span>
+          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
+            {tournament.status.replace('_', ' ').toUpperCase()}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-400">Entry Fee</div>
+          <div className="text-lg font-bold text-gaming-neon">₹{tournament.entryFee}</div>
+        </div>
+      </div>
+
+      {/* Tournament Info */}
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-white mb-2 group-hover:text-gaming-neon transition-colors">
+          {tournament.name}
+        </h3>
+        <p className="text-gray-400 text-sm line-clamp-2">
+          {tournament.description}
+        </p>
+      </div>
+
+      {/* Tournament Stats */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="text-center">
+          <div className="text-xl font-bold text-gaming-neon">₹{tournament.prizePool.toLocaleString()}</div>
+          <div className="text-xs text-gray-400">Prize Pool</div>
+        </div>
+        <div className="text-center">
+          <div className="text-xl font-bold text-white">
+            {tournament.currentParticipants}/{tournament.maxParticipants}
+          </div>
+          <div className="text-xs text-gray-400">Players</div>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mb-4">
+        <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <span>Registration</span>
+          <span>{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
+        </div>
+        <div className="w-full bg-gaming-charcoal rounded-full h-2">
+          <div
+            className="bg-gaming-neon h-2 rounded-full transition-all duration-300"
+            style={{ width: `${(tournament.currentParticipants / tournament.maxParticipants) * 100}%` }}
+          ></div>
+        </div>
+      </div>
+
+      {/* Tournament Dates */}
+      <div className="space-y-2 mb-4 text-sm">
+        <div className="flex justify-between">
+          <span className="text-gray-400">Registration:</span>
+          <span className="text-white">{formatDate(tournament.registrationDeadline)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-400">Starts:</span>
+          <span className="text-white">{formatDate(tournament.startDate)}</span>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex space-x-2">
+        <button
+          onClick={() => navigate(`/tournaments/${tournament._id}`)}
+          className="flex-1 btn-primary text-sm"
+        >
+          View Details
+        </button>
+        {tournament.status === 'registration_open' && (
+          <button
+            onClick={() => navigate(`/tournaments/${tournament._id}`)}
+            className="flex-1 btn-gaming text-sm"
+          >
+            Register Now
+          </button>
+        )}
+        {tournament.status === 'active' && (
+          <button
+            onClick={() => navigate(`/tournaments/${tournament._id}/live`)}
+            className="flex-1 btn-gaming text-sm bg-red-600 hover:bg-red-700"
+          >
+            🔴 Live
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}, (prevProps, nextProps) => {
+  // Only re-render if tournament data actually changed
+  return prevProps.tournament._id === nextProps.tournament._id &&
+         prevProps.tournament.currentParticipants === nextProps.tournament.currentParticipants &&
+         prevProps.tournament.status === nextProps.tournament.status;
+});
 
 export default BGMIPage;

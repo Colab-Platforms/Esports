@@ -31,9 +31,9 @@ const tournamentSchema = new mongoose.Schema({
   },
   entryFee: {
     type: Number,
-    required: [true, 'Entry fee is required'],
+    default: 0, // Free tournaments by default
     min: [0, 'Entry fee cannot be negative'],
-    max: [10000, 'Entry fee cannot exceed ₹10,000']
+    max: [0, 'All tournaments are free'] // Enforce free tournaments
   },
   prizePool: {
     type: Number,

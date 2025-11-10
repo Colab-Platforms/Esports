@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { joinTournament } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
-import { checkBalance, fetchWalletDetails } from '../../store/slices/walletSlice';
 import notificationService from '../../services/notificationService';
 import SteamConnectionWidget from '../steam/SteamConnectionWidget';
 
@@ -12,25 +11,76 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector(selectAuth);
-  const { wallet, balanceCheck, loading } = useSelector((state) => state.wallet);
   
   const [formData, setFormData] = useState({
-    gameId: '',
+    // Leader details
+    leaderName: user?.username || '',
+    leaderEmail: user?.email || '',
+    leaderPhone: user?.phone || '',
+    leaderIgn: '',
+    leaderUid: '',
     teamName: '',
-    playerName: user?.username || '',
-    contactNumber: user?.phone || ''
+    // Team members
+    teamMembers: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [showInsufficientBalance, setShowInsufficientBalance] = useState(false);
   const [steamConnected, setSteamConnected] = useState(false);
+  
+  // Get max team size based on mode
+  const getMaxTeamSize = () => {
+    switch (tournament.mode) {
+      case 'solo': return 1;
+      case 'duo': return 2;
+      case 'squad': return tournament.gameType === 'bgmi' ? 4 : 5;
+      case 'team': return 5;
+      default: return 4;
+    }
+  };
+  
+  const maxTeamSize = getMaxTeamSize();
 
-  useEffect(() => {
-    // Fetch wallet details when component mounts
-    dispatch(fetchWalletDetails());
-    // Check balance for tournament entry fee
-    dispatch(checkBalance(tournament.entryFee));
-  }, [dispatch, tournament.entryFee]);
+  const openSteamForConnection = () => {
+    // Get userId from Redux state
+    const userId = user?.id || user?._id;
+    
+    if (!userId) {
+      setError('Please login again to continue');
+      return;
+    }
+    
+    const userConfirmed = window.confirm(
+      `Steam account is required for CS2 tournaments.\n\n` +
+      'Click OK to:\n' +
+      '1. Open Steam app (if installed)\n' +
+      '2. Login to Steam\n' +
+      '3. Connect your account\n' +
+      '4. Return to complete registration\n\n' +
+      'Continue?'
+    );
+
+    if (userConfirmed) {
+      try {
+        // Try to open Steam app
+        const steamUrl = 'steam://open/main';
+        const link = document.createElement('a');
+        link.href = steamUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Wait then redirect to Steam OAuth (use absolute URL to backend)
+        setTimeout(() => {
+          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
+        }, 1500);
+        
+      } catch (error) {
+        console.log('Steam app not available, using web OAuth');
+        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
+      }
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -39,28 +89,84 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
       [name]: value
     }));
   };
+  
+  const handleTeamMemberChange = (index, field, value) => {
+    setFormData(prev => {
+      const newTeamMembers = [...prev.teamMembers];
+      newTeamMembers[index] = {
+        ...newTeamMembers[index],
+        [field]: value
+      };
+      return {
+        ...prev,
+        teamMembers: newTeamMembers
+      };
+    });
+  };
+  
+  const addTeamMember = () => {
+    if (formData.teamMembers.length < maxTeamSize - 1) { // -1 because leader is included
+      setFormData(prev => ({
+        ...prev,
+        teamMembers: [...prev.teamMembers, { ign: '', uid: '' }]
+      }));
+    }
+  };
+  
+  const removeTeamMember = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+    }));
+  };
 
   const validateForm = () => {
-    if (!formData.gameId.trim()) {
-      setError('Game ID is required');
-      return false;
-    }
-
-    if (tournament.mode !== 'solo' && !formData.teamName.trim()) {
-      setError('Team name is required for team tournaments');
-      return false;
-    }
-
-    // Game-specific validations
-    if (tournament.gameType === 'bgmi') {
-      if (!/^[0-9]{9,10}$/.test(formData.gameId)) {
-        setError('BGMI ID should be 9-10 digits');
+    // For BGMI squad/team tournaments
+    if (tournament.gameType === 'bgmi' && tournament.mode !== 'solo') {
+      // Leader details validation
+      if (!formData.leaderName.trim()) {
+        setError('Leader name is required');
         return false;
       }
-    } else if (tournament.gameType === 'valorant') {
-      if (!/^.+#[0-9]{3,5}$/.test(formData.gameId)) {
-        setError('Valorant ID should be in format: Username#1234');
+      if (!formData.leaderEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.leaderEmail)) {
+        setError('Valid leader email is required');
         return false;
+      }
+      if (!formData.leaderPhone.trim() || !/^[0-9]{10}$/.test(formData.leaderPhone)) {
+        setError('Valid 10-digit phone number is required');
+        return false;
+      }
+      if (!formData.leaderIgn.trim()) {
+        setError('Leader IGN (In-Game Name) is required');
+        return false;
+      }
+      if (!formData.leaderUid.trim() || !/^[0-9]{9,10}$/.test(formData.leaderUid)) {
+        setError('Leader BGMI UID should be 9-10 digits');
+        return false;
+      }
+      if (!formData.teamName.trim()) {
+        setError('Team name is required');
+        return false;
+      }
+      
+      // Team members validation
+      const minMembers = tournament.mode === 'duo' ? 1 : tournament.mode === 'squad' ? 3 : 0;
+      if (formData.teamMembers.length < minMembers) {
+        setError(`At least ${minMembers + 1} players required (including leader)`);
+        return false;
+      }
+      
+      // Validate each team member
+      for (let i = 0; i < formData.teamMembers.length; i++) {
+        const member = formData.teamMembers[i];
+        if (!member.ign || !member.ign.trim()) {
+          setError(`Player ${i + 2} IGN is required`);
+          return false;
+        }
+        if (!member.uid || !/^[0-9]{9,10}$/.test(member.uid)) {
+          setError(`Player ${i + 2} UID should be 9-10 digits`);
+          return false;
+        }
       }
     } else if (tournament.gameType === 'cs2') {
       if (!user?.gameIds?.steam && !steamConnected) {
@@ -80,20 +186,32 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
       return;
     }
 
-    // Check wallet balance before proceeding
-    if (!balanceCheck?.hasSufficientBalance) {
-      setShowInsufficientBalance(true);
-      return;
-    }
+    // Free tournaments - no balance check needed
 
     setIsSubmitting(true);
 
     try {
-      const registrationData = {
-        gameId: tournament.gameType === 'cs2' ? user.gameIds.steam : formData.gameId,
+      const registrationData = tournament.gameType === 'bgmi' && tournament.mode !== 'solo' ? {
+        // BGMI Squad/Team registration
+        teamName: formData.teamName,
+        leader: {
+          name: formData.leaderName,
+          email: formData.leaderEmail,
+          phone: formData.leaderPhone,
+          ign: formData.leaderIgn,
+          uid: formData.leaderUid
+        },
+        teamMembers: formData.teamMembers.map((member, index) => ({
+          playerNumber: index + 2,
+          ign: member.ign,
+          uid: member.uid
+        }))
+      } : {
+        // Other games or solo mode
+        gameId: tournament.gameType === 'cs2' ? user.gameIds.steam : formData.leaderUid || formData.gameId,
         teamName: tournament.mode === 'solo' ? '' : formData.teamName,
-        playerName: formData.playerName,
-        contactNumber: formData.contactNumber
+        playerName: formData.leaderName || formData.playerName,
+        contactNumber: formData.leaderPhone || formData.contactNumber
       };
 
       // Call API directly
@@ -113,8 +231,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         throw new Error(data.error?.message || 'Registration failed');
       }
       
-      // Success - refresh wallet and redirect to tournament details
-      dispatch(fetchWalletDetails());
+      // Success - redirect to tournament details
       
       // Show success notification
       notificationService.showRegistrationSuccess(tournament.name);
@@ -129,10 +246,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
     }
   };
 
-  const handleAddMoney = () => {
-    onClose();
-    navigate('/wallet');
-  };
+  // handleAddMoney removed - free tournaments only
 
   const getGameIdPlaceholder = () => {
     switch (tournament.gameType) {
@@ -201,7 +315,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
               <div className="flex items-center space-x-2 text-sm text-gray-400">
                 <span>{getModeIcon()} {tournament.mode.toUpperCase()}</span>
                 <span>•</span>
-                <span>₹{tournament.entryFee} Entry</span>
+                <span className="text-green-400 font-bold">FREE Entry</span>
               </div>
             </div>
           </div>
@@ -222,66 +336,261 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
 
         {/* Registration Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Game ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {tournament.gameType.toUpperCase()} ID *
-            </label>
-            {tournament.gameType === 'cs2' ? (
+          {/* CS2 Steam Connection */}
+          {tournament.gameType === 'cs2' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Steam Account *
+              </label>
               <SteamConnectionWidget 
                 compact={true}
                 actionText="join CS2 tournaments"
                 onConnectionSuccess={(steamData) => {
                   setSteamConnected(true);
-                  setError(''); // Clear any previous errors
+                  setError('');
                 }}
-              />
-            ) : (
-              <input
-                type="text"
-                name="gameId"
-                value={formData.gameId}
-                onChange={handleInputChange}
-                placeholder={getGameIdPlaceholder()}
-                className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                required
-              />
-            )}
-          </div>
-
-          {/* Team Name (if not solo) */}
-          {tournament.mode !== 'solo' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Team Name *
-              </label>
-              <input
-                type="text"
-                name="teamName"
-                value={formData.teamName}
-                onChange={handleInputChange}
-                placeholder="Enter your team name"
-                className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                required
               />
             </div>
           )}
 
-          {/* Player Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Player Name *
-            </label>
-            <input
-              type="text"
-              name="playerName"
-              value={formData.playerName}
-              onChange={handleInputChange}
-              placeholder="Enter your display name"
-              className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-              required
-            />
-          </div>
+          {/* BGMI Squad/Team Registration */}
+          {tournament.gameType === 'bgmi' && tournament.mode !== 'solo' ? (
+            <>
+              {/* Team Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Team Name *
+                </label>
+                <input
+                  type="text"
+                  name="teamName"
+                  value={formData.teamName}
+                  onChange={handleInputChange}
+                  placeholder="Enter your team name"
+                  className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  required
+                />
+              </div>
+
+              {/* Leader Details Section */}
+              <div className="bg-gaming-dark rounded-lg p-4 space-y-3">
+                <h4 className="text-white font-bold flex items-center space-x-2">
+                  <span>👑</span>
+                  <span>Leader Details</span>
+                </h4>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="leaderName"
+                    value={formData.leaderName}
+                    onChange={handleInputChange}
+                    placeholder="Leader's full name"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="leaderEmail"
+                    value={formData.leaderEmail}
+                    onChange={handleInputChange}
+                    placeholder="leader@example.com"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    name="leaderPhone"
+                    value={formData.leaderPhone}
+                    onChange={handleInputChange}
+                    placeholder="10-digit mobile number"
+                    maxLength="10"
+                    pattern="[0-9]{10}"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    IGN (In-Game Name) *
+                  </label>
+                  <input
+                    type="text"
+                    name="leaderIgn"
+                    value={formData.leaderIgn}
+                    onChange={handleInputChange}
+                    placeholder="Your BGMI username"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    BGMI UID *
+                  </label>
+                  <input
+                    type="text"
+                    name="leaderUid"
+                    value={formData.leaderUid}
+                    onChange={handleInputChange}
+                    placeholder="9-10 digit UID"
+                    maxLength="10"
+                    pattern="[0-9]{9,10}"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Find your UID in BGMI profile
+                  </p>
+                </div>
+              </div>
+
+              {/* Team Members Section */}
+              <div className="bg-gaming-dark rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-white font-bold flex items-center space-x-2">
+                    <span>👥</span>
+                    <span>Team Members ({formData.teamMembers.length}/{maxTeamSize - 1})</span>
+                  </h4>
+                  {formData.teamMembers.length < maxTeamSize - 1 && (
+                    <button
+                      type="button"
+                      onClick={addTeamMember}
+                      className="px-3 py-1 bg-gaming-neon text-black text-sm font-bold rounded hover:bg-gaming-gold transition-colors"
+                    >
+                      + Add Player
+                    </button>
+                  )}
+                </div>
+
+                {formData.teamMembers.length === 0 && (
+                  <div className="text-center py-4 text-gray-400 text-sm">
+                    Click "Add Player" to add team members
+                  </div>
+                )}
+
+                {formData.teamMembers.map((member, index) => (
+                  <div key={index} className="bg-gaming-charcoal rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-white font-semibold">Player {index + 2}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTeamMember(index)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        IGN *
+                      </label>
+                      <input
+                        type="text"
+                        value={member.ign || ''}
+                        onChange={(e) => handleTeamMemberChange(index, 'ign', e.target.value)}
+                        placeholder="In-Game Name"
+                        className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">
+                        BGMI UID *
+                      </label>
+                      <input
+                        type="text"
+                        value={member.uid || ''}
+                        onChange={(e) => handleTeamMemberChange(index, 'uid', e.target.value)}
+                        placeholder="9-10 digit UID"
+                        maxLength="10"
+                        pattern="[0-9]{9,10}"
+                        className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <div className="text-xs text-gray-400 mt-2">
+                  {tournament.mode === 'duo' && '⚠️ Minimum 2 players required (including leader)'}
+                  {tournament.mode === 'squad' && '⚠️ Minimum 4 players required (including leader)'}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Other Games or Solo Mode */
+            <>
+              {tournament.gameType !== 'cs2' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {tournament.gameType.toUpperCase()} ID *
+                  </label>
+                  <input
+                    type="text"
+                    name="gameId"
+                    value={formData.gameId}
+                    onChange={handleInputChange}
+                    placeholder={getGameIdPlaceholder()}
+                    className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+              )}
+
+              {tournament.mode !== 'solo' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Team Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="teamName"
+                    value={formData.teamName}
+                    onChange={handleInputChange}
+                    placeholder="Enter your team name"
+                    className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    required
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Player Name *
+                </label>
+                <input
+                  type="text"
+                  name="playerName"
+                  value={formData.playerName}
+                  onChange={handleInputChange}
+                  placeholder="Enter your display name"
+                  className="w-full px-3 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  required
+                />
+              </div>
+
+            </>
+          )}
 
           {/* Contact Number */}
           <div>
@@ -299,59 +608,21 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
             />
           </div>
 
-          {/* Wallet Balance & Entry Fee */}
+          {/* Free Tournament Info */}
           <div className="space-y-3">
-            <div className="bg-gaming-dark/50 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-400 text-sm">Wallet Balance:</span>
-                <span className="text-white font-medium">
-                  ₹{wallet?.balance?.toLocaleString() || '0'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">Entry Fee:</span>
-                <span className="text-gaming-neon font-medium">
-                  ₹{tournament.entryFee}
-                </span>
+            <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-green-400">🎉</span>
+                <div>
+                  <div className="text-green-400 text-sm font-medium">
+                    Free Tournament
+                  </div>
+                  <div className="text-gray-300 text-xs">
+                    No entry fee required - just register and play!
+                  </div>
+                </div>
               </div>
             </div>
-
-            {balanceCheck && !balanceCheck.hasSufficientBalance && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-red-400">⚠️</span>
-                  <div className="text-red-400 text-sm font-medium">
-                    Insufficient Balance
-                  </div>
-                </div>
-                <div className="text-gray-300 text-xs mb-3">
-                  You need ₹{tournament.entryFee - (wallet?.balance || 0)} more to register for this tournament.
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddMoney}
-                  className="w-full px-3 py-2 bg-gaming-neon text-black text-sm font-medium rounded-lg hover:bg-gaming-neon/90 transition-colors"
-                >
-                  Add Money to Wallet
-                </button>
-              </div>
-            )}
-
-            {balanceCheck?.hasSufficientBalance && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-400">✅</span>
-                  <div>
-                    <div className="text-green-400 text-sm font-medium">
-                      Sufficient Balance Available
-                    </div>
-                    <div className="text-gray-300 text-xs">
-                      ₹{tournament.entryFee} will be deducted from your wallet
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Game-specific Instructions */}
@@ -369,11 +640,30 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
           {tournament.gameType === 'cs2' && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
               <div className="text-blue-400 text-sm font-medium mb-1">CS2 Instructions:</div>
-              <div className="text-gray-300 text-xs space-y-1">
+              <div className="text-gray-300 text-xs space-y-1 mb-3">
                 <div>• Server details will be provided before match</div>
                 <div>• Connect via Steam using provided command</div>
                 <div>• Server-side result tracking enabled</div>
               </div>
+              
+              {/* Steam Connection Status */}
+              {!user?.gameIds?.steam && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-yellow-400 text-xs font-medium">Steam Required</div>
+                      <div className="text-gray-300 text-xs">Connect Steam to join CS2 tournaments</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openSteamForConnection}
+                      className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                    >
+                      Connect Steam
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -395,7 +685,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !balanceCheck?.hasSufficientBalance || loading.balanceCheck}
+              disabled={isSubmitting}
               className="flex-1 btn-gaming disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
@@ -403,15 +693,8 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                   <span>Registering...</span>
                 </div>
-              ) : loading.balanceCheck ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Checking Balance...</span>
-                </div>
-              ) : !balanceCheck?.hasSufficientBalance ? (
-                'Insufficient Balance'
               ) : (
-                `Register - ₹${tournament.entryFee}`
+                'Register for FREE'
               )}
             </button>
           </div>

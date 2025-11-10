@@ -13,6 +13,7 @@ import {
 } from '../store/slices/tournamentSlice';
 import { selectAuth } from '../store/slices/authSlice';
 import SteamConnectionModal from '../components/steam/SteamConnectionModal';
+import CountdownTimer from '../components/common/CountdownTimer';
 import api from '../services/api';
 
 const CS2Page = () => {
@@ -111,6 +112,50 @@ const CS2Page = () => {
     }
   };
 
+  const openSteamAndConnect = (tournament) => {
+    // Get userId from Redux state
+    const userId = user?.id || user?._id;
+    
+    if (!userId) {
+      alert('Please login again to continue');
+      navigate('/login');
+      return;
+    }
+    
+    // Show confirmation dialog with Steam app opening
+    const userConfirmed = window.confirm(
+      `Steam ID is required to join "${tournament.name}".\n\n` +
+      'What will happen:\n' +
+      '1. Steam app will open (if installed)\n' +
+      '2. Browser will open for Steam login (required for security)\n' +
+      '3. After login, you will return to tournament page\n\n' +
+      'Note: Browser login is required by Steam for security.\n\n' +
+      'Continue?'
+    );
+
+    if (userConfirmed) {
+      try {
+        // Try to open Steam app
+        const steamUrl = 'steam://open/main';
+        const link = document.createElement('a');
+        link.href = steamUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Wait a moment then redirect to Steam OAuth (use absolute URL to backend)
+        setTimeout(() => {
+          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
+        }, 1500);
+        
+      } catch (error) {
+        console.log('Steam app not available, using web OAuth');
+        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
+      }
+    }
+  };
+
   const handleJoinTournament = async (tournament) => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -122,12 +167,8 @@ const CS2Page = () => {
       const steamStatus = await api.get('/api/steam/status');
 
       if (!steamStatus.isConnected) {
-        setShowSteamModal(true);
-        setSteamCheckResult({
-          hasSteam: false,
-          message: 'Steam account connection required for CS2 tournaments',
-          tournament: tournament
-        });
+        // Directly open Steam instead of showing modal
+        openSteamAndConnect(tournament);
         return;
       }
 
@@ -434,7 +475,7 @@ const CS2Page = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-gray-400">Entry Fee</div>
-                    <div className="text-lg font-bold text-gaming-neon">₹{tournament.entryFee}</div>
+                    <div className="text-lg font-bold text-green-400">FREE</div>
                   </div>
                 </div>
 
@@ -484,6 +525,32 @@ const CS2Page = () => {
                     <span className="text-white">{formatDate(tournament.startDate)}</span>
                   </div>
                 </div>
+
+                {/* Registration Countdown */}
+                {tournament.status === 'registration_open' && tournament.registrationDeadline && (
+                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-3 mb-4">
+                    <div className="text-gaming-neon font-semibold text-xs mb-2">REGISTRATION CLOSES IN</div>
+                    <CountdownTimer 
+                      targetDate={tournament.registrationDeadline}
+                      format="compact"
+                      size="sm"
+                      showLabels={false}
+                    />
+                  </div>
+                )}
+
+                {/* Tournament Start Countdown */}
+                {tournament.status === 'upcoming' && tournament.startDate && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                    <div className="text-blue-400 font-semibold text-xs mb-2">TOURNAMENT STARTS IN</div>
+                    <CountdownTimer 
+                      targetDate={tournament.startDate}
+                      format="compact"
+                      size="sm"
+                      showLabels={false}
+                    />
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex space-x-2">

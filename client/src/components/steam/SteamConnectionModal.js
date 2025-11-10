@@ -34,14 +34,71 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   };
 
   const connectSteam = () => {
-    const userId = localStorage.getItem('userId');
+    // Get userId from auth token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Please log in first');
+      return;
+    }
+    
+    // Decode token to get userId
+    let userId;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userId = payload.userId || payload.id;
+    } catch (error) {
+      setError('Invalid authentication. Please log in again.');
+      return;
+    }
+    
     if (!userId) {
       setError('Please log in first');
       return;
     }
     
-    // Redirect to Steam OAuth
-    window.location.href = `/api/steam/auth?state=${userId}`;
+    // Try to open Steam app first (if installed)
+    const openSteamApp = () => {
+      try {
+        // Steam protocol URL to open Steam client
+        const steamUrl = 'steam://open/main';
+        
+        // Create a temporary link to trigger Steam app
+        const link = document.createElement('a');
+        link.href = steamUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show user-friendly message
+        setError('');
+        setLoading(true);
+        
+        // Wait a moment then redirect to web OAuth as fallback (use absolute URL to backend)
+        setTimeout(() => {
+          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}`;
+        }, 1500);
+        
+      } catch (error) {
+        console.log('Steam app not available, using web OAuth');
+        // Fallback to web OAuth (use absolute URL to backend)
+        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}`;
+      }
+    };
+
+    // Show confirmation dialog
+    const userConfirmed = window.confirm(
+      'Steam ID is required for CS2 tournaments.\n\n' +
+      'Click OK to:\n' +
+      '1. Open Steam app (if installed)\n' +
+      '2. Login to Steam\n' +
+      '3. Connect your account\n\n' +
+      'Continue?'
+    );
+
+    if (userConfirmed) {
+      openSteamApp();
+    }
   };
 
   const checkEligibility = async () => {

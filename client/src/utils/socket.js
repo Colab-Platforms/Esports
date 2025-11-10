@@ -36,10 +36,7 @@ export const initializeSocket = (userId, dispatch) => {
     dispatch({ type: 'leaderboard/updateLeaderboard', payload: data });
   });
 
-  // Wallet updates
-  socket.on('wallet-update', (data) => {
-    dispatch({ type: 'wallet/updateBalance', payload: data });
-  });
+  // Wallet updates removed - free tournaments only
 
   // Notifications
   socket.on('notification', (data) => {

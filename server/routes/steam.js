@@ -35,7 +35,16 @@ passport.use(new SteamStrategy({
 ));
 
 // Initialize Steam OAuth
-router.get('/auth', passport.authenticate('steam'));
+router.get('/auth', (req, res, next) => {
+  // Store redirect parameter in session or pass through state
+  const redirectTo = req.query.redirect;
+  if (redirectTo) {
+    // Modify the return URL to include redirect parameter
+    req.session = req.session || {};
+    req.session.steamRedirect = redirectTo;
+  }
+  passport.authenticate('steam')(req, res, next);
+});
 
 // Steam OAuth callback
 router.get('/auth/return', 
@@ -69,6 +78,14 @@ router.get('/auth/return',
 
       const csgoGame = steamGames.find(game => game.appid === 730); // CSGO
 
+      // Get redirect URL from session or query params
+      const redirectTo = req.session?.steamRedirect || req.query.redirect || '/games';
+      
+      // Clear session redirect
+      if (req.session?.steamRedirect) {
+        delete req.session.steamRedirect;
+      }
+
       // Update user profile
       user.gameIds.steam = steamData.steamId;
       user.steamProfile = {
@@ -99,8 +116,9 @@ router.get('/auth/return',
 
       await user.save();
 
-      // Redirect back to games page with success
-      res.redirect(`${process.env.CLIENT_URL}/games?steam_connected=true`);
+      // Redirect to specified page or default to games page
+      const successUrl = `${process.env.CLIENT_URL}${redirectTo}?steam_connected=true`;
+      res.redirect(successUrl);
       
     } catch (error) {
       console.error('Steam OAuth error:', error);

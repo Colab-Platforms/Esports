@@ -24,6 +24,7 @@ import { gameImages, getGameImage, getRandomTournamentImage } from '../../assets
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
+import CountdownTimer from '../../components/common/CountdownTimer';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -37,7 +38,7 @@ const SingleTournamentPage = () => {
   const [registeredTeams, setRegisteredTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
 
-  const fetchRegisteredTeams = async () => {
+  const fetchRegisteredTeams = React.useCallback(async () => {
     try {
       setLoadingTeams(true);
       const token = localStorage.getItem('token');
@@ -54,7 +55,7 @@ const SingleTournamentPage = () => {
     } finally {
       setLoadingTeams(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     // Fetch real tournament data
@@ -103,16 +104,13 @@ const SingleTournamentPage = () => {
             }
           };
 
+          // Add room details directly if available
+          if (data.data.roomDetails) {
+            enhancedTournament.roomDetails = data.data.roomDetails;
+          }
+
           setTournament(enhancedTournament);
           setIsUserRegistered(data.data.isUserRegistered || false);
-
-          // Set room details if user is registered
-          if (data.data.roomDetails) {
-            setTournament(prev => ({
-              ...prev,
-              roomDetails: data.data.roomDetails
-            }));
-          }
         }
       } catch (error) {
         console.error('Failed to fetch tournament:', error);
@@ -194,8 +192,75 @@ const SingleTournamentPage = () => {
 
     fetchTournamentData();
     fetchRegisteredTeams();
-  }, [id, isAuthenticated, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Only re-fetch when tournament id changes
 
+  // Memoize handler functions BEFORE any conditional returns
+  const openSteamForCS2 = React.useCallback(() => {
+    const userId = user?.id || user?._id;
+    
+    if (!userId) {
+      alert('Authentication error. Please login again.');
+      navigate('/login');
+      return;
+    }
+    
+    const userConfirmed = window.confirm(
+      `Steam account is required for "${tournament?.name}".\n\n` +
+      'What will happen:\n' +
+      '1. Steam app will open (if installed)\n' +
+      '2. Browser will open for Steam login (required for security)\n' +
+      '3. After login, you will return to this tournament page\n\n' +
+      'Note: Browser login is required by Steam for security.\n\n' +
+      'Continue?'
+    );
+
+    if (userConfirmed) {
+      try {
+        // Try to open Steam app
+        const steamUrl = 'steam://open/main';
+        const link = document.createElement('a');
+        link.href = steamUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Wait then redirect to Steam OAuth
+        setTimeout(() => {
+          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${id}`;
+        }, 1500);
+        
+      } catch (error) {
+        console.log('Steam app not available, using web OAuth');
+        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${id}`;
+      }
+    }
+  }, [user, tournament, navigate, id]);
+
+  const handleJoinTournament = React.useCallback(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Check Steam requirement for CS2
+    if (tournament?.gameType === 'cs2' && !user?.gameIds?.steam) {
+      openSteamForCS2();
+      return;
+    }
+
+    setShowRegistration(true);
+  }, [isAuthenticated, tournament, user, navigate, openSteamForCS2]);
+
+  const handleRegistrationSuccess = React.useCallback(() => {
+    setShowRegistration(false);
+    setIsUserRegistered(true);
+    // Refresh tournament data and teams
+    fetchRegisteredTeams();
+  }, [fetchRegisteredTeams]);
+
+  // Early return AFTER all hooks
   if (!tournament) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
@@ -207,35 +272,13 @@ const SingleTournamentPage = () => {
     );
   }
 
-  const handleJoinTournament = () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    // Check Steam requirement for CS2
-    if (tournament?.gameType === 'cs2' && !user?.gameIds?.steam) {
-      alert('Steam ID is required for CS2 tournaments. Please connect your Steam account first.');
-      return;
-    }
-
-    setShowRegistration(true);
-  };
-
-  const handleRegistrationSuccess = () => {
-    setShowRegistration(false);
-    setIsUserRegistered(true);
-    // Refresh tournament data and teams
-    fetchRegisteredTeams();
-  };
-
   const tabs = [
     { id: 'general', label: 'GENERAL', icon: FiInfo },
     { id: 'teams', label: 'TEAMS', icon: FiUsers },
     { id: 'chat', label: 'CHAT', icon: FiMessageCircle }
   ];
 
-  const TabContent = () => {
+  const renderTabContent = () => {
     switch (activeTab) {
       case 'general':
         return (
@@ -302,6 +345,40 @@ const SingleTournamentPage = () => {
                     </div>
                   </div>
 
+                  {/* Registration Countdown */}
+                  {tournament?.registrationDeadline && (
+                    <div className="mb-4 p-3 bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg">
+                      <div className="text-gaming-neon font-semibold text-sm mb-2">REGISTRATION CLOSES IN</div>
+                      <CountdownTimer 
+                        targetDate={tournament.registrationDeadline}
+                        format="compact"
+                        size="sm"
+                        showLabels={false}
+                        onComplete={() => {
+                          // Refresh tournament data when registration closes
+                          window.location.reload();
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Tournament Start Countdown */}
+                  {tournament?.startDate && new Date(tournament.startDate) > new Date() && (
+                    <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <div className="text-blue-400 font-semibold text-sm mb-2">TOURNAMENT STARTS IN</div>
+                      <CountdownTimer 
+                        targetDate={tournament.startDate}
+                        format="compact"
+                        size="sm"
+                        showLabels={false}
+                        onComplete={() => {
+                          // Refresh tournament data when tournament starts
+                          window.location.reload();
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-6 h-6 bg-gray-600 rounded flex items-center justify-center">
                       <FiMapPin className="h-3 w-3 text-white" />
@@ -318,7 +395,7 @@ const SingleTournamentPage = () => {
                     </div>
                     <div>
                       <div className="text-white font-semibold">ENTRY FEE</div>
-                      <div className="text-gray-400 text-sm">₹{tournament?.entryFee || 0}</div>
+                      <div className="text-green-400 text-sm font-bold">FREE</div>
                     </div>
                   </div>
 
@@ -823,14 +900,9 @@ const SingleTournamentPage = () => {
             </div>
 
             {/* Tab Content */}
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <TabContent />
-            </motion.div>
+            <div>
+              {renderTabContent()}
+            </div>
           </div>
         </div>
       </div>

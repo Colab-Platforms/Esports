@@ -23,8 +23,8 @@ const DashboardPage = () => {
       bgColor: 'bg-gaming-neon/10'
     },
     {
-      title: 'Total Earnings',
-      value: `₹${user?.totalEarnings || 0}`,
+      title: 'Tournaments Played',
+      value: user?.tournamentsPlayed || 0,
       icon: FiDollarSign,
       color: 'text-green-400',
       bgColor: 'bg-green-400/10'
