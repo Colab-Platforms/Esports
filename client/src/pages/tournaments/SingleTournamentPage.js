@@ -1,42 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { motion } from 'framer-motion';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   FiArrowLeft,
   FiShare2,
-  FiCopy,
   FiUsers,
   FiCalendar,
   FiDollarSign,
   FiMapPin,
-  FiClock,
   FiAward,
   FiInfo,
   FiMessageCircle,
-  FiServer,
-  FiKey
+  FiKey,
+  FiCopy
 } from 'react-icons/fi';
-import { fetchTournamentById } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
 import TournamentRegistration from '../../components/tournaments/TournamentRegistration';
-import { gameImages, getGameImage, getRandomTournamentImage } from '../../assets/images';
+import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
+import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
 import CountdownTimer from '../../components/common/CountdownTimer';
+import { getSteamAuthUrl } from '../../utils/apiConfig';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(selectAuth);
   const [activeTab, setActiveTab] = useState('general');
   const [showRegistration, setShowRegistration] = useState(false);
+  const [showSteamModal, setShowSteamModal] = useState(false);
   const [tournament, setTournament] = useState(null);
   const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [registeredTeams, setRegisteredTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [loadingTournament, setLoadingTournament] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Share tournament function
+  const handleShareTournament = React.useCallback(() => {
+    const tournamentUrl = window.location.href;
+    const shareText = `Check out this tournament: ${tournament?.name}\nPrize Pool: ₹${tournament?.prizePool?.toLocaleString()}\nJoin now!`;
+    
+    // Check if Web Share API is available
+    if (navigator.share) {
+      navigator.share({
+        title: tournament?.name || 'Tournament',
+        text: shareText,
+        url: tournamentUrl
+      }).catch((error) => {
+        console.log('Error sharing:', error);
+      });
+    } else {
+      // Fallback: Copy to clipboard
+      navigator.clipboard.writeText(`${shareText}\n${tournamentUrl}`).then(() => {
+        alert('Tournament link copied to clipboard!');
+      }).catch((error) => {
+        console.error('Failed to copy:', error);
+      });
+    }
+  }, [tournament]);
 
   const fetchRegisteredTeams = React.useCallback(async () => {
     try {
@@ -57,15 +83,67 @@ const SingleTournamentPage = () => {
     }
   }, [id]);
 
+  // Check for Steam connection success and refresh user data
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('steam_connected') === 'true') {
+      // Refresh user data from server
+      const refreshUserData = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (token) {
+            const response = await fetch('/api/auth/profile', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              // Update Redux store with fresh user data
+              if (data.success && data.data.user) {
+                dispatch({ type: 'auth/loginSuccess', payload: { user: data.data.user, token } });
+                console.log('✅ User data refreshed with Steam ID:', data.data.user.gameIds?.steam);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to refresh user data:', error);
+        }
+      };
+      
+      refreshUserData();
+      
+      // Clean URL
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate, dispatch]);
+
   useEffect(() => {
     // Fetch real tournament data
     const fetchTournamentData = async () => {
+      setLoadingTournament(true);
+      setFetchError(null);
+      
       try {
+        console.log('🔍 Fetching tournament:', id);
         const token = localStorage.getItem('token');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-        const response = await fetch(`/api/tournaments/${id}`, { headers });
+        // Add timeout to prevent infinite loading
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const response = await fetch(`/api/tournaments/${id}`, { 
+          headers,
+          signal: controller.signal 
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        console.log('✅ Tournament data received:', data);
 
         if (data.success) {
           const tournamentData = data.data.tournament;
@@ -111,9 +189,20 @@ const SingleTournamentPage = () => {
 
           setTournament(enhancedTournament);
           setIsUserRegistered(data.data.isUserRegistered || false);
+          setLoadingTournament(false);
         }
       } catch (error) {
         console.error('Failed to fetch tournament:', error);
+        setFetchError(error.message);
+        
+        // Show error message instead of mock data
+        if (error.name === 'AbortError') {
+          console.error('Request timeout - server not responding');
+          setFetchError('Server is not responding. Please check if the backend is running.');
+        }
+        
+        setLoadingTournament(false);
+        
         // Fallback to mock data for development
         const mockTournament = {
           id: 1,
@@ -187,6 +276,7 @@ const SingleTournamentPage = () => {
 
         setTournament(mockTournament);
         setIsUserRegistered(mockTournament.userRegistered);
+        setLoadingTournament(false);
       }
     };
 
@@ -196,7 +286,7 @@ const SingleTournamentPage = () => {
   }, [id]); // Only re-fetch when tournament id changes
 
   // Memoize handler functions BEFORE any conditional returns
-  const openSteamForCS2 = React.useCallback(() => {
+  const handleSteamLink = React.useCallback(() => {
     const userId = user?.id || user?._id;
     
     if (!userId) {
@@ -204,39 +294,12 @@ const SingleTournamentPage = () => {
       navigate('/login');
       return;
     }
-    
-    const userConfirmed = window.confirm(
-      `Steam account is required for "${tournament?.name}".\n\n` +
-      'What will happen:\n' +
-      '1. Steam app will open (if installed)\n' +
-      '2. Browser will open for Steam login (required for security)\n' +
-      '3. After login, you will return to this tournament page\n\n' +
-      'Note: Browser login is required by Steam for security.\n\n' +
-      'Continue?'
-    );
 
-    if (userConfirmed) {
-      try {
-        // Try to open Steam app
-        const steamUrl = 'steam://open/main';
-        const link = document.createElement('a');
-        link.href = steamUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Wait then redirect to Steam OAuth
-        setTimeout(() => {
-          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${id}`;
-        }, 1500);
-        
-      } catch (error) {
-        console.log('Steam app not available, using web OAuth');
-        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${id}`;
-      }
-    }
-  }, [user, tournament, navigate, id]);
+    setShowSteamModal(false);
+    
+    // Direct redirect to Steam OAuth - uses dynamic URL
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${id}`);
+  }, [user, navigate, id]);
 
   const handleJoinTournament = React.useCallback(() => {
     if (!isAuthenticated) {
@@ -246,12 +309,12 @@ const SingleTournamentPage = () => {
 
     // Check Steam requirement for CS2
     if (tournament?.gameType === 'cs2' && !user?.gameIds?.steam) {
-      openSteamForCS2();
+      setShowSteamModal(true);
       return;
     }
 
     setShowRegistration(true);
-  }, [isAuthenticated, tournament, user, navigate, openSteamForCS2]);
+  }, [isAuthenticated, tournament, user, navigate]);
 
   const handleRegistrationSuccess = React.useCallback(() => {
     setShowRegistration(false);
@@ -261,12 +324,57 @@ const SingleTournamentPage = () => {
   }, [fetchRegisteredTeams]);
 
   // Early return AFTER all hooks
-  if (!tournament) {
+  if (loadingTournament) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
           <p className="text-gray-300">Loading tournament...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if fetch failed
+  if (fetchError && !tournament) {
+    return (
+      <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Failed to Load Tournament</h2>
+          <p className="text-gray-400 mb-6">{fetchError}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-gaming w-full"
+            >
+              Try Again
+            </button>
+            <Link
+              to="/games"
+              className="block w-full px-6 py-3 bg-gaming-slate hover:bg-gaming-card text-white rounded-lg transition-colors"
+            >
+              Back to Games
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tournament) {
+    return (
+      <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🎮</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h2>
+          <p className="text-gray-400 mb-6">The tournament you're looking for doesn't exist.</p>
+          <Link
+            to="/games"
+            className="btn-gaming"
+          >
+            Back to Games
+          </Link>
         </div>
       </div>
     );
@@ -346,7 +454,7 @@ const SingleTournamentPage = () => {
                   </div>
 
                   {/* Registration Countdown */}
-                  {tournament?.registrationDeadline && (
+                  {tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() && (
                     <div className="mb-4 p-3 bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg">
                       <div className="text-gaming-neon font-semibold text-sm mb-2">REGISTRATION CLOSES IN</div>
                       <CountdownTimer 
@@ -354,10 +462,6 @@ const SingleTournamentPage = () => {
                         format="compact"
                         size="sm"
                         showLabels={false}
-                        onComplete={() => {
-                          // Refresh tournament data when registration closes
-                          window.location.reload();
-                        }}
                       />
                     </div>
                   )}
@@ -371,10 +475,6 @@ const SingleTournamentPage = () => {
                         format="compact"
                         size="sm"
                         showLabels={false}
-                        onComplete={() => {
-                          // Refresh tournament data when tournament starts
-                          window.location.reload();
-                        }}
                       />
                     </div>
                   )}
@@ -504,44 +604,108 @@ const SingleTournamentPage = () => {
                   )}
 
                   {tournament.gameType === 'cs2' && tournament.roomDetails.cs2 && (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
+                      {/* Server Status */}
+                      <div className="flex items-center justify-between bg-gaming-dark p-3 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                          <span className="text-white font-semibold">Server Online</span>
+                        </div>
+                        <div className="text-gray-400 text-sm">
+                          Ping: <span className="text-green-400">~25ms</span>
+                        </div>
+                      </div>
+
+                      {/* Server Details Grid */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-gray-400 text-sm">Server IP</div>
-                          <div className="text-white font-mono text-lg bg-gaming-dark p-2 rounded">
+                          <div className="text-gray-400 text-sm mb-1">Server IP</div>
+                          <div className="text-white font-mono text-lg bg-gaming-dark p-3 rounded border border-gaming-border">
                             {tournament.roomDetails.cs2.serverIp}
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-400 text-sm">Port</div>
-                          <div className="text-white font-mono text-lg bg-gaming-dark p-2 rounded">
+                          <div className="text-gray-400 text-sm mb-1">Port</div>
+                          <div className="text-white font-mono text-lg bg-gaming-dark p-3 rounded border border-gaming-border">
                             {tournament.roomDetails.cs2.serverPort}
                           </div>
                         </div>
                       </div>
 
+                      {/* Quick Connect Command */}
                       <div>
-                        <div className="text-gray-400 text-sm mb-2">Connect Command</div>
-                        <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border border-gaming-neon/30">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-gray-400 text-sm font-semibold">Quick Connect Command</div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(tournament.roomDetails.cs2.connectCommand);
+                              alert('Command copied to clipboard!');
+                            }}
+                            className="px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs font-bold rounded transition-colors flex items-center space-x-1"
+                          >
+                            <FiCopy className="h-3 w-3" />
+                            <span>COPY</span>
+                          </button>
+                        </div>
+                        <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border-2 border-gaming-neon/50 break-all">
                           {tournament.roomDetails.cs2.connectCommand}
                         </div>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(tournament.roomDetails.cs2.connectCommand)}
-                          className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center space-x-1"
-                        >
-                          <FiCopy className="h-3 w-3" />
-                          <span>Copy Command</span>
-                        </button>
                       </div>
 
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 mt-4">
-                        <div className="text-blue-400 text-sm font-medium mb-1">Instructions:</div>
-                        <div className="text-gray-300 text-xs space-y-1">
-                          <div>1. Copy the connect command above</div>
-                          <div>2. Open Steam console (~ key in-game)</div>
-                          <div>3. Paste and execute the command</div>
-                          <div>4. Server will automatically track results</div>
+                      {/* Enhanced Instructions */}
+                      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-4">
+                        <div className="text-blue-400 font-bold mb-3 flex items-center space-x-2">
+                          <span className="text-lg">📋</span>
+                          <span>How to Join Server:</span>
                         </div>
+                        <div className="space-y-3">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">1</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">Copy Connect Command</div>
+                              <div className="text-gray-300 text-xs">Click the COPY button above to copy the server command</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">2</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">Launch CS2</div>
+                              <div className="text-gray-300 text-xs">Open Counter-Strike 2 through Steam</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">3</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">Open Console</div>
+                              <div className="text-gray-300 text-xs">Press <span className="bg-gaming-dark px-2 py-0.5 rounded font-mono">~</span> key to open developer console</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">4</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">Paste & Connect</div>
+                              <div className="text-gray-300 text-xs">Paste the command (Ctrl+V) and press Enter</div>
+                            </div>
+                          </div>
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">5</div>
+                            <div>
+                              <div className="text-white font-semibold text-sm">Wait in Lobby</div>
+                              <div className="text-gray-300 text-xs">Join 10 minutes before tournament start. Admin will begin the match.</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Important Notes */}
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                        <div className="text-yellow-400 font-semibold text-sm mb-2">⚠️ Important Notes:</div>
+                        <ul className="text-gray-300 text-xs space-y-1 list-disc list-inside">
+                          <li>Results are automatically tracked by the server</li>
+                          <li>Do not leave the server during the match</li>
+                          <li>Follow admin instructions in server chat</li>
+                          <li>Cheating will result in immediate disqualification</li>
+                        </ul>
                       </div>
                     </div>
                   )}
@@ -745,14 +909,12 @@ const SingleTournamentPage = () => {
             </div>
 
             <div className="flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gaming-slate hover:bg-gaming-border rounded-lg transition-colors duration-200">
-                <FiShare2 className="h-4 w-4 text-white" />
-                <span className="text-white text-sm">SHARE</span>
-              </button>
-
-              <button className="flex items-center space-x-2 px-4 py-2 bg-gaming-slate hover:bg-gaming-border rounded-lg transition-colors duration-200">
-                <FiCopy className="h-4 w-4 text-white" />
-                <span className="text-white text-sm">COPY TOURNAMENT</span>
+              <button 
+                onClick={handleShareTournament}
+                className="flex items-center space-x-2 px-4 py-2 bg-gaming-slate hover:bg-gaming-gold hover:text-black rounded-lg transition-all duration-200"
+              >
+                <FiShare2 className="h-4 w-4" />
+                <span className="text-sm font-semibold">SHARE</span>
               </button>
             </div>
           </div>
@@ -805,107 +967,137 @@ const SingleTournamentPage = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        {/* Top Info Bar - Horizontal Layout */}
+        <div className="bg-gradient-to-r from-gaming-card via-gaming-slate to-gaming-card border border-gaming-border rounded-xl p-6 mb-8 shadow-xl">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            
+            {/* Prize Pool */}
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FiAward className="h-6 w-6 text-black" />
+              </div>
+              <div>
+                <div className="text-gray-400 text-xs uppercase tracking-wide">Prize Pool</div>
+                <div className="text-white font-bold text-xl">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
+              </div>
+            </div>
 
-          {/* Left Sidebar - Tournament Info */}
-          <div className="lg:col-span-1">
-            <div className="bg-gaming-card rounded-lg border border-gaming-border p-6 sticky top-8">
-
-              {/* Tournament Status */}
-              <div className="mb-6">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
-                    {tournament?.status?.toUpperCase() || 'UPCOMING'}
-                  </span>
-                  <span className="px-3 py-1 bg-gray-600 text-white text-xs font-bold rounded-full">
-                    COLAB TOURNAMENT
-                  </span>
+            {/* Participants */}
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FiUsers className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <div className="text-gray-400 text-xs uppercase tracking-wide">Participants</div>
+                <div className="text-white font-bold text-xl">
+                  {tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}
                 </div>
               </div>
+            </div>
 
-              {/* Registration Info */}
-              <div className="mb-6">
-                <div className="text-gray-400 text-sm mb-1">REGISTRATION CLOSES IN</div>
-                <div className="text-white font-bold">{tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}</div>
+            {/* Timeline - Registration & Tournament Start */}
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FiCalendar className="h-6 w-6 text-white" />
               </div>
-
-              {/* Prize Pool */}
-              <div className="mb-6">
-                <div className="text-gray-400 text-sm mb-1">PRIZE POOL</div>
-                <div className="flex items-center space-x-2">
-                  <FiAward className="h-4 w-4 text-gaming-gold" />
-                  <span className="text-white font-bold">₹{tournament?.prizePool?.toLocaleString() || tournament?.registration?.prizePool || '0'}</span>
+              <div>
+                <div className="text-gray-400 text-xs uppercase tracking-wide">Timeline</div>
+                <div className="space-y-0.5">
+                  <div className="text-gaming-neon font-bold text-sm">
+                    Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}
+                  </div>
+                  {tournament?.startDate && (
+                    <div className="text-white font-semibold text-xs">
+                      Start: {new Date(tournament.startDate) > new Date() 
+                        ? new Date(tournament.startDate).toLocaleString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })
+                        : 'Live Now!'}
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Participants */}
-              <div className="mb-6">
-                <div className="text-gray-400 text-sm mb-1">PARTICIPANTS</div>
-                <div className="flex items-center space-x-2">
-                  <FiUsers className="h-4 w-4 text-white" />
-                  <span className="text-white">
-                    {tournament?.currentParticipants || tournament?.registration?.participants?.current || 0} / {tournament?.maxParticipants || tournament?.registration?.participants?.max || 100}
-                  </span>
-                </div>
-              </div>
-
-              {/* Join Button */}
+            {/* Status & Join Button */}
+            <div className="flex items-center justify-end">
               {isUserRegistered ? (
-                <div className="w-full bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4 text-center">
-                  <div className="text-green-400 font-bold">✅ Registered</div>
-                  <div className="text-gray-300 text-sm">
-                    {tournament?.gameType === 'bgmi' ? 'Room details available above' : 'Server details available above'}
+                <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-6 py-3 text-center">
+                  <div className="text-green-400 font-bold text-lg flex items-center space-x-2">
+                    <span>✅</span>
+                    <span>Registered</span>
+                  </div>
+                  <div className="text-gray-300 text-xs mt-1">
+                    {tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={handleJoinTournament}
-                  className="w-full btn-gaming py-3 mb-4"
+                  className="btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300"
                 >
-                  {isAuthenticated ? 'JOIN TOURNAMENT' : 'LOGIN TO JOIN'}
+                  {isAuthenticated ? 'JOIN NOW' : 'LOGIN TO JOIN'}
                 </button>
               )}
-
-              {/* Organizer */}
-              <div className="text-center">
-                <div className="text-gray-400 text-sm mb-1">ORGANIZER</div>
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-6 h-6 bg-gaming-gold rounded-full flex items-center justify-center">
-                    <span className="text-black text-xs font-bold">C</span>
-                  </div>
-                  <span className="text-white font-semibold">Colab</span>
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Right Content - Tabs */}
-          <div className="lg:col-span-3">
-
-            {/* Tab Navigation */}
-            <div className="flex space-x-8 border-b border-gaming-border mb-8">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 pb-4 px-2 font-semibold transition-colors duration-200 ${activeTab === tab.id
-                    ? 'text-gaming-gold border-b-2 border-gaming-gold'
-                    : 'text-gray-400 hover:text-white'
-                    }`}
-                >
-                  <tab.icon className="h-4 w-4" />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Tab Content */}
-            <div>
-              {renderTabContent()}
+          {/* Status Badges */}
+          <div className="flex items-center space-x-3 mt-6 pt-6 border-t border-gaming-border/50">
+            <span className="px-4 py-1.5 bg-gaming-gold text-black text-xs font-bold rounded-full uppercase">
+              {tournament?.status?.replace('_', ' ') || 'Upcoming'}
+            </span>
+            <span className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-full uppercase">
+              {tournament?.gameType || 'BGMI'}
+            </span>
+            <span className="px-4 py-1.5 bg-gray-700 text-white text-xs font-bold rounded-full uppercase">
+              {tournament?.mode || 'Squad'}
+            </span>
+            <div className="flex-1"></div>
+            <div className="flex items-center space-x-2 text-gray-400 text-sm">
+              <div className="w-6 h-6 bg-gaming-gold rounded-full flex items-center justify-center">
+                <span className="text-black text-xs font-bold">C</span>
+              </div>
+              <span className="text-white font-semibold">Colab Esports</span>
             </div>
           </div>
         </div>
+
+        {/* Modern Tab Pills */}
+        <div className="flex items-center justify-center space-x-3 mb-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wide transition-all duration-300 ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-gaming-gold to-yellow-500 text-black shadow-lg shadow-gaming-gold/50'
+                  : 'bg-gaming-card border border-gaming-border text-gray-400 hover:text-white hover:border-gaming-gold'
+              }`}
+            >
+              <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-black' : ''}`} />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Full Width Content */}
+        <div className="w-full">
+          {renderTabContent()}
+        </div>
       </div>
+
+      {/* Steam Linking Modal */}
+      <SteamLinkingModal
+        isOpen={showSteamModal}
+        onClose={() => setShowSteamModal(false)}
+        onConfirm={handleSteamLink}
+        tournamentName={tournament?.name || 'this tournament'}
+      />
 
       {/* Registration Modal */}
       {showRegistration && tournament && (

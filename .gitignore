@@ -1,1 +1,5 @@
 node_modules
+
+# CS2 Log files
+logs/*.log
+logs/checkpoint_*.txt

@@ -13,6 +13,8 @@ import { getGameAsset, getGameInfo } from '../assets/gameAssets';
 import OptimizedImage from '../components/common/OptimizedImage';
 import TournamentSkeleton from '../components/common/TournamentSkeleton';
 import HeroImageSlider from '../components/common/HeroImageSlider';
+import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
+import { getSteamAuthUrl } from '../utils/apiConfig';
 
 const HomePage = () => {
   const dispatch = useDispatch();
@@ -21,6 +23,8 @@ const HomePage = () => {
   const { isAuthenticated, user } = useSelector(selectAuth);
   const [pcTournaments, setPcTournaments] = useState([]);
   const [mobileTournaments, setMobileTournaments] = useState([]);
+  const [showSteamModal, setShowSteamModal] = useState(false);
+  const [selectedTournament, setSelectedTournament] = useState(null);
   const [platformStats, setPlatformStats] = useState({
     totalPlayers: '15K+',
     activeTournaments: '12',
@@ -134,7 +138,11 @@ const HomePage = () => {
   };
 
   const openSteamForCS2 = (tournament) => {
-    // Get userId from Redux state instead of localStorage
+    setSelectedTournament(tournament);
+    setShowSteamModal(true);
+  };
+
+  const handleSteamLink = () => {
     const userId = user?.id || user?._id;
     
     if (!userId) {
@@ -146,38 +154,11 @@ const HomePage = () => {
       navigate('/login');
       return;
     }
-    
-    const userConfirmed = window.confirm(
-      `Steam account is required for "${tournament.name}".\n\n` +
-      'What will happen:\n' +
-      '1. Steam app will open (if installed)\n' +
-      '2. Browser will open for Steam login (required for security)\n' +
-      '3. After login, you will return to tournament page\n\n' +
-      'Note: Browser login is required by Steam for security.\n\n' +
-      'Continue?'
-    );
 
-    if (userConfirmed) {
-      try {
-        // Try to open Steam app
-        const steamUrl = 'steam://open/main';
-        const link = document.createElement('a');
-        link.href = steamUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Wait then redirect to Steam OAuth (use absolute URL to backend)
-        setTimeout(() => {
-          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament.id}`;
-        }, 1500);
-        
-      } catch (error) {
-        console.log('Steam app not available, using web OAuth');
-        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament.id}`;
-      }
-    }
+    setShowSteamModal(false);
+    
+    // Direct redirect to Steam OAuth - uses dynamic URL
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?.id}`);
   };
 
   const handleJoinTournament = (tournament) => {
@@ -539,6 +520,14 @@ const HomePage = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Steam Linking Modal */}
+      <SteamLinkingModal
+        isOpen={showSteamModal}
+        onClose={() => setShowSteamModal(false)}
+        onConfirm={handleSteamLink}
+        tournamentName={selectedTournament?.name || 'this tournament'}
+      />
     </div>
   );
 };

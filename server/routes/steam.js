@@ -6,6 +6,15 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { getSteamProfile, getSteamGames, getSteamPlayerStats } = require('../services/steamService');
 
+// Passport serialization (required for session)
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
 // Steam OAuth configuration
 passport.use(new SteamStrategy({
     returnURL: `${process.env.SERVER_URL}/api/steam/auth/return`,
@@ -36,13 +45,20 @@ passport.use(new SteamStrategy({
 
 // Initialize Steam OAuth
 router.get('/auth', (req, res, next) => {
-  // Store redirect parameter in session or pass through state
+  // Store both redirect and user ID in session
   const redirectTo = req.query.redirect;
+  const userId = req.query.state;
+  
+  req.session = req.session || {};
+  
   if (redirectTo) {
-    // Modify the return URL to include redirect parameter
-    req.session = req.session || {};
     req.session.steamRedirect = redirectTo;
   }
+  
+  if (userId) {
+    req.session.steamUserId = userId;
+  }
+  
   passport.authenticate('steam')(req, res, next);
 });
 
@@ -52,9 +68,11 @@ router.get('/auth/return',
   async (req, res) => {
     try {
       const steamData = req.user;
-      const userId = req.query.state; // Pass user ID in state parameter
+      // Get user ID from session (stored in /auth route)
+      const userId = req.session?.steamUserId;
       
       if (!userId) {
+        console.error('Steam callback: Missing user ID in session');
         return res.redirect(`${process.env.CLIENT_URL}/games?error=missing_user`);
       }
 
@@ -81,9 +99,12 @@ router.get('/auth/return',
       // Get redirect URL from session or query params
       const redirectTo = req.session?.steamRedirect || req.query.redirect || '/games';
       
-      // Clear session redirect
+      // Clear session data
       if (req.session?.steamRedirect) {
         delete req.session.steamRedirect;
+      }
+      if (req.session?.steamUserId) {
+        delete req.session.steamUserId;
       }
 
       // Update user profile

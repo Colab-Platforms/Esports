@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiExternalLink, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import api from '../../services/api';
+import { getSteamAuthUrl } from '../../utils/apiConfig';
 
 const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) => {
   const [loading, setLoading] = useState(false);
@@ -74,15 +75,15 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
         setError('');
         setLoading(true);
         
-        // Wait a moment then redirect to web OAuth as fallback (use absolute URL to backend)
+        // Wait a moment then redirect to web OAuth as fallback - uses dynamic URL
         setTimeout(() => {
-          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}`;
+          window.location.href = getSteamAuthUrl(userId);
         }, 1500);
         
       } catch (error) {
         console.log('Steam app not available, using web OAuth');
-        // Fallback to web OAuth (use absolute URL to backend)
-        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}`;
+        // Fallback to web OAuth - uses dynamic URL
+        window.location.href = getSteamAuthUrl(userId);
       }
     };
 

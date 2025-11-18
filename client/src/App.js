@@ -41,6 +41,25 @@ import ResultSubmission from './components/matches/ResultSubmission';
 import { initializeSocket, disconnectSocket } from './utils/socket';
 import notificationService from './services/notificationService';
 
+// Game Router Component
+const GameRouter = () => {
+  const { gameType } = useParams();
+  
+  switch(gameType?.toLowerCase()) {
+    case 'bgmi':
+    case 'battlegrounds mobile india':
+      return <BGMIPage />;
+    case 'cs2':
+    case 'counter-strike 2':
+    case 'counter strike 2':
+      return <CS2Page />;
+    case 'valorant':
+      return <Navigate to="/games" replace />;
+    default:
+      return <Navigate to="/games" replace />;
+  }
+};
+
 // Temporary ProtectedRoute component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useSelector(selectAuth);
@@ -258,6 +277,7 @@ function App() {
               } 
             />
             
+            {/* Dynamic Game Route - Redirects to specific game pages */}
             <Route 
               path="/game/:gameType" 
               element={
@@ -267,7 +287,7 @@ function App() {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <TournamentDetailsPage />
+                  <GameRouter />
                 </motion.div>
               } 
             />

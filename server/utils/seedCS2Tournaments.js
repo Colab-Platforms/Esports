@@ -31,7 +31,8 @@ const cs2TournamentsData = [
       cs2: {
         serverIp: '103.21.58.132',
         serverPort: '27015',
-        connectCommand: 'connect 103.21.58.132:27015; password cs2_winter_2024',
+        password: 'cs2_winter_2024',
+        connectCommand: 'steam://connect/103.21.58.132:27015/cs2_winter_2024',
         rconPassword: 'admin_cs2_2024'
       }
     },
@@ -62,9 +63,10 @@ const cs2TournamentsData = [
     createdBy: dummyAdminId,
     roomDetails: {
       cs2: {
-        serverIp: '103.21.58.133',
+        serverIp: '103.21.58.132',
         serverPort: '27015',
-        connectCommand: 'connect 103.21.58.133:27015; password cs2_daily_grind',
+        password: 'cs2_daily_grind',
+        connectCommand: 'steam://connect/103.21.58.132:27015/cs2_daily_grind',
         rconPassword: 'admin_daily_2024'
       }
     },
@@ -94,9 +96,10 @@ const cs2TournamentsData = [
     createdBy: dummyAdminId,
     roomDetails: {
       cs2: {
-        serverIp: '103.21.58.134',
+        serverIp: '103.21.58.132',
         serverPort: '27015',
-        connectCommand: 'connect 103.21.58.134:27015; password cs2_beginner_cup',
+        password: 'cs2_beginner_cup',
+        connectCommand: 'steam://connect/103.21.58.132:27015/cs2_beginner_cup',
         rconPassword: 'admin_beginner_2024'
       }
     },
@@ -127,9 +130,10 @@ const cs2TournamentsData = [
     createdBy: dummyAdminId,
     roomDetails: {
       cs2: {
-        serverIp: '103.21.58.135',
+        serverIp: '103.21.58.132',
         serverPort: '27015',
-        connectCommand: 'connect 103.21.58.135:27015; password cs2_pro_qualifier',
+        password: 'cs2_pro_qualifier',
+        connectCommand: 'steam://connect/103.21.58.132:27015/cs2_pro_qualifier',
         rconPassword: 'admin_pro_2024'
       }
     },

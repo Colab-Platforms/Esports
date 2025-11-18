@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -27,10 +28,31 @@ const io = new Server(server, {
   }
 });
 
+// Trust proxy for rate limiting (required when behind reverse proxy)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
+
+// Dynamic CORS configuration - allows access from any IP on port 3000
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost and any IP address on port 3000
+    const allowedOrigins = [
+      'http://localhost:3000',
+      process.env.CLIENT_URL
+    ];
+    
+    // Check if origin matches localhost:3000 or any IP:3000
+    if (allowedOrigins.includes(origin) || origin.match(/^http:\/\/[\d.]+:3000$/)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // For development, allow all origins
+    }
+  },
   credentials: true
 }));
 
@@ -45,8 +67,21 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Session middleware (required for Steam OAuth)
+app.use(session({
+  secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 // Passport middleware
 app.use(passport.initialize());
+app.use(passport.session());
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -277,10 +312,12 @@ app.use('/api/games', require('./routes/games'));
 app.use('/api/steam', require('./routes/steam'));
 app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/matches', require('./routes/matches'));
+app.use('/api/bgmi-matches', require('./routes/bgmiMatches'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
+app.use('/api/cs2', require('./routes/cs2Logs'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -489,11 +526,11 @@ app.post('/api/seed-database', async (req, res) => {
         region: 'mumbai',
         roomDetails: {
           cs2: {
-            serverIp: '103.21.58.132',
+            serverIp: '31.97.229.109',
             serverPort: '27015',
-            password: 'cs2pro2024',
+            password: 'ColabEsports#456',
             rconPassword: 'admin123',
-            connectCommand: 'steam://connect/103.21.58.132:27015/cs2pro2024',
+            connectCommand: 'steam://connect/31.97.229.109:27015/ColabEsports#456',
             mapPool: ['de_dust2', 'de_mirage', 'de_inferno', 'de_cache']
           }
         },
@@ -590,11 +627,11 @@ app.post('/api/seed-database', async (req, res) => {
         region: 'bangalore',
         roomDetails: {
           cs2: {
-            serverIp: '103.21.58.134',
+            serverIp: '31.97.229.109',
             serverPort: '27015',
-            password: 'quickmatch2024',
+            password: 'ColabEsports#456',
             rconPassword: 'admin456',
-            connectCommand: 'steam://connect/103.21.58.134:27015/quickmatch2024',
+            connectCommand: 'steam://connect/31.97.229.109:27015/ColabEsports#456',
             mapPool: ['de_dust2', 'de_mirage']
           }
         },

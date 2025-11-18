@@ -13,17 +13,19 @@ import {
 } from '../store/slices/tournamentSlice';
 import { selectAuth } from '../store/slices/authSlice';
 import SteamConnectionModal from '../components/steam/SteamConnectionModal';
+import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
 import CountdownTimer from '../components/common/CountdownTimer';
 import api from '../services/api';
+import { getSteamAuthUrl } from '../utils/apiConfig';
 
 const CS2Page = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useSelector(selectAuth);
-  const tournaments = useSelector(selectTournaments) || [];
-  const loading = useSelector(selectTournamentLoading);
-  const error = useSelector(selectTournamentError);
-  const pagination = useSelector(selectTournamentPagination);
+  const tournaments = useSelector((state) => state.tournaments?.tournaments || []);
+  const loading = useSelector((state) => state.tournaments?.loading || false);
+  const error = useSelector((state) => state.tournaments?.error || null);
+  const pagination = useSelector((state) => state.tournaments?.pagination || {});
 
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showSteamModal, setShowSteamModal] = useState(false);
@@ -112,8 +114,14 @@ const CS2Page = () => {
     }
   };
 
+  const [selectedTournament, setSelectedTournament] = useState(null);
+
   const openSteamAndConnect = (tournament) => {
-    // Get userId from Redux state
+    setSelectedTournament(tournament);
+    setShowSteamModal(true);
+  };
+
+  const handleSteamLink = () => {
     const userId = user?.id || user?._id;
     
     if (!userId) {
@@ -121,39 +129,11 @@ const CS2Page = () => {
       navigate('/login');
       return;
     }
-    
-    // Show confirmation dialog with Steam app opening
-    const userConfirmed = window.confirm(
-      `Steam ID is required to join "${tournament.name}".\n\n` +
-      'What will happen:\n' +
-      '1. Steam app will open (if installed)\n' +
-      '2. Browser will open for Steam login (required for security)\n' +
-      '3. After login, you will return to tournament page\n\n' +
-      'Note: Browser login is required by Steam for security.\n\n' +
-      'Continue?'
-    );
 
-    if (userConfirmed) {
-      try {
-        // Try to open Steam app
-        const steamUrl = 'steam://open/main';
-        const link = document.createElement('a');
-        link.href = steamUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Wait a moment then redirect to Steam OAuth (use absolute URL to backend)
-        setTimeout(() => {
-          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
-        }, 1500);
-        
-      } catch (error) {
-        console.log('Steam app not available, using web OAuth');
-        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
-      }
-    }
+    setShowSteamModal(false);
+    
+    // Direct redirect to Steam OAuth - uses dynamic URL
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?._id}`);
   };
 
   const handleJoinTournament = async (tournament) => {
@@ -418,12 +398,12 @@ const CS2Page = () => {
         </div>
 
         {/* Error State */}
-        {error.tournaments && (
+        {error?.tournaments && (
           <div className="card-gaming p-6 mb-6">
             <div className="text-center">
               <div className="text-red-400 text-6xl mb-4">⚠️</div>
               <h3 className="text-xl font-bold text-white mb-2">Error Loading Tournaments</h3>
-              <p className="text-gray-300 mb-4">{error.tournaments.message}</p>
+              <p className="text-gray-300 mb-4">{error?.tournaments?.message || 'Failed to load tournaments'}</p>
               <button
                 onClick={() => {
                   dispatch(clearError());
@@ -600,10 +580,18 @@ const CS2Page = () => {
         </div>
       </div>
 
-      {/* Steam Integration Modal */}
-      <SteamConnectionModal
+      {/* Steam Linking Modal */}
+      <SteamLinkingModal
         isOpen={showSteamModal}
         onClose={() => setShowSteamModal(false)}
+        onConfirm={handleSteamLink}
+        tournamentName={selectedTournament?.name || 'this tournament'}
+      />
+
+      {/* Steam Integration Modal (for eligibility check) */}
+      <SteamConnectionModal
+        isOpen={steamCheckResult !== null}
+        onClose={() => setSteamCheckResult(null)}
         onSuccess={handleSteamSuccess}
         gameType="cs2"
       />

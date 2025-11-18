@@ -6,6 +6,8 @@ import { joinTournament } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
 import notificationService from '../../services/notificationService';
 import SteamConnectionWidget from '../steam/SteamConnectionWidget';
+import SteamLinkingModal from './SteamLinkingModal';
+import { getSteamAuthUrl } from '../../utils/apiConfig';
 
 const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const dispatch = useDispatch();
@@ -26,6 +28,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [steamConnected, setSteamConnected] = useState(false);
+  const [showSteamModal, setShowSteamModal] = useState(false);
   
   // Get max team size based on mode
   const getMaxTeamSize = () => {
@@ -41,45 +44,21 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const maxTeamSize = getMaxTeamSize();
 
   const openSteamForConnection = () => {
-    // Get userId from Redux state
+    setShowSteamModal(true);
+  };
+
+  const handleSteamLink = () => {
     const userId = user?.id || user?._id;
     
     if (!userId) {
       setError('Please login again to continue');
       return;
     }
-    
-    const userConfirmed = window.confirm(
-      `Steam account is required for CS2 tournaments.\n\n` +
-      'Click OK to:\n' +
-      '1. Open Steam app (if installed)\n' +
-      '2. Login to Steam\n' +
-      '3. Connect your account\n' +
-      '4. Return to complete registration\n\n' +
-      'Continue?'
-    );
 
-    if (userConfirmed) {
-      try {
-        // Try to open Steam app
-        const steamUrl = 'steam://open/main';
-        const link = document.createElement('a');
-        link.href = steamUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Wait then redirect to Steam OAuth (use absolute URL to backend)
-        setTimeout(() => {
-          window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
-        }, 1500);
-        
-      } catch (error) {
-        console.log('Steam app not available, using web OAuth');
-        window.location.href = `http://localhost:5001/api/steam/auth?state=${userId}&redirect=/tournaments/${tournament._id}`;
-      }
-    }
+    setShowSteamModal(false);
+    
+    // Direct redirect to Steam OAuth - uses dynamic URL
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournament._id}`);
   };
 
   const handleInputChange = (e) => {
@@ -236,8 +215,34 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
       // Show success notification
       notificationService.showRegistrationSuccess(tournament.name);
       
-      onSuccess && onSuccess();
-      navigate(`/tournaments/${tournament._id}`);
+      // For CS2 tournaments, automatically launch game with server connection
+      if (tournament.gameType === 'cs2' && data.data?.roomDetails?.cs2?.connectCommand) {
+        const connectCommand = data.data.roomDetails.cs2.connectCommand;
+        
+        // Show success message with game launch info
+        const launchGame = window.confirm(
+          `✅ Registration Successful!\n\n` +
+          `Would you like to launch CS2 and connect to the server now?\n\n` +
+          `Server: ${data.data.roomDetails.cs2.serverIp}:${data.data.roomDetails.cs2.serverPort}`
+        );
+        
+        if (launchGame) {
+          // Launch CS2 with server connection using steam:// protocol
+          window.location.href = connectCommand;
+          
+          // Small delay before redirecting to tournament page
+          setTimeout(() => {
+            onSuccess && onSuccess();
+            navigate(`/tournaments/${tournament._id}`);
+          }, 1000);
+        } else {
+          onSuccess && onSuccess();
+          navigate(`/tournaments/${tournament._id}`);
+        }
+      } else {
+        onSuccess && onSuccess();
+        navigate(`/tournaments/${tournament._id}`);
+      }
       
     } catch (error) {
       setError(error.message || 'Registration failed. Please try again.');
@@ -540,6 +545,26 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
           ) : (
             /* Other Games or Solo Mode */
             <>
+              {/* CS2 Steam ID - Auto-filled and Read-only */}
+              {tournament.gameType === 'cs2' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center space-x-2">
+                    <span>Steam ID (Auto-detected)</span>
+                    <span className="text-green-400 text-xs">✓ Verified</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={user?.gameIds?.steam || 'Not connected'}
+                    readOnly
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white cursor-not-allowed opacity-75"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Your Steam account is automatically linked for CS2 tournaments
+                  </p>
+                </div>
+              )}
+
+              {/* Other Games - Manual Input */}
               {tournament.gameType !== 'cs2' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -700,6 +725,14 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
           </div>
         </form>
       </motion.div>
+
+      {/* Steam Linking Modal */}
+      <SteamLinkingModal
+        isOpen={showSteamModal}
+        onClose={() => setShowSteamModal(false)}
+        onConfirm={handleSteamLink}
+        tournamentName={tournament?.name || 'this tournament'}
+      />
     </div>
   );
 };
