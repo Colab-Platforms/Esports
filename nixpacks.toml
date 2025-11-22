@@ -1,0 +1,15 @@
+# Nixpacks Configuration for Railway
+# This tells Railway to only deploy backend
+
+[phases.setup]
+nixPkgs = ["nodejs-18_x"]
+
+[phases.install]
+cmds = ["npm install --production=false"]
+
+[phases.build]
+# No build command - skip building client
+cmds = []
+
+[start]
+cmd = "node server/index.js"
