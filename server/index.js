@@ -67,6 +67,10 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// No-cache middleware for API routes to prevent stale data
+const noCache = require('./middleware/noCache');
+app.use('/api', noCache);
+
 // Session middleware (required for Steam OAuth)
 app.use(session({
   secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',

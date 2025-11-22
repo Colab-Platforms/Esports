@@ -132,6 +132,13 @@ const tournamentSlice = createSlice({
     resetFilters: (state) => {
       state.filters = initialState.filters;
     },
+    resetTournaments: (state) => {
+      // Clear all tournament data to force fresh fetch
+      state.tournaments = [];
+      state.currentTournament = null;
+      state.error = null;
+      state.isLoading = false;
+    },
     setPagination: (state, action) => {
       state.pagination = { ...state.pagination, ...action.payload };
     },
@@ -236,6 +243,7 @@ export const {
   clearCurrentTournament,
   setFilters,
   resetFilters,
+  resetTournaments,
   setPagination,
   joinTournamentLocal,
   leaveTournament

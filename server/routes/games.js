@@ -4,6 +4,13 @@ const Game = require('../models/Game');
 
 // Get all games
 router.get('/', async (req, res) => {
+  // Disable caching for games data
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
+  
   try {
     const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
     res.json(games);
@@ -15,6 +22,13 @@ router.get('/', async (req, res) => {
 
 // Get featured games for banner
 router.get('/featured', async (req, res) => {
+  // Disable caching for featured games
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
+  
   try {
     const featuredGames = await Game.find({ 
       isActive: true, 

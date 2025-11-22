@@ -29,6 +29,14 @@ router.get('/', [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 50 })
 ], async (req, res) => {
+  // Disable caching for tournament data
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
