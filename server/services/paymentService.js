@@ -5,14 +5,25 @@ const Transaction = require('../models/Transaction');
 
 class PaymentService {
   constructor() {
-    this.razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
+    // Make Razorpay optional - only initialize if keys are provided
+    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+      this.razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+      console.log('💳 Razorpay payment gateway initialized');
+    } else {
+      this.razorpay = null;
+      console.log('⚠️  Razorpay not configured - payment features disabled');
+    }
   }
 
   // Create Razorpay order for deposit
   async createDepositOrder(userId, amount) {
+    if (!this.razorpay) {
+      throw new Error('Payment gateway not configured. Please contact administrator.');
+    }
+    
     try {
       const options = {
         amount: amount * 100, // Convert to paise
