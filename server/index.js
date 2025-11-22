@@ -34,20 +34,23 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// Dynamic CORS configuration - allows access from any IP on port 3000
+// Dynamic CORS configuration - allows access from any IP on port 3000 and Vercel
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Allow localhost and any IP address on port 3000
+    // Allow localhost, any IP address on port 3000, and Vercel domains
     const allowedOrigins = [
       'http://localhost:3000',
+      'https://esports-62sh.vercel.app',
       process.env.CLIENT_URL
     ];
     
-    // Check if origin matches localhost:3000 or any IP:3000
-    if (allowedOrigins.includes(origin) || origin.match(/^http:\/\/[\d.]+:3000$/)) {
+    // Check if origin matches allowed patterns
+    if (allowedOrigins.includes(origin) || 
+        origin.match(/^http:\/\/[\d.]+:3000$/) ||
+        origin.match(/^https:\/\/.*\.vercel\.app$/)) {
       callback(null, true);
     } else {
       callback(null, true); // For development, allow all origins
