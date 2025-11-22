@@ -1,0 +1,18 @@
+# Ignore client folder - frontend is deployed on Vercel
+client/
+
+# Ignore documentation
+*.md
+!README.md
+
+# Ignore deployment configs for other platforms
+vercel.json
+client/vercel.json
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore local env
+.env.local
+.env.development.local
