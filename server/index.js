@@ -335,8 +335,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Comprehensive database seeding endpoint
+// Comprehensive database seeding endpoint (Development only)
 app.post('/api/seed-database', async (req, res) => {
+  // Only allow in development
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Seeding is not allowed in production',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
   try {
     const User = require('./models/User');
     const Tournament = require('./models/Tournament');
