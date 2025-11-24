@@ -45,6 +45,42 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Phone validation - Indian mobile numbers
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PHONE',
+          message: 'Please enter a valid 10-digit Indian mobile number',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Email validation
+    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_EMAIL',
+          message: 'Please enter a valid email address',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Username validation
+    if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_USERNAME',
+          message: 'Username must be at least 3 characters and contain only letters, numbers, and underscores',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     console.log('✅ Basic validation passed');
 
     // Check if user already exists
