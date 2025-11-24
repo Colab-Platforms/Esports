@@ -419,7 +419,7 @@ function App() {
                   >
                     <GamesManagement />
                   </motion.div>
-                </ProtectedRoute>
+                </AdminRoute>
               } 
             />
             
