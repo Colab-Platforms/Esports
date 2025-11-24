@@ -161,7 +161,19 @@ const Navbar = () => {
                           <FiSettings className="w-4 h-4" />
                           <span>Profile Settings</span>
                         </Link>
-                        {/* Steam Integration link removed */}
+                        
+                        {/* Admin Link - Only for admin users */}
+                        {user?.role === 'admin' && (
+                          <Link
+                            to="/admin"
+                            className="flex items-center space-x-2 px-4 py-2 text-sm text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                          >
+                            <FiGrid className="w-4 h-4" />
+                            <span>Admin Panel</span>
+                          </Link>
+                        )}
+                        
                         <button
                           onClick={handleLogout}
                           className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-red-400 hover:bg-theme-bg-hover transition-colors duration-200 w-full text-left"

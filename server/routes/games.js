@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Game = require('../models/Game');
+const auth = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 // Get all games
 router.get('/', async (req, res) => {
@@ -56,7 +58,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new game (admin only)
-router.post('/', async (req, res) => {
+router.post('/', auth, adminAuth, async (req, res) => {
   try {
     const game = new Game(req.body);
     await game.save();
@@ -68,7 +70,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update game (admin only)
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, adminAuth, async (req, res) => {
   try {
     const game = await Game.findOneAndUpdate(
       { id: req.params.id },
@@ -97,6 +99,23 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Game not found' });
     }
     res.json({ message: 'Game deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting game:', error);
+    res.status(500).json({ message: 'Error deleting game', error: error.message });
+  }
+});
+
+module.exports = router;
+
+// Dele
+te game (admin only)
+router.delete('/:id', auth, adminAuth, async (req, res) => {
+  try {
+    const game = await Game.findOneAndDelete({ id: req.params.id });
+    if (!game) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    res.json({ message: 'Game deleted successfully', game });
   } catch (error) {
     console.error('Error deleting game:', error);
     res.status(500).json({ message: 'Error deleting game', error: error.message });

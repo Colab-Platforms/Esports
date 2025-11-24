@@ -25,6 +25,8 @@ import LeaderboardPage from './pages/LeaderboardPage';
 // import WalletPage from './pages/WalletPage';
 import ProfilePage from './pages/ProfilePage';
 import GamesPage from './pages/GamesPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import GamesManagement from './pages/admin/GamesManagement';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -368,6 +370,39 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <MatchRoomWrapper />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Admin Routes */}
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AdminDashboard />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/games" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <GamesManagement />
                   </motion.div>
                 </ProtectedRoute>
               } 
