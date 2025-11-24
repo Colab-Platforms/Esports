@@ -64,7 +64,9 @@ export const getApiEndpoint = (path) => {
 // Helper to construct Steam OAuth URL
 export const getSteamAuthUrl = (userId, redirectPath = '') => {
   const serverUrl = getServerBaseUrl();
-  let url = `${serverUrl}/api/steam/auth?state=${userId}`;
+  // Remove trailing slash if present
+  const cleanServerUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
+  let url = `${cleanServerUrl}/api/steam/auth?state=${userId}`;
   
   if (redirectPath) {
     url += `&redirect=${redirectPath}`;
