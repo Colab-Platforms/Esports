@@ -252,8 +252,12 @@ router.post('/login', [
     }
 
     // Verify password
+    console.log('🔐 Verifying password for user:', user.username);
     const isPasswordValid = await user.comparePassword(password);
+    console.log('🔐 Password valid:', isPasswordValid);
+    
     if (!isPasswordValid) {
+      console.log('❌ Invalid password for user:', user.username);
       return res.status(401).json({
         success: false,
         error: {
@@ -263,6 +267,8 @@ router.post('/login', [
         }
       });
     }
+    
+    console.log('✅ Login successful for user:', user.username);
 
     // Update login streak
     await user.updateLoginStreak();
