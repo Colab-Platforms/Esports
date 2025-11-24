@@ -7,7 +7,7 @@ export const initializeSocket = (userId, dispatch) => {
     socket.disconnect();
   }
 
-  socket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000', {
+  socket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5001', {
     auth: {
       userId
     }

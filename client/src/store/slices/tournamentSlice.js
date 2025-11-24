@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
+// Get API base URL from environment
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 // Async thunks for tournament operations
 export const fetchTournaments = createAsyncThunk(
   'tournaments/fetchTournaments',
@@ -16,7 +19,7 @@ export const fetchTournaments = createAsyncThunk(
       if (filters.page) params.append('page', filters.page);
       if (filters.limit) params.append('limit', filters.limit);
 
-      const response = await axios.get(`/api/tournaments?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/api/tournaments?${params}`);
       
       return response.data.data;
     } catch (error) {
@@ -35,7 +38,7 @@ export const fetchTournamentById = createAsyncThunk(
         headers.Authorization = `Bearer ${auth.token}`;
       }
       
-      const response = await axios.get(`/api/tournaments/${tournamentId}`, { headers });
+      const response = await axios.get(`${API_BASE_URL}/api/tournaments/${tournamentId}`, { headers });
       return {
         tournament: response.data.data.tournament,
         isUserRegistered: response.data.data.isUserRegistered,
@@ -51,7 +54,7 @@ export const joinTournament = createAsyncThunk(
   'tournaments/joinTournament',
   async ({ tournamentId, gameId, teamName }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`/api/tournaments/${tournamentId}/join`, {
+      const response = await axios.post(`${API_BASE_URL}/api/tournaments/${tournamentId}/join`, {
         gameId,
         teamName
       });
