@@ -50,3 +50,18 @@ coverage/
 # Misc
 *.pem
 .cache/
+
+# Documentation/Guide files (temporary/local only)
+*_GUIDE.md
+*_FIX.md
+*_FIXES.md
+*_CHECKLIST.md
+*_COMMANDS.md
+*_STEPS.md
+*_SUMMARY.md
+DEPLOYMENT_*.md
+RAILWAY_*.md
+VERCEL_*.md
+MONGODB_*.md
+CHECK_*.md
+URGENT_*.md
