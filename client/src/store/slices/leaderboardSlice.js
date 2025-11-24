@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
+// Get API base URL from environment
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 // Async thunks for leaderboard operations
 export const fetchLeaderboard = createAsyncThunk(
   'leaderboard/fetchLeaderboard',
@@ -16,7 +19,7 @@ export const fetchLeaderboard = createAsyncThunk(
         params.append('tournamentId', tournamentId);
       }
 
-      const response = await axios.get(`/api/leaderboard?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/api/leaderboard?${params}`);
       
       return { ...response.data.data, gameType, leaderboardType, tournamentId };
     } catch (error) {
@@ -37,7 +40,7 @@ export const fetchUserPosition = createAsyncThunk(
         params.append('tournamentId', tournamentId);
       }
 
-      const response = await axios.get(`/api/leaderboard/user/${userId}?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/api/leaderboard/user/${userId}?${params}`);
       return response.data.data.userPosition;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || { message: 'Failed to fetch user position' });
@@ -57,7 +60,7 @@ export const fetchMyPosition = createAsyncThunk(
         params.append('tournamentId', tournamentId);
       }
 
-      const response = await axios.get(`/api/leaderboard/me?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/api/leaderboard/me?${params}`);
       return response.data.data.userPosition;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || { message: 'Failed to fetch user position' });
@@ -74,7 +77,7 @@ export const fetchTopPerformers = createAsyncThunk(
       params.append('leaderboardType', leaderboardType);
       params.append('limit', limit);
 
-      const response = await axios.get(`/api/leaderboard/top-performers?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/api/leaderboard/top-performers?${params}`);
       
       return response.data.data.topPerformers;
     } catch (error) {
@@ -87,7 +90,7 @@ export const fetchLeaderboardStats = createAsyncThunk(
   'leaderboard/fetchLeaderboardStats',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get('/api/leaderboard/stats');
+      const response = await axios.get(`${API_BASE_URL}/api/leaderboard/stats`);
       return response.data.data.stats;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || { message: 'Failed to fetch leaderboard stats' });
