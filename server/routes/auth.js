@@ -203,9 +203,13 @@ router.post('/login', [
     .withMessage('Password is required')
 ], async (req, res) => {
   try {
+    console.log('🔐 Login attempt received');
+    console.log('📧 Identifier:', req.body.identifier);
+    
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         error: {
@@ -218,6 +222,7 @@ router.post('/login', [
     }
 
     const { identifier, password } = req.body;
+    console.log('🔍 Searching for user with identifier:', identifier);
 
     // Find user by email, username, or phone
     const user = await User.findOne({
@@ -229,6 +234,7 @@ router.post('/login', [
     });
 
     if (!user) {
+      console.log('❌ User not found for identifier:', identifier);
       return res.status(401).json({
         success: false,
         error: {
@@ -238,6 +244,8 @@ router.post('/login', [
         }
       });
     }
+    
+    console.log('✅ User found:', user.username);
 
     // Check if account is active
     if (!user.isActive) {
