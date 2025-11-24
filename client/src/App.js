@@ -23,7 +23,7 @@ import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 // import WalletPage from './pages/WalletPage';
-// import ProfilePage from './pages/ProfilePage';
+import ProfilePage from './pages/ProfilePage';
 import GamesPage from './pages/GamesPage';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -318,8 +318,7 @@ function App() {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    {/* <ProfilePage /> */}
-                    <div>Profile Page - Coming Soon</div>
+                    <ProfilePage />
                   </motion.div>
                 </ProtectedRoute>
               } 
