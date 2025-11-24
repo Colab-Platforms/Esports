@@ -150,7 +150,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Ultimate BGMI tournament with massive prize pool. Join the best players and compete for glory!',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 100,
+      entryFee: 0,
       prizePool: 25000,
       prizeDistribution: [
         { position: 1, amount: 12500, percentage: 50 },
@@ -177,7 +177,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Test your individual skills in this intense solo BGMI tournament.',
       gameType: 'bgmi',
       mode: 'solo',
-      entryFee: 50,
+      entryFee: 0,
       prizePool: 15000,
       prizeDistribution: [
         { position: 1, amount: 7500, percentage: 50 },
@@ -204,7 +204,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Partner up and dominate the battlefield in this exciting duo tournament.',
       gameType: 'bgmi',
       mode: 'duo',
-      entryFee: 75,
+      entryFee: 0,
       prizePool: 20000,
       prizeDistribution: [
         { position: 1, amount: 10000, percentage: 50 },
@@ -231,7 +231,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Join the live tournament happening right now!',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 25,
+      entryFee: 0,
       prizePool: 8000,
       prizeDistribution: [
         { position: 1, amount: 4000, percentage: 50 },
@@ -258,7 +258,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Epic tournament that concluded with amazing matches.',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 200,
+      entryFee: 0,
       prizePool: 50000,
       prizeDistribution: [
         { position: 1, amount: 25000, percentage: 50 },
@@ -446,7 +446,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Ultimate BGMI tournament with massive prize pool. Join the best players and compete for glory! This is the biggest tournament of the year.',
         gameType: 'bgmi',
         mode: 'squad',
-        entryFee: 100,
+        entryFee: 0,
         prizePool: 25000,
         prizeDistribution: [
           { position: 1, amount: 12500, percentage: 50 },
@@ -480,7 +480,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Test your individual skills in this intense solo BGMI tournament. Only the best survive!',
         gameType: 'bgmi',
         mode: 'solo',
-        entryFee: 50,
+        entryFee: 0,
         prizePool: 15000,
         prizeDistribution: [
           { position: 1, amount: 7500, percentage: 50 },
@@ -514,7 +514,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Professional Counter-Strike 2 tournament with dedicated servers. Compete at the highest level!',
         gameType: 'cs2',
         mode: 'team',
-        entryFee: 300,
+        entryFee: 0,
         prizePool: 50000,
         prizeDistribution: [
           { position: 1, amount: 25000, percentage: 50 },
@@ -549,7 +549,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Competitive Valorant tournament for skilled players. Show your tactical prowess!',
         gameType: 'valorant',
         mode: 'team',
-        entryFee: 200,
+        entryFee: 0,
         prizePool: 30000,
         prizeDistribution: [
           { position: 1, amount: 15000, percentage: 50 },
@@ -581,7 +581,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Live tournament happening right now! Join the action!',
         gameType: 'bgmi',
         mode: 'squad',
-        entryFee: 25,
+        entryFee: 0,
         prizePool: 8000,
         prizeDistribution: [
           { position: 1, amount: 4000, percentage: 50 },
@@ -615,7 +615,7 @@ app.post('/api/seed-database', async (req, res) => {
         description: 'Fast-paced CS2 tournament for quick matches. Perfect for practice!',
         gameType: 'cs2',
         mode: 'team',
-        entryFee: 150,
+        entryFee: 0,
         prizePool: 12000,
         prizeDistribution: [
           { position: 1, amount: 6000, percentage: 50 },
@@ -892,7 +892,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Ultimate BGMI tournament with massive prize pool. Join the best players and compete for glory!',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 100,
+      entryFee: 0,
       prizePool: 25000,
       prizeDistribution: [
         { position: 1, amount: 12500, percentage: 50 },
@@ -919,7 +919,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Test your individual skills in this intense solo BGMI tournament.',
       gameType: 'bgmi',
       mode: 'solo',
-      entryFee: 50,
+      entryFee: 0,
       prizePool: 15000,
       prizeDistribution: [
         { position: 1, amount: 7500, percentage: 50 },
@@ -946,7 +946,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Partner up and dominate the battlefield in this exciting duo tournament.',
       gameType: 'bgmi',
       mode: 'duo',
-      entryFee: 75,
+      entryFee: 0,
       prizePool: 20000,
       prizeDistribution: [
         { position: 1, amount: 10000, percentage: 50 },
@@ -973,7 +973,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Join the live tournament happening right now!',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 25,
+      entryFee: 0,
       prizePool: 8000,
       prizeDistribution: [
         { position: 1, amount: 4000, percentage: 50 },
@@ -1000,7 +1000,7 @@ app.get('/api/tournaments/mock', (req, res) => {
       description: 'Epic tournament that concluded with amazing matches.',
       gameType: 'bgmi',
       mode: 'squad',
-      entryFee: 200,
+      entryFee: 0,
       prizePool: 50000,
       prizeDistribution: [
         { position: 1, amount: 25000, percentage: 50 },
