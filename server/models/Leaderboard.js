@@ -344,14 +344,20 @@ leaderboardSchema.statics.getLeaderboard = function(options = {}) {
   }
   
   // Add userId exists check to filter out deleted users
-  query.userId = { $ne: null };
+  query.userId = { $ne: null, $exists: true };
   
-  return this.find(query)
+  const results = await this.find(query)
     .populate('userId', 'username avatarUrl gameIds')
     .populate('tournamentId', 'name')
     .sort({ points: -1, 'stats.totalScore': -1 })
-    .limit(limit)
+    .limit(limit * 2) // Fetch extra to account for null users after populate
     .skip(skip);
+  
+  // Filter out entries where userId is null after populate (deleted users)
+  const filtered = results.filter(entry => entry.userId != null);
+  
+  // Return only the requested limit
+  return filtered.slice(0, limit);
 };
 
 // Static method to update rankings
