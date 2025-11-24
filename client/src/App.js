@@ -68,6 +68,21 @@ const ProtectedRoute = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
+// Admin Route component - checks for admin role
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user } = useSelector(selectAuth);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
+
 // Wrapper components for route parameters
 const MatchRoomWrapper = () => {
   const { id } = useParams();
@@ -379,7 +394,7 @@ function App() {
             <Route 
               path="/admin" 
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -388,14 +403,14 @@ function App() {
                   >
                     <AdminDashboard />
                   </motion.div>
-                </ProtectedRoute>
+                </AdminRoute>
               } 
             />
             
             <Route 
               path="/admin/games" 
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
