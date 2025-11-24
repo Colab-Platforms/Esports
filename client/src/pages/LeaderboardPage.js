@@ -420,18 +420,18 @@ const LeaderboardPage = () => {
               <h3 className="text-lg font-bold text-theme-text-primary mb-4">⭐ Top Performers</h3>
               <div className="space-y-3">
                 {topPerformers.slice(0, 5).map((performer) => (
-                  <div key={performer.user._id} className="flex items-center space-x-3">
+                  <div key={performer.user?._id || Math.random()} className="flex items-center space-x-3">
                     <div className="text-lg">
                       {getRankIcon(performer.rank)}
                     </div>
                     <div className="w-8 h-8 bg-theme-accent/20 rounded-full flex items-center justify-center">
                       <span className="text-theme-accent font-bold text-sm">
-                        {performer.user.username.charAt(0).toUpperCase()}
+                        {performer.user?.username?.charAt(0).toUpperCase() || '?'}
                       </span>
                     </div>
                     <div className="flex-1">
                       <div className="text-theme-text-primary font-medium text-sm">
-                        {performer.user.username}
+                        {performer.user?.username || 'Unknown User'}
                       </div>
                       <div className="text-theme-text-muted text-xs">
                         {performer.points} pts
