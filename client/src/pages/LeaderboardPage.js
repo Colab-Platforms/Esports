@@ -230,15 +230,15 @@ const LeaderboardPage = () => {
                             </div>
                             <div className="w-10 h-10 bg-theme-accent/20 rounded-full flex items-center justify-center">
                               <span className="text-theme-accent font-bold">
-                                {entry.userId.username.charAt(0).toUpperCase()}
+                                {entry.userId?.username?.charAt(0).toUpperCase() || '?'}
                               </span>
                             </div>
                             <div>
                               <div className="text-theme-text-primary font-bold">
-                                {entry.userId.username}
+                                {entry.userId?.username || 'Unknown User'}
                               </div>
                               <div className="text-theme-text-muted text-sm">
-                                Level {entry.userId.level || 1}
+                                Level {entry.userId?.level || 1}
                               </div>
                             </div>
                           </div>
@@ -295,15 +295,15 @@ const LeaderboardPage = () => {
                             </div>
                             <div className="w-10 h-10 bg-theme-accent/20 rounded-full flex items-center justify-center">
                               <span className="text-theme-accent font-bold">
-                                {entry.userId.username.charAt(0).toUpperCase()}
+                                {entry.userId?.username?.charAt(0).toUpperCase() || '?'}
                               </span>
                             </div>
                             <div className="flex-1">
                               <div className="text-theme-text-primary font-bold">
-                                {entry.userId.username}
+                                {entry.userId?.username || 'Unknown User'}
                               </div>
                               <div className="text-theme-text-muted text-sm">
-                                Level {entry.userId.level || 1}
+                                Level {entry.userId?.level || 1}
                               </div>
                             </div>
                           </div>

@@ -343,6 +343,9 @@ leaderboardSchema.statics.getLeaderboard = function(options = {}) {
     if (period.week) query['period.week'] = period.week;
   }
   
+  // Add userId exists check to filter out deleted users
+  query.userId = { $ne: null };
+  
   return this.find(query)
     .populate('userId', 'username avatarUrl gameIds')
     .populate('tournamentId', 'name')
