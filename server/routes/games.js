@@ -88,27 +88,6 @@ router.put('/:id', auth, adminAuth, async (req, res) => {
 });
 
 // Delete game (admin only)
-router.delete('/:id', async (req, res) => {
-  try {
-    const game = await Game.findOneAndUpdate(
-      { id: req.params.id },
-      { isActive: false },
-      { new: true }
-    );
-    if (!game) {
-      return res.status(404).json({ message: 'Game not found' });
-    }
-    res.json({ message: 'Game deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting game:', error);
-    res.status(500).json({ message: 'Error deleting game', error: error.message });
-  }
-});
-
-module.exports = router;
-
-// Dele
-te game (admin only)
 router.delete('/:id', auth, adminAuth, async (req, res) => {
   try {
     const game = await Game.findOneAndDelete({ id: req.params.id });
