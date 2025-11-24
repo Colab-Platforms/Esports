@@ -97,7 +97,8 @@ const RegisterPage = () => {
     dispatch(registerStart());
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
