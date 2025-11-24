@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiGrid, FiTrophy, FiUsers, FiBarChart2, FiSettings } from 'react-icons/fi';
+import { FiGrid, FiAward, FiUsers, FiBarChart2, FiSettings } from 'react-icons/fi';
 
 const AdminDashboard = () => {
   const adminSections = [
@@ -15,7 +15,7 @@ const AdminDashboard = () => {
     {
       title: 'Tournaments',
       description: 'Create and manage tournaments',
-      icon: FiTrophy,
+      icon: FiAward,
       link: '/admin/tournaments',
       color: 'from-purple-500 to-pink-500'
     },
