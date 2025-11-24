@@ -76,7 +76,15 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
+  // Debug: Log user role
+  console.log('🔍 AdminRoute Check:', { 
+    isAuthenticated, 
+    userRole: user?.role, 
+    isAdmin: user?.role === 'admin' 
+  });
+  
   if (user?.role !== 'admin') {
+    console.log('❌ Access denied: User is not admin');
     return <Navigate to="/" replace />;
   }
   
