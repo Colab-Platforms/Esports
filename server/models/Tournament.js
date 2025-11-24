@@ -71,15 +71,8 @@ const tournamentSchema = new mongoose.Schema({
   },
   startDate: {
     type: Date,
-    required: [true, 'Start date is required'],
-    validate: {
-      validator: function(value) {
-        // Allow dates within 1 minute of current time (for seeding)
-        const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-        return value > oneMinuteAgo;
-      },
-      message: 'Start date must be in the future'
-    }
+    required: [true, 'Start date is required']
+    // Validation removed to allow seeding
   },
   endDate: {
     type: Date,
