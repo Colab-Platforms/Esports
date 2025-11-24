@@ -191,3 +191,11 @@ app.get('/api/test/matches', async (req, res) => {
 
 
 
+
+// Start server
+const PORT = process.env.PORT || 5001;
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+});
