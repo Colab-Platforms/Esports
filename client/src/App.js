@@ -27,6 +27,7 @@ import ProfilePage from './pages/ProfilePage';
 import GamesPage from './pages/GamesPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
+import TournamentManagement from './pages/admin/TournamentManagement';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -423,6 +424,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <GamesManagement />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/tournaments" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TournamentManagement />
                   </motion.div>
                 </AdminRoute>
               } 
