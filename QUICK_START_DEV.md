@@ -60,10 +60,40 @@ git push origin main
 
 ---
 
-## 🔧 Local Development URLs
+## 🔧 Local Development
 
+### Full Local Setup (Recommended)
+```bash
+# Terminal 1 - Backend
+npm run server
+
+# Terminal 2 - Frontend
+cd client
+npm start
+```
+
+**URLs:**
 - **Frontend:** http://localhost:3000
 - **Backend:** http://localhost:5001
+
+**Make sure `client/.env` has:**
+```env
+REACT_APP_API_URL=http://localhost:5001
+```
+
+### Quick Local (Frontend only)
+If you don't want to run backend locally:
+
+**Update `client/.env`:**
+```env
+REACT_APP_API_URL=https://your-dev-railway-url.up.railway.app
+```
+
+Then:
+```bash
+cd client
+npm start
+```
 
 ---
 

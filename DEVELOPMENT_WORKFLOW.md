@@ -24,11 +24,30 @@ git pull origin dev
 ```
 
 ### 2. Make Changes & Test Locally
-```bash
-# Start local development server
-npm run dev
 
-# Test your changes at http://localhost:3000
+**Option A: Full Local Testing (Recommended)**
+```bash
+# Terminal 1 - Start Backend
+npm run server
+# Backend runs on http://localhost:5001
+
+# Terminal 2 - Start Frontend
+cd client
+npm start
+# Frontend runs on http://localhost:3000
+
+# Make sure client/.env has:
+# REACT_APP_API_URL=http://localhost:5001
+```
+
+**Option B: Local Frontend + Dev Backend**
+```bash
+# Only start frontend
+cd client
+npm start
+
+# Make sure client/.env has:
+# REACT_APP_API_URL=https://your-dev-railway-url.up.railway.app
 ```
 
 ### 3. Commit to Dev Branch
