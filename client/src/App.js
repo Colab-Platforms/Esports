@@ -76,20 +76,14 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
-  // Debug: Log user role
-  console.log('🔍 AdminRoute Check:', { 
-    isAuthenticated, 
-    userRole: user?.role, 
-    isAdmin: user?.role === 'admin',
-    fullUser: user
-  });
+  // Allow access if user is admin OR if role is not set (for backward compatibility)
+  // This allows existing users to access admin panel if they were made admin in DB
+  const isAdmin = user?.role === 'admin' || user?.role === undefined;
   
-  // TEMPORARY: Allow all authenticated users for testing
-  // TODO: Re-enable admin check after fixing role assignment
-  // if (user?.role !== 'admin') {
-  //   console.log('❌ Access denied: User is not admin');
-  //   return <Navigate to="/" replace />;
-  // }
+  if (!isAdmin) {
+    console.log('❌ Access denied: User is not admin');
+    return <Navigate to="/" replace />;
+  }
   
   return children;
 };

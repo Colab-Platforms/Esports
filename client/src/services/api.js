@@ -95,6 +95,42 @@ class ApiService {
   async disconnectSteam() {
     return this.post('/api/steam/disconnect');
   }
+
+  // Profile API
+  async updateProfile(formData) {
+    const token = localStorage.getItem('token');
+    const url = `${this.baseURL}/api/auth/profile`;
+    
+    const config = {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      },
+      body: formData
+    };
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to update profile');
+      }
+      
+      // Update localStorage with new user data
+      if (data.success && data.data.user) {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = { ...currentUser, ...data.data.user };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      throw error;
+    }
+  }
 }
 
 const api = new ApiService();

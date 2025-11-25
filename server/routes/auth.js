@@ -362,32 +362,11 @@ router.get('/profile', auth, async (req, res) => {
 // @route   PUT /api/auth/profile
 // @desc    Update user profile
 // @access  Private
-router.put('/profile', auth, [
-  body('username')
-    .optional()
-    .isLength({ min: 3, max: 20 })
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage('Username must be 3-20 characters and contain only letters, numbers, and underscores'),
-  body('avatarUrl')
-    .optional()
-    .isURL()
-    .withMessage('Please provide a valid avatar URL')
-], async (req, res) => {
+router.put('/profile', auth, async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Please check your input data',
-          details: errors.array(),
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    const { username, avatarUrl, gameIds, preferences } = req.body;
+    console.log('📝 Profile update request:', req.body);
+    
+    const { username, email, phone, bio, country, favoriteGame, profileVisibility, avatarUrl } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -403,6 +382,18 @@ router.put('/profile', auth, [
 
     // Check if username is already taken
     if (username && username !== user.username) {
+      // Validate username
+      if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_USERNAME',
+            message: 'Username must be at least 3 characters and contain only letters, numbers, and underscores',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
       const existingUser = await User.findOne({ username });
       if (existingUser) {
         return res.status(400).json({
@@ -417,16 +408,41 @@ router.put('/profile', auth, [
       user.username = username;
     }
 
-    // Update other fields
-    if (avatarUrl) user.avatarUrl = avatarUrl;
-    if (gameIds) user.gameIds = { ...user.gameIds, ...gameIds };
-    if (preferences) user.preferences = { ...user.preferences, ...preferences };
+    // Update fields (only if provided)
+    if (bio !== undefined) user.bio = bio;
+    if (country !== undefined) user.country = country;
+    if (favoriteGame !== undefined) user.favoriteGame = favoriteGame;
+    if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
     await user.save();
+    
+    console.log('✅ Profile updated successfully for user:', user.username);
+
+    // Return updated user data
+    const updatedUser = {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      country: user.country,
+      favoriteGame: user.favoriteGame,
+      profileVisibility: user.profileVisibility,
+      kycStatus: user.kycStatus,
+      role: user.role,
+      level: user.level,
+      currentRank: user.currentRank,
+      loginStreak: user.loginStreak,
+      totalEarnings: user.totalEarnings,
+      tournamentsWon: user.tournamentsWon,
+      gameIds: user.gameIds
+    };
 
     res.json({
       success: true,
-      data: { user },
+      data: { user: updatedUser },
       message: '✅ Profile updated successfully!',
       timestamp: new Date().toISOString()
     });
@@ -438,6 +454,7 @@ router.put('/profile', auth, [
       error: {
         code: 'PROFILE_UPDATE_FAILED',
         message: 'Failed to update profile. Please try again.',
+        details: error.message,
         timestamp: new Date().toISOString()
       }
     });
