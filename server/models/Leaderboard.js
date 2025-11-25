@@ -317,7 +317,7 @@ leaderboardSchema.methods.updateFromMatch = function(matchResult) {
 };
 
 // Static method to get leaderboard with pagination
-leaderboardSchema.statics.getLeaderboard = function(options = {}) {
+leaderboardSchema.statics.getLeaderboard = async function(options = {}) {
   const {
     gameType,
     leaderboardType = 'overall',
