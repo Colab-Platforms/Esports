@@ -100,16 +100,18 @@ const ProfilePage = () => {
     setSuccess('');
 
     try {
-      const updateData = new FormData();
-      
-      // Add form data
-      Object.keys(formData).forEach(key => {
-        updateData.append(key, formData[key]);
-      });
+      // Send as JSON (avatar upload will be added later)
+      const updateData = {
+        username: formData.username,
+        bio: formData.bio,
+        country: formData.country,
+        favoriteGame: formData.favoriteGame,
+        profileVisibility: formData.profileVisibility
+      };
 
-      // Add avatar if selected
-      if (avatarFile) {
-        updateData.append('avatar', avatarFile);
+      // If avatar preview is different from user avatar, include it
+      if (avatarPreview && avatarPreview !== user?.avatarUrl) {
+        updateData.avatarUrl = avatarPreview;
       }
 
       const response = await api.updateProfile(updateData);
@@ -119,13 +121,20 @@ const ProfilePage = () => {
         setIsEditing(false);
         setAvatarFile(null);
         
-        // Refresh user data
+        // Update Redux store with new user data
+        if (response.data?.user) {
+          // Dispatch action to update user in Redux
+          window.dispatchEvent(new CustomEvent('userUpdated', { detail: response.data.user }));
+        }
+        
+        // Refresh after 1.5 seconds
         setTimeout(() => {
           window.location.reload();
         }, 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      console.error('Profile update error:', err);
+      setError(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
