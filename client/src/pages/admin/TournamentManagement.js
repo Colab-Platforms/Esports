@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiUsers, FiCalendar, FiDollarSign } from 'react-icons/fi';
+import { useForm } from 'react-hook-form';
+import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
@@ -11,20 +12,39 @@ const TournamentManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    gameType: '', // Changed from gameId
-    description: '',
-    mode: 'squad', // Added mode field
-    entryFee: 0,
-    prizePool: 0,
-    maxParticipants: 100,
-    startDate: '',
-    endDate: '',
-    registrationDeadline: '', // Added registration deadline
-    rules: '',
-    status: 'upcoming'
+  // React Hook Form
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm({
+    defaultValues: {
+      name: '',
+      gameType: '',
+      description: '',
+      mode: 'squad',
+      entryFee: 0,
+      prizePool: 0,
+      maxParticipants: 100,
+      startDate: '',
+      endDate: '',
+      registrationDeadline: '',
+      rules: '',
+      status: 'upcoming'
+    }
   });
+
+  // Helper: Convert game ID to gameType
+  const getGameType = (gameId) => {
+    const game = games.find(g => g._id === gameId);
+    if (!game) return '';
+    // Map game id to gameType (bgmi, valorant, cs2)
+    const gameTypeMap = {
+      'bgmi': 'bgmi',
+      'valorant': 'valorant',
+      'cs2': 'cs2',
+      'freefire': 'bgmi', // Fallback
+      'pubgpc': 'cs2', // Fallback
+      'mobilelegends': 'bgmi' // Fallback
+    };
+    return gameTypeMap[game.id] || 'bgmi';
+  };
 
   useEffect(() => {
     fetchTournaments();
@@ -88,38 +108,42 @@ const TournamentManagement = () => {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const onSubmit = async (data) => {
     try {
+      console.log('Submitting tournament data:', data);
+      
       if (editingTournament) {
-        await api.put(`/api/tournaments/${editingTournament._id}`, formData);
+        await api.put(`/api/tournaments/${editingTournament._id}`, data);
         toast.success('Tournament updated successfully!');
       } else {
-        await api.post('/api/tournaments', formData);
+        await api.post('/api/tournaments', data);
         toast.success('Tournament created successfully!');
       }
       
       setShowModal(false);
-      resetForm();
+      reset();
+      setEditingTournament(null);
       fetchTournaments();
     } catch (error) {
       console.error('Failed to save tournament:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to save tournament');
+      const errorMsg = error.response?.data?.error?.message || 'Failed to save tournament';
+      const errorDetails = error.response?.data?.error?.details;
+      
+      if (errorDetails && Array.isArray(errorDetails)) {
+        errorDetails.forEach(detail => {
+          toast.error(`${detail.path}: ${detail.msg}`);
+        });
+      } else {
+        toast.error(errorMsg);
+      }
     }
   };
 
   const handleEdit = (tournament) => {
     setEditingTournament(tournament);
-    setFormData({
+    
+    // Set form values using react-hook-form
+    reset({
       name: tournament.name,
       gameType: tournament.gameType || '',
       description: tournament.description || '',
@@ -133,6 +157,7 @@ const TournamentManagement = () => {
       rules: tournament.rules || '',
       status: tournament.status || 'upcoming'
     });
+    
     setShowModal(true);
   };
 
@@ -149,21 +174,9 @@ const TournamentManagement = () => {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      gameType: '',
-      description: '',
-      mode: 'squad',
-      entryFee: 0,
-      prizePool: 0,
-      maxParticipants: 100,
-      startDate: '',
-      endDate: '',
-      registrationDeadline: '',
-      rules: '',
-      status: 'upcoming'
-    });
+  const handleCloseModal = () => {
+    setShowModal(false);
+    reset();
     setEditingTournament(null);
   };
 
@@ -190,7 +203,8 @@ const TournamentManagement = () => {
           </div>
           <button
             onClick={() => {
-              resetForm();
+              reset();
+              setEditingTournament(null);
               setShowModal(true);
             }}
             className="btn-gaming flex items-center space-x-2"
@@ -209,7 +223,11 @@ const TournamentManagement = () => {
             <h3 className="text-xl font-bold text-white mb-2">No Tournaments Yet</h3>
             <p className="text-gray-400 mb-6">Create your first tournament to get started</p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                reset();
+                setEditingTournament(null);
+                setShowModal(true);
+              }}
               className="btn-gaming"
             >
               Create Tournament
