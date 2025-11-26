@@ -29,7 +29,10 @@ const GamesManagement = () => {
     try {
       const response = await fetch(`${API_URL}/api/games`);
       const data = await response.json();
-      setGames(data);
+      
+      // Handle new response format
+      const gamesData = data.data?.games || data;
+      setGames(gamesData);
     } catch (error) {
       console.error('Error fetching games:', error);
     } finally {

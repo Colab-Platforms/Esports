@@ -44,14 +44,33 @@ const TournamentManagement = () => {
 
   const fetchGames = async () => {
     try {
-      const response = await api.get('/api/games');
+      // Add timestamp to bypass cache
+      const timestamp = new Date().getTime();
+      const response = await api.get(`/api/games?t=${timestamp}`);
       console.log('Games API Response:', response);
-      console.log('Games data:', response.data);
-      console.log('Games array:', response.data?.games);
-      setGames(response.data?.games || []);
+      
+      // Handle different response formats
+      let gamesData = [];
+      if (response.data?.games) {
+        gamesData = response.data.games;
+      } else if (Array.isArray(response.data)) {
+        gamesData = response.data;
+      } else if (response.success && response.data) {
+        gamesData = response.data;
+      }
+      
+      console.log('Final games data:', gamesData);
+      setGames(gamesData);
+      
+      if (gamesData.length === 0) {
+        console.warn('No games found in database');
+        toast.error('No games found. Please add games first from Games Management.');
+      } else {
+        console.log(`✅ Loaded ${gamesData.length} games`);
+      }
     } catch (error) {
       console.error('Failed to fetch games:', error);
-      toast.error('Failed to load games');
+      toast.error('Failed to load games. Check console for details.');
     }
   };
 
@@ -273,12 +292,22 @@ const TournamentManagement = () => {
                     onChange={handleInputChange}
                     required
                     className="input-gaming w-full"
+                    disabled={games.length === 0}
                   >
-                    <option value="">Select a game</option>
+                    <option value="">
+                      {games.length === 0 ? 'Loading games...' : 'Select a game'}
+                    </option>
                     {games.map(game => (
-                      <option key={game._id} value={game._id}>{game.name}</option>
+                      <option key={game._id} value={game._id}>
+                        {game.name}
+                      </option>
                     ))}
                   </select>
+                  {games.length === 0 && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      No games found. Add games from Games Management first.
+                    </p>
+                  )}
                 </div>
 
                 <div>
