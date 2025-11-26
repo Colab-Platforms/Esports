@@ -19,6 +19,7 @@ const TournamentManagement = () => {
       gameType: '',
       description: '',
       mode: 'squad',
+      format: 'elimination',
       entryFee: 0,
       prizePool: 0,
       maxParticipants: 100,
@@ -110,13 +111,15 @@ const TournamentManagement = () => {
 
   const onSubmit = async (data) => {
     try {
-      console.log('Submitting tournament data:', data);
+      console.log('📤 Submitting tournament data:', data);
       
       if (editingTournament) {
-        await api.put(`/api/tournaments/${editingTournament._id}`, data);
+        const response = await api.put(`/api/tournaments/${editingTournament._id}`, data);
+        console.log('✅ Update response:', response);
         toast.success('Tournament updated successfully!');
       } else {
-        await api.post('/api/tournaments', data);
+        const response = await api.post('/api/tournaments', data);
+        console.log('✅ Create response:', response);
         toast.success('Tournament created successfully!');
       }
       
@@ -125,11 +128,14 @@ const TournamentManagement = () => {
       setEditingTournament(null);
       fetchTournaments();
     } catch (error) {
-      console.error('Failed to save tournament:', error);
+      console.error('❌ Failed to save tournament:', error);
+      console.error('Error response:', error.response?.data);
+      
       const errorMsg = error.response?.data?.error?.message || 'Failed to save tournament';
       const errorDetails = error.response?.data?.error?.details;
       
       if (errorDetails && Array.isArray(errorDetails)) {
+        console.error('Validation errors:', errorDetails);
         errorDetails.forEach(detail => {
           toast.error(`${detail.path}: ${detail.msg}`);
         });
@@ -148,6 +154,7 @@ const TournamentManagement = () => {
       gameType: tournament.gameType || '',
       description: tournament.description || '',
       mode: tournament.mode || 'squad',
+      format: tournament.format || 'elimination',
       entryFee: tournament.entryFee || 0,
       prizePool: tournament.prizePool || 0,
       maxParticipants: tournament.maxParticipants || 100,
@@ -300,43 +307,62 @@ const TournamentManagement = () => {
                 {editingTournament ? 'Edit Tournament' : 'Create Tournament'}
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                {/* Tournament Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Tournament Name *
                   </label>
                   <input
                     type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
+                    {...register('name', { 
+                      required: 'Tournament name is required',
+                      minLength: { value: 3, message: 'Name must be at least 3 characters' },
+                      maxLength: { value: 100, message: 'Name cannot exceed 100 characters' }
+                    })}
                     className="input-gaming w-full"
                     placeholder="Enter tournament name"
                   />
+                  {errors.name && (
+                    <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>
+                  )}
                 </div>
 
+                {/* Game Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Game *
                   </label>
                   <select
-                    name="gameId"
-                    value={formData.gameId}
-                    onChange={handleInputChange}
-                    required
+                    {...register('gameType', { required: 'Game is required' })}
                     className="input-gaming w-full"
                     disabled={games.length === 0}
                   >
                     <option value="">
                       {games.length === 0 ? 'Loading games...' : 'Select a game'}
                     </option>
-                    {games.map(game => (
-                      <option key={game._id} value={game._id}>
-                        {game.name}
-                      </option>
-                    ))}
+                    {games.map(game => {
+                      // Map game.id to gameType (bgmi, valorant, cs2)
+                      const gameTypeMap = {
+                        'bgmi': 'bgmi',
+                        'valorant': 'valorant',
+                        'cs2': 'cs2',
+                        'freefire': 'bgmi',
+                        'pubgpc': 'cs2',
+                        'mobilelegends': 'bgmi'
+                      };
+                      const gameType = gameTypeMap[game.id] || 'bgmi';
+                      
+                      return (
+                        <option key={game._id} value={gameType}>
+                          {game.icon} {game.name}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {errors.gameType && (
+                    <p className="text-red-400 text-xs mt-1">{errors.gameType.message}</p>
+                  )}
                   {games.length === 0 && (
                     <p className="text-xs text-yellow-400 mt-1">
                       No games found. Add games from Games Management first.
@@ -344,20 +370,46 @@ const TournamentManagement = () => {
                   )}
                 </div>
 
+                {/* Mode */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Description
+                    Tournament Mode *
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
+                  <select
+                    {...register('mode', { required: 'Mode is required' })}
                     className="input-gaming w-full"
-                    placeholder="Tournament description"
-                  />
+                  >
+                    <option value="solo">Solo</option>
+                    <option value="duo">Duo</option>
+                    <option value="squad">Squad</option>
+                    <option value="team">Team</option>
+                  </select>
+                  {errors.mode && (
+                    <p className="text-red-400 text-xs mt-1">{errors.mode.message}</p>
+                  )}
                 </div>
 
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    {...register('description', { 
+                      required: 'Description is required',
+                      minLength: { value: 10, message: 'Description must be at least 10 characters' },
+                      maxLength: { value: 1000, message: 'Description cannot exceed 1000 characters' }
+                    })}
+                    rows="3"
+                    className="input-gaming w-full"
+                    placeholder="Tournament description (10-1000 characters)"
+                  />
+                  {errors.description && (
+                    <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
+                  )}
+                </div>
+
+                {/* Entry Fee & Prize Pool */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -365,133 +417,175 @@ const TournamentManagement = () => {
                     </label>
                     <input
                       type="number"
-                      name="entryFee"
-                      value={formData.entryFee}
-                      onChange={handleInputChange}
-                      min="0"
+                      {...register('entryFee', { 
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Entry fee cannot be negative' },
+                        max: { value: 10000, message: 'Entry fee cannot exceed 10000' }
+                      })}
                       className="input-gaming w-full"
+                      placeholder="0"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Free tournaments recommended (0)</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Prize Pool (₹)
+                      Prize Pool (₹) *
                     </label>
                     <input
                       type="number"
-                      name="prizePool"
-                      value={formData.prizePool}
-                      onChange={handleInputChange}
-                      min="0"
+                      {...register('prizePool', { 
+                        required: 'Prize pool is required',
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Prize pool cannot be negative' }
+                      })}
                       className="input-gaming w-full"
+                      placeholder="10000"
                     />
+                    {errors.prizePool && (
+                      <p className="text-red-400 text-xs mt-1">{errors.prizePool.message}</p>
+                    )}
                   </div>
                 </div>
 
+                {/* Max Participants */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Max Participants
+                    Max Participants *
                   </label>
                   <input
                     type="number"
-                    name="maxParticipants"
-                    value={formData.maxParticipants}
-                    onChange={handleInputChange}
-                    min="2"
+                    {...register('maxParticipants', { 
+                      required: 'Max participants is required',
+                      valueAsNumber: true,
+                      min: { value: 2, message: 'Must allow at least 2 participants' },
+                      max: { value: 1000, message: 'Cannot exceed 1000 participants' }
+                    })}
                     className="input-gaming w-full"
+                    placeholder="100"
                   />
+                  {errors.maxParticipants && (
+                    <p className="text-red-400 text-xs mt-1">{errors.maxParticipants.message}</p>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Dates */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Start Date *
+                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                      <FiCalendar className="mr-1" /> Start Date *
                     </label>
                     <input
                       type="datetime-local"
-                      name="startDate"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      required
+                      {...register('startDate', { required: 'Start date is required' })}
                       className="input-gaming w-full"
                     />
+                    {errors.startDate && (
+                      <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      End Date *
+                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                      <FiCalendar className="mr-1" /> End Date *
                     </label>
                     <input
                       type="datetime-local"
-                      name="endDate"
-                      value={formData.endDate}
-                      onChange={handleInputChange}
-                      required
+                      {...register('endDate', { required: 'End date is required' })}
                       className="input-gaming w-full"
                     />
+                    {errors.endDate && (
+                      <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                      <FiClock className="mr-1" /> Registration Deadline *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      {...register('registrationDeadline', { required: 'Registration deadline is required' })}
+                      className="input-gaming w-full"
+                    />
+                    {errors.registrationDeadline && (
+                      <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
+                    )}
+                    <p className="text-xs text-blue-400 mt-1">
+                      ⚠️ Must be before or equal to start date
+                    </p>
                   </div>
                 </div>
 
+                {/* Format */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Format
+                    Tournament Format *
                   </label>
                   <select
-                    name="format"
-                    value={formData.format}
-                    onChange={handleInputChange}
+                    {...register('format', { required: 'Format is required' })}
                     className="input-gaming w-full"
                   >
-                    <option value="single-elimination">Single Elimination</option>
-                    <option value="double-elimination">Double Elimination</option>
-                    <option value="round-robin">Round Robin</option>
+                    <option value="">Select format</option>
+                    <option value="elimination">Elimination</option>
+                    <option value="round_robin">Round Robin</option>
                     <option value="swiss">Swiss</option>
+                    <option value="battle_royale">Battle Royale</option>
                   </select>
+                  {errors.format && (
+                    <p className="text-red-400 text-xs mt-1">{errors.format.message}</p>
+                  )}
                 </div>
 
+                {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Status
                   </label>
                   <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
+                    {...register('status')}
                     className="input-gaming w-full"
                   >
                     <option value="upcoming">Upcoming</option>
-                    <option value="ongoing">Ongoing</option>
+                    <option value="registration_open">Registration Open</option>
+                    <option value="registration_closed">Registration Closed</option>
+                    <option value="active">Active</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
 
+                {/* Rules */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Rules
+                    Rules *
                   </label>
                   <textarea
-                    name="rules"
-                    value={formData.rules}
-                    onChange={handleInputChange}
+                    {...register('rules', { 
+                      required: 'Rules are required',
+                      minLength: { value: 10, message: 'Rules must be at least 10 characters' },
+                      maxLength: { value: 5000, message: 'Rules cannot exceed 5000 characters' }
+                    })}
                     rows="4"
                     className="input-gaming w-full"
-                    placeholder="Tournament rules and regulations"
+                    placeholder="Tournament rules and regulations (10-5000 characters)"
                   />
+                  {errors.rules && (
+                    <p className="text-red-400 text-xs mt-1">{errors.rules.message}</p>
+                  )}
                 </div>
 
+                {/* Submit Buttons */}
                 <div className="flex space-x-4 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 btn-gaming"
+                    disabled={isSubmitting}
+                    className="flex-1 btn-gaming disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editingTournament ? 'Update Tournament' : 'Create Tournament'}
+                    {isSubmitting ? 'Saving...' : editingTournament ? 'Update Tournament' : 'Create Tournament'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    className="flex-1 px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    onClick={handleCloseModal}
+                    disabled={isSubmitting}
+                    className="flex-1 px-6 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
