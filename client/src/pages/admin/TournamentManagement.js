@@ -13,7 +13,7 @@ const TournamentManagement = () => {
   const [editingTournament, setEditingTournament] = useState(null);
 
   // React Hook Form
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
     defaultValues: {
       name: '',
       gameType: '',
@@ -30,6 +30,9 @@ const TournamentManagement = () => {
       status: 'upcoming'
     }
   });
+
+  // Watch gameType to show conditional fields
+  const selectedGameType = watch('gameType');
 
   // Helper: Convert game ID to gameType
   const getGameType = (gameId) => {
@@ -113,6 +116,14 @@ const TournamentManagement = () => {
     try {
       console.log('📤 Submitting tournament data:', data);
       
+      // Auto-generate CS2 connect command if CS2 tournament
+      if (data.gameType === 'cs2' && data.roomDetails?.cs2) {
+        const { serverIp, serverPort, password } = data.roomDetails.cs2;
+        if (serverIp && serverPort) {
+          data.roomDetails.cs2.connectCommand = `steam://connect/${serverIp}:${serverPort}${password ? '/' + password : ''}`;
+        }
+      }
+      
       if (editingTournament) {
         const response = await api.put(`/api/tournaments/${editingTournament._id}`, data);
         console.log('✅ Update response:', response);
@@ -162,7 +173,16 @@ const TournamentManagement = () => {
       endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16) : '',
       registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toISOString().slice(0, 16) : '',
       rules: tournament.rules || '',
-      status: tournament.status || 'upcoming'
+      status: tournament.status || 'upcoming',
+      // CS2 server details
+      roomDetails: {
+        cs2: {
+          serverIp: tournament.roomDetails?.cs2?.serverIp || '',
+          serverPort: tournament.roomDetails?.cs2?.serverPort || '27015',
+          password: tournament.roomDetails?.cs2?.password || '',
+          rconPassword: tournament.roomDetails?.cs2?.rconPassword || ''
+        }
+      }
     });
     
     setShowModal(true);
@@ -571,6 +591,96 @@ const TournamentManagement = () => {
                     <p className="text-red-400 text-xs mt-1">{errors.rules.message}</p>
                   )}
                 </div>
+
+                {/* CS2 Server Details (Only for CS2 tournaments) */}
+                {selectedGameType === 'cs2' && (
+                  <div className="border-2 border-gaming-neon/30 rounded-lg p-4 bg-gaming-neon/5">
+                    <h3 className="text-lg font-bold text-gaming-neon mb-4 flex items-center">
+                      ⚡ CS2 Server Details
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      {/* Server IP & Port */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Server IP *
+                          </label>
+                          <input
+                            type="text"
+                            {...register('roomDetails.cs2.serverIp', { 
+                              required: selectedGameType === 'cs2' ? 'Server IP is required for CS2' : false 
+                            })}
+                            className="input-gaming w-full"
+                            placeholder="31.97.229.109"
+                          />
+                          {errors.roomDetails?.cs2?.serverIp && (
+                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverIp.message}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Server Port *
+                          </label>
+                          <input
+                            type="text"
+                            {...register('roomDetails.cs2.serverPort', { 
+                              required: selectedGameType === 'cs2' ? 'Server port is required for CS2' : false 
+                            })}
+                            className="input-gaming w-full"
+                            placeholder="27015"
+                          />
+                          {errors.roomDetails?.cs2?.serverPort && (
+                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverPort.message}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Password & RCON */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Server Password
+                          </label>
+                          <input
+                            type="text"
+                            {...register('roomDetails.cs2.password')}
+                            className="input-gaming w-full"
+                            placeholder="Optional server password"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            RCON Password
+                          </label>
+                          <input
+                            type="text"
+                            {...register('roomDetails.cs2.rconPassword')}
+                            className="input-gaming w-full"
+                            placeholder="Optional RCON password"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Connect Command (Auto-generated preview) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                          Connect Command (Auto-generated)
+                        </label>
+                        <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border border-gaming-neon/30">
+                          {watch('roomDetails.cs2.serverIp') && watch('roomDetails.cs2.serverPort') ? (
+                            `steam://connect/${watch('roomDetails.cs2.serverIp')}:${watch('roomDetails.cs2.serverPort')}${watch('roomDetails.cs2.password') ? '/' + watch('roomDetails.cs2.password') : ''}`
+                          ) : (
+                            'Enter server IP and port to generate command'
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Players will use this command to connect to the server
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Submit Buttons */}
                 <div className="flex space-x-4 pt-4">
