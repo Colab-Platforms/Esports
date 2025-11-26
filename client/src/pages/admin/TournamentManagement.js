@@ -45,9 +45,13 @@ const TournamentManagement = () => {
   const fetchGames = async () => {
     try {
       const response = await api.get('/api/games');
+      console.log('Games API Response:', response);
+      console.log('Games data:', response.data);
+      console.log('Games array:', response.data?.games);
       setGames(response.data?.games || []);
     } catch (error) {
       console.error('Failed to fetch games:', error);
+      toast.error('Failed to load games');
     }
   };
 

@@ -15,10 +15,19 @@ router.get('/', async (req, res) => {
   
   try {
     const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
-    res.json(games);
+    res.json({
+      success: true,
+      data: {
+        games: games
+      }
+    });
   } catch (error) {
     console.error('Error fetching games:', error);
-    res.status(500).json({ message: 'Error fetching games', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching games', 
+      error: error.message 
+    });
   }
 });
 
