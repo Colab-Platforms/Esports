@@ -13,15 +13,16 @@ const TournamentManagement = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    gameId: '',
+    gameType: '', // Changed from gameId
     description: '',
+    mode: 'squad', // Added mode field
     entryFee: 0,
     prizePool: 0,
     maxParticipants: 100,
     startDate: '',
     endDate: '',
+    registrationDeadline: '', // Added registration deadline
     rules: '',
-    format: 'single-elimination',
     status: 'upcoming'
   });
 
@@ -120,15 +121,16 @@ const TournamentManagement = () => {
     setEditingTournament(tournament);
     setFormData({
       name: tournament.name,
-      gameId: tournament.gameId?._id || tournament.gameId,
+      gameType: tournament.gameType || '',
       description: tournament.description || '',
+      mode: tournament.mode || 'squad',
       entryFee: tournament.entryFee || 0,
       prizePool: tournament.prizePool || 0,
       maxParticipants: tournament.maxParticipants || 100,
       startDate: tournament.startDate ? new Date(tournament.startDate).toISOString().slice(0, 16) : '',
       endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16) : '',
+      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toISOString().slice(0, 16) : '',
       rules: tournament.rules || '',
-      format: tournament.format || 'single-elimination',
       status: tournament.status || 'upcoming'
     });
     setShowModal(true);
@@ -150,15 +152,16 @@ const TournamentManagement = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      gameId: '',
+      gameType: '',
       description: '',
+      mode: 'squad',
       entryFee: 0,
       prizePool: 0,
       maxParticipants: 100,
       startDate: '',
       endDate: '',
+      registrationDeadline: '',
       rules: '',
-      format: 'single-elimination',
       status: 'upcoming'
     });
     setEditingTournament(null);
