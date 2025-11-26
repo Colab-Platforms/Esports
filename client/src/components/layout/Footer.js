@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { FiTwitter, FiInstagram, FiYoutube, FiMail } from 'react-icons/fi';
 
 const Footer = () => {
+  // Environment indicator
+  const isDev = window.location.hostname.includes('esports-eciq') || 
+                window.location.hostname === 'localhost';
+  
   return (
     <footer className="bg-gaming-charcoal border-t border-gaming-slate mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -93,9 +97,16 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-gaming-slate mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">
-            © 2024 Colab Esports. All rights reserved.
-          </p>
+          <div className="flex items-center space-x-3">
+            <p className="text-gray-400 text-sm">
+              © 2024 Colab Esports. All rights reserved.
+            </p>
+            {isDev && (
+              <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-semibold rounded border border-yellow-500/30">
+                DEV
+              </span>
+            )}
+          </div>
           <p className="text-gray-400 text-sm mt-2 md:mt-0">
             Made with ❤️ for Indian gamers
           </p>
