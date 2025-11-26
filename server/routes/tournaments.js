@@ -362,6 +362,74 @@ router.post('/', auth, [
   }
 });
 
+// @route   PUT /api/tournaments/:id
+// @desc    Update a tournament (Admin only)
+// @access  Private (Admin)
+router.put('/:id', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required to update tournaments',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Update tournament fields
+    const allowedUpdates = [
+      'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
+      'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
+      'endDate', 'registrationDeadline', 'status', 'rules', 'roomDetails',
+      'region', 'featured', 'bannerImage', 'tags'
+    ];
+
+    allowedUpdates.forEach(field => {
+      if (req.body[field] !== undefined) {
+        tournament[field] = req.body[field];
+      }
+    });
+
+    await tournament.save();
+    await tournament.populate('createdBy', 'username avatarUrl');
+
+    res.json({
+      success: true,
+      data: { tournament },
+      message: '✅ Tournament updated successfully!',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Tournament update error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'TOURNAMENT_UPDATE_FAILED',
+        message: 'Failed to update tournament',
+        details: error.message,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   POST /api/tournaments/:id/join
 // @desc    Join a tournament
 // @access  Private
