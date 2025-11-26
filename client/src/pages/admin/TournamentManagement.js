@@ -48,18 +48,31 @@ const TournamentManagement = () => {
       const timestamp = new Date().getTime();
       const response = await api.get(`/api/games?t=${timestamp}`);
       console.log('Games API Response:', response);
+      console.log('Response type:', typeof response);
+      console.log('Is array?', Array.isArray(response));
       
       // Handle different response formats
       let gamesData = [];
-      if (response.data?.games) {
+      
+      // Direct array response (current backend)
+      if (Array.isArray(response)) {
+        gamesData = response;
+      }
+      // Wrapped response with data.games
+      else if (response.data?.games) {
         gamesData = response.data.games;
-      } else if (Array.isArray(response.data)) {
+      }
+      // Wrapped response with just data array
+      else if (Array.isArray(response.data)) {
         gamesData = response.data;
-      } else if (response.success && response.data) {
-        gamesData = response.data;
+      }
+      // Success flag with data
+      else if (response.success && response.data) {
+        gamesData = Array.isArray(response.data) ? response.data : response.data.games || [];
       }
       
       console.log('Final games data:', gamesData);
+      console.log('Games count:', gamesData.length);
       setGames(gamesData);
       
       if (gamesData.length === 0) {
