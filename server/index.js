@@ -18,6 +18,8 @@ console.log('🔧 Environment Debug:');
 console.log('📍 PORT:', process.env.PORT);
 console.log('📍 MONGODB_URI:', process.env.MONGODB_URI ? 'Found' : 'Missing');
 console.log('📍 JWT_SECRET:', process.env.JWT_SECRET ? 'Found' : 'Missing');
+console.log('📍 CLIENT_URL:', process.env.CLIENT_URL);
+console.log('📍 SERVER_URL:', process.env.SERVER_URL);
 
 const app = express();
 const server = createServer(app);
