@@ -23,8 +23,28 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'https://esports-62sh.vercel.app',
+        'https://esports-eciq.vercel.app',
+        process.env.CLIENT_URL
+      ];
+      
+      // Allow all Vercel domains and localhost
+      if (allowedOrigins.includes(origin) || 
+          origin.match(/^http:\/\/[\d.]+:3000$/) ||
+          origin.match(/^https:\/\/.*\.vercel\.app$/)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // For development, allow all
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
