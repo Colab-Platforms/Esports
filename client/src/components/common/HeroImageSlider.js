@@ -48,7 +48,7 @@ const HeroImageSlider = () => {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&h=1080&fit=crop&crop=center',
+          image: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.jpg?v=1764247341',
           cta: {
             text: 'Join Now',
             link: '/register'
