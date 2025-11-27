@@ -367,6 +367,24 @@ router.post('/', auth, [
 // @access  Private (Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
+    const mongoose = require('mongoose');
+    
+    console.log('🔍 Updating tournament ID:', req.params.id);
+    console.log('📝 Request body keys:', Object.keys(req.body));
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      console.log('❌ Invalid ObjectId format');
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TOURNAMENT_ID',
+          message: 'Invalid tournament ID format',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
     // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
@@ -381,7 +399,14 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     const tournament = await Tournament.findById(req.params.id);
+    console.log('📊 Tournament found:', tournament ? 'Yes' : 'No');
+    
     if (!tournament) {
+      console.log('❌ Tournament not found in database');
+      // List all tournaments to debug
+      const allTournaments = await Tournament.find({}, '_id name').limit(5);
+      console.log('📋 Available tournaments:', allTournaments);
+      
       return res.status(404).json({
         success: false,
         error: {
