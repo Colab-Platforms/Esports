@@ -138,7 +138,10 @@ router.get('/auth/return',
       await user.save();
 
       // Redirect to specified page or default to games page
-      const successUrl = `${process.env.CLIENT_URL}${redirectTo}?steam_connected=true`;
+      // Use CLIENT_URL from env, fallback to localhost for development
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+      const successUrl = `${clientUrl}${redirectTo}?steam_connected=true`;
+      console.log('🔄 Redirecting to:', successUrl);
       res.redirect(successUrl);
       
     } catch (error) {
