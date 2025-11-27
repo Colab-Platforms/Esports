@@ -69,8 +69,9 @@ const SingleTournamentPage = () => {
       setLoadingTeams(true);
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-      const response = await fetch(`/api/tournaments/${id}/participants`, { headers });
+      const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}/participants`, { headers });
       const data = await response.json();
 
       if (data.success) {
@@ -126,12 +127,13 @@ const SingleTournamentPage = () => {
         console.log('🔍 Fetching tournament:', id);
         const token = localStorage.getItem('token');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
         // Add timeout to prevent infinite loading
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        const response = await fetch(`/api/tournaments/${id}`, { 
+        const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}`, { 
           headers,
           signal: controller.signal 
         });
@@ -559,7 +561,11 @@ const SingleTournamentPage = () => {
                     </span>
                   </div>
 
-                  {tournament.gameType === 'bgmi' && tournament.roomDetails.bgmi && (
+                  {/* Debug Info - Remove after testing */}
+                  {console.log('🎮 Game Type:', tournament.gameType)}
+                  {console.log('📋 Room Details:', tournament.roomDetails)}
+
+                  {tournament.gameType === 'bgmi' && tournament.roomDetails?.bgmi && (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -603,7 +609,7 @@ const SingleTournamentPage = () => {
                     </div>
                   )}
 
-                  {tournament.gameType === 'cs2' && tournament.roomDetails.cs2 && (
+                  {tournament.gameType === 'cs2' && tournament.roomDetails?.cs2 && (
                     <div className="space-y-4">
                       {/* Server Status */}
                       <div className="flex items-center justify-between bg-gaming-dark p-3 rounded-lg">
