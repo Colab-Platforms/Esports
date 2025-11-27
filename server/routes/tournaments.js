@@ -367,23 +367,8 @@ router.post('/', auth, [
 // @access  Private (Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    
     console.log('🔍 Updating tournament ID:', req.params.id);
     console.log('📝 Request body keys:', Object.keys(req.body));
-    
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      console.log('❌ Invalid ObjectId format');
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_TOURNAMENT_ID',
-          message: 'Invalid tournament ID format',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
     
     // Check if user is admin
     const user = await User.findById(req.user.userId);
@@ -403,10 +388,6 @@ router.put('/:id', auth, async (req, res) => {
     
     if (!tournament) {
       console.log('❌ Tournament not found in database');
-      // List all tournaments to debug
-      const allTournaments = await Tournament.find({}, '_id name').limit(5);
-      console.log('📋 Available tournaments:', allTournaments);
-      
       return res.status(404).json({
         success: false,
         error: {
@@ -417,6 +398,8 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
+    console.log('✏️ Updating fields...');
+    
     // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
@@ -427,14 +410,19 @@ router.put('/:id', auth, async (req, res) => {
 
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
+        console.log(`  - Updating ${field}`);
         tournament[field] = req.body[field];
       }
     });
 
+    console.log('💾 Saving tournament...');
     // Save with validation disabled for participants (to avoid enum errors from seed data)
     await tournament.save({ validateModifiedOnly: true });
+    
+    console.log('👤 Populating creator...');
     await tournament.populate('createdBy', 'username avatarUrl');
 
+    console.log('✅ Tournament updated successfully!');
     res.json({
       success: true,
       data: { tournament },
@@ -443,7 +431,8 @@ router.put('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Tournament update error:', error);
+    console.error('❌ Tournament update error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: {
