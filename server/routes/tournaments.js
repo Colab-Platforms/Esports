@@ -392,7 +392,7 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    // Update tournament fields
+    // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
       'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
@@ -406,7 +406,8 @@ router.put('/:id', auth, async (req, res) => {
       }
     });
 
-    await tournament.save();
+    // Save with validation disabled for participants (to avoid enum errors from seed data)
+    await tournament.save({ validateModifiedOnly: true });
     await tournament.populate('createdBy', 'username avatarUrl');
 
     res.json({
