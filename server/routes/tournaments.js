@@ -367,6 +367,9 @@ router.post('/', auth, [
 // @access  Private (Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
+    console.log('🔍 Updating tournament ID:', req.params.id);
+    console.log('📝 Request body keys:', Object.keys(req.body));
+    
     // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
@@ -381,7 +384,10 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     const tournament = await Tournament.findById(req.params.id);
+    console.log('📊 Tournament found:', tournament ? 'Yes' : 'No');
+    
     if (!tournament) {
+      console.log('❌ Tournament not found in database');
       return res.status(404).json({
         success: false,
         error: {
@@ -402,6 +408,7 @@ router.put('/:id', auth, async (req, res) => {
 
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
+        console.log(`  - Updating ${field}`);
         tournament[field] = req.body[field];
       }
     });
@@ -410,6 +417,7 @@ router.put('/:id', auth, async (req, res) => {
     await tournament.save({ validateModifiedOnly: true });
     await tournament.populate('createdBy', 'username avatarUrl');
 
+    console.log('✅ Tournament updated successfully!');
     res.json({
       success: true,
       data: { tournament },
@@ -418,7 +426,8 @@ router.put('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Tournament update error:', error);
+    console.error('❌ Tournament update error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       error: {
