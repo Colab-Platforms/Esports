@@ -554,7 +554,14 @@ router.post('/:id/join', auth, [
     });
 
   } catch (error) {
-    console.error('Tournament join error:', error);
+    console.error('❌ Tournament join error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      tournamentId: req.params.id,
+      userId: req.user.userId,
+      gameId: req.body.gameId
+    });
     
     if (error.message.includes('already registered') || 
         error.message.includes('full') || 
@@ -573,7 +580,8 @@ router.post('/:id/join', auth, [
       success: false,
       error: {
         code: 'TOURNAMENT_JOIN_FAILED',
-        message: 'Failed to join tournament',
+        message: error.message || 'Failed to join tournament',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         timestamp: new Date().toISOString()
       }
     });
