@@ -641,20 +641,31 @@ const SingleTournamentPage = () => {
                         </div>
                       </div>
 
-                      {/* Quick Connect Command */}
+                      {/* Quick Launch CS2 */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-gray-400 text-sm font-semibold">Quick Connect Command</div>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(tournament.roomDetails.cs2.connectCommand);
-                              alert('Command copied to clipboard!');
-                            }}
-                            className="px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs font-bold rounded transition-colors flex items-center space-x-1"
-                          >
-                            <FiCopy className="h-3 w-3" />
-                            <span>COPY</span>
-                          </button>
+                          <div className="text-gray-400 text-sm font-semibold">Server Connection</div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(tournament.roomDetails.cs2.connectCommand);
+                                alert('✅ Command copied to clipboard!');
+                              }}
+                              className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded transition-colors flex items-center space-x-1"
+                            >
+                              <FiCopy className="h-3 w-3" />
+                              <span>COPY</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                window.location.href = tournament.roomDetails.cs2.connectCommand;
+                              }}
+                              className="px-4 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs font-bold rounded transition-colors flex items-center space-x-1"
+                            >
+                              <span>🚀</span>
+                              <span>QUICK LAUNCH CS2</span>
+                            </button>
+                          </div>
                         </div>
                         <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border-2 border-gaming-neon/50 break-all">
                           {tournament.roomDetails.cs2.connectCommand}
@@ -671,8 +682,8 @@ const SingleTournamentPage = () => {
                           <div className="flex items-start space-x-3">
                             <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">1</div>
                             <div>
-                              <div className="text-white font-semibold text-sm">Copy Connect Command</div>
-                              <div className="text-gray-300 text-xs">Click the COPY button above to copy the server command</div>
+                              <div className="text-white font-semibold text-sm">Quick Launch (Recommended)</div>
+                              <div className="text-gray-300 text-xs">Click "QUICK LAUNCH CS2" button to automatically open CS2 and connect to server</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-3">
