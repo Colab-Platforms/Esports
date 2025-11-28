@@ -316,8 +316,12 @@ const SingleTournamentPage = () => {
   const handleRegistrationSuccess = React.useCallback(() => {
     setShowRegistration(false);
     setIsUserRegistered(true);
+    
     // Refresh tournament data and teams
     fetchRegisteredTeams();
+    
+    // Reload page to fetch updated tournament data with room details
+    window.location.reload();
   }, [fetchRegisteredTeams]);
 
   // Early return AFTER all hooks
