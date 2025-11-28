@@ -190,6 +190,10 @@ const SingleTournamentPage = () => {
           }
 
           setTournament(enhancedTournament);
+          
+          console.log('👤 User registration status:', data.data.isUserRegistered);
+          console.log('🎮 Room details available:', !!data.data.roomDetails);
+          
           setIsUserRegistered(data.data.isUserRegistered || false);
           setLoadingTournament(false);
         }
