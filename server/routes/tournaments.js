@@ -218,13 +218,23 @@ router.get('/:id', async (req, res) => {
         const token = req.headers.authorization.split(' ')[1];
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        console.log('🔍 Checking registration for user:', decoded.userId);
+        console.log('📋 Tournament participants:', tournament.participants.map(p => ({
+          userId: p.userId.toString(),
+          teamName: p.teamName,
+          status: p.status
+        })));
+        
         isUserRegistered = tournament.isUserRegistered(decoded.userId);
+        console.log('✅ Is user registered:', isUserRegistered);
         
         // Include room details only if user is registered
         if (isUserRegistered) {
           roomDetails = tournament.roomDetails;
         }
       } catch (err) {
+        console.error('❌ Token verification error:', err.message);
         // Token invalid, continue without auth
       }
     }
