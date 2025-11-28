@@ -194,9 +194,8 @@ router.get('/stats', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const tournament = await Tournament.findById(req.params.id)
-      .populate('createdBy', 'username avatarUrl level')
-      .populate('participants.userId', 'username avatarUrl level currentRank');
+    // First fetch tournament without populate to check registration
+    const tournament = await Tournament.findById(req.params.id);
 
     if (!tournament) {
       return res.status(404).json({
@@ -209,7 +208,7 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Check if user is registered (if authenticated)
+    // Check if user is registered (BEFORE populate)
     let isUserRegistered = false;
     let roomDetails = null;
     
@@ -220,11 +219,6 @@ router.get('/:id', async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         console.log('🔍 Checking registration for user:', decoded.userId);
-        console.log('📋 Tournament participants:', tournament.participants.map(p => ({
-          userId: p.userId.toString(),
-          teamName: p.teamName,
-          status: p.status
-        })));
         
         isUserRegistered = tournament.isUserRegistered(decoded.userId);
         console.log('✅ Is user registered:', isUserRegistered);
@@ -238,6 +232,10 @@ router.get('/:id', async (req, res) => {
         // Token invalid, continue without auth
       }
     }
+    
+    // Now populate for response
+    await tournament.populate('createdBy', 'username avatarUrl level');
+    await tournament.populate('participants.userId', 'username avatarUrl level currentRank');
 
     res.json({
       success: true,
