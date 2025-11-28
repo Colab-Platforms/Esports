@@ -99,7 +99,7 @@ const Footer = () => {
         <div className="border-t border-gaming-slate mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center space-x-3">
             <p className="text-gray-400 text-sm">
-              © 2024 Colab Esports. All rights reserved.
+              © 2026 Colab Esports. All rights reserved.
             </p>
             {isDev && (
               <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-semibold rounded border border-yellow-500/30">

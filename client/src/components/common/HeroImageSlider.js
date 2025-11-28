@@ -165,8 +165,9 @@ const HeroImageSlider = () => {
             className="w-full h-full"
             lazy={false}
           />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70" />
-          <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/10 via-transparent to-gaming-neon-blue/10" />
+          {/* Reduced overlay opacity for brighter images */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/20 to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/5 via-transparent to-gaming-neon-blue/5" />
         </motion.div>
       </AnimatePresence>
 

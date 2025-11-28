@@ -343,7 +343,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* CS2 Steam Connection */}
           {tournament.gameType === 'cs2' && (
-            <div>
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Steam Account *
               </label>
@@ -355,6 +355,37 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
                   setError('');
                 }}
               />
+              
+              {/* CS2 Tournament Info */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <h4 className="text-blue-400 font-bold mb-2 flex items-center space-x-2">
+                  <span>ℹ️</span>
+                  <span>How to Join:</span>
+                </h4>
+                <div className="text-gray-300 text-sm space-y-2">
+                  {tournament.status === 'active' ? (
+                    <>
+                      <p>✅ Tournament is <span className="text-green-400 font-bold">LIVE</span>! Click "Join Server Now" to:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li>Get server connection details instantly</li>
+                        <li>Copy the connect command</li>
+                        <li>Launch CS2 and paste in console</li>
+                        <li>Start playing immediately!</li>
+                      </ul>
+                    </>
+                  ) : (
+                    <>
+                      <p>📝 Register now to secure your spot!</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li>Your Steam profile will be linked automatically</li>
+                        <li>Server details will be shared before tournament starts</li>
+                        <li>You'll receive notifications about tournament updates</li>
+                        <li>No team name or additional info needed!</li>
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -716,10 +747,17 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
               {isSubmitting ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Registering...</span>
+                  <span>{tournament.gameType === 'cs2' && tournament.status === 'active' ? 'Joining...' : 'Registering...'}</span>
                 </div>
               ) : (
-                'Register for FREE'
+                <>
+                  {tournament.gameType === 'cs2' && tournament.status === 'active' 
+                    ? '🎮 Join Server Now' 
+                    : tournament.gameType === 'cs2'
+                    ? '📝 Register for Tournament'
+                    : '🎯 Register for FREE'
+                  }
+                </>
               )}
             </button>
           </div>

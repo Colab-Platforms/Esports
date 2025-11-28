@@ -48,6 +48,7 @@ router.get('/auth', (req, res, next) => {
   // Store both redirect and user ID in session
   const redirectTo = req.query.redirect;
   const userId = req.query.state;
+  const origin = req.get('origin') || req.get('referer');
   
   req.session = req.session || {};
   
@@ -57,6 +58,12 @@ router.get('/auth', (req, res, next) => {
   
   if (userId) {
     req.session.steamUserId = userId;
+  }
+  
+  // Store the origin URL to redirect back to correct Vercel deployment
+  if (origin) {
+    req.session.steamOrigin = origin;
+    console.log('🌐 Steam auth origin:', origin);
   }
   
   passport.authenticate('steam')(req, res, next);
@@ -99,12 +106,20 @@ router.get('/auth/return',
       // Get redirect URL from session or query params
       const redirectTo = req.session?.steamRedirect || req.query.redirect || '/games';
       
+      // Get origin from session (the Vercel URL that initiated the request)
+      const clientOrigin = req.session?.steamOrigin || process.env.CLIENT_URL || 'https://esports-eciq.vercel.app';
+      
+      console.log('🔄 Steam redirect to:', clientOrigin + redirectTo);
+      
       // Clear session data
       if (req.session?.steamRedirect) {
         delete req.session.steamRedirect;
       }
       if (req.session?.steamUserId) {
         delete req.session.steamUserId;
+      }
+      if (req.session?.steamOrigin) {
+        delete req.session.steamOrigin;
       }
 
       // Update user profile
@@ -138,10 +153,9 @@ router.get('/auth/return',
       await user.save();
 
       // Redirect to specified page or default to games page
-      // Use CLIENT_URL from env, fallback to localhost for development
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-      const successUrl = `${clientUrl}${redirectTo}?steam_connected=true`;
-      console.log('🔄 Redirecting to:', successUrl);
+      // Use origin from session (dynamic Vercel URL) or fallback to env
+      const successUrl = `${clientOrigin}${redirectTo}?steam_connected=true`;
+      console.log('✅ Final redirect URL:', successUrl);
       res.redirect(successUrl);
       
     } catch (error) {
