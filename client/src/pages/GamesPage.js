@@ -16,13 +16,20 @@ const GamesPage = () => {
         const fetchGames = async () => {
             try {
                 setLoading(true);
-                const [gamesData, featuredData] = await Promise.all([
+                const [gamesResponse, featuredData] = await Promise.all([
                     api.getGames(),
                     api.getFeaturedGames()
                 ]);
 
-                setGames(gamesData);
-                setFeaturedGames(featuredData);
+                console.log('Games response:', gamesResponse);
+                console.log('Featured response:', featuredData);
+
+                // Extract games from response structure
+                const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
+                const featuredArray = featuredData?.data?.games || featuredData || [];
+
+                setGames(gamesArray);
+                setFeaturedGames(featuredArray);
                 setError(null);
             } catch (err) {
                 console.error('Error fetching games:', err);

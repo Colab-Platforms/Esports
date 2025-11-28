@@ -33,9 +33,9 @@ const HomePage = () => {
   });
 
   useEffect(() => {
-    // Fetch tournaments from API
+    // Fetch tournaments from API - include upcoming tournaments
     dispatch(fetchTournaments({ 
-      status: 'registration_open,active', 
+      status: 'upcoming,registration_open,active', 
       limit: 6 
     }));
     
@@ -82,12 +82,17 @@ const HomePage = () => {
       }));
 
       // Separate PC and Mobile tournaments
+      console.log('All tournaments:', transformedTournaments.map(t => ({ name: t.name, gameType: t.gameType })));
+      
       const pc = transformedTournaments.filter(t => 
         ['cs2', 'valorant'].includes(t.gameType)
       );
       const mobile = transformedTournaments.filter(t => 
         ['bgmi', 'freefire', 'ml'].includes(t.gameType)
       );
+
+      console.log('PC tournaments:', pc.length);
+      console.log('Mobile tournaments:', mobile.length);
 
       setPcTournaments(pc.slice(0, 3));
       setMobileTournaments(mobile.slice(0, 3));
