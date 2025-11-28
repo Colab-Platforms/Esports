@@ -309,12 +309,7 @@ const SingleTournamentPage = () => {
       return;
     }
 
-    // Check Steam requirement for CS2
-    if (tournament?.gameType === 'cs2' && !user?.gameIds?.steam) {
-      setShowSteamModal(true);
-      return;
-    }
-
+    // Open registration modal directly - Steam check will happen inside
     setShowRegistration(true);
   }, [isAuthenticated, tournament, user, navigate]);
 

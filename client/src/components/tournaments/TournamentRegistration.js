@@ -49,16 +49,24 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
 
   const handleSteamLink = () => {
     const userId = user?.id || user?._id;
+    const tournamentId = tournament?._id || tournament?.id;
     
     if (!userId) {
       setError('Please login again to continue');
       return;
     }
 
+    if (!tournamentId) {
+      setError('Tournament ID not found. Please try again.');
+      console.error('Tournament ID missing:', tournament);
+      return;
+    }
+
+    console.log('🎮 Redirecting to Steam auth for tournament:', tournamentId);
     setShowSteamModal(false);
     
     // Direct redirect to Steam OAuth - uses dynamic URL
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournament._id}`);
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournamentId}`);
   };
 
   const handleInputChange = (e) => {
@@ -193,9 +201,10 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         contactNumber: formData.leaderPhone || formData.contactNumber
       };
 
-      // Call API directly
+      // Call API directly with full URL for Vercel compatibility
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/tournaments/${tournament._id}/join`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
