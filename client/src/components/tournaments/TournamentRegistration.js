@@ -178,28 +178,49 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
     setIsSubmitting(true);
 
     try {
-      const registrationData = tournament.gameType === 'bgmi' && tournament.mode !== 'solo' ? {
+      // Prepare registration data based on game type
+      let registrationData;
+      
+      if (tournament.gameType === 'bgmi' && tournament.mode !== 'solo') {
         // BGMI Squad/Team registration
-        teamName: formData.teamName,
-        leader: {
-          name: formData.leaderName,
-          email: formData.leaderEmail,
-          phone: formData.leaderPhone,
-          ign: formData.leaderIgn,
-          uid: formData.leaderUid
-        },
-        teamMembers: formData.teamMembers.map((member, index) => ({
-          playerNumber: index + 2,
-          ign: member.ign,
-          uid: member.uid
-        }))
-      } : {
+        registrationData = {
+          teamName: formData.teamName,
+          leader: {
+            name: formData.leaderName,
+            email: formData.leaderEmail,
+            phone: formData.leaderPhone,
+            ign: formData.leaderIgn,
+            uid: formData.leaderUid
+          },
+          teamMembers: formData.teamMembers.map((member, index) => ({
+            playerNumber: index + 2,
+            ign: member.ign,
+            uid: member.uid
+          }))
+        };
+      } else if (tournament.gameType === 'cs2') {
+        // CS2 registration - only Steam ID needed
+        const steamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
+        
+        if (!steamId) {
+          throw new Error('Steam account not connected. Please connect your Steam account first.');
+        }
+        
+        registrationData = {
+          gameId: steamId,
+          teamName: tournament.mode === 'team' ? (formData.teamName || '') : ''
+        };
+        
+        console.log('🎮 CS2 Registration data:', registrationData);
+      } else {
         // Other games or solo mode
-        gameId: tournament.gameType === 'cs2' ? user.gameIds.steam : formData.leaderUid || formData.gameId,
-        teamName: tournament.mode === 'solo' ? '' : formData.teamName,
-        playerName: formData.leaderName || formData.playerName,
-        contactNumber: formData.leaderPhone || formData.contactNumber
-      };
+        registrationData = {
+          gameId: formData.leaderUid || formData.gameId,
+          teamName: tournament.mode === 'solo' ? '' : formData.teamName,
+          playerName: formData.leaderName || formData.playerName,
+          contactNumber: formData.leaderPhone || formData.contactNumber
+        };
+      }
 
       // Call API directly with full URL for Vercel compatibility
       const token = localStorage.getItem('token');
