@@ -201,9 +201,10 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         contactNumber: formData.leaderPhone || formData.contactNumber
       };
 
-      // Call API directly
+      // Call API directly with full URL for Vercel compatibility
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/tournaments/${tournament._id}/join`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
