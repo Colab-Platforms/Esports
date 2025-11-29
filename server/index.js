@@ -10,8 +10,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-// Import seed data utility
-const { seedDatabase } = require('./utils/seedData');
+// Seed data utility removed - use admin panel to create tournaments and games
 
 // Debug environment variables
 console.log('🔧 Environment Debug:');
@@ -127,10 +126,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
     console.log('🎮 MongoDB connected successfully');
     console.log('📊 Database name:', mongoose.connection.name);
     
-    // Seed database with sample data in development
-    if (process.env.NODE_ENV === 'development') {
-      await seedDatabase();
-    }
+    console.log('🎮 Server ready! Use admin panel to create tournaments and games.');
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err);
