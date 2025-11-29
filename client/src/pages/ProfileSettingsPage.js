@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { 
   FiPhone, 
@@ -13,11 +13,13 @@ import {
   FiEdit3,
   FiGlobe
 } from 'react-icons/fi';
-import { selectAuth } from '../store/slices/authSlice';
+import { selectAuth, updateProfile } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
+import axios from 'axios';
 
 const ProfileSettingsPage = () => {
-  const { user } = useSelector(selectAuth);
+  const { user, token } = useSelector(selectAuth);
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -40,6 +42,27 @@ const ProfileSettingsPage = () => {
     github: user?.socialAccounts?.github || '',
     linkedin: user?.socialAccounts?.linkedin || ''
   });
+
+  // Sync with Redux store when user updates
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        country: user.country || '',
+        favoriteGame: user.favoriteGame || '',
+        profileVisibility: user.profileVisibility || 'public',
+        bio: user.bio || ''
+      });
+      setSocialAccounts({
+        twitter: user.socialAccounts?.twitter || '',
+        instagram: user.socialAccounts?.instagram || '',
+        github: user.socialAccounts?.github || '',
+        linkedin: user.socialAccounts?.linkedin || ''
+      });
+    }
+  }, [user]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -65,13 +88,41 @@ const ProfileSettingsPage = () => {
       setError('');
       setSuccess('');
       
-      console.log('Saving profile:', { ...profileData, socialAccounts });
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
-      setSuccess('Profile updated successfully!');
-      setIsEditing(false); // Reset editing state
-      setTimeout(() => setSuccess(''), 3000);
+      const response = await axios.put(
+        `${API_URL}/api/auth/profile`,
+        {
+          username: profileData.username,
+          phone: profileData.phone,
+          country: profileData.country,
+          favoriteGame: profileData.favoriteGame,
+          profileVisibility: profileData.profileVisibility,
+          bio: profileData.bio,
+          socialAccounts
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Update Redux store
+        dispatch(updateProfile(response.data.data.user));
+        setSuccess('Profile updated successfully!');
+        setIsEditing(false);
+        setTimeout(() => setSuccess(''), 3000);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to update profile');
+      console.error('Profile update error:', err);
+      console.error('Error response:', err.response);
+      const errorMessage = err.response?.data?.error?.message 
+        || err.response?.data?.message 
+        || err.message 
+        || 'Failed to update profile';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -143,14 +194,13 @@ const ProfileSettingsPage = () => {
             <div className="card-gaming p-6">
               {/* Avatar - Circular */}
               <div className="flex flex-col items-center mb-6">
-                <div className="relative mb-4">
+                <div className="relative w-32 h-32 mb-4">
                   <UserAvatar 
                     user={user} 
-                    size="xl"
-                    className="w-32 h-32 rounded-full"
+                    size="3xl"
                   />
-                  <button className="absolute bottom-0 right-0 p-2 bg-gaming-gold text-black rounded-full hover:bg-yellow-500 transition-colors">
-                    <FiEdit3 className="w-3 h-3" />
+                  <button className="absolute bottom-2 right-2 p-2 bg-gaming-gold text-black rounded-full hover:bg-yellow-500 transition-colors shadow-lg">
+                    <FiEdit3 className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -166,17 +216,17 @@ const ProfileSettingsPage = () => {
               <div className="space-y-3">
                 <div className="border-b border-gaming-border pb-3">
                   <p className="text-gray-400 text-xs mb-1">Email</p>
-                  <p className="text-white text-sm">{user?.email || 'Not set'}</p>
+                  <p className="text-white text-sm">{profileData.email || 'Not set'}</p>
                 </div>
 
                 <div className="border-b border-gaming-border pb-3">
                   <p className="text-gray-400 text-xs mb-1">Phone</p>
-                  <p className="text-white text-sm">{user?.phone || 'Not set'}</p>
+                  <p className="text-white text-sm">{profileData.phone || 'Not set'}</p>
                 </div>
 
                 <div className="border-b border-gaming-border pb-3">
                   <p className="text-gray-400 text-xs mb-1">Location</p>
-                  <p className="text-white text-sm">{user?.country || 'Not set'}</p>
+                  <p className="text-white text-sm">{profileData.country || 'Not set'}</p>
                 </div>
 
                 <div className="border-b border-gaming-border pb-3">

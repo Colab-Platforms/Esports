@@ -366,7 +366,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, favoriteGame, profileVisibility, avatarUrl } = req.body;
+    const { username, email, phone, bio, country, favoriteGame, profileVisibility, avatarUrl, socialAccounts } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -414,6 +414,17 @@ router.put('/profile', auth, async (req, res) => {
     if (favoriteGame !== undefined) user.favoriteGame = favoriteGame;
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+    if (phone !== undefined) user.phone = phone;
+    
+    // Update social accounts
+    if (socialAccounts !== undefined) {
+      user.socialAccounts = {
+        twitter: socialAccounts.twitter || user.socialAccounts?.twitter || '',
+        instagram: socialAccounts.instagram || user.socialAccounts?.instagram || '',
+        github: socialAccounts.github || user.socialAccounts?.github || '',
+        linkedin: socialAccounts.linkedin || user.socialAccounts?.linkedin || ''
+      };
+    }
 
     await user.save();
     
@@ -430,6 +441,7 @@ router.put('/profile', auth, async (req, res) => {
       country: user.country,
       favoriteGame: user.favoriteGame,
       profileVisibility: user.profileVisibility,
+      socialAccounts: user.socialAccounts,
       kycStatus: user.kycStatus,
       role: user.role,
       level: user.level,

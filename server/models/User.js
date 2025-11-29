@@ -122,6 +122,30 @@ const userSchema = new mongoose.Schema({
     earnedAt: { type: Date, default: Date.now },
     icon: String
   }],
+  bio: {
+    type: String,
+    default: '',
+    maxlength: [500, 'Bio cannot exceed 500 characters']
+  },
+  country: {
+    type: String,
+    default: ''
+  },
+  favoriteGame: {
+    type: String,
+    default: ''
+  },
+  profileVisibility: {
+    type: String,
+    enum: ['public', 'private', 'friends'],
+    default: 'public'
+  },
+  socialAccounts: {
+    twitter: { type: String, default: '' },
+    instagram: { type: String, default: '' },
+    github: { type: String, default: '' },
+    linkedin: { type: String, default: '' }
+  },
   preferences: {
     notifications: {
       email: { type: Boolean, default: true },
