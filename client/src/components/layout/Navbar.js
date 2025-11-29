@@ -54,7 +54,7 @@ const Navbar = () => {
   ];
 
   const authenticatedLinks = [
-    { to: '/dashboard', label: 'DASHBOARD', icon: FiGrid },
+    { to: '/dashboard', label: 'MY CAREER', icon: FiGrid },
     // Wallet removed - free tournaments only
   ];
 

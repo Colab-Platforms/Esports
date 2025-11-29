@@ -381,6 +381,7 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
                 compact={true}
                 actionText="join CS2 tournaments"
                 onConnectionSuccess={(steamData) => {
+                  console.log('✅ Steam connected successfully:', steamData);
                   setSteamConnected(true);
                   setError('');
                 }}
