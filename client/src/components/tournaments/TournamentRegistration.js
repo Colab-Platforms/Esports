@@ -156,7 +156,18 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         }
       }
     } else if (tournament.gameType === 'cs2') {
-      if (!user?.gameIds?.steam && !steamConnected) {
+      const hasSteamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
+      const isSteamConnected = user?.steamProfile?.isConnected || steamConnected;
+      
+      console.log('🔍 CS2 Steam Check:', {
+        hasSteamId: !!hasSteamId,
+        isSteamConnected,
+        steamConnected,
+        userGameIds: user?.gameIds,
+        steamProfile: user?.steamProfile
+      });
+      
+      if (!hasSteamId && !isSteamConnected) {
         setError('Please connect your Steam account to join CS2 tournaments');
         return false;
       }

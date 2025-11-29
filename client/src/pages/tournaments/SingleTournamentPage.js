@@ -93,7 +93,8 @@ const SingleTournamentPage = () => {
         try {
           const token = localStorage.getItem('token');
           if (token) {
-            const response = await fetch('/api/auth/profile', {
+            const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+            const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -102,7 +103,10 @@ const SingleTournamentPage = () => {
               if (data.success && data.data.user) {
                 dispatch({ type: 'auth/loginSuccess', payload: { user: data.data.user, token } });
                 console.log('✅ User data refreshed with Steam ID:', data.data.user.gameIds?.steam);
+                console.log('🎮 Steam profile:', data.data.user.steamProfile);
               }
+            } else {
+              console.error('Failed to fetch user profile:', response.status);
             }
           }
         } catch (error) {
