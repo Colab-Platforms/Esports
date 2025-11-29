@@ -8,7 +8,8 @@ import {
   FiLogOut, 
   FiSettings,
   FiDollarSign,
-  FiGrid
+  FiGrid,
+  FiUser
 } from 'react-icons/fi';
 
 import { selectAuth, logout } from '../../store/slices/authSlice';
@@ -54,8 +55,7 @@ const Navbar = () => {
   ];
 
   const authenticatedLinks = [
-    { to: '/dashboard', label: 'MY CAREER', icon: FiGrid },
-    // Wallet removed - free tournaments only
+    // Dashboard removed - moved to profile dropdown
   ];
 
   return (
@@ -155,6 +155,15 @@ const Navbar = () => {
                       >
                         <Link
                           to="/profile"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          <FiUser className="w-4 h-4" />
+                          <span>My Profile</span>
+                        </Link>
+                        
+                        <Link
+                          to="/profile/settings"
                           className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
                           onClick={() => setIsProfileMenuOpen(false)}
                         >

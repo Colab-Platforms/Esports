@@ -24,6 +24,7 @@ import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 // import WalletPage from './pages/WalletPage';
 import ProfilePage from './pages/ProfilePage';
+import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import GamesPage from './pages/GamesPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
@@ -342,6 +343,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <ProfilePage />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/profile/settings" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ProfileSettingsPage />
                   </motion.div>
                 </ProtectedRoute>
               } 

@@ -230,7 +230,6 @@ const SingleTournamentPage = () => {
           mode: 'squad',
           format: 'Battle Royale',
           region: 'India',
-          rules: 'Tournament rules and regulations will be displayed here',
 
           // Tournament Details
           details: {
