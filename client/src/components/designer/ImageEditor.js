@@ -139,19 +139,29 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
       }
       
       // Update site image record
+      const updateData = {
+        imageUrl: uploadedImageUrl,
+        name: imageKey.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        category: imageKey.includes('banner') ? 'banner' : 
+                 imageKey.includes('logo') ? 'logo' : 'other'
+      };
+
+      // Add responsive URLs if in device mode
+      if (uploadMode === 'device' && Object.keys(responsiveUrls).length > 0) {
+        updateData.responsiveUrls = responsiveUrls;
+      }
+
+      console.log('📤 Updating site image:', imageKey, updateData);
+
       const response = await axios.put(
         `${API_URL}/api/site-images/${imageKey}`,
-        {
-          imageUrl: uploadedImageUrl,
-          responsiveUrls: uploadMode === 'responsive' ? responsiveUrls : undefined,
-          name: imageKey.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          category: imageKey.includes('banner') ? 'banner' : 
-                   imageKey.includes('logo') ? 'logo' : 'other'
-        },
+        updateData,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
+
+      console.log('✅ Server response:', response.data);
 
       if (response.data.success) {
         onImageUpdate(uploadedImageUrl);
@@ -160,11 +170,24 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
         setSelectedFile(null);
         setResponsiveFiles({ desktop: null, tablet: null, mobile: null });
         setResponsivePreviews({ desktop: '', tablet: '', mobile: '' });
-        alert('Image updated successfully!');
+        alert('✅ Image updated successfully!');
+      } else {
+        throw new Error(response.data.error?.message || 'Update failed');
       }
     } catch (error) {
-      console.error('Error updating image:', error);
-      alert(error.response?.data?.error?.message || 'Failed to update image');
+      console.error('❌ Error updating image:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      // Show user-friendly error
+      const errorMessage = error.response?.data?.error?.message || 
+                          error.response?.data?.message ||
+                          error.message || 
+                          'Failed to update image';
+      alert(`❌ ${errorMessage}`);
     } finally {
       setUploading(false);
     }
