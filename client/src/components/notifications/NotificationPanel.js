@@ -1,36 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBell, FiX, FiCheck, FiTrash2, FiExternalLink } from 'react-icons/fi';
 import { 
   selectNotifications, 
   selectUnreadCount,
+  setNotifications,
   markAsRead,
   markAllAsRead,
   removeNotification,
   clearAllNotifications
 } from '../../store/slices/notificationSlice';
+import { selectAuth } from '../../store/slices/authSlice';
+import axios from 'axios';
 
 const NotificationPanel = () => {
   const dispatch = useDispatch();
+  const { token } = useSelector(selectAuth);
   const notifications = useSelector(selectNotifications);
   const unreadCount = useSelector(selectUnreadCount);
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleMarkAsRead = (notificationId) => {
-    dispatch(markAsRead(notificationId));
+  // Fetch notifications on mount and every 30 seconds
+  useEffect(() => {
+    if (token) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
+
+  const fetchNotifications = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        dispatch(setNotifications(response.data.data));
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    dispatch(markAllAsRead());
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      await axios.put(
+        `${API_URL}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      dispatch(markAsRead(notificationId));
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   };
 
-  const handleRemoveNotification = (notificationId) => {
-    dispatch(removeNotification(notificationId));
+  const handleMarkAllAsRead = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      await axios.put(
+        `${API_URL}/api/notifications/read-all`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      dispatch(markAllAsRead());
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
-  const handleClearAll = () => {
-    dispatch(clearAllNotifications());
+  const handleRemoveNotification = async (notificationId) => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      await axios.delete(`${API_URL}/api/notifications/${notificationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      dispatch(removeNotification(notificationId));
+    } catch (error) {
+      console.error('Error removing notification:', error);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      await axios.delete(`${API_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      dispatch(clearAllNotifications());
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
   };
 
   const handleNotificationClick = (notification) => {
@@ -47,17 +111,14 @@ const NotificationPanel = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'friend_request': return '👥';
+      case 'friend_accepted': return '✅';
+      case 'challenge': return '⚔️';
       case 'tournament': return '🎮';
       case 'match': return '⚔️';
-      case 'wallet': return '💰';
-      case 'achievement': return '🏆';
-      case 'system': return '⚙️';
-      case 'match': return '⚔️';
-      case 'wallet': return '💰';
       case 'achievement': return '🏆';
       case 'system': return '⚙️';
       case 'security': return '🔒';
-      case 'success': return '✅';
       default: return '📢';
     }
   };

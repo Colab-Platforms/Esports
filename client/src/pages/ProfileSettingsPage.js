@@ -70,6 +70,8 @@ const ProfileSettingsPage = () => {
     confirmPassword: ''
   });
 
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
@@ -80,6 +82,65 @@ const ProfileSettingsPage = () => {
 
   const handlePasswordChange = (field, value) => {
     setPasswordData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploadingAvatar(true);
+      setError('');
+
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+          
+          const response = await axios.put(
+            `${API_URL}/api/auth/profile`,
+            {
+              avatarUrl: reader.result // Base64 string
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            }
+          );
+
+          if (response.data.success) {
+            dispatch(updateProfile(response.data.data.user));
+            setSuccess('Profile photo updated successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+          }
+        } catch (err) {
+          console.error('Avatar upload error:', err);
+          setError(err.response?.data?.error?.message || 'Failed to upload photo');
+        } finally {
+          setUploadingAvatar(false);
+        }
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('File read error:', err);
+      setError('Failed to read file');
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -199,9 +260,24 @@ const ProfileSettingsPage = () => {
                     user={user} 
                     size="3xl"
                   />
-                  <button className="absolute bottom-2 right-2 p-2 bg-gaming-gold text-black rounded-full hover:bg-yellow-500 transition-colors shadow-lg">
-                    <FiEdit3 className="w-4 h-4" />
-                  </button>
+                  <input
+                    type="file"
+                    id="avatar-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                    disabled={uploadingAvatar}
+                  />
+                  <label
+                    htmlFor="avatar-upload"
+                    className={`absolute bottom-2 right-2 p-2 bg-gaming-gold text-black rounded-full hover:bg-yellow-500 transition-colors shadow-lg cursor-pointer ${uploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {uploadingAvatar ? (
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <FiEdit3 className="w-4 h-4" />
+                    )}
+                  </label>
                 </div>
 
                 <h3 className="text-xl font-bold text-white mb-1">
@@ -210,6 +286,9 @@ const ProfileSettingsPage = () => {
                 <p className="text-gray-400 text-sm">
                   ID: #{user?._id?.slice(-6) || '000000'}
                 </p>
+                {uploadingAvatar && (
+                  <p className="text-gaming-neon text-xs mt-2">Uploading...</p>
+                )}
               </div>
 
               {/* User Info - Vertical List */}

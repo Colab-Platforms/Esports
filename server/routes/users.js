@@ -1,0 +1,483 @@
+const express = require('express');
+const User = require('../models/User');
+const FriendRequest = require('../models/FriendRequest');
+const auth = require('../middleware/auth');
+
+const router = express.Router();
+
+// @route   GET /api/users/players
+// @desc    Get all players with search and filter
+// @access  Private
+router.get('/players', auth, async (req, res) => {
+  try {
+    const { search, game } = req.query;
+    const currentUserId = req.user.userId;
+
+    let query = { _id: { $ne: currentUserId }, isActive: true };
+
+    // Search by username
+    if (search) {
+      query.username = { $regex: search, $options: 'i' };
+    }
+
+    // Filter by favorite game
+    if (game) {
+      query.favoriteGame = game;
+    }
+
+    const players = await User.find(query)
+      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends')
+      .limit(50)
+      .lean();
+
+    // Check friend request status for each player
+    const FriendRequest = require('../models/FriendRequest');
+    const playersWithStats = await Promise.all(players.map(async (player) => {
+      // Check if already friends
+      const isFriend = player.friends && player.friends.some(
+        friendId => friendId.toString() === currentUserId
+      );
+
+      // Check if friend request already sent
+      const existingRequest = await FriendRequest.findOne({
+        sender: currentUserId,
+        recipient: player._id,
+        status: 'pending'
+      });
+
+      return {
+        id: player._id,
+        username: player.username,
+        email: player.email,
+        avatarUrl: player.avatarUrl,
+        level: player.level,
+        currentRank: player.currentRank,
+        tournamentsWon: player.tournamentsWon,
+        favoriteGame: player.favoriteGame,
+        bio: player.bio,
+        country: player.country,
+        winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
+        friendRequestSent: !!existingRequest,
+        isFriend: isFriend
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: { players: playersWithStats },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching players:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch players',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/friend-request
+// @desc    Send friend request
+// @access  Private
+router.post('/friend-request', auth, async (req, res) => {
+  try {
+    const { recipientId } = req.body;
+    const senderId = req.user.userId;
+
+    if (!recipientId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_RECIPIENT',
+          message: 'Recipient ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (senderId === recipientId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Cannot send friend request to yourself',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if recipient exists
+    const recipient = await User.findById(recipientId);
+    if (!recipient) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'Recipient not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if already friends
+    const sender = await User.findById(senderId);
+    if (sender.friends.includes(recipientId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'ALREADY_FRIENDS',
+          message: 'You are already friends with this user',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if request already exists
+    const existingRequest = await FriendRequest.findOne({
+      sender: senderId,
+      recipient: recipientId,
+      status: 'pending'
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'REQUEST_EXISTS',
+          message: 'Friend request already sent',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Create friend request
+    const friendRequest = new FriendRequest({
+      sender: senderId,
+      recipient: recipientId,
+      status: 'pending'
+    });
+
+    await friendRequest.save();
+
+    // Create notification for recipient
+    const Notification = require('../models/Notification');
+    const notification = new Notification({
+      user: recipientId,
+      type: 'friend_request',
+      title: 'New Friend Request',
+      message: `${sender.username} sent you a friend request`,
+      actionUrl: '/profile?tab=teams&subtab=requests',
+      isRead: false
+    });
+
+    await notification.save();
+
+    console.log(`📨 Friend request from ${sender.username} to ${recipient.username}`);
+
+    res.json({
+      success: true,
+      message: 'Friend request sent successfully',
+      data: {
+        requestId: friendRequest._id
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending friend request:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to send friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/challenge
+// @desc    Send game challenge (Deprecated - use /api/challenges instead)
+// @access  Private
+router.post('/challenge', auth, async (req, res) => {
+  try {
+    const { opponentId, game } = req.body;
+    
+    // Redirect to new challenges API
+    return res.status(301).json({
+      success: false,
+      error: {
+        code: 'DEPRECATED',
+        message: 'This endpoint is deprecated. Please use POST /api/challenges instead',
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending challenge:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to send challenge',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/users/friends
+// @desc    Get user's friends list
+// @access  Private
+router.get('/friends', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { search } = req.query;
+
+    const user = await User.findById(userId).populate('friends', 'username email avatarUrl level currentRank tournamentsWon favoriteGame bio country');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    let friends = user.friends || [];
+
+    // Filter by search if provided
+    if (search) {
+      friends = friends.filter(friend => 
+        friend.username.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    const formattedFriends = friends.map(friend => ({
+      id: friend._id,
+      username: friend.username,
+      email: friend.email,
+      avatarUrl: friend.avatarUrl,
+      level: friend.level,
+      currentRank: friend.currentRank,
+      tournamentsWon: friend.tournamentsWon,
+      favoriteGame: friend.favoriteGame,
+      bio: friend.bio,
+      country: friend.country,
+      winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
+      isFriend: true
+    }));
+
+    res.json({
+      success: true,
+      data: { friends: formattedFriends },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching friends:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch friends',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/users/friend-requests
+// @desc    Get friend requests
+// @access  Private
+router.get('/friend-requests', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const requests = await FriendRequest.find({
+      recipient: userId,
+      status: 'pending'
+    })
+    .populate('sender', 'username email avatarUrl level currentRank')
+    .sort({ createdAt: -1 });
+
+    const formattedRequests = requests.map(req => ({
+      id: req._id,
+      sender: {
+        id: req.sender._id,
+        username: req.sender.username,
+        email: req.sender.email,
+        avatarUrl: req.sender.avatarUrl,
+        level: req.sender.level,
+        currentRank: req.sender.currentRank
+      },
+      createdAt: req.createdAt.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      }),
+      message: req.message
+    }));
+
+    res.json({
+      success: true,
+      data: { requests: formattedRequests },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching friend requests:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch friend requests',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/friend-request/:requestId/accept
+// @desc    Accept friend request
+// @access  Private
+router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+
+    const friendRequest = await FriendRequest.findById(requestId);
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Friend request not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (friendRequest.recipient.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to accept this request',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (friendRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: 'This request has already been processed',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Update request status
+    friendRequest.status = 'accepted';
+    await friendRequest.save();
+
+    // Add to friends list
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { friends: friendRequest.sender }
+    });
+
+    await User.findByIdAndUpdate(friendRequest.sender, {
+      $addToSet: { friends: userId }
+    });
+
+    console.log(`✅ Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Friend request accepted',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error accepting friend request:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to accept friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/friend-request/:requestId/reject
+// @desc    Reject friend request
+// @access  Private
+router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+
+    const friendRequest = await FriendRequest.findById(requestId);
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Friend request not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (friendRequest.recipient.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You are not authorized to reject this request',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Update request status
+    friendRequest.status = 'rejected';
+    await friendRequest.save();
+
+    console.log(`❌ Friend request rejected: ${friendRequest.sender} -> ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Friend request rejected',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error rejecting friend request:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to reject friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+module.exports = router;

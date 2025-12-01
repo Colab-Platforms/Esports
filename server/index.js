@@ -159,6 +159,9 @@ app.use(checkBannedUser);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/games', require('./routes/games'));
 app.use('/api/steam', require('./routes/steam'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/challenges', require('./routes/challenges'));
 app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/bgmi-matches', require('./routes/bgmiMatches'));
@@ -167,6 +170,8 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/cs2', require('./routes/cs2Logs'));
+app.use('/api/site-images', require('./routes/siteImages'));
+app.use('/api/upload', require('./routes/upload'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

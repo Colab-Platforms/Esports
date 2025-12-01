@@ -146,6 +146,10 @@ const userSchema = new mongoose.Schema({
     github: { type: String, default: '' },
     linkedin: { type: String, default: '' }
   },
+  friends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   preferences: {
     notifications: {
       email: { type: Boolean, default: true },

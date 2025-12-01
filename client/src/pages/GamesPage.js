@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiPlay, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../services/api';
+import ImageEditor from '../components/designer/ImageEditor';
+import axios from 'axios';
 
 const GamesPage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
@@ -10,6 +12,7 @@ const GamesPage = () => {
     const [featuredGames, setFeaturedGames] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [siteImages, setSiteImages] = useState({});
 
     // Fetch games from database
     useEffect(() => {
@@ -40,16 +43,45 @@ const GamesPage = () => {
         };
 
         fetchGames();
+        fetchSiteImages();
     }, []);
+
+    const fetchSiteImages = async () => {
+        try {
+            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+            const response = await axios.get(`${API_URL}/api/site-images`);
+            if (response.data.success) {
+                setSiteImages(response.data.data.images);
+            }
+        } catch (error) {
+            console.error('Error fetching site images:', error);
+        }
+    };
+
+    const handleImageUpdate = (imageKey, newUrl) => {
+        console.log('🎨 Game banner updated:', imageKey, newUrl);
+        
+        setSiteImages(prev => ({
+            ...prev,
+            [imageKey]: {
+                ...prev[imageKey],
+                imageUrl: newUrl
+            }
+        }));
+
+        // Force re-fetch to update banners
+        setFeaturedGames(prevGames => [...prevGames]);
+    };
 
     // Create banners from featured games
     const banners = featuredGames.map((game, index) => ({
         id: index + 1,
         game: game.name,
         gameKey: game.id,
+        imageKey: `game-banner-${game.id}`,
         title: `${game.name.toUpperCase()} CHAMPIONSHIP`,
         subtitle: game.description,
-        image: game.backgroundImage,
+        image: siteImages[`game-banner-${game.id}`]?.imageUrl || game.backgroundImage,
         logo: game.logo,
         icon: game.icon,
         stats: {
@@ -176,6 +208,15 @@ const GamesPage = () => {
                             }}
                         >
                             <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70" />
+                            
+                            {/* Designer Edit Button */}
+                            {banners[currentBanner].imageKey && (
+                                <ImageEditor
+                                    imageKey={banners[currentBanner].imageKey}
+                                    currentImageUrl={banners[currentBanner].image}
+                                    onImageUpdate={(newUrl) => handleImageUpdate(banners[currentBanner].imageKey, newUrl)}
+                                />
+                            )}
 
                             <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
                                 {/* Game Logo */}

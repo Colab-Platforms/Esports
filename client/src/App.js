@@ -26,9 +26,11 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import GamesPage from './pages/GamesPage';
+import TeamsPage from './pages/TeamsPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
+import ImageUploadPage from './pages/admin/ImageUploadPage';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -165,7 +167,7 @@ function App() {
               path="/login" 
               element={
                 isAuthenticated ? (
-                  <Navigate to="/dashboard" replace />
+                  <Navigate to="/profile" replace />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -183,7 +185,7 @@ function App() {
               path="/register" 
               element={
                 isAuthenticated ? (
-                  <Navigate to="/dashboard" replace />
+                  <Navigate to="/profile" replace />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -365,6 +367,22 @@ function App() {
             />
             
             <Route 
+              path="/teams" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TeamsPage />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
               path="/steam-settings" 
               element={
                 <ProtectedRoute>
@@ -457,6 +475,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <TournamentManagement />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/images" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ImageUploadPage />
                   </motion.div>
                 </AdminRoute>
               } 

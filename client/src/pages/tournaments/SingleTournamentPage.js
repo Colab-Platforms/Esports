@@ -21,6 +21,8 @@ import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
+import ImageEditor from '../../components/designer/ImageEditor';
+import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
 
@@ -39,6 +41,23 @@ const SingleTournamentPage = () => {
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [siteImages, setSiteImages] = useState({});
+
+  const handleImageUpdate = (imageKey, newUrl) => {
+    console.log('🎨 Tournament banner updated:', imageKey, newUrl);
+    
+    setSiteImages(prev => {
+      const updated = {
+        ...prev,
+        [imageKey]: {
+          ...prev[imageKey],
+          imageUrl: newUrl
+        }
+      };
+      console.log('Updated siteImages:', updated);
+      return updated;
+    });
+  };
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -122,6 +141,21 @@ const SingleTournamentPage = () => {
   }, [location, navigate, dispatch]);
 
   useEffect(() => {
+    // Fetch site images
+    const loadSiteImages = async () => {
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const response = await axios.get(`${API_URL}/api/site-images`);
+        if (response.data.success) {
+          setSiteImages(response.data.data.images);
+        }
+      } catch (error) {
+        console.error('Error fetching site images:', error);
+      }
+    };
+    
+    loadSiteImages();
+    
     // Fetch real tournament data
     const fetchTournamentData = async () => {
       setLoadingTournament(true);
@@ -948,12 +982,21 @@ const SingleTournamentPage = () => {
       <div className="relative h-80 overflow-hidden">
         {/* Background Image */}
         <OptimizedImage 
-          src={getRandomBanner(tournament?.gameType)} 
+          src={siteImages[`tournament-banner-${tournament?.gameType}`]?.imageUrl || getRandomBanner(tournament?.gameType)} 
           alt={tournament?.name || 'Tournament'}
-          className="w-full h-full"
+          className="w-full h-full object-cover object-center"
           fallbackSrc={getGameImage(tournament?.gameType, 'banner')}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+        
+        {/* Designer Edit Button */}
+        {tournament?.gameType && (
+          <ImageEditor
+            imageKey={`tournament-banner-${tournament.gameType}`}
+            currentImageUrl={siteImages[`tournament-banner-${tournament.gameType}`]?.imageUrl || getRandomBanner(tournament.gameType)}
+            onImageUpdate={(newUrl) => handleImageUpdate(`tournament-banner-${tournament.gameType}`, newUrl)}
+          />
+        )}
         
         {/* Content */}
         <div className="absolute inset-0 flex items-center justify-center">

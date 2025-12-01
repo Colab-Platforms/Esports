@@ -135,10 +135,20 @@ router.post('/register', async (req, res) => {
           email: user.email,
           phone: user.phone,
           avatarUrl: user.avatarUrl,
+          bio: user.bio,
+          country: user.country,
+          favoriteGame: user.favoriteGame,
+          profileVisibility: user.profileVisibility,
+          socialAccounts: user.socialAccounts,
           kycStatus: user.kycStatus,
           role: user.role,
           level: user.level,
-          loginStreak: user.loginStreak
+          currentRank: user.currentRank,
+          loginStreak: user.loginStreak,
+          totalEarnings: user.totalEarnings,
+          tournamentsWon: user.tournamentsWon,
+          gameIds: user.gameIds,
+          createdAt: user.createdAt
         }
       },
       message: '🎉 Welcome to Colab Esports! Your gaming journey begins now.',
@@ -294,6 +304,11 @@ router.post('/login', [
           email: user.email,
           phone: user.phone,
           avatarUrl: user.avatarUrl,
+          bio: user.bio,
+          country: user.country,
+          favoriteGame: user.favoriteGame,
+          profileVisibility: user.profileVisibility,
+          socialAccounts: user.socialAccounts,
           kycStatus: user.kycStatus,
           role: user.role,
           level: user.level,
@@ -302,7 +317,9 @@ router.post('/login', [
           totalEarnings: user.totalEarnings,
           tournamentsWon: user.tournamentsWon,
           gameIds: user.gameIds,
-          achievements: user.achievements.slice(-5) // Last 5 achievements
+          steamProfile: user.steamProfile,
+          achievements: user.achievements.slice(-5), // Last 5 achievements
+          createdAt: user.createdAt
         }
       },
       message: `🎮 Welcome back, ${user.username}! Ready to dominate?`,
@@ -449,7 +466,9 @@ router.put('/profile', auth, async (req, res) => {
       loginStreak: user.loginStreak,
       totalEarnings: user.totalEarnings,
       tournamentsWon: user.tournamentsWon,
-      gameIds: user.gameIds
+      gameIds: user.gameIds,
+      steamProfile: user.steamProfile,
+      createdAt: user.createdAt
     };
 
     res.json({

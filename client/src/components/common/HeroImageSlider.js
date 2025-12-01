@@ -3,17 +3,55 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight, FiPlay } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './OptimizedImage';
+import ImageEditor from '../designer/ImageEditor';
 import api from '../../services/api';
+import axios from 'axios';
 
 const HeroImageSlider = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
+  const [siteImages, setSiteImages] = useState({});
 
   useEffect(() => {
     fetchHeroData();
+    fetchSiteImages();
   }, []);
+
+  const fetchSiteImages = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/site-images`);
+      if (response.data.success) {
+        setSiteImages(response.data.data.images);
+      }
+    } catch (error) {
+      console.error('Error fetching site images:', error);
+    }
+  };
+
+  const handleImageUpdate = (imageKey, newUrl) => {
+    console.log('🎨 Image updated:', imageKey, newUrl);
+    
+    // Update siteImages state
+    setSiteImages(prev => ({
+      ...prev,
+      [imageKey]: {
+        ...prev[imageKey],
+        imageUrl: newUrl
+      }
+    }));
+
+    // Update current slides array immediately
+    setSlides(prevSlides => 
+      prevSlides.map(slide => 
+        slide.imageKey === imageKey 
+          ? { ...slide, image: newUrl }
+          : slide
+      )
+    );
+  };
 
   // Auto-play functionality
   useEffect(() => {
@@ -48,7 +86,8 @@ const HeroImageSlider = () => {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          image: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.jpg?v=1764247341',
+          image: siteImages['hero-banner-main']?.imageUrl || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
+          imageKey: 'hero-banner-main',
           cta: {
             text: 'Join Now',
             link: '/register'
@@ -66,7 +105,8 @@ const HeroImageSlider = () => {
           title: tournament.name,
           subtitle: tournament.gameType?.toUpperCase() || 'TOURNAMENT',
           description: tournament.description || 'Join this exciting tournament',
-          image: getGameBanner(tournament.gameType),
+          image: siteImages[`hero-banner-${tournament.gameType?.toLowerCase()}`]?.imageUrl || getGameBanner(tournament.gameType),
+          imageKey: `hero-banner-${tournament.gameType?.toLowerCase()}`,
           cta: {
             text: 'Join Tournament',
             link: `/tournaments/${tournament._id}`
@@ -91,7 +131,8 @@ const HeroImageSlider = () => {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          image: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.jpg?v=1764247341',
+          image: siteImages['hero-banner-main']?.imageUrl || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
+          imageKey: 'hero-banner-main',
           cta: {
             text: 'Get Started',
             link: '/register'
@@ -148,7 +189,7 @@ const HeroImageSlider = () => {
   const currentSlideData = slides[currentSlide];
 
   return (
-    <div className="relative h-screen overflow-hidden">
+    <div className="relative min-h-screen h-screen overflow-hidden bg-gaming-dark">
       {/* Background Images */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -159,20 +200,30 @@ const HeroImageSlider = () => {
           transition={{ duration: 0.8 }}
           className="absolute inset-0"
         >
-          <OptimizedImage
-            src={currentSlideData.image}
-            alt={currentSlideData.title}
-            className="w-full h-full"
-            lazy={false}
-          />
-          {/* Reduced overlay opacity for brighter images */}
-          <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/20 to-black/40" />
+          <div className="w-full h-full overflow-hidden relative">
+            <OptimizedImage
+              src={currentSlideData.image}
+              alt={currentSlideData.title}
+              className="w-full h-full object-cover object-center"
+              lazy={false}
+            />
+            {/* Designer Edit Button - Top Left */}
+            {currentSlideData.imageKey && (
+              <ImageEditor
+                imageKey={currentSlideData.imageKey}
+                currentImageUrl={currentSlideData.image}
+                onImageUpdate={(newUrl) => handleImageUpdate(currentSlideData.imageKey, newUrl)}
+              />
+            )}
+          </div>
+          {/* Light overlay to maintain readability */}
+          <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/10 to-black/30" />
           <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/5 via-transparent to-gaming-neon-blue/5" />
         </motion.div>
       </AnimatePresence>
 
       {/* Content */}
-      <div className="relative z-10 h-full flex items-center">
+      <div className="relative z-10 h-full flex items-center py-20 sm:py-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
@@ -198,7 +249,7 @@ const HeroImageSlider = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="text-4xl md:text-6xl lg:text-7xl font-gaming font-bold text-white mb-6"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-gaming font-bold text-white mb-4 sm:mb-6 leading-tight"
               >
                 {currentSlideData.title}
               </motion.h1>
@@ -207,7 +258,7 @@ const HeroImageSlider = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
-                className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl"
+                className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-6 sm:mb-8 max-w-2xl"
               >
                 {currentSlideData.description}
               </motion.p>
@@ -218,25 +269,25 @@ const HeroImageSlider = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.6 }}
-                  className="grid grid-cols-3 gap-6 mb-8"
+                  className="grid grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8"
                 >
                   <div className="text-center">
-                    <div className="text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
                       {currentSlideData.stats.players}
                     </div>
-                    <div className="text-gray-400 text-sm">Active Players</div>
+                    <div className="text-gray-400 text-xs sm:text-sm">Active Players</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
                       {currentSlideData.stats.tournaments}
                     </div>
-                    <div className="text-gray-400 text-sm">Live Tournaments</div>
+                    <div className="text-gray-400 text-xs sm:text-sm">Live Tournaments</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
                       {currentSlideData.stats.prizes}
                     </div>
-                    <div className="text-gray-400 text-sm">Prizes Won</div>
+                    <div className="text-gray-400 text-xs sm:text-sm">Prizes Won</div>
                   </div>
                 </motion.div>
               )}
@@ -284,9 +335,9 @@ const HeroImageSlider = () => {
               >
                 <Link
                   to={currentSlideData.cta.link}
-                  className="inline-flex items-center space-x-3 bg-gradient-to-r from-gaming-neon to-gaming-neon-blue hover:from-gaming-neon-blue hover:to-gaming-neon text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                  className="inline-flex items-center space-x-2 sm:space-x-3 bg-gradient-to-r from-gaming-neon to-gaming-neon-blue hover:from-gaming-neon-blue hover:to-gaming-neon text-white font-bold py-3 px-6 sm:py-4 sm:px-8 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
                 >
-                  <FiPlay className="w-5 h-5" />
+                  <FiPlay className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>{currentSlideData.cta.text}</span>
                 </Link>
               </motion.div>
@@ -352,25 +403,25 @@ const HeroImageSlider = () => {
           {/* Previous/Next Buttons */}
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
+            className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
           >
-            <FiChevronLeft className="w-6 h-6" />
+            <FiChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
+            className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
           >
-            <FiChevronRight className="w-6 h-6" />
+            <FiChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {/* Slide Indicators */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex space-x-3">
+          <div className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2 sm:space-x-3">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${
                   index === currentSlide
                     ? 'bg-gaming-neon scale-125'
                     : 'bg-white/50 hover:bg-white/70'
