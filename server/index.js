@@ -171,7 +171,20 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/cs2', require('./routes/cs2Logs'));
 app.use('/api/site-images', require('./routes/siteImages'));
-app.use('/api/upload', require('./routes/upload'));
+
+// Upload route with Cloudinary (optional)
+try {
+  // Check if Cloudinary is configured
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+    const uploadRoute = require('./routes/upload');
+    app.use('/api/upload', uploadRoute);
+    console.log('✅ Upload route with Cloudinary mounted');
+  } else {
+    console.log('⚠️ Cloudinary not configured - using Base64 fallback');
+  }
+} catch (error) {
+  console.error('⚠️ Cloudinary upload route failed, using Base64 fallback:', error.message);
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

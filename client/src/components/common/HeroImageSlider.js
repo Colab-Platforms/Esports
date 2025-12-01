@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight, FiPlay } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './OptimizedImage';
+import ResponsiveImage from './ResponsiveImage';
 import ImageEditor from '../designer/ImageEditor';
 import api from '../../services/api';
 import axios from 'axios';
@@ -87,6 +88,7 @@ const HeroImageSlider = () => {
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
           image: siteImages['hero-banner-main']?.imageUrl || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
+          responsiveUrls: siteImages['hero-banner-main']?.responsiveUrls,
           imageKey: 'hero-banner-main',
           cta: {
             text: 'Join Now',
@@ -106,6 +108,7 @@ const HeroImageSlider = () => {
           subtitle: tournament.gameType?.toUpperCase() || 'TOURNAMENT',
           description: tournament.description || 'Join this exciting tournament',
           image: siteImages[`hero-banner-${tournament.gameType?.toLowerCase()}`]?.imageUrl || getGameBanner(tournament.gameType),
+          responsiveUrls: siteImages[`hero-banner-${tournament.gameType?.toLowerCase()}`]?.responsiveUrls,
           imageKey: `hero-banner-${tournament.gameType?.toLowerCase()}`,
           cta: {
             text: 'Join Tournament',
@@ -201,12 +204,21 @@ const HeroImageSlider = () => {
           className="absolute inset-0"
         >
           <div className="w-full h-full overflow-hidden relative">
-            <OptimizedImage
-              src={currentSlideData.image}
-              alt={currentSlideData.title}
-              className="w-full h-full object-cover object-center"
-              lazy={false}
-            />
+            {currentSlideData.responsiveUrls ? (
+              <ResponsiveImage
+                imageUrl={currentSlideData.image}
+                responsiveUrls={currentSlideData.responsiveUrls}
+                alt={currentSlideData.title}
+                className="w-full h-full object-cover object-center"
+              />
+            ) : (
+              <OptimizedImage
+                src={currentSlideData.image}
+                alt={currentSlideData.title}
+                className="w-full h-full object-cover object-center"
+                lazy={false}
+              />
+            )}
             {/* Designer Edit Button - Top Left */}
             {currentSlideData.imageKey && (
               <ImageEditor

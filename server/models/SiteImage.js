@@ -19,6 +19,12 @@ const siteImageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Responsive image URLs
+  responsiveUrls: {
+    desktop: String,   // 1920x1080
+    tablet: String,    // 1024x768
+    mobile: String     // 750x1334
+  },
   category: {
     type: String,
     enum: ['banner', 'hero', 'background', 'icon', 'logo', 'other'],
