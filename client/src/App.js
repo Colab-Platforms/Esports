@@ -27,10 +27,12 @@ import ProfilePage from './pages/ProfilePage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import GamesPage from './pages/GamesPage';
 import TeamsPage from './pages/TeamsPage';
+import PublicProfile from './pages/PublicProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
+import ImageManagement from './pages/admin/ImageManagement';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -86,6 +88,25 @@ const AdminRoute = ({ children }) => {
   
   if (!isAdmin) {
     console.log('❌ Access denied: User is not admin');
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
+
+// Designer Route component - checks for designer or admin role
+const DesignerRoute = ({ children }) => {
+  const { isAuthenticated, user } = useSelector(selectAuth);
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Allow access if user is designer or admin
+  const canAccess = user?.role === 'designer' || user?.role === 'admin';
+  
+  if (!canAccess) {
+    console.log('❌ Access denied: User is not designer or admin');
     return <Navigate to="/" replace />;
   }
   
@@ -369,16 +390,28 @@ function App() {
             <Route 
               path="/teams" 
               element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <TeamsPage />
-                  </motion.div>
-                </ProtectedRoute>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <TeamsPage />
+                </motion.div>
+              } 
+            />
+            
+            <Route 
+              path="/player/:username" 
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <PublicProfile />
+                </motion.div>
               } 
             />
             
@@ -477,6 +510,22 @@ function App() {
                     <TournamentManagement />
                   </motion.div>
                 </AdminRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/images" 
+              element={
+                <DesignerRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ImageManagement />
+                  </motion.div>
+                </DesignerRoute>
               } 
             />
 

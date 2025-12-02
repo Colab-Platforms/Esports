@@ -4,7 +4,14 @@ import { FiCamera, FiUpload, FiCheck, FiX } from 'react-icons/fi';
 import { selectAuth } from '../../store/slices/authSlice';
 import axios from 'axios';
 
-const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' }) => {
+const ImageEditor = ({ 
+  imageKey, 
+  currentImageUrl, 
+  onImageUpdate, 
+  onEditStart,
+  onEditEnd,
+  className = '' 
+}) => {
   const { user, token } = useSelector(selectAuth);
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -125,7 +132,7 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
 
             if (uploadResponse.data.success) {
               responsiveUrls[device] = uploadResponse.data.data.imageUrl;
-              console.log(`✅ ${device} uploaded to Cloudinary`);
+              console.log(`✅ ${device} uploaded to Cloudinary:`, uploadResponse.data.data.imageUrl);
             }
           } catch (cloudinaryError) {
             console.warn(`⚠️ ${device} Cloudinary upload failed, using Base64`);
@@ -134,21 +141,53 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
           }
         }
 
-        // Use uploaded device URL as main URL
-        uploadedImageUrl = responsiveUrls[device];
+        // DON'T change main URL - keep current image as fallback
+        // Only update the device-specific URL in responsiveUrls
+        uploadedImageUrl = currentImageUrl; // Keep existing main image
       }
       
       // Update site image record
       const updateData = {
-        imageUrl: uploadedImageUrl,
         name: imageKey.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         category: imageKey.includes('banner') ? 'banner' : 
                  imageKey.includes('logo') ? 'logo' : 'other'
       };
 
-      // Add responsive URLs if in device mode
+      // In single mode: update main imageUrl
+      if (uploadMode === 'single') {
+        updateData.imageUrl = uploadedImageUrl;
+      }
+
+      // In device mode: only update responsiveUrls for specific device
       if (uploadMode === 'device' && Object.keys(responsiveUrls).length > 0) {
-        updateData.responsiveUrls = responsiveUrls;
+        // Fetch current data first
+        try {
+          const currentData = await axios.get(
+            `${API_URL}/api/site-images/${imageKey}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          
+          const existingImage = currentData.data.data?.image;
+          
+          // Merge with existing responsiveUrls
+          const existingResponsiveUrls = existingImage?.responsiveUrls || {};
+          updateData.responsiveUrls = {
+            ...existingResponsiveUrls,
+            ...responsiveUrls  // Only update the device we uploaded
+          };
+          
+          // If no existing imageUrl, use the uploaded device image as fallback
+          if (!existingImage?.imageUrl) {
+            updateData.imageUrl = responsiveUrls[selectedDevice];
+          }
+          
+          console.log('📤 Updating device-specific URL:', selectedDevice, responsiveUrls[selectedDevice]);
+        } catch (error) {
+          // If no existing data, use uploaded image as both main and device-specific
+          updateData.responsiveUrls = responsiveUrls;
+          updateData.imageUrl = responsiveUrls[selectedDevice]; // Use as fallback
+          console.log('📤 Creating new image with device-specific URL');
+        }
       }
 
       console.log('📤 Updating site image:', imageKey, updateData);
@@ -164,13 +203,22 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
       console.log('✅ Server response:', response.data);
 
       if (response.data.success) {
-        onImageUpdate(uploadedImageUrl);
         setIsEditing(false);
         setPreviewUrl('');
         setSelectedFile(null);
         setResponsiveFiles({ desktop: null, tablet: null, mobile: null });
         setResponsivePreviews({ desktop: '', tablet: '', mobile: '' });
-        alert('✅ Image updated successfully!');
+        if (onEditEnd) onEditEnd();
+        
+        const message = uploadMode === 'device' 
+          ? `✅ ${selectedDevice.charAt(0).toUpperCase() + selectedDevice.slice(1)} image updated!`
+          : '✅ Image updated successfully!';
+        alert(message);
+        
+        // Always call onImageUpdate to refresh data
+        if (onImageUpdate) {
+          await onImageUpdate(imageKey, uploadedImageUrl);
+        }
       } else {
         throw new Error(response.data.error?.message || 'Update failed');
       }
@@ -200,13 +248,17 @@ const ImageEditor = ({ imageKey, currentImageUrl, onImageUpdate, className = '' 
     setResponsiveFiles({ desktop: null, tablet: null, mobile: null });
     setResponsivePreviews({ desktop: '', tablet: '', mobile: '' });
     setUploadMode('single');
+    if (onEditEnd) onEditEnd();
   };
 
   return (
     <div className={`absolute bottom-4 right-4 z-50 ${className}`}>
       {!isEditing ? (
         <button
-          onClick={() => setIsEditing(true)}
+          onClick={() => {
+            setIsEditing(true);
+            if (onEditStart) onEditStart();
+          }}
           className="p-3 bg-gaming-gold hover:bg-yellow-500 text-black rounded-full backdrop-blur-sm transition-all duration-200 shadow-xl hover:scale-110 border-2 border-black/20"
           title="🎨 Edit Image (Designer Only)"
         >

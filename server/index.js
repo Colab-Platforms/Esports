@@ -65,6 +65,7 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'https://esports-62sh.vercel.app',
+      'https://esports-62sh.vercel.app',
       process.env.CLIENT_URL
     ];
     

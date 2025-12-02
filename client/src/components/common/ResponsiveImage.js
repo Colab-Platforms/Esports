@@ -13,22 +13,35 @@ const ResponsiveImage = ({
     const updateImageForScreenSize = () => {
       const width = window.innerWidth;
       
+      console.log('📱 ResponsiveImage - Screen width:', width);
+      console.log('📱 ResponsiveImage - Available URLs:', {
+        main: imageUrl,
+        desktop: responsiveUrls.desktop,
+        tablet: responsiveUrls.tablet,
+        mobile: responsiveUrls.mobile
+      });
+      
+      let selectedUrl;
+      
       // Determine which image to use based on screen size
       if (width >= 1024) {
         // Desktop
-        setCurrentImageUrl(responsiveUrls.desktop || imageUrl);
+        selectedUrl = responsiveUrls.desktop || imageUrl;
+        console.log('📱 Using DESKTOP image:', selectedUrl);
       } else if (width >= 768) {
         // Tablet
-        setCurrentImageUrl(responsiveUrls.tablet || responsiveUrls.desktop || imageUrl);
+        selectedUrl = responsiveUrls.tablet || responsiveUrls.desktop || imageUrl;
+        console.log('📱 Using TABLET image:', selectedUrl);
       } else {
         // Mobile
-        setCurrentImageUrl(
-          responsiveUrls.mobile || 
-          responsiveUrls.tablet || 
-          responsiveUrls.desktop || 
-          imageUrl
-        );
+        selectedUrl = responsiveUrls.mobile || 
+                     responsiveUrls.tablet || 
+                     responsiveUrls.desktop || 
+                     imageUrl;
+        console.log('📱 Using MOBILE image:', selectedUrl);
       }
+      
+      setCurrentImageUrl(selectedUrl);
     };
 
     // Initial update

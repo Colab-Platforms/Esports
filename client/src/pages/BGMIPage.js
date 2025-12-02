@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import PageBannerSlider from '../components/common/PageBannerSlider';
 import {
   fetchTournaments,
   selectTournaments,
@@ -140,39 +141,8 @@ const BGMIPage = () => {
 
   return (
     <div className="min-h-screen bg-gaming-dark">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-gaming-dark via-gaming-charcoal to-gaming-dark py-16">
-        <div className="absolute inset-0 bg-black/50"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="text-6xl mb-4">🎮</div>
-            <h1 className="text-4xl md:text-6xl font-gaming font-bold text-white">
-              BGMI Tournaments
-            </h1>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Join the ultimate BGMI tournaments and compete with the best players for amazing prizes
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 mt-8">
-              <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-4">
-                <div className="text-2xl font-bold text-gaming-neon">{tournaments?.length || 0}</div>
-                <div className="text-sm text-gray-300">Active Tournaments</div>
-              </div>
-              <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-4">
-                <div className="text-2xl font-bold text-gaming-neon">₹50K+</div>
-                <div className="text-sm text-gray-300">Total Prize Pool</div>
-              </div>
-              <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-4">
-                <div className="text-2xl font-bold text-gaming-neon">1000+</div>
-                <div className="text-sm text-gray-300">Players</div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
+      {/* Banner Slider */}
+      <PageBannerSlider pageKey="bgmi" height="h-96" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tournament Tabs */}

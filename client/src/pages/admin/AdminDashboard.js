@@ -20,15 +20,16 @@ const AdminDashboard = () => {
   const fetchDashboardStats = async () => {
     try {
       // Fetch stats from different endpoints
-      const [gamesRes] = await Promise.all([
-        api.get('/api/games')
+      const [gamesRes, adminRes] = await Promise.all([
+        api.get('/api/games'),
+        api.get('/api/admin/dashboard')
       ]);
 
       setStats({
-        totalUsers: 0, // Will implement later
-        activeTournaments: 0, // Will implement later
+        totalUsers: adminRes.data?.totalUsers || 0,
+        activeTournaments: adminRes.data?.activeTournaments || 0,
         totalGames: gamesRes.data?.games?.length || 0,
-        totalMatches: 0, // Will implement later
+        totalMatches: adminRes.data?.totalMatches || 0,
         loading: false
       });
     } catch (error) {

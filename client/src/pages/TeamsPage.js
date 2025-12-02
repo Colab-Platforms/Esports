@@ -1,32 +1,37 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   FiSearch,
   FiUsers,
   FiUserPlus,
-  FiSend,
   FiFilter,
   FiTarget,
   FiCheck,
-  FiX
+  FiX,
+  FiEye
 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
 import axios from 'axios';
 
 const TeamsPage = () => {
-  const { user, token } = useSelector(selectAuth);
+  const navigate = useNavigate();
+  const { user, token, isAuthenticated } = useSelector(selectAuth);
   const [activeTab, setActiveTab] = useState('players');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGame, setSelectedGame] = useState('all');
   const [players, setPlayers] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [openChallengeMenu, setOpenChallengeMenu] = useState(null);
 
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
-    { id: 'friends', label: 'Friend Requests', icon: FiUserPlus }
+    { id: 'friends', label: 'Friend Requests', icon: FiUserPlus },
+    { id: 'challenges', label: 'Challenges', icon: FiTarget }
   ];
 
   const games = [
@@ -44,28 +49,58 @@ const TeamsPage = () => {
     }
   }, [activeTab, selectedGame, searchQuery]);
 
+  // Close challenge menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openChallengeMenu && !event.target.closest('.challenge-menu-container')) {
+        setOpenChallengeMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openChallengeMenu]);
+
   const fetchPlayers = async () => {
     try {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.get(`${API_URL}/api/users/players`, {
+      
+      // Use public endpoint (no auth required)
+      const response = await axios.get(`${API_URL}/api/users/players/public`, {
         params: {
           search: searchQuery,
           game: selectedGame !== 'all' ? selectedGame : undefined
-        },
-        headers: {
-          Authorization: `Bearer ${token}`
         }
+        // No Authorization header needed for public endpoint
       });
       
       if (response.data.success) {
+        console.log('✅ Fetched players:', response.data.data.players.length);
         setPlayers(response.data.data.players || []);
       }
     } catch (error) {
-      console.error('Error fetching players:', error);
+      console.error('❌ Error fetching players:', error);
+      // Show error to user
+      setPlayers([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleActionWithLogin = (action, ...args) => {
+    if (!isAuthenticated) {
+      toast.error('Please login to perform this action', {
+        duration: 3000,
+        position: 'top-center',
+        icon: '🔒'
+      });
+      setTimeout(() => {
+        navigate('/login', { state: { from: '/teams' } });
+      }, 1500);
+      return;
+    }
+    action(...args);
   };
 
   const fetchFriendRequests = async () => {
@@ -102,12 +137,44 @@ const TeamsPage = () => {
       );
       
       if (response.data.success) {
-        alert('Friend request sent!');
-        fetchPlayers();
+        toast.success('Friend request sent! 🎮', {
+          duration: 3000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #FFD700'
+          }
+        });
+        
+        // Update player status locally
+        setPlayers(players.map(p => 
+          p._id === playerId ? { ...p, friendRequestSent: true } : p
+        ));
       }
     } catch (error) {
       console.error('Error sending friend request:', error);
-      alert(error.response?.data?.error?.message || 'Failed to send friend request');
+      const errorMessage = error.response?.data?.error?.message || 'Failed to send friend request';
+      const errorCode = error.response?.data?.error?.code;
+      
+      // Show warning toast for already sent/existing requests
+      if (errorCode === 'REQUEST_EXISTS' || errorCode === 'ALREADY_FRIENDS') {
+        toast(errorMessage, {
+          duration: 3000,
+          position: 'top-center',
+          icon: '⚠️',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #FFD700'
+          }
+        });
+      } else {
+        toast.error(errorMessage, {
+          duration: 3000,
+          position: 'top-center'
+        });
+      }
     }
   };
 
@@ -128,11 +195,22 @@ const TeamsPage = () => {
       );
       
       if (response.data.success) {
-        alert('Challenge sent!');
+        toast.success('Challenge sent! ⚔️', {
+          duration: 3000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #00f0ff'
+          }
+        });
       }
     } catch (error) {
       console.error('Error sending challenge:', error);
-      alert(error.response?.data?.error?.message || 'Failed to send challenge');
+      toast.error(error.response?.data?.error?.message || 'Failed to send challenge', {
+        duration: 3000,
+        position: 'top-center'
+      });
     }
   };
 
@@ -207,18 +285,107 @@ const TeamsPage = () => {
             {loading ? (
               <div className="text-center py-12 text-gray-400">Loading players...</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {players.map((player) => (
-                  <PlayerCard
-                    key={player.id}
-                    player={player}
-                    currentUserId={user?.id}
-                    onSendFriendRequest={sendFriendRequest}
-                    onSendChallenge={sendChallenge}
-                  />
-                ))}
+              <div className="bg-gaming-card rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gaming-charcoal">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Player</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Level</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Rank</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Wins</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Games</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gaming-border">
+                      {players.map((player) => (
+                        <tr key={player._id} className="hover:bg-gaming-charcoal/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center space-x-3">
+                              <UserAvatar user={player} size="sm" />
+                              <span className="text-white font-medium">{player.username}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-300">{player.level || 1}</td>
+                          <td className="px-4 py-3 text-gaming-neon">{player.rank || 'Unranked'}</td>
+                          <td className="px-4 py-3 text-gray-300">{player.wins || 0}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(player.games || []).slice(0, 3).map(game => (
+                                <span key={game} className="px-2 py-0.5 bg-gaming-neon/20 text-gaming-neon text-xs rounded">
+                                  {game.toUpperCase()}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end space-x-2">
+                              <button
+                                onClick={() => navigate(`/player/${player.username}`)}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                title="View Profile"
+                              >
+                                <FiEye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
+                                disabled={player.friendRequestSent}
+                                className={`px-3 py-1 text-sm rounded transition-colors ${
+                                  player.friendRequestSent
+                                    ? 'bg-yellow-600/30 text-yellow-400 cursor-not-allowed border border-yellow-500/50'
+                                    : 'bg-gaming-gold hover:bg-yellow-500 text-black'
+                                }`}
+                                title={player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
+                              >
+                                {player.friendRequestSent ? <FiCheck className="w-4 h-4" /> : <FiUserPlus className="w-4 h-4" />}
+                              </button>
+                              
+                              {/* Challenge Button with Dropdown */}
+                              <div className="relative challenge-menu-container">
+                                <button
+                                  onClick={() => setOpenChallengeMenu(openChallengeMenu === player._id ? null : player._id)}
+                                  className="px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-sm rounded transition-colors"
+                                  title="Challenge"
+                                >
+                                  <FiTarget className="w-4 h-4" />
+                                </button>
+                                
+                                {/* Dropdown Menu */}
+                                {openChallengeMenu === player._id && (
+                                  <div className="absolute right-0 mt-2 w-40 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
+                                    <button
+                                      onClick={() => {
+                                        setOpenChallengeMenu(null);
+                                        handleActionWithLogin(() => sendChallenge(player._id || player.id, 'bgmi'));
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
+                                    >
+                                      <span>🎮</span>
+                                      <span>BGMI</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setOpenChallengeMenu(null);
+                                        handleActionWithLogin(() => sendChallenge(player._id || player.id, 'cs2'));
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
+                                    >
+                                      <span>🔫</span>
+                                      <span>CS2</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 {players.length === 0 && (
-                  <div className="col-span-full text-center py-12">
+                  <div className="text-center py-12">
                     <FiUsers className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                     <p className="text-gray-400">No players found</p>
                   </div>
@@ -251,106 +418,24 @@ const TeamsPage = () => {
             )}
           </div>
         )}
-      </div>
-    </div>
-  );
-};
 
-// Player Card Component
-const PlayerCard = ({ player, currentUserId, onSendFriendRequest, onSendChallenge }) => {
-  const [showChallengeMenu, setShowChallengeMenu] = useState(false);
-
-  if (player.id === currentUserId) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="card-gaming p-6"
-    >
-      <div className="flex items-start space-x-4 mb-4">
-        <UserAvatar user={player} size="lg" />
-        <div className="flex-1">
-          <h3 className="text-lg font-bold text-white">{player.username}</h3>
-          <p className="text-sm text-gray-400">Level {player.level || 1}</p>
-          <p className="text-xs text-gaming-neon">{player.currentRank || 'Bronze'}</p>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-        <div className="bg-gaming-charcoal p-2 rounded">
-          <p className="text-gray-400 text-xs">Tournaments Won</p>
-          <p className="text-white font-bold">{player.tournamentsWon || 0}</p>
-        </div>
-        <div className="bg-gaming-charcoal p-2 rounded">
-          <p className="text-gray-400 text-xs">Win Rate</p>
-          <p className="text-white font-bold">{player.winRate || 0}%</p>
-        </div>
-      </div>
-
-      {/* Favorite Game */}
-      {player.favoriteGame && (
-        <div className="mb-4">
-          <span className="inline-block px-3 py-1 bg-gaming-neon/20 text-gaming-neon text-xs rounded-full">
-            {player.favoriteGame.toUpperCase()}
-          </span>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex space-x-2">
-        <button
-          onClick={() => onSendFriendRequest(player.id)}
-          disabled={player.friendRequestSent}
-          className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg transition-colors ${
-            player.friendRequestSent
-              ? 'bg-gaming-charcoal text-gray-500 cursor-not-allowed'
-              : 'bg-gaming-gold hover:bg-yellow-500 text-black'
-          }`}
-        >
-          <FiUserPlus className="w-4 h-4" />
-          <span className="text-sm font-medium">
-            {player.friendRequestSent ? 'Request Sent' : 'Add Friend'}
-          </span>
-        </button>
-
-        <div className="relative">
-          <button
-            onClick={() => setShowChallengeMenu(!showChallengeMenu)}
-            className="p-2 bg-gaming-neon hover:bg-gaming-neon/80 text-black rounded-lg transition-colors"
-          >
-            <FiTarget className="w-5 h-5" />
-          </button>
-
-          {showChallengeMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-10">
-              <div className="p-2">
-                <p className="text-xs text-gray-400 px-2 py-1">Challenge to:</p>
-                <button
-                  onClick={() => {
-                    onSendChallenge(player.id, 'bgmi');
-                    setShowChallengeMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-white hover:bg-gaming-dark rounded"
-                >
-                  BGMI Match
-                </button>
-                <button
-                  onClick={() => {
-                    onSendChallenge(player.id, 'cs2');
-                    setShowChallengeMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-white hover:bg-gaming-dark rounded"
-                >
-                  CS2 Match
-                </button>
+        {/* Challenges Tab */}
+        {activeTab === 'challenges' && (
+          <div className="space-y-6">
+            <div className="card-gaming p-8 text-center">
+              <FiTarget className="w-16 h-16 text-gaming-neon mx-auto mb-4" />
+              <h3 className="text-white text-xl font-bold mb-2">Challenges Coming Soon!</h3>
+              <p className="text-gray-400 mb-4">
+                Challenge your friends to epic battles. This feature is under development.
+              </p>
+              <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gaming-neon/20 text-gaming-neon rounded-lg">
+                <span className="text-sm">🎮 Stay tuned for updates!</span>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

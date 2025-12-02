@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiChevronLeft, FiChevronRight, FiPlay } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import OptimizedImage from './OptimizedImage';
 import ResponsiveImage from './ResponsiveImage';
-import ImageEditor from '../designer/ImageEditor';
-import api from '../../services/api';
-import axios from 'axios';
+import imageService from '../../services/imageService';
 
 const HeroImageSlider = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -14,44 +11,32 @@ const HeroImageSlider = () => {
   const [loading, setLoading] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
   const [siteImages, setSiteImages] = useState({});
+  const [direction, setDirection] = useState(1); // 1 = right, -1 = left
 
   useEffect(() => {
-    fetchHeroData();
-    fetchSiteImages();
+    const loadData = async () => {
+      await fetchSiteImages();
+    };
+    loadData();
   }, []);
 
-  const fetchSiteImages = async () => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.get(`${API_URL}/api/site-images`);
-      if (response.data.success) {
-        setSiteImages(response.data.data.images);
-      }
-    } catch (error) {
-      console.error('Error fetching site images:', error);
+  // Fetch hero data whenever siteImages changes
+  useEffect(() => {
+    if (Object.keys(siteImages).length > 0) {
+      fetchHeroData();
     }
-  };
+  }, [siteImages]);
 
-  const handleImageUpdate = (imageKey, newUrl) => {
-    console.log('🎨 Image updated:', imageKey, newUrl);
-    
-    // Update siteImages state
-    setSiteImages(prev => ({
-      ...prev,
-      [imageKey]: {
-        ...prev[imageKey],
-        imageUrl: newUrl
-      }
-    }));
-
-    // Update current slides array immediately
-    setSlides(prevSlides => 
-      prevSlides.map(slide => 
-        slide.imageKey === imageKey 
-          ? { ...slide, image: newUrl }
-          : slide
-      )
-    );
+  const fetchSiteImages = async () => {
+    const result = await imageService.getAllImages();
+    if (result.success) {
+      console.log('🖼️ Fetched site images:', result.data);
+      setSiteImages(result.data);
+      return result.data;
+    } else {
+      console.error('Error fetching site images:', result.error);
+      return {};
+    }
   };
 
   // Auto-play functionality
@@ -69,64 +54,60 @@ const HeroImageSlider = () => {
     try {
       setLoading(true);
       
-      // Fetch featured tournaments and platform stats
-      const [tournamentsResponse, statsResponse] = await Promise.all([
-        api.get('/tournaments?featured=true&limit=5'),
-        api.get('/tournaments/stats') // We'll create this endpoint
-      ]);
-
-      const tournaments = tournamentsResponse.data.data?.tournaments || [];
-      const stats = statsResponse.data.data || {};
-
-      // Create slides from tournaments and platform data
-      const heroSlides = [
-        // Main platform slide
-        {
-          id: 'main',
+      // Get current siteImages from state
+      const currentSiteImages = siteImages;
+      console.log('🎬 Creating slides with siteImages:', currentSiteImages);
+      
+      // Create slides from uploaded homepage slides
+      const heroSlides = [];
+      
+      // Add homepage slides (1-5)
+      for (let i = 1; i <= 5; i++) {
+        const slideKey = `homepage-slide-${i}`;
+        const slideImage = currentSiteImages[slideKey];
+        
+        if (slideImage?.imageUrl) {
+          heroSlides.push({
+            id: slideKey,
+            type: 'custom',
+            title: 'COLAB ESPORTS',
+            subtitle: `Slide ${i}`,
+            description: 'Join thousands of gamers competing for glory and prizes',
+            image: slideImage.imageUrl,
+            responsiveUrls: slideImage.responsiveUrls,
+            imageKey: slideKey,
+            cta: {
+              text: 'Explore Now',
+              link: '/tournaments'
+            }
+          });
+        }
+      }
+      
+      // If no custom slides, add default platform slide
+      if (heroSlides.length === 0) {
+        heroSlides.push({
+          id: 'default',
           type: 'platform',
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          image: siteImages['hero-banner-main']?.imageUrl || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
-          responsiveUrls: siteImages['hero-banner-main']?.responsiveUrls,
-          imageKey: 'hero-banner-main',
+          image: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
+          responsiveUrls: {},
+          imageKey: 'homepage-slide-1',
           cta: {
             text: 'Join Now',
             link: '/register'
-          },
-          stats: {
-            players: stats.totalPlayers || '15K+',
-            tournaments: stats.activeTournaments || '12',
-            prizes: stats.totalPrizes || '₹2.5L+'
           }
-        },
-        // Tournament slides
-        ...tournaments.map(tournament => ({
-          id: tournament._id,
-          type: 'tournament',
-          title: tournament.name,
-          subtitle: tournament.gameType?.toUpperCase() || 'TOURNAMENT',
-          description: tournament.description || 'Join this exciting tournament',
-          image: siteImages[`hero-banner-${tournament.gameType?.toLowerCase()}`]?.imageUrl || getGameBanner(tournament.gameType),
-          responsiveUrls: siteImages[`hero-banner-${tournament.gameType?.toLowerCase()}`]?.responsiveUrls,
-          imageKey: `hero-banner-${tournament.gameType?.toLowerCase()}`,
-          cta: {
-            text: 'Join Tournament',
-            link: `/tournaments/${tournament._id}`
-          },
-          tournament: {
-            prizePool: tournament.prizePool,
-            entryFee: tournament.entryFee,
-            participants: `${tournament.currentParticipants}/${tournament.maxParticipants}`,
-            status: tournament.status
-          }
-        }))
-      ];
+        });
+      }
+      
+      console.log(`✅ Created ${heroSlides.length} slides for homepage`);
 
       setSlides(heroSlides);
     } catch (error) {
       console.error('Error fetching hero data:', error);
-      // Fallback slides
+      // Fallback slide
       setSlides([
         {
           id: 'fallback',
@@ -134,8 +115,9 @@ const HeroImageSlider = () => {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          image: siteImages['hero-banner-main']?.imageUrl || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
-          imageKey: 'hero-banner-main',
+          image: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806',
+          responsiveUrls: {},
+          imageKey: 'homepage-slide-1',
           cta: {
             text: 'Get Started',
             link: '/register'
@@ -147,23 +129,17 @@ const HeroImageSlider = () => {
     }
   };
 
-  const getGameBanner = (gameType) => {
-    const banners = {
-      bgmi: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&h=1080&fit=crop&crop=center',
-      cs2: 'https://images.unsplash.com/photo-1560253023-3ec5d502959f?w=1920&h=1080&fit=crop&crop=center',
-      valorant: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1920&h=1080&fit=crop&crop=center',
-      freefire: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1920&h=1080&fit=crop&crop=center'
-    };
-    return banners[gameType?.toLowerCase()] || banners.bgmi;
-  };
+
 
   const nextSlide = () => {
+    setDirection(1); // Slide from right
     setCurrentSlide((prev) => (prev + 1) % slides.length);
     setAutoPlay(false);
     setTimeout(() => setAutoPlay(true), 10000);
   };
 
   const prevSlide = () => {
+    setDirection(-1); // Slide from left
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
     setAutoPlay(false);
     setTimeout(() => setAutoPlay(true), 10000);
@@ -194,220 +170,50 @@ const HeroImageSlider = () => {
   return (
     <div className="relative min-h-screen h-screen overflow-hidden bg-gaming-dark">
       {/* Background Images */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence initial={false}>
         <motion.div
           key={currentSlide}
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 0.8 }}
+          initial={{ x: direction > 0 ? '100%' : '-100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: direction > 0 ? '-100%' : '100%' }}
+          transition={{ 
+            type: 'tween',
+            ease: 'easeInOut',
+            duration: 0.6
+          }}
           className="absolute inset-0"
         >
           <div className="w-full h-full overflow-hidden relative">
-            {currentSlideData.responsiveUrls ? (
-              <ResponsiveImage
-                imageUrl={currentSlideData.image}
-                responsiveUrls={currentSlideData.responsiveUrls}
-                alt={currentSlideData.title}
-                className="w-full h-full object-cover object-center"
-              />
-            ) : (
-              <OptimizedImage
-                src={currentSlideData.image}
-                alt={currentSlideData.title}
-                className="w-full h-full object-cover object-center"
-                lazy={false}
-              />
-            )}
-            {/* Designer Edit Button - Top Left */}
-            {currentSlideData.imageKey && (
-              <ImageEditor
-                imageKey={currentSlideData.imageKey}
-                currentImageUrl={currentSlideData.image}
-                onImageUpdate={(newUrl) => handleImageUpdate(currentSlideData.imageKey, newUrl)}
-              />
-            )}
+            {(() => {
+              const hasResponsiveUrls = currentSlideData.responsiveUrls && Object.keys(currentSlideData.responsiveUrls).length > 0;
+              console.log('🖼️ Slide data:', {
+                key: currentSlideData.imageKey,
+                hasResponsiveUrls,
+                responsiveUrls: currentSlideData.responsiveUrls
+              });
+              
+              return hasResponsiveUrls ? (
+                <ResponsiveImage
+                  imageUrl={currentSlideData.image}
+                  responsiveUrls={currentSlideData.responsiveUrls}
+                  alt={currentSlideData.title}
+                  className="w-full h-full object-cover object-center"
+                />
+              ) : (
+                <OptimizedImage
+                  src={currentSlideData.image}
+                  alt={currentSlideData.title}
+                  className="w-full h-full object-cover object-center"
+                  lazy={false}
+                />
+              );
+            })()}
           </div>
-          {/* Light overlay to maintain readability */}
-          <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/10 to-black/30" />
-          <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/5 via-transparent to-gaming-neon-blue/5" />
+          {/* No overlay - clean images */}
         </motion.div>
       </AnimatePresence>
 
-      {/* Content */}
-      <div className="relative z-10 h-full flex items-center py-20 sm:py-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <motion.div
-              key={`content-${currentSlide}`}
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-center lg:text-left"
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="mb-4"
-              >
-                <span className="px-4 py-2 bg-gaming-gold/20 text-gaming-gold rounded-full text-sm font-bold backdrop-blur-sm">
-                  {currentSlideData.subtitle}
-                </span>
-              </motion.div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-gaming font-bold text-white mb-4 sm:mb-6 leading-tight"
-              >
-                {currentSlideData.title}
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-6 sm:mb-8 max-w-2xl"
-              >
-                {currentSlideData.description}
-              </motion.p>
-
-              {/* Stats or Tournament Info */}
-              {currentSlideData.type === 'platform' && currentSlideData.stats && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 }}
-                  className="grid grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8"
-                >
-                  <div className="text-center">
-                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
-                      {currentSlideData.stats.players}
-                    </div>
-                    <div className="text-gray-400 text-xs sm:text-sm">Active Players</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
-                      {currentSlideData.stats.tournaments}
-                    </div>
-                    <div className="text-gray-400 text-xs sm:text-sm">Live Tournaments</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl sm:text-2xl md:text-3xl font-gaming font-bold text-gaming-gold">
-                      {currentSlideData.stats.prizes}
-                    </div>
-                    <div className="text-gray-400 text-xs sm:text-sm">Prizes Won</div>
-                  </div>
-                </motion.div>
-              )}
-
-              {currentSlideData.type === 'tournament' && currentSlideData.tournament && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 }}
-                  className="bg-black/40 backdrop-blur-sm rounded-lg p-6 mb-8"
-                >
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-gaming-gold text-sm font-medium">Prize Pool</div>
-                      <div className="text-white text-xl font-bold">
-                        ₹{currentSlideData.tournament.prizePool?.toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gaming-gold text-sm font-medium">Entry Fee</div>
-                      <div className="text-white text-xl font-bold">
-                        ₹{currentSlideData.tournament.entryFee}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gaming-gold text-sm font-medium">Players</div>
-                      <div className="text-white text-xl font-bold">
-                        {currentSlideData.tournament.participants}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gaming-gold text-sm font-medium">Status</div>
-                      <div className="text-white text-xl font-bold capitalize">
-                        {currentSlideData.tournament.status?.replace('_', ' ')}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.7 }}
-              >
-                <Link
-                  to={currentSlideData.cta.link}
-                  className="inline-flex items-center space-x-2 sm:space-x-3 bg-gradient-to-r from-gaming-neon to-gaming-neon-blue hover:from-gaming-neon-blue hover:to-gaming-neon text-white font-bold py-3 px-6 sm:py-4 sm:px-8 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
-                >
-                  <FiPlay className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span>{currentSlideData.cta.text}</span>
-                </Link>
-              </motion.div>
-            </motion.div>
-
-            {/* Right Content - Game Icons or Visual Elements */}
-            <motion.div
-              key={`visual-${currentSlide}`}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="hidden lg:flex items-center justify-center"
-            >
-              <div className="relative">
-                <motion.div
-                  animate={{ 
-                    rotate: 360,
-                    scale: [1, 1.1, 1]
-                  }}
-                  transition={{ 
-                    rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                    scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                  }}
-                  className="w-64 h-64 bg-gradient-to-br from-gaming-neon/20 to-gaming-neon-blue/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-gaming-neon/30"
-                >
-                  <div className="text-8xl">
-                    {currentSlideData.type === 'tournament' ? '🎮' : '🏆'}
-                  </div>
-                </motion.div>
-                
-                {/* Floating elements */}
-                {['⚡', '🎯', '🔥', '💎'].map((icon, index) => (
-                  <motion.div
-                    key={index}
-                    animate={{
-                      y: [0, -20, 0],
-                      rotate: [0, 180, 360]
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      delay: index * 0.5
-                    }}
-                    className={`absolute text-3xl ${
-                      index === 0 ? 'top-4 right-4' :
-                      index === 1 ? 'bottom-4 left-4' :
-                      index === 2 ? 'top-4 left-4' :
-                      'bottom-4 right-4'
-                    }`}
-                  >
-                    {icon}
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      {/* No text overlay - just images */}
 
       {/* Navigation Controls */}
       {slides.length > 1 && (
@@ -444,18 +250,20 @@ const HeroImageSlider = () => {
         </>
       )}
 
-      {/* Auto-play indicator */}
+      {/* Auto-play control */}
       <div className="absolute top-4 right-4 z-20">
         <button
           onClick={() => setAutoPlay(!autoPlay)}
-          className={`p-2 rounded-full backdrop-blur-sm transition-all duration-200 ${
+          className={`p-3 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg hover:scale-110 ${
             autoPlay 
-              ? 'bg-gaming-neon/20 text-gaming-neon' 
-              : 'bg-black/50 text-white'
+              ? 'bg-white/90 text-gaming-dark hover:bg-white' 
+              : 'bg-gaming-gold/90 text-black hover:bg-gaming-gold'
           }`}
-          title={autoPlay ? 'Pause auto-play' : 'Resume auto-play'}
+          title={autoPlay ? 'Pause slideshow' : 'Play slideshow'}
         >
-          {autoPlay ? '⏸️' : '▶️'}
+          <span className="text-xl">
+            {autoPlay ? '⏸' : '▶'}
+          </span>
         </button>
       </div>
     </div>

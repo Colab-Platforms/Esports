@@ -49,6 +49,7 @@ router.get('/', async (req, res) => {
         name: image.name,
         description: image.description,
         imageUrl: image.imageUrl,
+        responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
         category: image.category,
         dimensions: image.dimensions,
         updatedBy: image.updatedBy?.username || 'System',
@@ -82,32 +83,60 @@ router.get('/', async (req, res) => {
 router.put('/:key', auth, designerAuth, async (req, res) => {
   try {
     const { key } = req.params;
-    const { imageUrl, name, description, category, dimensions } = req.body;
+    const { imageUrl, responsiveUrls, name, description, category, dimensions } = req.body;
     const userId = req.user.userId;
 
-    if (!imageUrl) {
+    // Get existing image to check if we're just updating
+    const existingImage = await SiteImage.findOne({ key });
+    
+    // Validate: Either imageUrl or responsiveUrls must be provided (for new images)
+    // For updates, we can keep existing data
+    if (!existingImage && !imageUrl && (!responsiveUrls || Object.keys(responsiveUrls).length === 0)) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'MISSING_IMAGE_URL',
-          message: 'Image URL is required',
+          code: 'MISSING_IMAGE_DATA',
+          message: 'Either imageUrl or responsiveUrls is required for new images',
           timestamp: new Date().toISOString()
         }
       });
     }
 
+    // Prepare update data
+    const updateData = {
+      key,
+      name: name || key,
+      description: description || '',
+      category: category || 'other',
+      dimensions: dimensions || {},
+      updatedBy: userId
+    };
+
+    // Add imageUrl if provided
+    if (imageUrl) {
+      updateData.imageUrl = imageUrl;
+    }
+
+    // Add or merge responsiveUrls if provided
+    if (responsiveUrls !== undefined) {
+      // If responsiveUrls is provided (even if empty), use it
+      // This allows deleting device-specific images
+      if (existingImage && existingImage.responsiveUrls && Object.keys(responsiveUrls).length > 0) {
+        // Merge with existing responsiveUrls (for adding new devices)
+        updateData.responsiveUrls = {
+          ...existingImage.responsiveUrls,
+          ...responsiveUrls
+        };
+      } else {
+        // Replace with new responsiveUrls (for deleting devices)
+        updateData.responsiveUrls = responsiveUrls;
+      }
+    }
+
     // Update or create image
     const image = await SiteImage.findOneAndUpdate(
       { key },
-      {
-        key,
-        name: name || key,
-        description: description || '',
-        imageUrl,
-        category: category || 'other',
-        dimensions: dimensions || {},
-        updatedBy: userId
-      },
+      updateData,
       { 
         new: true, 
         upsert: true,
@@ -126,6 +155,7 @@ router.put('/:key', auth, designerAuth, async (req, res) => {
           name: image.name,
           description: image.description,
           imageUrl: image.imageUrl,
+          responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
           category: image.category,
           dimensions: image.dimensions,
           updatedBy: image.updatedBy.username,
@@ -180,6 +210,7 @@ router.get('/:key', async (req, res) => {
           name: image.name,
           description: image.description,
           imageUrl: image.imageUrl,
+          responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
           category: image.category,
           dimensions: image.dimensions,
           updatedBy: image.updatedBy?.username || 'System',
@@ -259,6 +290,101 @@ router.post('/seed', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to seed images',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   DELETE /api/site-images/:key/device/:device
+// @desc    Delete device-specific image
+// @access  Designer/Admin
+router.delete('/:key/device/:device', auth, designerAuth, async (req, res) => {
+  try {
+    const { key, device } = req.params;
+    const userId = req.user.userId;
+
+    // Validate device
+    const validDevices = ['desktop', 'tablet', 'mobile'];
+    if (!validDevices.includes(device)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_DEVICE',
+          message: `Device must be one of: ${validDevices.join(', ')}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get existing image
+    const existingImage = await SiteImage.findOne({ key });
+    if (!existingImage) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'IMAGE_NOT_FOUND',
+          message: 'Image not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if device image exists
+    if (!existingImage.responsiveUrls || !existingImage.responsiveUrls[device]) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'DEVICE_IMAGE_NOT_FOUND',
+          message: `No ${device} image found for this slide`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Remove device from responsiveUrls
+    const updatedResponsiveUrls = { ...existingImage.responsiveUrls };
+    delete updatedResponsiveUrls[device];
+
+    // Update image
+    const updatedImage = await SiteImage.findOneAndUpdate(
+      { key },
+      { 
+        responsiveUrls: updatedResponsiveUrls,
+        updatedBy: userId
+      },
+      { new: true }
+    ).populate('updatedBy', 'username');
+
+    console.log(`🗑️ Deleted ${device} image from ${key} by ${updatedImage.updatedBy.username}`);
+
+    res.json({
+      success: true,
+      data: {
+        image: {
+          id: updatedImage._id,
+          key: updatedImage.key,
+          name: updatedImage.name,
+          description: updatedImage.description,
+          imageUrl: updatedImage.imageUrl,
+          responsiveUrls: updatedImage.responsiveUrls || {},
+          category: updatedImage.category,
+          dimensions: updatedImage.dimensions,
+          updatedBy: updatedImage.updatedBy.username,
+          updatedAt: updatedImage.updatedAt
+        }
+      },
+      message: `${device.charAt(0).toUpperCase() + device.slice(1)} image deleted successfully`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting device image:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to delete device image',
         timestamp: new Date().toISOString()
       }
     });

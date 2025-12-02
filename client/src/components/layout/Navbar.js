@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +24,7 @@ const Navbar = () => {
   const { isAuthenticated, user } = useSelector(selectAuth);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isControlsMenuOpen, setIsControlsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -46,13 +47,54 @@ const Navbar = () => {
     return location.pathname.startsWith(path);
   };
 
+  // Close controls menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isControlsMenuOpen && !event.target.closest('.controls-dropdown')) {
+        setIsControlsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isControlsMenuOpen]);
+
   const navLinks = [
     { to: '/', label: 'HOME' },
     { to: '/games', label: 'GAMES' },
     { to: '/bgmi', label: 'BGMI' },
     { to: '/tournaments', label: 'TOURNAMENTS' },
+    { to: '/teams', label: 'TEAMS' },  // Public - browse players & create teams
     { to: '/leaderboard', label: 'LEADERBOARD' },
   ];
+
+  // Check if user has admin/designer access
+  const hasControlAccess = () => {
+    return user && (user.role === 'admin' || user.role === 'designer');
+  };
+
+  // Get control panel links based on user role
+  const getControlLinks = () => {
+    if (!user) return [];
+    
+    const links = [];
+    
+    // Designer sees only Banner Management
+    if (user.role === 'designer') {
+      links.push({ to: '/admin/images', label: 'Banners' });
+    }
+    
+    // Admin sees everything
+    if (user.role === 'admin') {
+      links.push(
+        { to: '/admin/images', label: 'Banners' },
+        { to: '/admin/games', label: 'Games' },
+        { to: '/admin/tournaments', label: 'Tournaments' }
+      );
+    }
+    
+    return links;
+  };
 
   const authenticatedLinks = [
     // Dashboard removed - moved to profile dropdown
@@ -60,7 +102,7 @@ const Navbar = () => {
 
   return (
     <nav className="bg-theme-bg-card border-b border-theme-border sticky top-0 z-50 backdrop-blur-sm transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3">
@@ -99,6 +141,37 @@ const Navbar = () => {
                 {link.label}
               </Link>
             ))}
+            
+            {/* Controls Dropdown for Admin/Designer */}
+            {hasControlAccess() && (
+              <div className="relative controls-dropdown">
+                <button
+                  onClick={() => setIsControlsMenuOpen(!isControlsMenuOpen)}
+                  className="font-semibold transition-colors duration-200 flex items-center space-x-1 text-gaming-gold hover:text-gaming-gold/80"
+                >
+                  <span>CONTROLS</span>
+                  <svg className={`w-4 h-4 transition-transform ${isControlsMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {isControlsMenuOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
+                    {getControlLinks().map((link) => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setIsControlsMenuOpen(false)}
+                        className="block px-4 py-3 text-gaming-gold hover:bg-gaming-dark transition-colors font-semibold text-sm"
+                      >
+                        {link.label.toUpperCase()}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {isAuthenticated && authenticatedLinks.map((link) => (
               <Link
@@ -302,6 +375,29 @@ const Navbar = () => {
                     <span className="font-medium">{link.label}</span>
                   </Link>
                 ))}
+
+                {/* Controls Section for Admin/Designer */}
+                {hasControlAccess() && (
+                  <>
+                    <div className="text-xs font-semibold text-gaming-gold uppercase tracking-wider mb-3 mt-6">
+                      Controls
+                    </div>
+                    {getControlLinks().map((link) => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
+                          isActiveLink(link.to)
+                            ? 'bg-gaming-gold/10 text-gaming-gold border-l-4 border-gaming-gold'
+                            : 'text-gaming-gold/70 hover:text-gaming-gold hover:bg-gaming-gold/5'
+                        }`}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <span className="font-semibold uppercase">{link.label}</span>
+                      </Link>
+                    ))}
+                  </>
+                )}
 
                 {isAuthenticated && (
                   <>

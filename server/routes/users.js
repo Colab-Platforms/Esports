@@ -480,4 +480,152 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/players/public
+// @desc    Get all players (public - no auth required)
+// @access  Public
+router.get('/players/public', async (req, res) => {
+  try {
+    const { search, game } = req.query;
+
+    let query = {};  // Remove isActive filter - show all users
+
+    // Search by username
+    if (search) {
+      query.username = { $regex: search, $options: 'i' };
+    }
+
+    // Filter by game (check in games array)
+    if (game && game !== 'all') {
+      query.games = game;
+    }
+
+    console.log('🔍 Public players query:', query);
+
+    const players = await User.find(query)
+      .select('username avatarUrl level currentRank tournamentsWon favoriteGame games bio country createdAt')
+      .limit(50)
+      .lean();
+    
+    console.log(`✅ Found ${players.length} players`);
+
+    // Format response
+    const formattedPlayers = players.map(player => ({
+      _id: player._id,
+      username: player.username,
+      avatar: player.avatarUrl,
+      level: player.level || 1,
+      rank: player.currentRank || 'Unranked',
+      wins: player.tournamentsWon || 0,
+      games: player.games || [],
+      favoriteGame: player.favoriteGame,
+      bio: player.bio,
+      country: player.country,
+      joinedAt: player.createdAt
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        players: formattedPlayers,
+        total: formattedPlayers.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching public players:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch players',
+        code: 'SERVER_ERROR'
+      }
+    });
+  }
+});
+
+// @route   GET /api/users/stats/public
+// @desc    Get public stats (total users, teams, etc.)
+// @access  Public
+router.get('/stats/public', async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments({ isActive: true });
+    const onlineUsers = await User.countDocuments({
+      isActive: true,
+      lastActive: { $gte: new Date(Date.now() - 15 * 60 * 1000) } // Last 15 mins
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers,
+        onlineUsers,
+        totalTeams: 0 // TODO: Add when Team model exists
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching public stats:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch stats',
+        code: 'SERVER_ERROR'
+      }
+    });
+  }
+});
+
+// @route   GET /api/users/profile/:username
+// @desc    Get public player profile by username
+// @access  Public
+router.get('/profile/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    console.log(`🔍 Fetching profile for: ${username}`);
+
+    const player = await User.findOne({ username })
+      .select('username avatarUrl level currentRank tournamentsWon favoriteGame games bio country friends createdAt')
+      .populate('friends', 'username avatarUrl')
+      .lean();
+
+    if (!player) {
+      return res.status(404).json({
+        success: false,
+        message: 'Player not found'
+      });
+    }
+
+    console.log(`✅ Found player: ${player.username}`);
+
+    // Calculate stats
+    const gamesPlayed = player.tournamentsWon ? player.tournamentsWon * 2 : 0; // Mock calculation
+    const wins = player.tournamentsWon || 0;
+
+    // Format response
+    const formattedPlayer = {
+      _id: player._id,
+      username: player.username,
+      avatar: player.avatarUrl,
+      level: player.level || 1,
+      rank: player.currentRank || 'Unranked',
+      wins: wins,
+      gamesPlayed: gamesPlayed,
+      games: player.games || [],
+      favoriteGame: player.favoriteGame,
+      bio: player.bio,
+      country: player.country,
+      friends: player.friends || [],
+      joinedAt: player.createdAt,
+      team: null // TODO: Add team info when Team model exists
+    };
+
+    res.json(formattedPlayer);
+  } catch (error) {
+    console.error('❌ Error fetching player profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch player profile'
+    });
+  }
+});
+
 module.exports = router;
