@@ -49,6 +49,7 @@ const authSlice = createSlice({
       // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('userId', user._id || user.id); // Store userId separately for easy access
     },
     loginFailure: (state, action) => {
       state.token = null;
@@ -60,6 +61,7 @@ const authSlice = createSlice({
       // Clear localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
     },
     registerStart: (state) => {
       state.isLoading = true;
@@ -76,6 +78,7 @@ const authSlice = createSlice({
       // Store in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('userId', user._id || user.id); // Store userId separately for easy access
     },
     registerFailure: (state, action) => {
       state.token = null;
@@ -87,6 +90,7 @@ const authSlice = createSlice({
       // Clear localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
     },
     logout: (state) => {
       state.token = null;
@@ -98,6 +102,7 @@ const authSlice = createSlice({
       // Clear localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
     },
     updateProfile: (state, action) => {
       if (state.user) {

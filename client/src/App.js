@@ -39,6 +39,8 @@ import BGMIPage from './pages/BGMIPage';
 import CS2Page from './pages/CS2Page';
 // import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
+// import SplashScreen from './components/common/SplashScreen';
+import SplashScreen from './components/common/PremiumSplashScreen';
 
 // Match Components
 import MatchHistory from './components/matches/MatchHistory';
@@ -127,6 +129,7 @@ const ResultSubmissionWrapper = () => {
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
+  const [showSplash, setShowSplash] = React.useState(true);
 
   useEffect(() => {
     // Initialize socket connection if authenticated
@@ -149,6 +152,11 @@ function App() {
       notificationService.stopTournamentMonitoring();
     };
   }, [isAuthenticated, user, dispatch]);
+
+  // Show splash screen on first load
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
 
   if (isLoading) {
     return (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { FiArrowLeft, FiUserPlus, FiTarget, FiAward, FiUsers, FiStar } from 'react-icons/fi';
+import { FiArrowLeft, FiUserPlus, FiTarget, FiAward, FiUsers, FiStar, FiCheck } from 'react-icons/fi';
 import UserAvatar from '../components/common/UserAvatar';
 import axios from 'axios';
 
@@ -14,8 +14,12 @@ const PublicProfile = () => {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showChallengeMenu, setShowChallengeMenu] = useState(false);
+  const [friendStatus, setFriendStatus] = useState(null); // 'friends', 'pending', 'received', or null
 
   useEffect(() => {
+    // Reset state when username changes
+    setFriendStatus(null);
+    setPlayer(null);
     fetchPlayerProfile();
     checkAuth();
   }, [username]);
@@ -40,8 +44,18 @@ const PublicProfile = () => {
   const fetchPlayerProfile = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/users/profile/${username}`);
+      const token = localStorage.getItem('token');
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      
+      const config = token ? {
+        headers: { Authorization: `Bearer ${token}` }
+      } : {};
+      
+      const response = await axios.get(`${API_URL}/api/users/profile/${username}`, config);
+      console.log('📊 Profile data received:', response.data);
+      console.log('👥 Friend status:', response.data.friendStatus);
       setPlayer(response.data);
+      setFriendStatus(response.data.friendStatus); // Set friend status from backend
       setError(null);
     } catch (err) {
       console.error('Error fetching player profile:', err);
@@ -78,6 +92,7 @@ const PublicProfile = () => {
       );
       
       if (response.data.success) {
+        setFriendStatus('pending'); // Update local state to pending
         toast.success('Friend request sent! 🎮', {
           duration: 3000,
           position: 'top-center',
@@ -204,14 +219,40 @@ const PublicProfile = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col space-y-2 w-full md:w-auto">
-              <button
-                onClick={handleAddFriend}
-                className="px-6 py-2 bg-gaming-gold hover:bg-yellow-500 text-black rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-              >
-                <FiUserPlus className="w-4 h-4" />
-                <span>Add Friend</span>
-              </button>
+            <div className="flex flex-col space-y-2 w-full md:w-auto relative z-10">
+              {friendStatus === 'friends' ? (
+                <button
+                  disabled
+                  className="px-6 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 bg-green-600/30 text-green-400 cursor-not-allowed border border-green-500/50"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  <span>Friends</span>
+                </button>
+              ) : friendStatus === 'pending' ? (
+                <button
+                  disabled
+                  className="px-6 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 bg-yellow-600/30 text-yellow-400 cursor-not-allowed border border-yellow-500/50"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  <span>Request Pending</span>
+                </button>
+              ) : friendStatus === 'received' ? (
+                <button
+                  disabled
+                  className="px-6 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 bg-blue-600/30 text-blue-400 cursor-not-allowed border border-blue-500/50"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  <span>Request Received</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddFriend}
+                  className="px-6 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2 bg-gaming-gold hover:bg-yellow-500 text-black"
+                >
+                  <FiUserPlus className="w-4 h-4" />
+                  <span>Add Friend</span>
+                </button>
+              )}
               
               {/* Challenge Button with Dropdown */}
               <div className="relative challenge-dropdown">
@@ -225,7 +266,7 @@ const PublicProfile = () => {
 
                 {/* Challenge Dropdown Menu */}
                 {showChallengeMenu && (
-                  <div className="absolute top-full mt-2 w-full bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="absolute top-full mt-2 w-full bg-gaming-charcoal border border-gaming-border rounded-lg shadow-2xl z-[9999] overflow-hidden">
                     <button
                       onClick={() => handleChallenge('bgmi')}
                       className="w-full px-4 py-3 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2"

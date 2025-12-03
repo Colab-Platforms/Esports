@@ -161,6 +161,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/games', require('./routes/games'));
 app.use('/api/steam', require('./routes/steam'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/teams', require('./routes/teams'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/challenges', require('./routes/challenges'));
 app.use('/api/tournaments', require('./routes/tournaments'));

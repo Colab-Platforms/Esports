@@ -11,10 +11,13 @@ import {
   FiTarget,
   FiCheck,
   FiX,
-  FiEye
+  FiEye,
+  FiCheckCircle,
+  FiRefreshCw
 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
+import MyTeamsTab from '../components/teams/MyTeamsTab';
 import axios from 'axios';
 
 const TeamsPage = () => {
@@ -25,12 +28,16 @@ const TeamsPage = () => {
   const [selectedGame, setSelectedGame] = useState('all');
   const [players, setPlayers] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
+  const [myTeams, setMyTeams] = useState([]);
+  const [teamInvitations, setTeamInvitations] = useState([]);
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openChallengeMenu, setOpenChallengeMenu] = useState(null);
 
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
     { id: 'friends', label: 'Friend Requests', icon: FiUserPlus },
+    { id: 'teams', label: 'My Teams', icon: FiUsers },
     { id: 'challenges', label: 'Challenges', icon: FiTarget }
   ];
 
@@ -46,6 +53,9 @@ const TeamsPage = () => {
       fetchPlayers();
     } else if (activeTab === 'friends') {
       fetchFriendRequests();
+    } else if (activeTab === 'teams') {
+      fetchMyTeams();
+      fetchTeamInvitations();
     }
   }, [activeTab, selectedGame, searchQuery]);
 
@@ -66,17 +76,35 @@ const TeamsPage = () => {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       
-      // Use public endpoint (no auth required)
-      const response = await axios.get(`${API_URL}/api/users/players/public`, {
+      // Use authenticated endpoint if logged in to get friend status
+      const endpoint = isAuthenticated 
+        ? `${API_URL}/api/users/players`
+        : `${API_URL}/api/users/players/public`;
+      
+      const config = isAuthenticated ? {
+        params: {
+          search: searchQuery,
+          game: selectedGame !== 'all' ? selectedGame : undefined
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      } : {
         params: {
           search: searchQuery,
           game: selectedGame !== 'all' ? selectedGame : undefined
         }
-        // No Authorization header needed for public endpoint
-      });
+      };
+      
+      const response = await axios.get(endpoint, config);
       
       if (response.data.success) {
         console.log('✅ Fetched players:', response.data.data.players.length);
+        console.log('📊 Players data:', response.data.data.players);
+        // Log friend status for each player
+        response.data.data.players.forEach(p => {
+          console.log(`Player: ${p.username}, isFriend: ${p.isFriend}, friendRequestSent: ${p.friendRequestSent}`);
+        });
         setPlayers(response.data.data.players || []);
       }
     } catch (error) {
@@ -123,6 +151,48 @@ const TeamsPage = () => {
     }
   };
 
+  const fetchMyTeams = async () => {
+    try {
+      setLoading(true);
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/teams/my-teams`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        const teams = response.data.data.teams || [];
+        console.log('📊 Fetched teams:', teams);
+        teams.forEach(team => {
+          console.log(`   Team: ${team.name}, Captain:`, team.captain);
+        });
+        setMyTeams(teams);
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTeamInvitations = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/teams/invitations/my-invitations`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        setTeamInvitations(response.data.data.invitations || []);
+      }
+    } catch (error) {
+      console.error('Error fetching team invitations:', error);
+    }
+  };
+
   const sendFriendRequest = async (playerId) => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -147,9 +217,9 @@ const TeamsPage = () => {
           }
         });
         
-        // Update player status locally
+        // Update player status locally immediately
         setPlayers(players.map(p => 
-          p._id === playerId ? { ...p, friendRequestSent: true } : p
+          (p._id === playerId || p.id === playerId) ? { ...p, friendRequestSent: true } : p
         ));
       }
     } catch (error) {
@@ -169,6 +239,12 @@ const TeamsPage = () => {
             border: '1px solid #FFD700'
           }
         });
+        // If already friends, update the local state
+        if (errorCode === 'ALREADY_FRIENDS') {
+          setPlayers(players.map(p => 
+            (p._id === playerId || p.id === playerId) ? { ...p, isFriend: true } : p
+          ));
+        }
       } else {
         toast.error(errorMessage, {
           duration: 3000,
@@ -250,34 +326,47 @@ const TeamsPage = () => {
           <div className="space-y-6">
             {/* Search and Filters */}
             <div className="card-gaming p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Search */}
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search players by username..."
-                    className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
-                  />
-                </div>
+              <div className="flex items-center gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                  {/* Search */}
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search players by username..."
+                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                    />
+                  </div>
 
-                {/* Game Filter */}
-                <div className="relative">
-                  <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <select
-                    value={selectedGame}
-                    onChange={(e) => setSelectedGame(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
-                  >
-                    {games.map((game) => (
-                      <option key={game.id} value={game.id}>
-                        {game.name}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Game Filter */}
+                  <div className="relative">
+                    <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <select
+                      value={selectedGame}
+                      onChange={(e) => setSelectedGame(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                    >
+                      {games.map((game) => (
+                        <option key={game.id} value={game.id}>
+                          {game.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+                
+                {/* Refresh Button */}
+                <button
+                  onClick={fetchPlayers}
+                  disabled={loading}
+                  className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh players list"
+                >
+                  <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  <span className="hidden md:inline">Refresh</span>
+                </button>
               </div>
             </div>
 
@@ -330,15 +419,17 @@ const TeamsPage = () => {
                               </button>
                               <button
                                 onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
-                                disabled={player.friendRequestSent}
+                                disabled={player.friendRequestSent || player.isFriend}
                                 className={`px-3 py-1 text-sm rounded transition-colors ${
-                                  player.friendRequestSent
+                                  player.isFriend
+                                    ? 'bg-green-600/30 text-green-400 cursor-not-allowed border border-green-500/50'
+                                    : player.friendRequestSent
                                     ? 'bg-yellow-600/30 text-yellow-400 cursor-not-allowed border border-yellow-500/50'
                                     : 'bg-gaming-gold hover:bg-yellow-500 text-black'
                                 }`}
-                                title={player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
+                                title={player.isFriend ? 'Friends' : player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
                               >
-                                {player.friendRequestSent ? <FiCheck className="w-4 h-4" /> : <FiUserPlus className="w-4 h-4" />}
+                                {player.isFriend ? <FiCheckCircle className="w-4 h-4" /> : player.friendRequestSent ? <FiCheck className="w-4 h-4" /> : <FiUserPlus className="w-4 h-4" />}
                               </button>
                               
                               {/* Challenge Button with Dropdown */}
@@ -417,6 +508,20 @@ const TeamsPage = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* Teams Tab */}
+        {activeTab === 'teams' && (
+          <MyTeamsTab
+            teams={myTeams}
+            invitations={teamInvitations}
+            loading={loading}
+            onRefresh={() => {
+              fetchMyTeams();
+              fetchTeamInvitations();
+            }}
+            token={token}
+          />
         )}
 
         {/* Challenges Tab */}

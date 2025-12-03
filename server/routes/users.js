@@ -26,15 +26,18 @@ router.get('/players', auth, async (req, res) => {
     }
 
     const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends')
+      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games')
       .limit(50)
       .lean();
+    
+    console.log(`📊 Found ${players.length} players for user ${currentUserId}`);
 
     // Check friend request status for each player
     const FriendRequest = require('../models/FriendRequest');
     const playersWithStats = await Promise.all(players.map(async (player) => {
-      // Check if already friends
-      const isFriend = player.friends && player.friends.some(
+      // Check if already friends - ensure friends is an array
+      const friendsArray = Array.isArray(player.friends) ? player.friends : [];
+      const isFriend = friendsArray.some(
         friendId => friendId.toString() === currentUserId
       );
 
@@ -45,7 +48,10 @@ router.get('/players', auth, async (req, res) => {
         status: 'pending'
       });
 
+      console.log(`👤 Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
+
       return {
+        _id: player._id, // Use _id instead of id for consistency
         id: player._id,
         username: player.username,
         email: player.email,
@@ -58,7 +64,10 @@ router.get('/players', auth, async (req, res) => {
         country: player.country,
         winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
         friendRequestSent: !!existingRequest,
-        isFriend: isFriend
+        isFriend: isFriend,
+        games: player.games || (player.favoriteGame ? [player.favoriteGame] : []), // Use games array from DB
+        wins: player.tournamentsWon || 0,
+        rank: player.currentRank || 'Unranked'
       };
     }));
 
@@ -262,7 +271,8 @@ router.get('/friends', auth, async (req, res) => {
     }
 
     const formattedFriends = friends.map(friend => ({
-      id: friend._id,
+      _id: friend._id, // Use _id for consistency
+      id: friend._id, // Keep id for backward compatibility
       username: friend.username,
       email: friend.email,
       avatarUrl: friend.avatarUrl,
@@ -575,7 +585,7 @@ router.get('/stats/public', async (req, res) => {
 
 // @route   GET /api/users/profile/:username
 // @desc    Get public player profile by username
-// @access  Public
+// @access  Public (but returns friend status if authenticated)
 router.get('/profile/:username', async (req, res) => {
   try {
     const { username } = req.params;
@@ -600,6 +610,64 @@ router.get('/profile/:username', async (req, res) => {
     const gamesPlayed = player.tournamentsWon ? player.tournamentsWon * 2 : 0; // Mock calculation
     const wins = player.tournamentsWon || 0;
 
+    // Check friend status if user is authenticated
+    let friendStatus = null;
+    let currentUserId = null;
+    
+    // Try to get current user from token
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserId = decoded.userId;
+        
+        console.log(`🔍 Checking friend status between ${currentUserId} and ${player._id}`);
+        
+        // Check if already friends - handle both populated and non-populated friends
+        const friendsArray = Array.isArray(player.friends) ? player.friends : [];
+        const isFriend = friendsArray.some(friend => {
+          const friendId = friend._id ? friend._id.toString() : friend.toString();
+          return friendId === currentUserId;
+        });
+        console.log(`👥 Player has ${friendsArray.length} friends, Are they friends? ${isFriend}`);
+        
+        if (isFriend) {
+          friendStatus = 'friends';
+        } else {
+          // Check if friend request exists in FriendRequest collection
+          const FriendRequest = require('../models/FriendRequest');
+          
+          // Check if current user sent request to this player
+          const sentRequest = await FriendRequest.findOne({
+            sender: currentUserId,
+            recipient: player._id,
+            status: 'pending'
+          });
+          console.log(`📤 Sent request found:`, sentRequest ? 'YES' : 'NO');
+          
+          // Check if this player sent request to current user
+          const receivedRequest = await FriendRequest.findOne({
+            sender: player._id,
+            recipient: currentUserId,
+            status: 'pending'
+          });
+          console.log(`📥 Received request found:`, receivedRequest ? 'YES' : 'NO');
+          
+          if (sentRequest) {
+            friendStatus = 'pending';
+          } else if (receivedRequest) {
+            friendStatus = 'received';
+          }
+        }
+        
+        console.log(`✅ Final friend status: ${friendStatus}`);
+      } catch (err) {
+        // Token invalid or expired, continue without friend status
+        console.log('❌ Token verification failed, continuing without friend status:', err.message);
+      }
+    }
+
     // Format response
     const formattedPlayer = {
       _id: player._id,
@@ -615,7 +683,8 @@ router.get('/profile/:username', async (req, res) => {
       country: player.country,
       friends: player.friends || [],
       joinedAt: player.createdAt,
-      team: null // TODO: Add team info when Team model exists
+      team: null, // TODO: Add team info when Team model exists
+      friendStatus: friendStatus // 'friends', 'pending', 'received', or null
     };
 
     res.json(formattedPlayer);

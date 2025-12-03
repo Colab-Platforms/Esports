@@ -64,7 +64,7 @@ const Navbar = () => {
     { to: '/games', label: 'GAMES' },
     { to: '/bgmi', label: 'BGMI' },
     { to: '/tournaments', label: 'TOURNAMENTS' },
-    { to: '/teams', label: 'TEAMS' },  // Public - browse players & create teams
+    { to: '/teams', label: 'PARTY FINDER' },
     { to: '/leaderboard', label: 'LEADERBOARD' },
   ];
 
