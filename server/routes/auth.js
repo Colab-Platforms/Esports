@@ -70,12 +70,12 @@ router.post('/register', async (req, res) => {
     }
 
     // Username validation
-    if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+    if (username.length < 3) {
       return res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_USERNAME',
-          message: 'Username must be at least 3 characters and contain only letters, numbers, and underscores',
+          message: 'Username must be at least 3 characters',
           timestamp: new Date().toISOString()
         }
       });
@@ -399,13 +399,13 @@ router.put('/profile', auth, async (req, res) => {
 
     // Check if username is already taken
     if (username && username !== user.username) {
-      // Validate username
-      if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+      // Validate username length only
+      if (username.length < 3) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_USERNAME',
-            message: 'Username must be at least 3 characters and contain only letters, numbers, and underscores',
+            message: 'Username must be at least 3 characters',
             timestamp: new Date().toISOString()
           }
         });

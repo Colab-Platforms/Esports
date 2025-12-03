@@ -25,16 +25,29 @@ const ProfileSettingsPage = () => {
   const [error, setError] = useState('');
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
   
   const [profileData, setProfileData] = useState({
     username: user?.username || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    country: user?.country || '',
+    country: user?.country || 'India',
+    state: user?.state || '',
     favoriteGame: user?.favoriteGame || '',
     profileVisibility: user?.profileVisibility || 'public',
     bio: user?.bio || ''
   });
+
+  const indianStates = [
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
+    'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
+    'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+    'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+    'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+    'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+  ];
 
   const [socialAccounts, setSocialAccounts] = useState({
     twitter: user?.socialAccounts?.twitter || '',
@@ -50,7 +63,8 @@ const ProfileSettingsPage = () => {
         username: user.username || '',
         email: user.email || '',
         phone: user.phone || '',
-        country: user.country || '',
+        country: user.country || 'India',
+        state: user.state || '',
         favoriteGame: user.favoriteGame || '',
         profileVisibility: user.profileVisibility || 'public',
         bio: user.bio || ''
@@ -157,6 +171,7 @@ const ProfileSettingsPage = () => {
           username: profileData.username,
           phone: profileData.phone,
           country: profileData.country,
+          state: profileData.state,
           favoriteGame: profileData.favoriteGame,
           profileVisibility: profileData.profileVisibility,
           bio: profileData.bio,
@@ -202,11 +217,12 @@ const ProfileSettingsPage = () => {
       
       console.log('Changing password');
       
-      setSuccess('Password changed successfully!');
+      setSuccess('Password updated successfully!');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setIsEditingPassword(false); // Exit edit mode after update
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.message || 'Failed to change password');
+      setError(err.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -433,19 +449,28 @@ const ProfileSettingsPage = () => {
                         <FiGlobe className="inline mr-2" />
                         Country
                       </label>
+                      <div className="w-full px-3 py-2 border border-gaming-border rounded-lg bg-gaming-dark text-gray-400 cursor-not-allowed flex items-center space-x-2">
+                        <span className="text-2xl">🇮🇳</span>
+                        <span>India</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        State
+                      </label>
                       <select
-                        value={profileData.country}
-                        onChange={(e) => handleProfileChange('country', e.target.value)}
+                        value={profileData.state}
+                        onChange={(e) => handleProfileChange('state', e.target.value)}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
                           isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        <option value="">Select your country</option>
-                        <option value="india">India</option>
-                        <option value="usa">United States</option>
-                        <option value="uk">United Kingdom</option>
-                        <option value="canada">Canada</option>
+                        <option value="">Select your state</option>
+                        {indianStates.map(state => (
+                          <option key={state} value={state}>{state}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -625,9 +650,20 @@ const ProfileSettingsPage = () => {
               {/* Password Section */}
               {activeSection === 'password' && (
                 <div className="space-y-4">
-                  <p className="text-gray-400 text-sm mb-4">
-                    Update your password to keep your account secure
-                  </p>
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-gray-400 text-sm">
+                      Update your password to keep your account secure
+                    </p>
+                    {!isEditingPassword && (
+                      <button
+                        onClick={() => setIsEditingPassword(true)}
+                        className="px-4 py-2 bg-gaming-gold hover:bg-yellow-500 text-black rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <FiEdit3 className="w-4 h-4" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -637,7 +673,10 @@ const ProfileSettingsPage = () => {
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                      className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                      readOnly={!isEditingPassword}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditingPassword ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
                       placeholder="Enter current password"
                     />
                   </div>
@@ -650,7 +689,10 @@ const ProfileSettingsPage = () => {
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                      className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                      readOnly={!isEditingPassword}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditingPassword ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
                       placeholder="Enter new password"
                     />
                   </div>
@@ -663,21 +705,35 @@ const ProfileSettingsPage = () => {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                      className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                      readOnly={!isEditingPassword}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditingPassword ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
                       placeholder="Confirm new password"
                     />
                   </div>
 
-                  <div className="flex justify-end pt-4">
-                    <button
-                      onClick={handleChangePassword}
-                      disabled={loading}
-                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center space-x-2"
-                    >
-                      <FiLock className="w-4 h-4" />
-                      <span>{loading ? 'Changing...' : 'Change Password'}</span>
-                    </button>
-                  </div>
+                  {isEditingPassword && (
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <button
+                        onClick={() => {
+                          setIsEditingPassword(false);
+                          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                        }}
+                        className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={loading}
+                        className="px-6 py-2 bg-gaming-gold hover:bg-yellow-500 text-black rounded-lg transition-colors flex items-center space-x-2"
+                      >
+                        <FiSave className="w-4 h-4" />
+                        <span>{loading ? 'Updating...' : 'Update'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

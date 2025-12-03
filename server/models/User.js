@@ -8,8 +8,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     minlength: [3, 'Username must be at least 3 characters'],
-    maxlength: [20, 'Username cannot exceed 20 characters'],
-    match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores']
+    maxlength: [30, 'Username cannot exceed 30 characters']
   },
   email: {
     type: String,
@@ -77,7 +76,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'moderator'],
+    enum: ['user', 'admin', 'moderator', 'designer'],
     default: 'user'
   },
   isActive: {
@@ -128,6 +127,10 @@ const userSchema = new mongoose.Schema({
     maxlength: [500, 'Bio cannot exceed 500 characters']
   },
   country: {
+    type: String,
+    default: 'India'
+  },
+  state: {
     type: String,
     default: ''
   },

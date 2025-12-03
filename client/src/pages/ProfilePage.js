@@ -23,42 +23,19 @@ const ProfilePage = () => {
   const { user } = useSelector(selectAuth);
   const [activeTab, setActiveTab] = useState('general');
   const [userTournaments, setUserTournaments] = useState([]);
-  const [userTeams, setUserTeams] = useState([]);
-  const [userChallenges, setUserChallenges] = useState([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
   const tabs = [
     { id: 'general', label: 'General', icon: FiUser },
-    { id: 'tournaments', label: 'My Tournaments', icon: FiAward },
-    { id: 'teams', label: 'My Teams', icon: FiUsers },
-    { id: 'challenges', label: 'Challenges', icon: FiAward }
+    { id: 'tournaments', label: 'My Tournaments', icon: FiAward }
   ];
 
   useEffect(() => {
     if (activeTab === 'tournaments') {
       fetchUserTournaments();
-    } else if (activeTab === 'teams') {
-      fetchUserTeams();
-    } else if (activeTab === 'challenges') {
-      fetchUserChallenges();
     }
   }, [activeTab]);
-
-  const fetchUserChallenges = async () => {
-    try {
-      setLoading(true);
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.get(`${API_URL}/api/challenges`, {
-        headers: { Authorization: `Bearer ${user?.token || localStorage.getItem('token')}` }
-      });
-      setUserChallenges(response.data.data?.challenges || []);
-    } catch (error) {
-      console.error('Error fetching challenges:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchUserTournaments = async () => {
     try {
@@ -68,19 +45,6 @@ const ProfilePage = () => {
       setUserTournaments(response.data || []);
     } catch (error) {
       console.error('Error fetching tournaments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserTeams = async () => {
-    try {
-      setLoading(true);
-      // API call to get user's teams
-      const response = await api.getUserTeams();
-      setUserTeams(response.data || []);
-    } catch (error) {
-      console.error('Error fetching teams:', error);
     } finally {
       setLoading(false);
     }
@@ -188,22 +152,6 @@ const ProfilePage = () => {
           />
         )}
         
-        {activeTab === 'teams' && (
-          <TeamsTab 
-            teams={userTeams}
-            loading={loading}
-            toast={toast}
-          />
-        )}
-
-        {activeTab === 'challenges' && (
-          <ChallengesTab 
-            challenges={userChallenges}
-            loading={loading}
-            toast={toast}
-            onRefresh={fetchUserChallenges}
-          />
-        )}
       </div>
     </div>
     </>
