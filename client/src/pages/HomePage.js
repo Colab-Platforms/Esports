@@ -45,17 +45,22 @@ const HomePage = () => {
 
   const fetchPlatformStats = async () => {
     try {
-      const response = await fetch('/api/tournaments/stats');
-      const data = await response.json();
-
-      console.log("total stats: ", data)
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_URL}/api/tournaments/stats`);
       
-      if (data.success) {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Platform stats received:", data);
+      
+      if (data.success && data.data) {
         setPlatformStats({
-          totalPlayers: data.data.totalPlayers,
-          activeTournaments: data.data.activeTournaments,
-          totalPrizes: data.data.totalPrizes,
-          totalTransactions: data.data.totalTransactions
+          totalPlayers: data.data.totalPlayers || '0',
+          activeTournaments: data.data.activeTournaments || '0',
+          totalPrizes: data.data.totalPrizes || '₹0',
+          totalTransactions: data.data.totalTransactions || '0'
         });
       }
     } catch (error) {
