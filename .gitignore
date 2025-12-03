@@ -5,10 +5,21 @@ server/node_modules/
 
 # Environment variables
 .env
+.env.*
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.local.*
+.env.production
+.env.production.*
+.env.development
+.env.development.*
+.env.test
+.env.test.*
+client/.env
+client/.env.*
+server/.env
+server/.env.*
+**/.env
+**/.env.*
 
 # Logs
 logs/
@@ -55,3 +66,5 @@ coverage/
 *.md
 !README.md
 !client/README.md
+**/*.md
+!**/README.md

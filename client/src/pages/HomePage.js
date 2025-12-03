@@ -47,6 +47,8 @@ const HomePage = () => {
     try {
       const response = await fetch('/api/tournaments/stats');
       const data = await response.json();
+
+      console.log("total stats: ", data)
       
       if (data.success) {
         setPlatformStats({
