@@ -410,7 +410,7 @@ router.put('/:id', auth, async (req, res) => {
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
       'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
-      'endDate', 'registrationDeadline', 'status', 'rules', 'roomDetails',
+      'endDate', 'registrationDeadline', 'status', 'rules',
       'region', 'featured', 'bannerImage', 'tags'
     ];
 
@@ -420,6 +420,31 @@ router.put('/:id', auth, async (req, res) => {
         tournament[field] = req.body[field];
       }
     });
+
+    // Handle roomDetails separately to preserve nested structure
+    if (req.body.roomDetails) {
+      console.log('  - Updating roomDetails');
+      // Merge roomDetails instead of replacing
+      if (req.body.roomDetails.cs2) {
+        tournament.roomDetails.cs2 = {
+          ...tournament.roomDetails.cs2.toObject(),
+          ...req.body.roomDetails.cs2
+        };
+      }
+      if (req.body.roomDetails.bgmi) {
+        tournament.roomDetails.bgmi = {
+          ...tournament.roomDetails.bgmi.toObject(),
+          ...req.body.roomDetails.bgmi
+        };
+      }
+      if (req.body.roomDetails.valorant) {
+        tournament.roomDetails.valorant = {
+          ...tournament.roomDetails.valorant.toObject(),
+          ...req.body.roomDetails.valorant
+        };
+      }
+      tournament.markModified('roomDetails');
+    }
 
     // Save with validation disabled for participants (to avoid enum errors from seed data)
     await tournament.save({ validateModifiedOnly: true });
