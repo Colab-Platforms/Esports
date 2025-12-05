@@ -129,7 +129,12 @@ const ResultSubmissionWrapper = () => {
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
-  const [showSplash, setShowSplash] = React.useState(true);
+  
+  // Check if splash has been shown before (only show once per session)
+  const [showSplash, setShowSplash] = React.useState(() => {
+    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
+    return !hasSeenSplash; // Show splash only if not seen before
+  });
 
   useEffect(() => {
     // Initialize socket connection if authenticated
@@ -153,9 +158,12 @@ function App() {
     };
   }, [isAuthenticated, user, dispatch]);
 
-  // Show splash screen on first load
+  // Show splash screen on first load only
   if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+    return <SplashScreen onComplete={() => {
+      setShowSplash(false);
+      sessionStorage.setItem('hasSeenSplash', 'true'); // Mark as seen
+    }} />;
   }
 
   if (isLoading) {

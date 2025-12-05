@@ -10,8 +10,8 @@ const gameServerSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Game type is required'],
         enum: {
-            values: ['cs2', 'valorant'],
-            message: 'Game type must be cs2 or valorant'
+            values: ['cs2'],
+            message: 'Game type must be cs2'
         }
     },
     serverDetails: {

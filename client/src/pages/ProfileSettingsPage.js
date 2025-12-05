@@ -118,41 +118,33 @@ const ProfileSettingsPage = () => {
       setUploadingAvatar(true);
       setError('');
 
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-          
-          const response = await axios.put(
-            `${API_URL}/api/auth/profile`,
-            {
-              avatarUrl: reader.result // Base64 string
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            }
-          );
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-          if (response.data.success) {
-            dispatch(updateProfile(response.data.data.user));
-            setSuccess('Profile photo updated successfully!');
-            setTimeout(() => setSuccess(''), 3000);
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      // Upload to Cloudinary via backend
+      const response = await axios.post(
+        `${API_URL}/api/upload/avatar`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
           }
-        } catch (err) {
-          console.error('Avatar upload error:', err);
-          setError(err.response?.data?.error?.message || 'Failed to upload photo');
-        } finally {
-          setUploadingAvatar(false);
         }
-      };
+      );
 
-      reader.readAsDataURL(file);
+      if (response.data.success) {
+        dispatch(updateProfile(response.data.data.user));
+        setSuccess('Profile photo updated successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      }
     } catch (err) {
-      console.error('File read error:', err);
-      setError('Failed to read file');
+      console.error('Avatar upload error:', err);
+      setError(err.response?.data?.error?.message || 'Failed to upload photo');
+    } finally {
       setUploadingAvatar(false);
     }
   };

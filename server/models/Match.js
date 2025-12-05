@@ -53,8 +53,8 @@ const matchSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Game type is required'],
     enum: {
-      values: ['bgmi', 'valorant', 'cs2'],
-      message: 'Game type must be one of: bgmi, valorant, cs2'
+      values: ['bgmi', 'cs2'],
+      message: 'Game type must be one of: bgmi, cs2'
     }
   },
   participants: [{

@@ -236,4 +236,41 @@ router.get('/health', (req, res) => {
   });
 });
 
+/**
+ * DELETE /api/cs2/reset-checkpoint/:serverId
+ * Reset checkpoint for a server (reprocess all logs)
+ */
+router.delete('/reset-checkpoint/:serverId', (req, res) => {
+  try {
+    const serverId = parseInt(req.params.serverId, 10);
+    const logsDir = path.join(__dirname, '../../logs');
+    const checkpointPath = path.join(logsDir, `checkpoint_server${serverId}.txt`);
+
+    // Delete checkpoint file
+    if (fs.existsSync(checkpointPath)) {
+      fs.unlinkSync(checkpointPath);
+      console.log(`[CS2] Checkpoint reset for server ${serverId}`);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Checkpoint reset for server ${serverId}. Next upload will reprocess all logs.`,
+        serverId: serverId
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        message: `No checkpoint found for server ${serverId}. Already reset.`,
+        serverId: serverId
+      });
+    }
+  } catch (error) {
+    console.error('[CS2] Error resetting checkpoint:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to reset checkpoint',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router;

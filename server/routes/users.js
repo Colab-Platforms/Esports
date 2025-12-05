@@ -5,6 +5,19 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// @route   GET /api/users/count
+// @desc    Get total users count
+// @access  Public
+router.get('/count', async (req, res) => {
+  try {
+    const count = await User.countDocuments({ isActive: true });
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error('Error fetching user count:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // @route   GET /api/users/players
 // @desc    Get all players with search and filter
 // @access  Private

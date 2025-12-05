@@ -166,10 +166,10 @@ const PremiumSplashScreen = ({ onComplete }) => {
 
           {/* Main Content */}
           <div className="relative z-10 flex items-center justify-center h-full">
-            {/* Phase 1: Glitch Logo - Infinity Symbol */}
+            {/* Phase 1: Glitch Logo - Colab Esports Logo */}
             {phase === 'glitch' && (
               <motion.div
-                className="relative"
+                className="relative w-64 h-64 md:w-80 md:h-80"
                 animate={{
                   x: [0, -10, 10, -5, 5, 0],
                   y: [0, 5, -5, 3, -3, 0]
@@ -179,33 +179,40 @@ const PremiumSplashScreen = ({ onComplete }) => {
                   repeat: 1
                 }}
               >
-                {/* Main Infinity Symbol */}
-                <div 
-                  className="text-[12rem] font-black"
+                {/* Main Logo */}
+                <motion.img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
+                  alt="Colab Esports Logo"
+                  className="w-full h-full object-contain"
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
                   style={{
-                    background: 'linear-gradient(135deg, #FFD700, #00f0ff)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                    textShadow: '0 0 40px rgba(255, 215, 0, 0.8)',
-                    filter: 'drop-shadow(0 0 20px #00f0ff)'
+                    filter: 'drop-shadow(0 0 30px rgba(255, 215, 0, 0.8)) drop-shadow(0 0 60px rgba(0, 240, 255, 0.4))'
                   }}
-                >
-                  ∞
-                </div>
-                {/* Glitch clones */}
-                <div 
-                  className="absolute inset-0 text-[12rem] text-gaming-neon opacity-70 font-black" 
-                  style={{ transform: 'translate(-5px, -5px)' }}
-                >
-                  ∞
-                </div>
-                <div 
-                  className="absolute inset-0 text-[12rem] text-gaming-gold opacity-70 font-black" 
-                  style={{ transform: 'translate(5px, 5px)' }}
-                >
-                  ∞
-                </div>
+                />
+                
+                {/* Glitch clone - Cyan */}
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain opacity-50"
+                  style={{ 
+                    transform: 'translate(-5px, -5px)',
+                    filter: 'hue-rotate(180deg) brightness(1.2)'
+                  }}
+                />
+                
+                {/* Glitch clone - Red */}
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-contain opacity-50"
+                  style={{ 
+                    transform: 'translate(5px, 5px)',
+                    filter: 'hue-rotate(90deg) brightness(1.2)'
+                  }}
+                />
               </motion.div>
             )}
 

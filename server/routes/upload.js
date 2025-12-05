@@ -1,122 +1,148 @@
 const express = require('express');
-const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const auth = require('../middleware/auth');
-const User = require('../models/User');
-
 const router = express.Router();
+const auth = require('../middleware/auth');
+const { uploadAvatar, uploadTeamLogo } = require('../middleware/upload');
+const User = require('../models/User');
+const cloudinary = require('../config/cloudinary');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Configure Multer Storage with Cloudinary
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'esports-banners',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [{ width: 1920, height: 1080, crop: 'limit' }]
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
-
-// Middleware to check designer role
-const designerAuth = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.userId);
-    if (!user || (user.role !== 'designer' && user.role !== 'admin')) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'INSUFFICIENT_PERMISSIONS',
-          message: 'Designer or Admin access required'
-        }
-      });
-    }
-    next();
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'SERVER_ERROR',
-        message: 'Failed to verify permissions'
-      }
-    });
-  }
-};
-
-// @route   POST /api/upload/image
-// @desc    Upload image to Cloudinary
-// @access  Designer/Admin
-router.post('/image', auth, designerAuth, upload.single('image'), async (req, res) => {
+// @route   POST /api/upload/avatar
+// @desc    Upload user avatar to Cloudinary
+// @access  Private
+router.post('/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
         error: {
           code: 'NO_FILE',
-          message: 'No image file provided'
+          message: 'No file uploaded'
         }
       });
     }
 
-    console.log('✅ Image uploaded to Cloudinary:', req.file.path);
+    const userId = req.user.userId;
+    const avatarUrl = req.file.path; // Cloudinary URL
+
+    console.log('📸 Avatar uploaded:', avatarUrl);
+
+    // Update user's avatar in database
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatarUrl },
+      { new: true }
+    ).select('-passwordHash');
 
     res.json({
       success: true,
       data: {
-        imageUrl: req.file.path,
-        publicId: req.file.filename,
-        width: req.file.width,
-        height: req.file.height
+        avatarUrl,
+        user
       },
-      message: 'Image uploaded successfully'
+      message: 'Avatar uploaded successfully'
     });
 
   } catch (error) {
-    console.error('❌ Error uploading image:', error);
+    console.error('❌ Avatar upload error:', error);
+    
+    // Delete uploaded file if database update fails
+    if (req.file && req.file.filename) {
+      try {
+        await cloudinary.uploader.destroy(req.file.filename);
+      } catch (deleteError) {
+        console.error('Error deleting file:', deleteError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       error: {
         code: 'UPLOAD_ERROR',
-        message: 'Failed to upload image'
+        message: error.message || 'Failed to upload avatar'
       }
     });
   }
 });
 
-// @route   DELETE /api/upload/image/:publicId
-// @desc    Delete image from Cloudinary
-// @access  Designer/Admin
-router.delete('/image/:publicId', auth, designerAuth, async (req, res) => {
+// @route   DELETE /api/upload/avatar
+// @desc    Delete user avatar from Cloudinary
+// @access  Private
+router.delete('/avatar', auth, async (req, res) => {
   try {
-    const { publicId } = req.params;
-    
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+
+    if (!user.avatarUrl) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_AVATAR',
+          message: 'No avatar to delete'
+        }
+      });
+    }
+
+    // Extract public_id from Cloudinary URL
+    const urlParts = user.avatarUrl.split('/');
+    const filename = urlParts[urlParts.length - 1].split('.')[0];
+    const folder = urlParts[urlParts.length - 2];
+    const publicId = `${folder}/${filename}`;
+
+    // Delete from Cloudinary
     await cloudinary.uploader.destroy(publicId);
-    
-    console.log('🗑️ Image deleted from Cloudinary:', publicId);
+
+    // Remove from database
+    user.avatarUrl = '';
+    await user.save();
 
     res.json({
       success: true,
-      message: 'Image deleted successfully'
+      message: 'Avatar deleted successfully'
     });
 
   } catch (error) {
-    console.error('❌ Error deleting image:', error);
+    console.error('❌ Avatar delete error:', error);
     res.status(500).json({
       success: false,
       error: {
         code: 'DELETE_ERROR',
-        message: 'Failed to delete image'
+        message: 'Failed to delete avatar'
+      }
+    });
+  }
+});
+
+// @route   POST /api/upload/team-logo
+// @desc    Upload team logo to Cloudinary
+// @access  Private
+router.post('/team-logo', auth, uploadTeamLogo.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_FILE',
+          message: 'No file uploaded'
+        }
+      });
+    }
+
+    const logoUrl = req.file.path;
+
+    res.json({
+      success: true,
+      data: {
+        logoUrl
+      },
+      message: 'Team logo uploaded successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Team logo upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'UPLOAD_ERROR',
+        message: 'Failed to upload team logo'
       }
     });
   }

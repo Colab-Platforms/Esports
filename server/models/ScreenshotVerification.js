@@ -26,7 +26,7 @@ const screenshotVerificationSchema = new mongoose.Schema({
   },
   gameType: {
     type: String,
-    enum: ['bgmi', 'valorant', 'cs2', 'freefire'],
+    enum: ['bgmi', 'cs2', 'freefire'],
     required: true
   },
   claimedStats: {

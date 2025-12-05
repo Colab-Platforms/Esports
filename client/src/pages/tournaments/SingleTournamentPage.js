@@ -617,8 +617,13 @@ const SingleTournamentPage = () => {
                         <div>
                           <div className="text-gray-400 text-sm">Password</div>
                           <div className="text-white font-mono text-lg bg-gaming-dark p-2 rounded">
-                            {tournament.roomDetails.bgmi.password}
+                            {isUserRegistered ? tournament.roomDetails.bgmi.password : '••••••••'}
                           </div>
+                          {!isUserRegistered && (
+                            <div className="text-xs text-yellow-400 mt-1">
+                              Register to view password
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -705,7 +710,10 @@ const SingleTournamentPage = () => {
                           </div>
                         </div>
                         <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border-2 border-gaming-neon/50 break-all">
-                          {tournament.roomDetails.cs2.connectCommand}
+                          {tournament.roomDetails.cs2.connectCommand.replace(/\/[^/]+$/, '/***')}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          * Password hidden for security. Use Quick Launch button to connect.
                         </div>
                       </div>
 

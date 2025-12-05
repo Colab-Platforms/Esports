@@ -15,7 +15,7 @@ const challengeSchema = new mongoose.Schema({
   },
   game: {
     type: String,
-    enum: ['bgmi', 'cs2', 'valorant'],
+    enum: ['bgmi', 'cs2'],
     required: true
   },
   status: {

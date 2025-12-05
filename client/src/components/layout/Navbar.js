@@ -106,9 +106,9 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-theme-accent to-theme-accent-hover rounded-lg flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 from-theme-accent to-theme-accent-hover rounded-lg flex items-center justify-center shadow-lg">
               <img 
-                src="https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=40&h=40&fit=crop&crop=center" 
+                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow.png?v=1764826142" 
                 alt="Colab Esports Logo"
                 className="w-6 h-6 rounded"
                 onError={(e) => {

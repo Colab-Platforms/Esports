@@ -127,6 +127,14 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
     console.log('🎮 MongoDB connected successfully');
     console.log('📊 Database name:', mongoose.connection.name);
     
+    // Start CS2 log processing cron job
+    try {
+      require('./cron/cs2LogCron');
+      console.log('⏰ CS2 log processing cron job initialized');
+    } catch (error) {
+      console.log('⚠️ CS2 cron job not started:', error.message);
+    }
+    
     console.log('🎮 Server ready! Use admin panel to create tournaments and games.');
   })
   .catch(err => {
@@ -172,7 +180,9 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/cs2', require('./routes/cs2Logs'));
+app.use('/api/cs2-leaderboard', require('./routes/cs2Leaderboard'));
 app.use('/api/site-images', require('./routes/siteImages'));
+app.use('/api/debug', require('./routes/debug'));
 
 // Upload route with Cloudinary (optional)
 try {

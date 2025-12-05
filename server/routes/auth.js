@@ -383,7 +383,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, favoriteGame, profileVisibility, avatarUrl, socialAccounts } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -428,6 +428,7 @@ router.put('/profile', auth, async (req, res) => {
     // Update fields (only if provided)
     if (bio !== undefined) user.bio = bio;
     if (country !== undefined) user.country = country;
+    if (state !== undefined) user.state = state;
     if (favoriteGame !== undefined) user.favoriteGame = favoriteGame;
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
