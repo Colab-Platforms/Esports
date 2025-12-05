@@ -295,9 +295,30 @@ tournamentSchema.virtual('duration').get(function() {
 // Virtual for registration status
 tournamentSchema.virtual('isRegistrationOpen').get(function() {
   const now = new Date();
-  return this.status === 'registration_open' && 
-         now < this.registrationDeadline && 
-         this.currentParticipants < this.maxParticipants;
+  
+  // Registration is open if:
+  // 1. Status is 'upcoming' or 'registration_open' (not closed, active, completed, or cancelled)
+  // 2. Current time is before registration deadline
+  // 3. Tournament is not full
+  const validStatuses = ['upcoming', 'registration_open'];
+  const isValidStatus = validStatuses.includes(this.status);
+  const beforeDeadline = now < this.registrationDeadline;
+  const hasSpace = this.currentParticipants < this.maxParticipants;
+  
+  console.log('🔍 Registration Check:', {
+    tournamentId: this._id,
+    status: this.status,
+    isValidStatus,
+    beforeDeadline,
+    hasSpace,
+    now: now.toISOString(),
+    deadline: this.registrationDeadline.toISOString(),
+    currentParticipants: this.currentParticipants,
+    maxParticipants: this.maxParticipants,
+    result: isValidStatus && beforeDeadline && hasSpace
+  });
+  
+  return isValidStatus && beforeDeadline && hasSpace;
 });
 
 // Virtual for spots remaining
@@ -323,15 +344,37 @@ tournamentSchema.index({ createdBy: 1 });
 tournamentSchema.pre('save', function(next) {
   const now = new Date();
   
-  if (this.status === 'upcoming' && now >= this.registrationDeadline) {
+  console.log('⏰ Pre-save status check:', {
+    tournamentId: this._id,
+    currentStatus: this.status,
+    now: now.toISOString(),
+    registrationDeadline: this.registrationDeadline.toISOString(),
+    startDate: this.startDate.toISOString(),
+    endDate: this.endDate.toISOString()
+  });
+  
+  // Auto-open registration if tournament is upcoming and deadline hasn't passed
+  if (this.status === 'upcoming' && now < this.registrationDeadline) {
+    console.log('✅ Auto-opening registration for upcoming tournament');
+    this.status = 'registration_open';
+  }
+  
+  // Auto-close registration if deadline passed (handles both upcoming and registration_open)
+  if ((this.status === 'upcoming' || this.status === 'registration_open') && 
+      now >= this.registrationDeadline) {
+    console.log('⏰ Auto-closing registration - deadline passed');
     this.status = 'registration_closed';
   }
   
+  // Start tournament if start date reached
   if (this.status === 'registration_closed' && now >= this.startDate) {
+    console.log('🎮 Auto-starting tournament - start date reached');
     this.status = 'active';
   }
   
+  // Complete tournament if end date reached
   if (this.status === 'active' && now >= this.endDate) {
+    console.log('🏁 Auto-completing tournament - end date reached');
     this.status = 'completed';
   }
   

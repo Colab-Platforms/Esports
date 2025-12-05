@@ -154,6 +154,53 @@ const ImageManagement = () => {
     }
   };
 
+  const handleDeleteAllDevices = async (imageKey) => {
+    const image = images[imageKey];
+    const hasResponsive = image?.responsiveUrls && Object.keys(image.responsiveUrls).length > 0;
+    const hasMainImage = image?.imageUrl;
+
+    if (!hasResponsive && !hasMainImage) {
+      alert('No images to delete');
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ALL images for ${imageKey}?\n\n` +
+      `This will remove:\n` +
+      `${hasMainImage ? '- Main image (all devices)\n' : ''}` +
+      `${hasResponsive ? `- Device-specific images (${Object.keys(image.responsiveUrls).join(', ')})\n` : ''}` +
+      `\nThis action cannot be undone!`
+    );
+
+    if (!confirmDelete) return;
+
+    setUploading(true);
+    try {
+      console.log('🗑️ Deleting all images for:', imageKey);
+
+      // Delete all device-specific images first
+      if (hasResponsive) {
+        const devices = Object.keys(image.responsiveUrls);
+        for (const device of devices) {
+          await imageService.deleteDeviceImage(imageKey, device);
+        }
+      }
+
+      // Delete main image by updating with empty imageUrl
+      if (hasMainImage) {
+        await imageService.deleteMainImage(imageKey);
+      }
+
+      alert(`✅ All images deleted successfully!`);
+      await fetchImages();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('❌ Failed to delete images');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (!canManage) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
@@ -605,11 +652,42 @@ const ImageManagement = () => {
                     </div>
 
                     <div className="space-y-2">
+                      {/* Main image info */}
+                      {image && !hasResponsive && (
+                        <div className="bg-gaming-dark/50 rounded px-2 py-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-blue-400 flex items-center">
+                              <FiMonitor className="mr-1" />
+                              All Devices
+                            </span>
+                            <button
+                              onClick={() => handleDeleteAllDevices(key)}
+                              disabled={uploading}
+                              className="text-red-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Delete image"
+                            >
+                              <FiTrash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Device-specific images with delete buttons */}
                       {hasResponsive && (
                         <div className="space-y-2">
-                          <div className="text-xs text-green-500 font-medium">
-                            ✓ Responsive Images:
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-green-500 font-medium">
+                              ✓ Responsive Images:
+                            </div>
+                            <button
+                              onClick={() => handleDeleteAllDevices(key)}
+                              disabled={uploading}
+                              className="text-red-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-bold flex items-center"
+                              title="Delete all images"
+                            >
+                              <FiTrash2 className="w-3 h-3 mr-1" />
+                              Delete All
+                            </button>
                           </div>
                           <div className="space-y-1">
                             {Object.keys(image.responsiveUrls).map(device => (

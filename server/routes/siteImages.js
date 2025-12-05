@@ -296,6 +296,53 @@ router.post('/seed', auth, async (req, res) => {
   }
 });
 
+// @route   DELETE /api/site-images/:key
+// @desc    Delete main image (all devices)
+// @access  Designer/Admin
+router.delete('/:key', auth, designerAuth, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const userId = req.user.userId;
+
+    // Get existing image
+    const existingImage = await SiteImage.findOne({ key });
+    if (!existingImage) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'IMAGE_NOT_FOUND',
+          message: 'Image not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Delete the entire image document
+    await SiteImage.findOneAndDelete({ key });
+
+    console.log(`🗑️ Deleted entire image: ${key}`);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Image deleted successfully'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting image:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to delete image',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   DELETE /api/site-images/:key/device/:device
 // @desc    Delete device-specific image
 // @access  Designer/Admin

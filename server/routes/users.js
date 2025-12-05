@@ -5,6 +5,49 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// @route   GET /api/users/me
+// @desc    Get current user's full profile data
+// @access  Private
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .select('-password')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    console.log('✅ User data fetched for:', user.username, {
+      steamId: user.gameIds?.steam,
+      isConnected: user.steamProfile?.isConnected
+    });
+
+    res.json({
+      success: true,
+      data: { user },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching user data:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch user data',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/users/count
 // @desc    Get total users count
 // @access  Public

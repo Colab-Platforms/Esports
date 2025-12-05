@@ -511,6 +511,21 @@ router.post('/:id/join', auth, [
       });
     }
 
+    // Log tournament registration status for debugging
+    const now = new Date();
+    console.log('🎮 Tournament Join Attempt:', {
+      tournamentId: tournament._id,
+      tournamentName: tournament.name,
+      status: tournament.status,
+      isRegistrationOpen: tournament.isRegistrationOpen,
+      now: now.toISOString(),
+      registrationDeadline: tournament.registrationDeadline.toISOString(),
+      startDate: tournament.startDate.toISOString(),
+      currentParticipants: tournament.currentParticipants,
+      maxParticipants: tournament.maxParticipants,
+      userId: req.user.userId
+    });
+
     const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({
@@ -540,6 +555,38 @@ router.post('/:id/join', auth, [
     }
 
     const { gameId, teamName = '' } = req.body;
+
+    // CS2 Tournament - Validate Steam Connection
+    if (tournament.gameType === 'cs2') {
+      const steamId = user.gameIds?.steam || user.steamProfile?.steamId;
+      const isSteamConnected = user.steamProfile?.isConnected;
+      
+      console.log('🔍 CS2 Tournament Join - Steam Check:', {
+        userId: user._id,
+        username: user.username,
+        steamId,
+        isSteamConnected,
+        gameIdFromRequest: gameId,
+        steamProfile: user.steamProfile
+      });
+
+      if (!steamId || !isSteamConnected) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'STEAM_NOT_CONNECTED',
+            message: 'Steam account not connected. Please connect your Steam account to join CS2 tournaments.',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      // Use the Steam ID from user profile if gameId is not provided or doesn't match
+      if (!gameId || gameId !== steamId) {
+        console.log(`⚠️ Using Steam ID from profile: ${steamId} instead of provided gameId: ${gameId}`);
+        req.body.gameId = steamId; // Override with correct Steam ID
+      }
+    }
 
     // Check wallet balance and deduct entry fee
     if (tournament.entryFee > 0) {

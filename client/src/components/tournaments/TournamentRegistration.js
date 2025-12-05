@@ -29,6 +29,43 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [steamConnected, setSteamConnected] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
+  const [userSteamData, setUserSteamData] = useState(null);
+
+  // Fetch fresh user data on mount to get latest Steam connection status
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (tournament.gameType === 'cs2') {
+        try {
+          const token = localStorage.getItem('token');
+          const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+          const response = await fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const userData = data.data?.user || data.user;
+            
+            console.log('🔍 Fresh user data fetched:', {
+              steamId: userData?.gameIds?.steam || userData?.steamProfile?.steamId,
+              isConnected: userData?.steamProfile?.isConnected,
+              fullData: userData
+            });
+            
+            setUserSteamData(userData);
+            
+            const hasSteam = userData?.gameIds?.steam || userData?.steamProfile?.steamId;
+            const isConnected = userData?.steamProfile?.isConnected;
+            setSteamConnected(hasSteam && isConnected);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [tournament.gameType]);
   
   // Get max team size based on mode
   const getMaxTeamSize = () => {
@@ -156,18 +193,21 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         }
       }
     } else if (tournament.gameType === 'cs2') {
-      const hasSteamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
-      const isSteamConnected = user?.steamProfile?.isConnected || steamConnected;
+      // Use fresh user data if available, otherwise fall back to Redux user
+      const currentUser = userSteamData || user;
+      const hasSteamId = currentUser?.gameIds?.steam || currentUser?.steamProfile?.steamId;
+      const isSteamConnected = currentUser?.steamProfile?.isConnected || steamConnected;
       
       console.log('🔍 CS2 Steam Check:', {
         hasSteamId: !!hasSteamId,
         isSteamConnected,
         steamConnected,
-        userGameIds: user?.gameIds,
-        steamProfile: user?.steamProfile
+        userGameIds: currentUser?.gameIds,
+        steamProfile: currentUser?.steamProfile,
+        usingFreshData: !!userSteamData
       });
       
-      if (!hasSteamId && !isSteamConnected) {
+      if (!hasSteamId || !isSteamConnected) {
         setError('Please connect your Steam account to join CS2 tournaments');
         return false;
       }
@@ -211,12 +251,23 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
         };
       } else if (tournament.gameType === 'cs2') {
         // CS2 registration - only Steam ID needed
-        const steamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
+        // Use fresh user data if available
+        const currentUser = userSteamData || user;
+        const steamId = currentUser?.gameIds?.steam || 
+                       currentUser?.steamProfile?.steamId;
+        
+        console.log('🔍 CS2 Registration - Checking Steam ID:', {
+          'currentUser.gameIds.steam': currentUser?.gameIds?.steam,
+          'currentUser.steamProfile.steamId': currentUser?.steamProfile?.steamId,
+          'currentUser.steamProfile.isConnected': currentUser?.steamProfile?.isConnected,
+          'Final steamId': steamId,
+          'Using fresh data': !!userSteamData
+        });
         
         if (!steamId) {
           throw new Error('Steam account not connected. Please connect your Steam account first.');
         }
-        
+
         registrationData = {
           gameId: steamId,
           teamName: tournament.mode === 'team' ? (formData.teamName || '') : ''
