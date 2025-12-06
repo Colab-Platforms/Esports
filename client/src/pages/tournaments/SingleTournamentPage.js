@@ -25,6 +25,7 @@ import ImageEditor from '../../components/designer/ImageEditor';
 import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
+import { getServerStatusBadge, getServerStats } from '../../utils/cs2ServerStatus';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -42,6 +43,7 @@ const SingleTournamentPage = () => {
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [siteImages, setSiteImages] = useState({});
+  const [serverStats, setServerStats] = useState([]);
 
   const handleImageUpdate = (imageKey, newUrl) => {
     console.log('🎨 Tournament banner updated:', imageKey, newUrl);
@@ -230,6 +232,17 @@ const SingleTournamentPage = () => {
           setTournament(enhancedTournament);
           
           console.log('👤 User registration status:', data.data.isUserRegistered);
+          
+          // Fetch server stats for CS2 tournaments
+          if (enhancedTournament.gameType === 'cs2' && enhancedTournament.roomDetails?.cs2) {
+            try {
+              const stats = await getServerStats(enhancedTournament);
+              setServerStats(stats);
+              console.log('📊 Server stats loaded:', stats);
+            } catch (error) {
+              console.error('Failed to fetch server stats:', error);
+            }
+          }
           console.log('🎮 Room details available:', !!data.data.roomDetails);
           
           setIsUserRegistered(data.data.isUserRegistered || false);
@@ -344,13 +357,84 @@ const SingleTournamentPage = () => {
     window.location.href = getSteamAuthUrl(userId, `/tournaments/${id}`);
   }, [user, navigate, id]);
 
-  const handleJoinTournament = React.useCallback(() => {
+  const handleJoinTournament = React.useCallback(async () => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
 
-    // Open registration modal directly - Steam check will happen inside
+    // CS2 Tournament - Direct join with Steam check
+    if (tournament?.gameType === 'cs2') {
+      try {
+        // Check if Steam is connected
+        const steamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
+        const isSteamConnected = user?.steamProfile?.isConnected;
+
+        console.log('🎮 CS2 Direct Join - Steam Check:', {
+          steamId,
+          isSteamConnected,
+          user
+        });
+
+        // If Steam not connected, show Steam linking modal
+        if (!steamId || !isSteamConnected) {
+          console.log('⚠️ Steam not connected - showing Steam modal');
+          setShowSteamModal(true);
+          return;
+        }
+
+        // Steam connected - directly join tournament
+        console.log('✅ Steam connected - joining tournament directly');
+        
+        const token = localStorage.getItem('token');
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+        
+        const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            gameId: steamId,
+            teamName: ''
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error?.message || 'Failed to join tournament');
+        }
+
+        console.log('✅ Successfully joined CS2 tournament:', data);
+
+        // Show success and launch game
+        const launchGame = window.confirm(
+          `✅ Successfully Joined!\n\n` +
+          `Server: ${tournament.roomDetails?.cs2?.serverIp}:${tournament.roomDetails?.cs2?.serverPort}\n` +
+          `Map: ${tournament.roomDetails?.cs2?.mapName || 'TBD'}\n\n` +
+          `Launch CS2 now?`
+        );
+
+        if (launchGame && tournament.roomDetails?.cs2?.connectCommand) {
+          // Launch CS2 with server connection
+          window.location.href = tournament.roomDetails.cs2.connectCommand;
+        }
+
+        // Refresh page to show updated status
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+
+      } catch (error) {
+        console.error('❌ Failed to join CS2 tournament:', error);
+        alert(`Failed to join: ${error.message}`);
+      }
+      return;
+    }
+
+    // BGMI/Other tournaments - Open registration modal
     setShowRegistration(true);
   }, [isAuthenticated, tournament, user, navigate]);
 
@@ -495,8 +579,8 @@ const SingleTournamentPage = () => {
                     </div>
                   </div>
 
-                  {/* Registration Countdown */}
-                  {tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() && (
+                  {/* Registration Countdown - Hidden for CS2 */}
+                  {tournament?.gameType !== 'cs2' && tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() && (
                     <div className="mb-4 p-3 bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg">
                       <div className="text-gaming-neon font-semibold text-sm mb-2">REGISTRATION CLOSES IN</div>
                       <CountdownTimer 
@@ -586,6 +670,29 @@ const SingleTournamentPage = () => {
                 </p>
               </div>
             </div>
+
+            {/* CS2 Server Stats - Always visible */}
+            {tournament?.gameType === 'cs2' && tournament?.roomDetails?.cs2 && serverStats.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                  <span>📊</span>
+                  <span>SERVER STATUS</span>
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {serverStats.map((stat, index) => (
+                    <div key={index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-3xl">{stat.icon}</div>
+                        <div>
+                          <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
+                          <div className="text-xs text-gray-400">{stat.label}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Room/Server Details (Only shown if user is registered) */}
             {isUserRegistered && tournament?.roomDetails && (
@@ -786,16 +893,18 @@ const SingleTournamentPage = () => {
             {/* Teams Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">REGISTERED TEAMS</h3>
+                <h3 className="text-lg font-bold text-white">
+                  {tournament?.gameType === 'cs2' ? 'JOINED PLAYERS' : 'REGISTERED TEAMS'}
+                </h3>
                 <p className="text-gray-400 text-sm">
-                  {registeredTeams.length} / {tournament?.maxParticipants || 100} teams registered
+                  {registeredTeams.length} / {tournament?.maxParticipants || 100} {tournament?.gameType === 'cs2' ? 'players joined' : 'teams registered'}
                 </p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gaming-gold">
                   {registeredTeams.length}
                 </div>
-                <div className="text-xs text-gray-400">Teams</div>
+                <div className="text-xs text-gray-400">{tournament?.gameType === 'cs2' ? 'Players' : 'Teams'}</div>
               </div>
             </div>
 
@@ -837,7 +946,7 @@ const SingleTournamentPage = () => {
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">Registered:</span>
+                        <span className="text-gray-400">{tournament?.gameType === 'cs2' ? 'Joined:' : 'Registered:'}</span>
                         <span className="text-gray-300 text-xs">
                           {team.registeredAt ? new Date(team.registeredAt).toLocaleDateString() : 'Recently'}
                         </span>
@@ -864,8 +973,12 @@ const SingleTournamentPage = () => {
                 <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                   <FiUsers className="h-10 w-10 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">No Teams Registered Yet</h3>
-                <p className="text-gray-400 mb-6">Be the first to register for this tournament!</p>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {tournament?.gameType === 'cs2' ? 'No Players Joined Yet' : 'No Teams Registered Yet'}
+                </h3>
+                <p className="text-gray-400 mb-6">
+                  {tournament?.gameType === 'cs2' ? 'Be the first to join this server!' : 'Be the first to register for this tournament!'}
+                </p>
                 
                 {/* Registration CTA */}
                 {!isUserRegistered && (
@@ -1103,7 +1216,7 @@ const SingleTournamentPage = () => {
                 <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-6 py-3 text-center">
                   <div className="text-green-400 font-bold text-lg flex items-center space-x-2">
                     <span>✅</span>
-                    <span>Registered</span>
+                    <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
                   </div>
                   <div className="text-gray-300 text-xs mt-1">
                     {tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}

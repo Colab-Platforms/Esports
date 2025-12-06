@@ -17,6 +17,7 @@ import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
 import CountdownTimer from '../components/common/CountdownTimer';
 import api from '../services/api';
 import { getSteamAuthUrl } from '../utils/apiConfig';
+import { getServerStatusBadge, getServerStats } from '../utils/cs2ServerStatus';
 
 const CS2Page = () => {
   const dispatch = useDispatch();
@@ -30,6 +31,7 @@ const CS2Page = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [steamCheckResult, setSteamCheckResult] = useState(null);
+  const [serverStatuses, setServerStatuses] = useState({});
   const [filters, setFilters] = useState({
     entryFeeMin: '',
     entryFeeMax: '',
@@ -47,6 +49,29 @@ const CS2Page = () => {
       page: 1,
       limit: 12
     }));
+  }, [dispatch, activeTab, filters]);
+
+  // Fetch server statuses for all tournaments
+  useEffect(() => {
+    const fetchServerStatuses = async () => {
+      if (!tournaments || tournaments.length === 0) return;
+
+      const statuses = {};
+      for (const tournament of tournaments) {
+        if (tournament.gameType === 'cs2' && tournament.roomDetails?.cs2) {
+          try {
+            const badge = await getServerStatusBadge(tournament);
+            const stats = await getServerStats(tournament);
+            statuses[tournament._id] = { badge, stats };
+          } catch (error) {
+            console.error(`Failed to fetch status for tournament ${tournament._id}:`, error);
+          }
+        }
+      }
+      setServerStatuses(statuses);
+    };
+
+    fetchServerStatuses();
   }, [dispatch, activeTab, filters]);
 
   const getStatusFromTab = (tab) => {
@@ -449,9 +474,20 @@ const CS2Page = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-2">
                     <span className="text-2xl">⚡</span>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
-                      {tournament.status.replace('_', ' ').toUpperCase()}
-                    </div>
+                    {(() => {
+                      const serverStatus = serverStatuses[tournament._id];
+                      const badge = serverStatus?.badge || {
+                        text: 'Loading...',
+                        icon: '⚪',
+                        color: 'text-gray-400 bg-gray-400/10',
+                        pulse: false
+                      };
+                      return (
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color} ${badge.pulse ? 'animate-pulse' : ''}`}>
+                          {badge.icon} {badge.text}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-gray-400">Entry Fee</div>
@@ -506,18 +542,24 @@ const CS2Page = () => {
                   </div>
                 </div>
 
-                {/* Registration Countdown */}
-                {tournament.status === 'registration_open' && tournament.registrationDeadline && (
-                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-3 mb-4">
-                    <div className="text-gaming-neon font-semibold text-xs mb-2">REGISTRATION CLOSES IN</div>
-                    <CountdownTimer 
-                      targetDate={tournament.registrationDeadline}
-                      format="compact"
-                      size="sm"
-                      showLabels={false}
-                    />
-                  </div>
-                )}
+                {/* Server Stats */}
+                {(() => {
+                  const serverStatus = serverStatuses[tournament._id];
+                  const stats = serverStatus?.stats || [];
+                  if (stats.length === 0) return null;
+                  
+                  return (
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      {stats.slice(0, 3).map((stat, index) => (
+                        <div key={index} className="bg-gaming-dark/50 rounded-lg p-2 text-center">
+                          <div className="text-lg mb-1">{stat.icon}</div>
+                          <div className={`text-xs font-bold ${stat.color}`}>{stat.value}</div>
+                          <div className="text-[10px] text-gray-500">{stat.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Tournament Start Countdown */}
                 {tournament.status === 'upcoming' && tournament.startDate && (

@@ -181,6 +181,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/cs2', require('./routes/cs2Logs'));
 app.use('/api/cs2-leaderboard', require('./routes/cs2Leaderboard'));
+app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/debug', require('./routes/debug'));
 
