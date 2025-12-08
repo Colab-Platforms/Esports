@@ -219,6 +219,8 @@ userSchema.index({ username: 1 });
 userSchema.index({ phone: 1 });
 userSchema.index({ totalEarnings: -1 });
 userSchema.index({ level: -1 });
+userSchema.index({ 'steamProfile.steamId': 1 }); // For CS2 player matching
+userSchema.index({ 'gameIds.steam': 1 }); // For CS2 player matching
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

@@ -11,6 +11,8 @@ const TournamentManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
+  const [formStep, setFormStep] = useState(1); // 1: Game Selection, 2: Tournament Details
+  const [selectedGame, setSelectedGame] = useState(null);
 
   // React Hook Form
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
@@ -27,7 +29,25 @@ const TournamentManagement = () => {
       endDate: '',
       registrationDeadline: '',
       rules: '',
-      status: 'upcoming'
+      status: 'upcoming',
+      roomDetails: {
+        cs2: {
+          serverName: '',
+          serverIp: '',
+          serverPort: '',
+          password: '',
+          gameMode: 'casual',
+          mapName: '',
+          rconPassword: ''
+        },
+        bgmi: {
+          roomId: '',
+          password: '',
+          map: 'Erangel',
+          perspective: 'TPP',
+          mode: 'Squad'
+        }
+      }
     }
   });
 
@@ -116,11 +136,27 @@ const TournamentManagement = () => {
     try {
       console.log('📤 Submitting tournament data:', data);
       
-      // Auto-generate CS2 connect command if CS2 tournament
-      if (data.gameType === 'cs2' && data.roomDetails?.cs2) {
-        const { serverIp, serverPort, password } = data.roomDetails.cs2;
-        if (serverIp && serverPort) {
-          data.roomDetails.cs2.connectCommand = `steam://connect/${serverIp}:${serverPort}${password ? '/' + password : ''}`;
+      // CS2 specific handling
+      if (data.gameType === 'cs2') {
+        // Set default values for CS2 tournaments
+        data.description = data.description || 'CS2 Tournament';
+        data.mode = 'team'; // Default mode for CS2
+        data.format = 'elimination'; // Default format
+        
+        // Set dates with proper intervals if not provided
+        const now = new Date();
+        const twoDaysLater = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days later
+        
+        data.startDate = data.startDate || now.toISOString();
+        data.endDate = data.endDate || twoDaysLater.toISOString(); // End date 2 days after start
+        data.registrationDeadline = data.registrationDeadline || now.toISOString(); // Same as start date (CS2 doesn't use registration)
+        
+        // Auto-generate CS2 connect command
+        if (data.roomDetails?.cs2) {
+          const { serverIp, serverPort, password } = data.roomDetails.cs2;
+          if (serverIp && serverPort) {
+            data.roomDetails.cs2.connectCommand = `steam://connect/${serverIp}:${serverPort}${password ? '/' + password : ''}`;
+          }
         }
       }
       
@@ -188,23 +224,58 @@ const TournamentManagement = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, tournament) => {
     if (!window.confirm('Are you sure you want to delete this tournament?')) return;
     
     try {
+      // Try normal delete first
       await api.delete(`/api/tournaments/${id}`);
       toast.success('Tournament deleted successfully!');
       fetchTournaments();
     } catch (error) {
       console.error('Failed to delete tournament:', error);
-      toast.error('Failed to delete tournament');
+      
+      // If tournament has participants, ask for force delete
+      if (error.message?.includes('participants')) {
+        const forceDelete = window.confirm(
+          `This tournament has ${tournament?.currentParticipants || 'registered'} participants.\n\n` +
+          'Force delete will remove all participants and delete the tournament.\n\n' +
+          'Are you sure you want to proceed?'
+        );
+        
+        if (forceDelete) {
+          try {
+            await api.delete(`/api/tournaments/${id}?force=true`);
+            toast.success('Tournament force deleted successfully!');
+            fetchTournaments();
+          } catch (forceError) {
+            console.error('Force delete failed:', forceError);
+            toast.error('Failed to force delete tournament');
+          }
+        }
+      } else {
+        toast.error('Failed to delete tournament');
+      }
     }
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
+    setFormStep(1);
+    setSelectedGame(null);
     reset();
     setEditingTournament(null);
+  };
+
+  const handleGameSelect = (game) => {
+    setSelectedGame(game);
+    setValue('gameType', game.id);
+    setFormStep(2);
+  };
+
+  const handleBackToGameSelection = () => {
+    setFormStep(1);
+    setSelectedGame(null);
   };
 
   const getStatusColor = (status) => {
@@ -303,7 +374,7 @@ const TournamentManagement = () => {
                     <span>Edit</span>
                   </button>
                   <button
-                    onClick={() => handleDelete(tournament._id)}
+                    onClick={() => handleDelete(tournament._id, tournament)}
                     className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex items-center justify-center space-x-2"
                   >
                     <FiTrash2 className="h-4 w-4" />
@@ -390,44 +461,48 @@ const TournamentManagement = () => {
                   )}
                 </div>
 
-                {/* Mode */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Tournament Mode *
-                  </label>
-                  <select
-                    {...register('mode', { required: 'Mode is required' })}
-                    className="input-gaming w-full"
-                  >
-                    <option value="solo">Solo</option>
-                    <option value="duo">Duo</option>
-                    <option value="squad">Squad</option>
-                    <option value="team">Team</option>
-                  </select>
-                  {errors.mode && (
-                    <p className="text-red-400 text-xs mt-1">{errors.mode.message}</p>
-                  )}
-                </div>
+                {/* Mode - Hidden for CS2 */}
+                {selectedGameType !== 'cs2' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Tournament Mode *
+                    </label>
+                    <select
+                      {...register('mode', { required: selectedGameType !== 'cs2' ? 'Mode is required' : false })}
+                      className="input-gaming w-full"
+                    >
+                      <option value="solo">Solo</option>
+                      <option value="duo">Duo</option>
+                      <option value="squad">Squad</option>
+                      <option value="team">Team</option>
+                    </select>
+                    {errors.mode && (
+                      <p className="text-red-400 text-xs mt-1">{errors.mode.message}</p>
+                    )}
+                  </div>
+                )}
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    {...register('description', { 
-                      required: 'Description is required',
-                      minLength: { value: 10, message: 'Description must be at least 10 characters' },
-                      maxLength: { value: 1000, message: 'Description cannot exceed 1000 characters' }
-                    })}
-                    rows="3"
-                    className="input-gaming w-full"
-                    placeholder="Tournament description (10-1000 characters)"
-                  />
-                  {errors.description && (
-                    <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
-                  )}
-                </div>
+                {/* Description - Hidden for CS2 */}
+                {selectedGameType !== 'cs2' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      {...register('description', { 
+                        required: selectedGameType !== 'cs2' ? 'Description is required' : false,
+                        minLength: { value: 10, message: 'Description must be at least 10 characters' },
+                        maxLength: { value: 1000, message: 'Description cannot exceed 1000 characters' }
+                      })}
+                      rows="3"
+                      className="input-gaming w-full"
+                      placeholder="Tournament description (10-1000 characters)"
+                    />
+                    {errors.description && (
+                      <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Entry Fee & Prize Pool */}
                 <div className="grid grid-cols-2 gap-4">
@@ -488,73 +563,79 @@ const TournamentManagement = () => {
                   )}
                 </div>
 
-                {/* Dates */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                      <FiCalendar className="mr-1" /> Start Date *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      {...register('startDate', { required: 'Start date is required' })}
-                      className="input-gaming w-full"
-                    />
-                    {errors.startDate && (
-                      <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
-                    )}
+                {/* Dates - Hidden for CS2 */}
+                {selectedGameType !== 'cs2' && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                        <FiCalendar className="mr-1" /> Start Date *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        {...register('startDate', { required: selectedGameType !== 'cs2' ? 'Start date is required' : false })}
+                        className="input-gaming w-full"
+                      />
+                      {errors.startDate && (
+                        <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                        <FiCalendar className="mr-1" /> End Date *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        {...register('endDate', { required: selectedGameType !== 'cs2' ? 'End date is required' : false })}
+                        className="input-gaming w-full"
+                      />
+                      {errors.endDate && (
+                        <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
+                      )}
+                    </div>
+                    {/* Registration Deadline */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                        <FiClock className="mr-1" /> Registration Deadline *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        {...register('registrationDeadline', { required: selectedGameType !== 'cs2' ? 'Registration deadline is required' : false })}
+                        className="input-gaming w-full"
+                      />
+                      {errors.registrationDeadline && (
+                        <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
+                      )}
+                      <p className="text-xs text-blue-400 mt-1">
+                        ⚠️ Must be before or equal to start date
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                      <FiCalendar className="mr-1" /> End Date *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      {...register('endDate', { required: 'End date is required' })}
-                      className="input-gaming w-full"
-                    />
-                    {errors.endDate && (
-                      <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                      <FiClock className="mr-1" /> Registration Deadline *
-                    </label>
-                    <input
-                      type="datetime-local"
-                      {...register('registrationDeadline', { required: 'Registration deadline is required' })}
-                      className="input-gaming w-full"
-                    />
-                    {errors.registrationDeadline && (
-                      <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
-                    )}
-                    <p className="text-xs text-blue-400 mt-1">
-                      ⚠️ Must be before or equal to start date
-                    </p>
-                  </div>
-                </div>
+                )}
 
                 {/* Format */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Tournament Format *
-                  </label>
-                  <select
-                    {...register('format', { required: 'Format is required' })}
-                    className="input-gaming w-full"
-                  >
-                    <option value="">Select format</option>
-                    <option value="elimination">Elimination</option>
-                    <option value="round_robin">Round Robin</option>
-                    <option value="swiss">Swiss</option>
-                    <option value="battle_royale">Battle Royale</option>
-                  </select>
-                  {errors.format && (
-                    <p className="text-red-400 text-xs mt-1">{errors.format.message}</p>
-                  )}
-                </div>
+                {/* Tournament Format - Hidden for CS2 */}
+                {selectedGameType !== 'cs2' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Tournament Format *
+                    </label>
+                    <select
+                      {...register('format', { required: selectedGameType !== 'cs2' ? 'Format is required' : false })}
+                      className="input-gaming w-full"
+                    >
+                      <option value="">Select format</option>
+                      <option value="elimination">Elimination</option>
+                      <option value="round_robin">Round Robin</option>
+                      <option value="swiss">Swiss</option>
+                      <option value="battle_royale">Battle Royale</option>
+                    </select>
+                    {errors.format && (
+                      <p className="text-red-400 text-xs mt-1">{errors.format.message}</p>
+                    )}
+                  </div>
+                )}
 
-                {/* Status */}
+                {/* Status - Different options for CS2 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     Status
@@ -563,81 +644,89 @@ const TournamentManagement = () => {
                     {...register('status')}
                     className="input-gaming w-full"
                   >
-                    <option value="upcoming">Upcoming</option>
-                    <option value="registration_open">Registration Open</option>
-                    <option value="registration_closed">Registration Closed</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
+                    {selectedGameType === 'cs2' ? (
+                      <>
+                        <option value="active">Active</option>
+                        <option value="upcoming">Inactive</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="registration_open">Registration Open</option>
+                        <option value="registration_closed">Registration Closed</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
-                {/* Rules */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Rules *
-                  </label>
-                  <textarea
-                    {...register('rules', { 
-                      required: 'Rules are required',
-                      minLength: { value: 10, message: 'Rules must be at least 10 characters' },
-                      maxLength: { value: 5000, message: 'Rules cannot exceed 5000 characters' }
-                    })}
-                    rows="4"
-                    className="input-gaming w-full"
-                    placeholder="Tournament rules and regulations (10-5000 characters)"
-                  />
-                  {errors.rules && (
-                    <p className="text-red-400 text-xs mt-1">{errors.rules.message}</p>
-                  )}
-                </div>
-
-                {/* CS2 Server Details (Only for CS2 tournaments) */}
+                {/* CS2 Specific Fields */}
                 {selectedGameType === 'cs2' && (
-                  <div className="border-2 border-gaming-neon/30 rounded-lg p-4 bg-gaming-neon/5">
-                    <h3 className="text-lg font-bold text-gaming-neon mb-4 flex items-center">
-                      ⚡ CS2 Server Details
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      {/* Server IP & Port */}
-                      <div className="grid grid-cols-2 gap-4">
+                  <>
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                      <h3 className="text-blue-400 font-bold mb-3 flex items-center">
+                        <span className="mr-2">⚡</span>
+                        CS2 Server Details
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        {/* Server Name */}
                         <div>
                           <label className="block text-sm font-medium text-gray-400 mb-2">
-                            Server IP *
+                            Server Name *
                           </label>
                           <input
                             type="text"
-                            {...register('roomDetails.cs2.serverIp', { 
-                              required: selectedGameType === 'cs2' ? 'Server IP is required for CS2' : false 
+                            {...register('roomDetails.cs2.serverName', { 
+                              required: selectedGameType === 'cs2' ? 'Server name is required' : false 
                             })}
                             className="input-gaming w-full"
-                            placeholder="31.97.229.109"
+                            placeholder="e.g., Mumbai Server 1"
                           />
-                          {errors.roomDetails?.cs2?.serverIp && (
-                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverIp.message}</p>
+                          {errors.roomDetails?.cs2?.serverName && (
+                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverName.message}</p>
                           )}
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-400 mb-2">
-                            Server Port *
-                          </label>
-                          <input
-                            type="text"
-                            {...register('roomDetails.cs2.serverPort', { 
-                              required: selectedGameType === 'cs2' ? 'Server port is required for CS2' : false 
-                            })}
-                            className="input-gaming w-full"
-                            placeholder="27015"
-                          />
-                          {errors.roomDetails?.cs2?.serverPort && (
-                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverPort.message}</p>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Password & RCON */}
-                      <div className="grid grid-cols-2 gap-4">
+                        {/* Server IP & Port */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                              Server IP *
+                            </label>
+                            <input
+                              type="text"
+                              {...register('roomDetails.cs2.serverIp', { 
+                                required: selectedGameType === 'cs2' ? 'Server IP is required' : false 
+                              })}
+                              className="input-gaming w-full"
+                              placeholder="103.21.58.132"
+                            />
+                            {errors.roomDetails?.cs2?.serverIp && (
+                              <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverIp.message}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                              Server Port *
+                            </label>
+                            <input
+                              type="text"
+                              {...register('roomDetails.cs2.serverPort', { 
+                                required: selectedGameType === 'cs2' ? 'Server port is required' : false 
+                              })}
+                              className="input-gaming w-full"
+                              placeholder="27015"
+                            />
+                            {errors.roomDetails?.cs2?.serverPort && (
+                              <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.serverPort.message}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Server Password */}
                         <div>
                           <label className="block text-sm font-medium text-gray-400 mb-2">
                             Server Password
@@ -649,38 +738,78 @@ const TournamentManagement = () => {
                             placeholder="Optional server password"
                           />
                         </div>
+
+                        {/* Game Mode */}
                         <div>
                           <label className="block text-sm font-medium text-gray-400 mb-2">
-                            RCON Password
+                            Game Mode *
+                          </label>
+                          <select
+                            {...register('roomDetails.cs2.gameMode', { 
+                              required: selectedGameType === 'cs2' ? 'Game mode is required' : false 
+                            })}
+                            className="input-gaming w-full"
+                          >
+                            <option value="casual">Casual</option>
+                            <option value="competitive">Competitive</option>
+                            <option value="deathmatch">Deathmatch</option>
+                            <option value="arms_race">Arms Race</option>
+                            <option value="demolition">Demolition</option>
+                            <option value="wingman">Wingman</option>
+                          </select>
+                          {errors.roomDetails?.cs2?.gameMode && (
+                            <p className="text-red-400 text-xs mt-1">{errors.roomDetails.cs2.gameMode.message}</p>
+                          )}
+                        </div>
+
+                        {/* Map Name */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Map Name (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            {...register('roomDetails.cs2.mapName')}
+                            className="input-gaming w-full"
+                            placeholder="e.g., de_dust2, de_mirage"
+                          />
+                        </div>
+
+                        {/* RCON Password */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-400 mb-2">
+                            RCON Password (Optional)
                           </label>
                           <input
                             type="text"
                             {...register('roomDetails.cs2.rconPassword')}
                             className="input-gaming w-full"
-                            placeholder="Optional RCON password"
+                            placeholder="Admin RCON password"
                           />
+                          <p className="text-xs text-gray-500 mt-1">For server administration</p>
                         </div>
-                      </div>
-
-                      {/* Connect Command (Auto-generated preview) */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">
-                          Connect Command (Auto-generated)
-                        </label>
-                        <div className="bg-gaming-dark p-3 rounded font-mono text-sm text-gaming-neon border border-gaming-neon/30">
-                          {watch('roomDetails.cs2.serverIp') && watch('roomDetails.cs2.serverPort') ? (
-                            `steam://connect/${watch('roomDetails.cs2.serverIp')}:${watch('roomDetails.cs2.serverPort')}${watch('roomDetails.cs2.password') ? '/' + watch('roomDetails.cs2.password') : ''}`
-                          ) : (
-                            'Enter server IP and port to generate command'
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Players will use this command to connect to the server
-                        </p>
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
+
+                {/* Rules - Optional */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Rules (Optional)
+                  </label>
+                  <textarea
+                    {...register('rules', { 
+                      maxLength: { value: 5000, message: 'Rules cannot exceed 5000 characters' }
+                    })}
+                    rows="4"
+                    className="input-gaming w-full"
+                    placeholder="Tournament rules and regulations (10-5000 characters)"
+                  />
+                  {errors.rules && (
+                    <p className="text-red-400 text-xs mt-1">{errors.rules.message}</p>
+                  )}
+                </div>
 
                 {/* Submit Buttons */}
                 <div className="flex space-x-4 pt-4">

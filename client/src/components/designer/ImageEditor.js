@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { FiCamera, FiUpload, FiCheck, FiX } from 'react-icons/fi';
 import { selectAuth } from '../../store/slices/authSlice';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const ImageEditor = ({ 
   imageKey, 
@@ -43,12 +44,12 @@ const ImageEditor = ({
 
     // Validate file
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('Image size should be less than 10MB');
+      toast.error('Image size should be less than 10MB');
       return;
     }
 
@@ -211,13 +212,13 @@ const ImageEditor = ({
         if (onEditEnd) onEditEnd();
         
         const message = uploadMode === 'device' 
-          ? `✅ ${selectedDevice.charAt(0).toUpperCase() + selectedDevice.slice(1)} image updated!`
-          : '✅ Image updated successfully!';
-        alert(message);
+          ? `${selectedDevice.charAt(0).toUpperCase() + selectedDevice.slice(1)} image updated!`
+          : 'Image updated successfully!';
+        toast.success(message);
         
-        // Always call onImageUpdate to refresh data
+        // Call onImageUpdate to refresh data (don't await - it's not async)
         if (onImageUpdate) {
-          await onImageUpdate(imageKey, uploadedImageUrl);
+          onImageUpdate(uploadedImageUrl);
         }
       } else {
         throw new Error(response.data.error?.message || 'Update failed');
@@ -235,7 +236,7 @@ const ImageEditor = ({
                           error.response?.data?.message ||
                           error.message || 
                           'Failed to update image';
-      alert(`❌ ${errorMessage}`);
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -412,6 +413,7 @@ const ImageEditor = ({
           {/* Actions */}
           <div className="flex space-x-2">
             <button
+              type="button"
               onClick={handleSave}
               disabled={
                 uploading || 
@@ -424,6 +426,7 @@ const ImageEditor = ({
               <span>{uploading ? 'Saving...' : 'Save'}</span>
             </button>
             <button
+              type="button"
               onClick={handleCancel}
               disabled={uploading}
               className="flex-1 flex items-center justify-center space-x-2 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white rounded text-sm font-medium transition-colors"

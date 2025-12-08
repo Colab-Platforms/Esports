@@ -127,13 +127,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
     console.log('🎮 MongoDB connected successfully');
     console.log('📊 Database name:', mongoose.connection.name);
     
-    // Start CS2 log processing cron job
-    try {
-      require('./cron/cs2LogCron');
-      console.log('⏰ CS2 log processing cron job initialized');
-    } catch (error) {
-      console.log('⚠️ CS2 cron job not started:', error.message);
-    }
+    // CS2 log processing is handled by SSH cron jobs on the server
+    // Manual log processing available via /api/cs2-logs/process/:serverId endpoint
     
     console.log('🎮 Server ready! Use admin panel to create tournaments and games.');
   })

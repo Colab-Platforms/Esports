@@ -10,7 +10,7 @@ const tournamentSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Tournament description is required'],
+    required: false, // Optional for CS2
     maxlength: [1000, 'Description cannot exceed 1000 characters']
   },
   gameType: {
@@ -23,7 +23,7 @@ const tournamentSchema = new mongoose.Schema({
   },
   mode: {
     type: String,
-    required: [true, 'Tournament mode is required'],
+    required: false, // Optional for CS2
     enum: {
       values: ['solo', 'duo', 'squad', 'team'],
       message: 'Mode must be one of: solo, duo, squad, team'
@@ -71,28 +71,15 @@ const tournamentSchema = new mongoose.Schema({
   },
   startDate: {
     type: Date,
-    required: [true, 'Start date is required']
-    // Validation removed to allow seeding
+    required: false // Optional for CS2
   },
   endDate: {
     type: Date,
-    required: [true, 'End date is required'],
-    validate: {
-      validator: function(value) {
-        return value > this.startDate;
-      },
-      message: 'End date must be after start date'
-    }
+    required: false // Optional for CS2
   },
   registrationDeadline: {
     type: Date,
-    required: [true, 'Registration deadline is required'],
-    validate: {
-      validator: function(value) {
-        return value <= this.startDate;
-      },
-      message: 'Registration deadline must be before or equal to start date'
-    }
+    required: false // Optional for CS2
   },
   status: {
     type: String,
@@ -109,7 +96,7 @@ const tournamentSchema = new mongoose.Schema({
   },
   format: {
     type: String,
-    required: [true, 'Tournament format is required'],
+    required: false, // Optional for CS2
     enum: {
       values: ['elimination', 'round_robin', 'swiss', 'battle_royale'],
       message: 'Format must be one of: elimination, round_robin, swiss, battle_royale'
@@ -294,6 +281,11 @@ tournamentSchema.virtual('duration').get(function() {
 
 // Virtual for registration status
 tournamentSchema.virtual('isRegistrationOpen').get(function() {
+  // CS2 tournaments are always open for joining (no registration concept)
+  if (this.gameType === 'cs2') {
+    return true;
+  }
+  
   const now = new Date();
   
   // Registration is open if:
@@ -312,7 +304,7 @@ tournamentSchema.virtual('isRegistrationOpen').get(function() {
     beforeDeadline,
     hasSpace,
     now: now.toISOString(),
-    deadline: this.registrationDeadline.toISOString(),
+    deadline: this.registrationDeadline?.toISOString(),
     currentParticipants: this.currentParticipants,
     maxParticipants: this.maxParticipants,
     result: isValidStatus && beforeDeadline && hasSpace
@@ -383,10 +375,16 @@ tournamentSchema.pre('save', function(next) {
 
 // Method to add participant
 tournamentSchema.methods.addParticipant = function(userId, gameId, teamName = '') {
-  // Check if user is already registered
+  // Check if user is already registered (skip for CS2 - they can rejoin anytime)
   const existingParticipant = this.participants.find(p => p.userId.toString() === userId.toString());
-  if (existingParticipant) {
+  if (existingParticipant && this.gameType !== 'cs2') {
     throw new Error('User is already registered for this tournament');
+  }
+  
+  // For CS2, if already registered, just return success (no error)
+  if (existingParticipant && this.gameType === 'cs2') {
+    console.log('✅ CS2 user already registered, allowing re-join');
+    return this.save();
   }
   
   // Check if tournament is full
@@ -394,8 +392,8 @@ tournamentSchema.methods.addParticipant = function(userId, gameId, teamName = ''
     throw new Error('Tournament is full');
   }
   
-  // Check if registration is open
-  if (!this.isRegistrationOpen) {
+  // Check if registration is open (skip for CS2 tournaments)
+  if (!this.isRegistrationOpen && this.gameType !== 'cs2') {
     throw new Error('Registration is not open for this tournament');
   }
   

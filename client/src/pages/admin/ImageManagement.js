@@ -4,6 +4,7 @@ import { FiUpload, FiImage, FiMonitor, FiTablet, FiSmartphone, FiCheck, FiX, FiR
 import { selectAuth } from '../../store/slices/authSlice';
 import imageService from '../../services/imageService';
 import ResponsiveImage from '../../components/common/ResponsiveImage';
+import toast from 'react-hot-toast';
 
 const ImageManagement = () => {
   const { user } = useSelector(selectAuth);
@@ -15,6 +16,7 @@ const ImageManagement = () => {
   const [selectedDevice, setSelectedDevice] = useState('desktop');
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [games, setGames] = useState([]);
 
   // Check if user is designer or admin
   const canManage = user && (user.role === 'designer' || user.role === 'admin');
@@ -24,6 +26,23 @@ const ImageManagement = () => {
       fetchImages();
     }
   }, [canManage]);
+
+  // Fetch games for dynamic banner keys
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const response = await fetch(`${API_URL}/api/games`);
+        const data = await response.json();
+        if (data.success) {
+          setGames(data.data.games || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch games:', error);
+      }
+    };
+    fetchGames();
+  }, []);
 
   const fetchImages = async () => {
     setLoading(true);
@@ -44,12 +63,12 @@ const ImageManagement = () => {
 
     // Validate
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('Image size should be less than 10MB');
+      toast.error('Image size should be less than 10MB');
       return;
     }
 
@@ -65,7 +84,7 @@ const ImageManagement = () => {
 
   const handleUpload = async () => {
     if (!selectedImage || !previewFile) {
-      alert('Please select an image and file');
+      toast.error('Please select an image and file');
       return;
     }
 
@@ -100,20 +119,19 @@ const ImageManagement = () => {
         setPreviewUrl('');
         setSelectedImage(null);
         
-        // Show success with option to view
-        const viewHomepage = window.confirm(
-          `${message}\n\n✅ Upload successful!\n\n🏠 Would you like to view the homepage to see your changes?\n(Homepage will open in a new tab)`
+        // Show success toast (no redirect)
+        toast.success(
+          uploadMode === 'device'
+            ? `${selectedDevice.charAt(0).toUpperCase() + selectedDevice.slice(1)} image updated!`
+            : 'Image updated successfully!',
+          { duration: 3000 }
         );
-        
-        if (viewHomepage) {
-          window.open('/', '_blank');
-        }
       } else {
-        alert(`❌ ${result.error}`);
+        toast.error(result.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('❌ Failed to upload image');
+      toast.error('Failed to upload image');
     } finally {
       setUploading(false);
     }
@@ -127,28 +145,24 @@ const ImageManagement = () => {
   };
 
   const handleDeleteDevice = async (imageKey, device) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the ${device} image for ${imageKey}?\n\nThis will remove only the ${device}-specific image. The main image will remain.`
-    );
-
-    if (!confirmDelete) return;
+    // Use toast for confirmation
+    if (!window.confirm(`Delete ${device} image for ${imageKey}?`)) return;
 
     setUploading(true);
     try {
       console.log('🗑️ Deleting device image:', device, 'from', imageKey);
 
-      // Use DELETE method
       const result = await imageService.deleteDeviceImage(imageKey, device);
 
       if (result.success) {
-        alert(`✅ ${device.charAt(0).toUpperCase() + device.slice(1)} image deleted successfully!`);
+        toast.success(`${device.charAt(0).toUpperCase() + device.slice(1)} image deleted!`);
         await fetchImages();
       } else {
-        alert(`❌ ${result.error}`);
+        toast.error(result.error || 'Delete failed');
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert('❌ Failed to delete image');
+      toast.error('Failed to delete image');
     } finally {
       setUploading(false);
     }
@@ -160,19 +174,11 @@ const ImageManagement = () => {
     const hasMainImage = image?.imageUrl;
 
     if (!hasResponsive && !hasMainImage) {
-      alert('No images to delete');
+      toast.error('No images to delete');
       return;
     }
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete ALL images for ${imageKey}?\n\n` +
-      `This will remove:\n` +
-      `${hasMainImage ? '- Main image (all devices)\n' : ''}` +
-      `${hasResponsive ? `- Device-specific images (${Object.keys(image.responsiveUrls).join(', ')})\n` : ''}` +
-      `\nThis action cannot be undone!`
-    );
-
-    if (!confirmDelete) return;
+    if (!window.confirm(`Delete ALL images for ${imageKey}? This cannot be undone!`)) return;
 
     setUploading(true);
     try {
@@ -191,11 +197,11 @@ const ImageManagement = () => {
         await imageService.deleteMainImage(imageKey);
       }
 
-      alert(`✅ All images deleted successfully!`);
+      toast.success('All images deleted successfully!');
       await fetchImages();
     } catch (error) {
       console.error('Delete error:', error);
-      alert('❌ Failed to delete images');
+      toast.error('Failed to delete images');
     } finally {
       setUploading(false);
     }
@@ -334,6 +340,66 @@ const ImageManagement = () => {
       category: 'tournaments'
     },
     
+    // Game-Specific Banners (for game pages and cards)
+    { 
+      key: 'game-banner-cs2', 
+      name: 'CS2 Game Banner', 
+      location: 'CS2 Page - Hero Banner & Cards',
+      recommended: '1920x1080',
+      description: 'Banner for CS2 game page and tournament cards',
+      category: 'game-banners'
+    },
+    { 
+      key: 'game-banner-bgmi', 
+      name: 'BGMI Game Banner', 
+      location: 'BGMI Page - Hero Banner & Cards',
+      recommended: '1920x1080',
+      description: 'Banner for BGMI game page and tournament cards',
+      category: 'game-banners'
+    },
+    { 
+      key: 'game-banner-valorant', 
+      name: 'Valorant Game Banner', 
+      location: 'Valorant Page - Hero Banner & Cards',
+      recommended: '1920x1080',
+      description: 'Banner for Valorant game page and tournament cards',
+      category: 'game-banners'
+    },
+    { 
+      key: 'game-banner-freefire', 
+      name: 'Free Fire Game Banner', 
+      location: 'Free Fire Page - Hero Banner & Cards',
+      recommended: '1920x1080',
+      description: 'Banner for Free Fire game page and tournament cards',
+      category: 'game-banners'
+    },
+    
+    // Tournament-Specific Banners (dynamic - will be added from database)
+    { 
+      key: 'tournament-banner-cs2', 
+      name: 'CS2 Tournament Banner', 
+      location: 'CS2 Tournaments - Default Banner',
+      recommended: '1920x600',
+      description: 'Default banner for CS2 tournaments (used if tournament has no custom banner)',
+      category: 'tournament-banners'
+    },
+    { 
+      key: 'tournament-banner-bgmi', 
+      name: 'BGMI Tournament Banner', 
+      location: 'BGMI Tournaments - Default Banner',
+      recommended: '1920x600',
+      description: 'Default banner for BGMI tournaments (used if tournament has no custom banner)',
+      category: 'tournament-banners'
+    },
+    { 
+      key: 'tournament-banner-valorant', 
+      name: 'Valorant Tournament Banner', 
+      location: 'Valorant Tournaments - Default Banner',
+      recommended: '1920x600',
+      description: 'Default banner for Valorant tournaments (used if tournament has no custom banner)',
+      category: 'tournament-banners'
+    },
+    
     // Logo
     { 
       key: 'logo-main', 
@@ -342,7 +408,17 @@ const ImageManagement = () => {
       recommended: '200x60',
       description: 'Site logo shown in navigation bar on all pages',
       category: 'logo'
-    }
+    },
+    
+    // Dynamic Game Banners (from database)
+    ...games.map(game => ({
+      key: `game-banner-${game.id}`,
+      name: `${game.name} Banner`,
+      location: `Games Page - ${game.name} Banner`,
+      recommended: '1920x1080',
+      description: `Banner for ${game.name} on games page carousel`,
+      category: 'games'
+    }))
   ];
 
   return (
@@ -581,7 +657,7 @@ const ImageManagement = () => {
           ) : (
             <div className="space-y-8">
               {/* Group by category */}
-              {['homepage', 'bgmi', 'games', 'tournaments', 'logo'].map(category => {
+              {['homepage', 'bgmi', 'games', 'tournaments', 'game-banners', 'tournament-banners', 'logo'].map(category => {
                 const categoryImages = imageKeys.filter(img => img.category === category);
                 if (categoryImages.length === 0) return null;
 
@@ -590,6 +666,8 @@ const ImageManagement = () => {
                   bgmi: '🎮 BGMI Page Banner',
                   games: '🎮 Games Page Slider',
                   tournaments: '🏆 Tournaments Page Slider',
+                  'game-banners': '🎯 Game-Specific Banners',
+                  'tournament-banners': '🏆 Tournament Default Banners',
                   logo: '🎨 Branding'
                 };
 

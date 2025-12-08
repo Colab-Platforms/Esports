@@ -267,13 +267,17 @@ router.post('/', auth, [
   body('name')
     .isLength({ min: 3, max: 100 })
     .withMessage('Tournament name must be 3-100 characters'),
-  body('description')
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be 10-1000 characters'),
   body('gameType')
     .isIn(['bgmi', 'valorant', 'cs2'])
     .withMessage('Invalid game type'),
+  // Description - Optional for CS2
+  body('description')
+    .optional()
+    .isLength({ min: 10, max: 1000 })
+    .withMessage('Description must be 10-1000 characters'),
+  // Mode - Optional for CS2
   body('mode')
+    .optional()
     .isIn(['solo', 'duo', 'squad', 'team'])
     .withMessage('Invalid tournament mode'),
   body('entryFee')
@@ -287,21 +291,53 @@ router.post('/', auth, [
   body('maxParticipants')
     .isInt({ min: 2, max: 1000 })
     .withMessage('Max participants must be between 2 and 1000'),
+  // Dates - Optional for CS2
   body('startDate')
+    .optional()
     .isISO8601()
     .withMessage('Invalid start date format'),
   body('endDate')
+    .optional()
     .isISO8601()
     .withMessage('Invalid end date format'),
   body('registrationDeadline')
+    .optional()
     .isISO8601()
     .withMessage('Invalid registration deadline format'),
+  // Rules - Optional for all
   body('rules')
+    .optional()
     .isLength({ min: 10, max: 5000 })
     .withMessage('Rules must be 10-5000 characters'),
+  // Format - Optional for CS2
   body('format')
+    .optional()
     .isIn(['elimination', 'round_robin', 'swiss', 'battle_royale'])
-    .withMessage('Invalid tournament format')
+    .withMessage('Invalid tournament format'),
+  // CS2 Server Details - Only validate if gameType is cs2
+  body('roomDetails.cs2.serverName')
+    .if(body('gameType').equals('cs2'))
+    .notEmpty()
+    .withMessage('Server name is required for CS2 tournaments')
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Server name must be 1-100 characters'),
+  body('roomDetails.cs2.serverIp')
+    .if(body('gameType').equals('cs2'))
+    .notEmpty()
+    .withMessage('Server IP is required for CS2 tournaments')
+    .isString()
+    .withMessage('Server IP must be a valid string'),
+  body('roomDetails.cs2.serverPort')
+    .if(body('gameType').equals('cs2'))
+    .notEmpty()
+    .withMessage('Server port is required for CS2 tournaments')
+    .isString()
+    .withMessage('Server port must be a valid string'),
+  body('roomDetails.cs2.gameMode')
+    .if(body('gameType').equals('cs2'))
+    .optional()
+    .isIn(['casual', 'competitive', 'deathmatch', 'arms_race', 'demolition', 'wingman'])
+    .withMessage('Invalid CS2 game mode')
 ], async (req, res) => {
   try {
     // Check if user is admin
@@ -716,6 +752,79 @@ router.delete('/:id/leave', auth, async (req, res) => {
       error: {
         code: 'TOURNAMENT_LEAVE_FAILED',
         message: 'Failed to leave tournament',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   DELETE /api/tournaments/:id
+// @desc    Delete a tournament (Admin only)
+// @access  Private (Admin)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Admin access required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const tournament = await Tournament.findById(req.params.id);
+    
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check force delete flag from query parameter
+    const forceDelete = req.query.force === 'true';
+
+    // Check if tournament has participants (only if not force deleting)
+    if (tournament.currentParticipants > 0 && !forceDelete) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_HAS_PARTICIPANTS',
+          message: 'Cannot delete tournament with registered participants. Use force delete to proceed.',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // If force deleting with participants, log warning
+    if (tournament.currentParticipants > 0 && forceDelete) {
+      console.warn(`⚠️ Force deleting tournament ${tournament._id} with ${tournament.currentParticipants} participants`);
+    }
+
+    // Delete the tournament
+    await Tournament.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: `Tournament deleted successfully${forceDelete ? ' (force delete)' : ''}`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Tournament delete error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'TOURNAMENT_DELETE_FAILED',
+        message: 'Failed to delete tournament',
         timestamp: new Date().toISOString()
       }
     });

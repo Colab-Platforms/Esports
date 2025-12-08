@@ -14,13 +14,34 @@ const TournamentCard = ({ tournament }) => {
   };
 
   const getStatusBadge = (status) => {
+    // CS2 tournaments don't use registration terminology
+    const isCS2 = tournament.gameType === 'cs2';
+    
     const badges = {
-      'registration_open': { text: 'Open', class: 'badge-success' },
-      'upcoming': { text: 'Upcoming', class: 'badge-primary' },
-      'registration_closed': { text: 'Closed', class: 'badge-warning' },
-      'active': { text: 'Live', class: 'badge-success animate-pulse' },
-      'completed': { text: 'Completed', class: 'badge-secondary' },
-      'cancelled': { text: 'Cancelled', class: 'badge-danger' }
+      'registration_open': { 
+        text: isCS2 ? 'Open' : 'Open', 
+        class: 'badge-success' 
+      },
+      'upcoming': { 
+        text: 'Upcoming', 
+        class: 'badge-primary' 
+      },
+      'registration_closed': { 
+        text: isCS2 ? 'Closed' : 'Closed', 
+        class: 'badge-warning' 
+      },
+      'active': { 
+        text: 'Live', 
+        class: 'badge-success animate-pulse' 
+      },
+      'completed': { 
+        text: 'Finished', 
+        class: 'badge-secondary' 
+      },
+      'cancelled': { 
+        text: 'Cancelled', 
+        class: 'badge-danger' 
+      }
     };
     
     const badge = badges[status] || badges.upcoming;

@@ -364,7 +364,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
         <div className="flex items-center space-x-2">
           <span className="text-2xl">{getModeIcon(tournament.mode)}</span>
           <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
-            {tournament.status.replace('_', ' ').toUpperCase()}
+            {tournament.status === 'completed' ? 'FINISHED' : tournament.status.replace('_', ' ').toUpperCase()}
           </div>
         </div>
         <div className="text-right">

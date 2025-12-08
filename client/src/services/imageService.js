@@ -3,6 +3,12 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 class ImageService {
+  constructor() {
+    this.cache = null;
+    this.cacheTimestamp = null;
+    this.CACHE_DURATION = 30000; // 30 seconds
+  }
+
   // Get auth token from localStorage
   getAuthToken() {
     const token = localStorage.getItem('token');
@@ -17,13 +23,40 @@ class ImageService {
     };
   }
 
-  // Get all site images
-  async getAllImages() {
+  // Check if cache is valid
+  isCacheValid() {
+    if (!this.cache || !this.cacheTimestamp) return false;
+    return (Date.now() - this.cacheTimestamp) < this.CACHE_DURATION;
+  }
+
+  // Clear cache
+  clearCache() {
+    this.cache = null;
+    this.cacheTimestamp = null;
+  }
+
+  // Get all site images (with caching)
+  async getAllImages(forceRefresh = false) {
     try {
+      // Return cached data if valid and not forcing refresh
+      if (!forceRefresh && this.isCacheValid()) {
+        console.log('📦 Returning cached images');
+        return {
+          success: true,
+          data: this.cache
+        };
+      }
+
+      console.log('🔄 Fetching fresh images from server');
       const response = await axios.get(`${API_URL}/api/site-images`);
+      
+      // Update cache
+      this.cache = response.data.data.images;
+      this.cacheTimestamp = Date.now();
+      
       return {
         success: true,
-        data: response.data.data.images
+        data: this.cache
       };
     } catch (error) {
       console.error('❌ Error fetching images:', error);
@@ -110,6 +143,9 @@ class ImageService {
         }
       );
 
+      // Clear cache after update
+      this.clearCache();
+
       return {
         success: true,
         data: response.data.data.image
@@ -133,6 +169,9 @@ class ImageService {
         }
       );
 
+      // Clear cache after delete
+      this.clearCache();
+
       return {
         success: true,
         data: response.data.data.image
@@ -155,6 +194,9 @@ class ImageService {
           headers: this.getAuthHeaders()
         }
       );
+
+      // Clear cache after delete
+      this.clearCache();
 
       return {
         success: true,

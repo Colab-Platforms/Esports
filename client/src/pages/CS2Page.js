@@ -533,7 +533,7 @@ const CS2Page = () => {
                 {/* Tournament Dates */}
                 <div className="space-y-2 mb-4 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Registration:</span>
+                    <span className="text-gray-400">Join Before:</span>
                     <span className="text-white">{formatDate(tournament.registrationDeadline)}</span>
                   </div>
                   <div className="flex justify-between">

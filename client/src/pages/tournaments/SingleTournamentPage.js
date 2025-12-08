@@ -25,7 +25,7 @@ import ImageEditor from '../../components/designer/ImageEditor';
 import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
-import { getServerStatusBadge, getServerStats } from '../../utils/cs2ServerStatus';
+import { getServerStats, getServerPlayers, getPlayerStats } from '../../utils/cs2ServerStatus';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -44,6 +44,8 @@ const SingleTournamentPage = () => {
   const [fetchError, setFetchError] = useState(null);
   const [siteImages, setSiteImages] = useState({});
   const [serverStats, setServerStats] = useState([]);
+  const [serverPlayers, setServerPlayers] = useState([]);
+  const [playerStats, setPlayerStats] = useState(null);
 
   const handleImageUpdate = (imageKey, newUrl) => {
     console.log('🎨 Tournament banner updated:', imageKey, newUrl);
@@ -233,14 +235,22 @@ const SingleTournamentPage = () => {
           
           console.log('👤 User registration status:', data.data.isUserRegistered);
           
-          // Fetch server stats for CS2 tournaments
+          // Fetch server stats and players for CS2 tournaments
           if (enhancedTournament.gameType === 'cs2' && enhancedTournament.roomDetails?.cs2) {
             try {
-              const stats = await getServerStats(enhancedTournament);
+              const [stats, players, pStats] = await Promise.all([
+                getServerStats(enhancedTournament),
+                getServerPlayers(enhancedTournament),
+                getPlayerStats(enhancedTournament)
+              ]);
               setServerStats(stats);
+              setServerPlayers(players);
+              setPlayerStats(pStats);
               console.log('📊 Server stats loaded:', stats);
+              console.log('👥 Server players loaded:', players);
+              console.log('🎮 Player stats loaded:', pStats);
             } catch (error) {
-              console.error('Failed to fetch server stats:', error);
+              console.error('Failed to fetch server data:', error);
             }
           }
           console.log('🎮 Room details available:', !!data.data.roomDetails);
@@ -341,6 +351,34 @@ const SingleTournamentPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Only re-fetch when tournament id changes
 
+  // Auto-refresh server stats for CS2 tournaments (every 10 seconds)
+  useEffect(() => {
+    if (!tournament || tournament.gameType !== 'cs2' || !tournament.roomDetails?.cs2) {
+      return;
+    }
+
+    const refreshServerData = async () => {
+      try {
+        const [stats, players, pStats] = await Promise.all([
+          getServerStats(tournament),
+          getServerPlayers(tournament),
+          getPlayerStats(tournament)
+        ]);
+        setServerStats(stats);
+        setServerPlayers(players);
+        setPlayerStats(pStats);
+        console.log('🔄 Server data refreshed');
+      } catch (error) {
+        console.error('Failed to refresh server data:', error);
+      }
+    };
+
+    // Refresh every 30 seconds (reduced from 10 to avoid rate limiting)
+    const interval = setInterval(refreshServerData, 30000);
+
+    return () => clearInterval(interval);
+  }, [tournament]);
+
   // Memoize handler functions BEFORE any conditional returns
   const handleSteamLink = React.useCallback(() => {
     const userId = user?.id || user?._id;
@@ -409,23 +447,15 @@ const SingleTournamentPage = () => {
 
         console.log('✅ Successfully joined CS2 tournament:', data);
 
-        // Show success and launch game
-        const launchGame = window.confirm(
-          `✅ Successfully Joined!\n\n` +
-          `Server: ${tournament.roomDetails?.cs2?.serverIp}:${tournament.roomDetails?.cs2?.serverPort}\n` +
-          `Map: ${tournament.roomDetails?.cs2?.mapName || 'TBD'}\n\n` +
-          `Launch CS2 now?`
-        );
-
-        if (launchGame && tournament.roomDetails?.cs2?.connectCommand) {
+        // Show toast and launch directly
+        if (tournament.roomDetails?.cs2?.connectCommand) {
+          alert(`🚀 Launching CS2\n\nConnecting to ${tournament.roomDetails?.cs2?.serverIp}:${tournament.roomDetails?.cs2?.serverPort}`);
+          
           // Launch CS2 with server connection
-          window.location.href = tournament.roomDetails.cs2.connectCommand;
+          setTimeout(() => {
+            window.location.href = tournament.roomDetails.cs2.connectCommand;
+          }, 500);
         }
-
-        // Refresh page to show updated status
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
 
       } catch (error) {
         console.error('❌ Failed to join CS2 tournament:', error);
@@ -557,6 +587,21 @@ const SingleTournamentPage = () => {
                     </div>
                   </div>
 
+                  {/* CS2: Show real server info */}
+                  {tournament?.gameType === 'cs2' && serverStats.length > 0 && (
+                    <>
+                      {serverStats.slice(0, 4).map((stat, index) => (
+                        <div key={index} className="flex items-center space-x-3 mb-3">
+                          <div className="text-2xl">{stat.icon}</div>
+                          <div>
+                            <div className="text-white font-semibold">{stat.label.toUpperCase()}</div>
+                            <div className={`text-sm font-bold ${stat.color}`}>{stat.value}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-6 h-6 bg-gradient-to-br from-yellow-500 to-orange-600 rounded flex items-center justify-center">
                       <FiAward className="h-3 w-3 text-white" />
@@ -592,8 +637,8 @@ const SingleTournamentPage = () => {
                     </div>
                   )}
 
-                  {/* Tournament Start Countdown */}
-                  {tournament?.startDate && new Date(tournament.startDate) > new Date() && (
+                  {/* Tournament Start Countdown - Hidden for CS2 */}
+                  {tournament?.gameType !== 'cs2' && tournament?.startDate && new Date(tournament.startDate) > new Date() && (
                     <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                       <div className="text-blue-400 font-semibold text-sm mb-2">TOURNAMENT STARTS IN</div>
                       <CountdownTimer 
@@ -671,31 +716,12 @@ const SingleTournamentPage = () => {
               </div>
             </div>
 
-            {/* CS2 Server Stats - Always visible */}
-            {tournament?.gameType === 'cs2' && tournament?.roomDetails?.cs2 && serverStats.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-                  <span>📊</span>
-                  <span>SERVER STATUS</span>
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {serverStats.map((stat, index) => (
-                    <div key={index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-3xl">{stat.icon}</div>
-                        <div>
-                          <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
-                          <div className="text-xs text-gray-400">{stat.label}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Room/Server Details (Only shown if user is registered) */}
-            {isUserRegistered && tournament?.roomDetails && (
+
+
+
+            {/* Room/Server Details (Only shown if user is registered) - Hidden for CS2 */}
+            {isUserRegistered && tournament?.roomDetails && tournament?.gameType !== 'cs2' && (
               <div>
                 <h3 className="text-lg font-bold text-white mb-4">
                   {tournament.gameType === 'bgmi' ? 'ROOM DETAILS' : 'SERVER DETAILS'}
@@ -913,7 +939,53 @@ const SingleTournamentPage = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold"></div>
                 <span className="ml-3 text-gray-300">Loading teams...</span>
               </div>
+            ) : (tournament?.gameType === 'cs2' && serverPlayers.length > 0) ? (
+              /* CS2: Show real players from server */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {serverPlayers.map((player, index) => (
+                  <div key={index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-white font-semibold">
+                          {player.name}
+                        </div>
+                        <div className="text-gray-400 text-sm">
+                          Playing now
+                        </div>
+                      </div>
+                      <div className="text-xs text-gaming-gold font-semibold">
+                        🎮
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Score:</span>
+                        <span className="text-gaming-gold font-bold">{player.score}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">Time:</span>
+                        <span className="text-white font-medium">{player.time} min</span>
+                      </div>
+                    </div>
+
+                    {/* Player Status */}
+                    <div className="mt-3 pt-3 border-t border-gaming-border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-green-400 flex items-center">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                          Online
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : registeredTeams.length > 0 ? (
+              /* BGMI/Other: Show registered teams */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {registeredTeams.map((team, index) => (
                   <div key={team._id || index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
@@ -1157,81 +1229,144 @@ const SingleTournamentPage = () => {
         
         {/* Top Info Bar - Horizontal Layout */}
         <div className="bg-gradient-to-r from-gaming-card via-gaming-slate to-gaming-card border border-gaming-border rounded-xl p-6 mb-8 shadow-xl">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
-            {/* Prize Pool */}
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiAward className="h-6 w-6 text-black" />
-              </div>
-              <div>
-                <div className="text-gray-400 text-xs uppercase tracking-wide">Prize Pool</div>
-                <div className="text-white font-bold text-xl">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
-              </div>
-            </div>
-
-            {/* Participants */}
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiUsers className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-gray-400 text-xs uppercase tracking-wide">Participants</div>
-                <div className="text-white font-bold text-xl">
-                  {tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline - Registration & Tournament Start */}
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FiCalendar className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <div className="text-gray-400 text-xs uppercase tracking-wide">Timeline</div>
-                <div className="space-y-0.5">
-                  <div className="text-gaming-neon font-bold text-sm">
-                    Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}
-                  </div>
-                  {tournament?.startDate && (
-                    <div className="text-white font-semibold text-xs">
-                      Start: {new Date(tournament.startDate) > new Date() 
-                        ? new Date(tournament.startDate).toLocaleString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })
-                        : 'Live Now!'}
+          {/* CS2: Server Stats Grid (No Prize Pool - it's a server, not a tournament) */}
+          {tournament?.gameType === 'cs2' ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {/* All Server Stats */}
+                {serverStats.map((stat, index) => (
+                  <div key={index} className="flex items-center space-x-3 bg-gaming-card border border-gaming-border rounded-lg p-4">
+                    <div className="text-3xl">{stat.icon}</div>
+                    <div>
+                      <div className="text-gray-400 text-xs uppercase tracking-wide">{stat.label}</div>
+                      <div className={`font-bold text-lg ${stat.color}`}>{stat.value}</div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            {/* Status & Join Button */}
-            <div className="flex items-center justify-end">
-              {isUserRegistered ? (
-                <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-6 py-3 text-center">
-                  <div className="text-green-400 font-bold text-lg flex items-center space-x-2">
-                    <span>✅</span>
-                    <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
-                  </div>
-                  <div className="text-gray-300 text-xs mt-1">
-                    {tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}
+              {/* Player Breakdown - Real vs Bots */}
+              {playerStats && playerStats.total > 0 && (
+                <div className="mt-4 bg-gaming-card/50 border border-gaming-border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">👥</span>
+                      <div>
+                        <div className="text-gray-400 text-xs uppercase tracking-wide">Player Breakdown</div>
+                        <div className="text-white font-bold">{playerStats.total}/{playerStats.max} Players</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-6">
+                      <div className="text-center">
+                        <div className="text-green-400 font-bold text-2xl">{playerStats.real}</div>
+                        <div className="text-gray-400 text-xs">Real Players</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-orange-400 font-bold text-2xl">{playerStats.bots}</div>
+                        <div className="text-gray-400 text-xs">Bots</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-blue-400 font-bold text-2xl">{playerStats.percentage}%</div>
+                        <div className="text-gray-400 text-xs">Capacity</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* CS2 Launch Button - Always show, no join needed */}
+              <div className="mt-6 flex justify-end">
                 <button
                   onClick={handleJoinTournament}
-                  className="btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300"
+                  className="btn-gaming px-8 py-3 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 flex items-center space-x-2"
                 >
-                  {isAuthenticated ? 'JOIN NOW' : 'LOGIN TO JOIN'}
+                  <span>🚀</span>
+                  <span>{isAuthenticated ? 'LAUNCH CS2' : 'LOGIN TO LAUNCH'}</span>
                 </button>
-              )}
+              </div>
+            </>
+          ) : (
+            /* BGMI/Other Games: Original Layout */
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              
+              {/* Prize Pool */}
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiAward className="h-6 w-6 text-black" />
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs uppercase tracking-wide">Prize Pool</div>
+                  <div className="text-white font-bold text-xl">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
+                </div>
+              </div>
+
+              {/* Participants */}
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiUsers className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs uppercase tracking-wide">Participants</div>
+                  <div className="text-white font-bold text-xl">
+                    {tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline - Registration & Tournament Start */}
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiCalendar className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs uppercase tracking-wide">Timeline</div>
+                  <div className="space-y-0.5">
+                    <div className="text-gaming-neon font-bold text-sm">
+                      Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}
+                    </div>
+                    {tournament?.startDate && (
+                      <div className="text-white font-semibold text-xs">
+                        Start: {new Date(tournament.startDate) > new Date() 
+                          ? new Date(tournament.startDate).toLocaleString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })
+                          : 'Live Now!'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Join Button */}
+              <div className="flex items-center justify-end">
+                {isUserRegistered ? (
+                  <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-6 py-3 text-center">
+                    <div className="text-green-400 font-bold text-lg flex items-center space-x-2">
+                      <span>✅</span>
+                      <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
+                    </div>
+                    <div className="text-gray-300 text-xs mt-1">
+                      {tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleJoinTournament}
+                    className="btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300"
+                  >
+                    {tournament?.gameType === 'cs2' ? (
+                      isAuthenticated ? '🚀 JOIN SERVER' : 'LOGIN TO JOIN'
+                    ) : (
+                      isAuthenticated ? 'JOIN NOW' : 'LOGIN TO JOIN'
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Status Badges */}
           <div className="flex items-center space-x-3 mt-6 pt-6 border-t border-gaming-border/50">

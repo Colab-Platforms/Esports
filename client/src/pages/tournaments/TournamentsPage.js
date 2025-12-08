@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight, FiPlay } from 'react-icons/fi';
+import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import axios from 'axios';
 import { 
   fetchTournaments, 
   selectTournaments, 
@@ -23,34 +24,44 @@ const TournamentsPage = () => {
   const [activeStatusTab, setActiveStatusTab] = useState('upcoming');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [siteImages, setSiteImages] = useState({});
 
-  // Tournament banners for sliding carousel
+  // Fetch site images for banners
+  useEffect(() => {
+    const fetchSiteImages = async () => {
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const response = await axios.get(`${API_URL}/api/site-images`);
+        if (response.data.success) {
+          setSiteImages(response.data.data.images);
+        }
+      } catch (error) {
+        console.error('Error fetching site images:', error);
+      }
+    };
+    fetchSiteImages();
+  }, []);
+
+  // handleImageUpdate removed - banners managed via Controls/Banners page
+
+  // Tournament banners from ImageManagement (tournaments-slide-1, 2, 3)
   const banners = [
     {
       id: 1,
-      title: 'COLAB CHAMPIONSHIP SERIES',
-      subtitle: 'Compete across all games for ultimate glory',
-      background: 'linear-gradient(135deg, #f1c40f 0%, #000000 100%)',
-      image: '🏆',
-      cta: 'Join Championship'
+      imageKey: 'tournaments-slide-1',
+      image: siteImages['tournaments-slide-1']?.imageUrl || '/images/tournaments-banner-1.jpg'
     },
     {
       id: 2,
-      title: 'WEEKLY TOURNAMENTS',
-      subtitle: 'Regular competitions with amazing prizes',
-      background: 'linear-gradient(135deg, #ff6b35 0%, #000000 100%)',
-      image: '⚡',
-      cta: 'View Weekly Events'
+      imageKey: 'tournaments-slide-2',
+      image: siteImages['tournaments-slide-2']?.imageUrl || '/images/tournaments-banner-2.jpg'
     },
     {
       id: 3,
-      title: 'COMMUNITY BATTLES',
-      subtitle: 'Player-organized tournaments and events',
-      background: 'linear-gradient(135deg, #4a90e2 0%, #000000 100%)',
-      image: '👥',
-      cta: 'Join Community'
+      imageKey: 'tournaments-slide-3',
+      image: siteImages['tournaments-slide-3']?.imageUrl || '/images/tournaments-banner-3.jpg'
     }
-  ];
+  ].filter(banner => siteImages[banner.imageKey]?.imageUrl); // Only show uploaded banners
 
   // Auto-slide banners
   useEffect(() => {
@@ -181,7 +192,21 @@ const TournamentsPage = () => {
                 ? 'bg-gaming-gold text-black'
                 : 'bg-gray-600 text-white'
             }`}>
-              {tournament.status.toUpperCase().replace('_', ' ')}
+              {(() => {
+                // CS2 tournaments don't use registration terminology
+                const isCS2 = tournament.gameType === 'cs2';
+                const statusText = tournament.status.toUpperCase().replace('_', ' ');
+                
+                if (isCS2) {
+                  if (tournament.status === 'registration_open') return 'OPEN';
+                  if (tournament.status === 'registration_closed') return 'CLOSED';
+                  if (tournament.status === 'completed') return 'FINISHED';
+                }
+                
+                if (tournament.status === 'completed') return 'FINISHED';
+                
+                return statusText;
+              })()}
             </span>
           </div>
 
@@ -220,90 +245,61 @@ const TournamentsPage = () => {
 
   return (
     <div className="min-h-screen bg-gaming-dark">
-      {/* Hero Banner Carousel */}
-      <section className="relative h-80 overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentBanner}
-            initial={{ opacity: 0, x: 300 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -300 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ background: banners[currentBanner].background }}
-          >
-            <div className="absolute inset-0 bg-black/50" />
-            
-            <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-6xl mb-6"
+      {/* Hero Banner Carousel - Plain images like homepage */}
+      {banners.length > 0 && (
+        <section className="relative h-80 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentBanner}
+              initial={{ opacity: 0, x: 300 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -300 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${banners[currentBanner].image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              {/* No text overlay - clean images */}
+              {/* Camera icon removed - manage via Controls/Banners */}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Navigation Arrows */}
+          {banners.length > 1 && (
+            <>
+              <button
+                onClick={prevBanner}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all duration-200"
               >
-                {banners[currentBanner].image}
-              </motion.div>
+                <FiChevronLeft className="h-6 w-6" />
+              </button>
               
-              <motion.h1
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="text-4xl md:text-6xl font-gaming font-bold text-white mb-4"
+              <button
+                onClick={nextBanner}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all duration-200"
               >
-                {banners[currentBanner].title}
-              </motion.h1>
-              
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="text-xl text-gray-300 mb-8"
-              >
-                {banners[currentBanner].subtitle}
-              </motion.p>
+                <FiChevronRight className="h-6 w-6" />
+              </button>
 
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                <button className="btn-gaming inline-flex items-center space-x-2">
-                  <FiPlay className="h-5 w-5" />
-                  <span>{banners[currentBanner].cta}</span>
-                </button>
-              </motion.div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Navigation Arrows */}
-        <button
-          onClick={prevBanner}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all duration-200"
-        >
-          <FiChevronLeft className="h-6 w-6" />
-        </button>
-        
-        <button
-          onClick={nextBanner}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all duration-200"
-        >
-          <FiChevronRight className="h-6 w-6" />
-        </button>
-
-        {/* Banner Indicators */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-          {banners.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentBanner(index)}
-              className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div>
-      </section>
+              {/* Banner Indicators */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2">
+                {banners.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentBanner(index)}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                      index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

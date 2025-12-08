@@ -87,7 +87,7 @@ export const getServerStatusBadge = async (tournament) => {
   
   if (!status) {
     return {
-      text: 'Unknown',
+      text: 'Inactive',
       icon: '⚪',
       color: 'text-gray-400 bg-gray-400/10',
       pulse: false
@@ -96,7 +96,7 @@ export const getServerStatusBadge = async (tournament) => {
 
   if (status.isOnline) {
     return {
-      text: 'Server Online',
+      text: 'Active',
       icon: '🟢',
       color: 'text-green-400 bg-green-400/10',
       pulse: true
@@ -104,7 +104,7 @@ export const getServerStatusBadge = async (tournament) => {
   }
 
   return {
-    text: 'Server Offline',
+    text: 'Inactive',
     icon: '🔴',
     color: 'text-red-400 bg-red-400/10',
     pulse: false
@@ -121,44 +121,53 @@ export const getServerStats = async (tournament) => {
   
   if (!status) return [];
 
-  return [
+  const stats = [
     {
       label: 'Players',
       value: `${status.currentPlayers}/${status.maxPlayers}`,
       icon: '👥',
-      color: 'text-blue-400'
-    },
-    {
-      label: 'Ping',
-      value: `${status.ping}ms`,
-      icon: '📡',
-      color: status.ping < 50 ? 'text-green-400' : status.ping < 100 ? 'text-yellow-400' : 'text-red-400'
+      color: 'text-blue-400',
+      autoRefresh: true
     },
     {
       label: 'Map',
       value: status.map,
       icon: '🗺️',
-      color: 'text-purple-400'
-    },
-    {
-      label: 'Mode',
-      value: status.gameMode,
-      icon: '🎮',
-      color: 'text-yellow-400'
-    },
-    {
-      label: 'Region',
-      value: status.region,
-      icon: '🌍',
-      color: 'text-cyan-400'
-    },
-    {
-      label: 'Uptime',
-      value: status.uptime,
-      icon: '⏱️',
-      color: 'text-green-400'
+      color: 'text-purple-400',
+      autoRefresh: false
     }
   ];
+
+  // Add game mode if available (Casual, Competitive, Deathmatch, etc.)
+  if (status.gameType && status.gameType !== 'Unknown') {
+    stats.push({
+      label: 'Mode',
+      value: status.gameType,
+      icon: '🎯',
+      color: 'text-orange-400',
+      autoRefresh: false
+    });
+  }
+
+  return stats;
+};
+
+/**
+ * Get player list from server
+ * @param {Object} tournament - Tournament object
+ * @returns {Promise<Array>} Array of players
+ */
+export const getServerPlayers = async (tournament) => {
+  const status = await getCS2ServerStatus(tournament);
+  
+  if (!status || !status.players) return [];
+
+  return status.players.map((player, index) => ({
+    id: index + 1,
+    name: player.name || `Player ${index + 1}`,
+    score: player.score || 0,
+    time: player.time ? Math.floor(player.time / 60) : 0 // Convert to minutes
+  }));
 };
 
 /**
@@ -169,4 +178,111 @@ export const getServerStats = async (tournament) => {
 export const isServerAvailable = async (tournament) => {
   const status = await getCS2ServerStatus(tournament);
   return status && status.isOnline && status.currentPlayers < status.maxPlayers;
+};
+
+/**
+ * Fetch enriched player data with real player identification
+ * @param {string} ip - Server IP
+ * @param {string} port - Server port
+ * @returns {Promise<Object>} Enriched player data
+ */
+async function fetchEnrichedPlayers(ip, port) {
+  try {
+    const response = await fetch(`${API_URL}/api/cs2-server/players/${ip}/${port}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      return data.data.server;
+    }
+    
+    throw new Error(data.error?.message || 'Failed to fetch player data');
+  } catch (error) {
+    console.error('❌ Failed to fetch enriched player data:', error);
+    return {
+      isOnline: false,
+      totalPlayers: 0,
+      realPlayers: 0,
+      bots: 0,
+      players: [],
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Get enriched player data for a CS2 tournament
+ * @param {Object} tournament - Tournament object with roomDetails
+ * @returns {Promise<Object>} Enriched player data with real vs bot breakdown
+ */
+export const getCS2EnrichedPlayers = async (tournament) => {
+  if (!tournament || tournament.gameType !== 'cs2' || !tournament.roomDetails?.cs2) {
+    return null;
+  }
+
+  const serverInfo = tournament.roomDetails.cs2;
+  const playerData = await fetchEnrichedPlayers(serverInfo.serverIp, serverInfo.serverPort);
+  
+  return {
+    ...playerData,
+    serverIp: serverInfo.serverIp,
+    serverPort: serverInfo.serverPort
+  };
+};
+
+/**
+ * Get player count display text with real vs bot breakdown
+ * @param {Object} tournament - Tournament object
+ * @returns {Promise<string>} Formatted player count text
+ */
+export const getPlayerCountText = async (tournament) => {
+  const playerData = await getCS2EnrichedPlayers(tournament);
+  
+  if (!playerData || !playerData.isOnline) {
+    return 'Server Offline';
+  }
+
+  const { totalPlayers, realPlayers, bots, maxPlayers } = playerData;
+  
+  if (totalPlayers === 0) {
+    return `0/${maxPlayers} Players`;
+  }
+
+  if (realPlayers === 0) {
+    return `${totalPlayers}/${maxPlayers} Players (All Bots)`;
+  }
+
+  if (bots === 0) {
+    return `${totalPlayers}/${maxPlayers} Players (All Real)`;
+  }
+
+  return `${totalPlayers}/${maxPlayers} Players (${realPlayers} Real, ${bots} Bots)`;
+};
+
+/**
+ * Get player stats for display
+ * @param {Object} tournament - Tournament object
+ * @returns {Promise<Object>} Player statistics
+ */
+export const getPlayerStats = async (tournament) => {
+  const playerData = await getCS2EnrichedPlayers(tournament);
+  
+  if (!playerData || !playerData.isOnline) {
+    return {
+      total: 0,
+      real: 0,
+      bots: 0,
+      max: 0,
+      percentage: 0
+    };
+  }
+
+  const { totalPlayers, realPlayers, bots, maxPlayers } = playerData;
+  
+  return {
+    total: totalPlayers,
+    real: realPlayers,
+    bots: bots,
+    max: maxPlayers,
+    percentage: maxPlayers > 0 ? Math.round((totalPlayers / maxPlayers) * 100) : 0
+  };
 };
