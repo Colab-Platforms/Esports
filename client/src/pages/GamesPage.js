@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiPlay, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../services/api';
-import axios from 'axios';
+import imageService from '../services/imageService';
 
 const GamesPage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
@@ -46,14 +46,9 @@ const GamesPage = () => {
     }, []);
 
     const fetchSiteImages = async () => {
-        try {
-            const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-            const response = await axios.get(`${API_URL}/api/site-images`);
-            if (response.data.success) {
-                setSiteImages(response.data.data.images);
-            }
-        } catch (error) {
-            console.error('Error fetching site images:', error);
+        const result = await imageService.getAllImages();
+        if (result.success) {
+            setSiteImages(result.data);
         }
     };
 
@@ -64,40 +59,19 @@ const GamesPage = () => {
         {
             id: 1,
             imageKey: 'games-slide-1',
-            title: 'COMPETE IN EPIC TOURNAMENTS',
-            subtitle: 'Join thousands of players in competitive gaming',
-            image: siteImages['games-slide-1']?.imageUrl || '/images/games-banner-1.jpg',
-            stats: {
-                tournaments: '50+',
-                players: '10K+',
-                prize: '₹5L+'
-            }
+            image: siteImages['games-slide-1']?.imageUrl
         },
         {
             id: 2,
             imageKey: 'games-slide-2',
-            title: 'MULTIPLE GAMES SUPPORTED',
-            subtitle: 'CS2, BGMI, Valorant, Free Fire and more',
-            image: siteImages['games-slide-2']?.imageUrl || '/images/games-banner-2.jpg',
-            stats: {
-                tournaments: '50+',
-                players: '10K+',
-                prize: '₹5L+'
-            }
+            image: siteImages['games-slide-2']?.imageUrl
         },
         {
             id: 3,
             imageKey: 'games-slide-3',
-            title: 'WIN AMAZING PRIZES',
-            subtitle: 'Compete for cash prizes and exclusive rewards',
-            image: siteImages['games-slide-3']?.imageUrl || '/images/games-banner-3.jpg',
-            stats: {
-                tournaments: '50+',
-                players: '10K+',
-                prize: '₹5L+'
-            }
+            image: siteImages['games-slide-3']?.imageUrl
         }
-    ].filter(banner => siteImages[banner.imageKey]?.imageUrl); // Only show uploaded banners
+    ].filter(banner => banner.image); // Only show uploaded banners
 
     // Reset currentBanner if out of bounds
     useEffect(() => {
@@ -206,8 +180,10 @@ const GamesPage = () => {
     return (
         <div className="min-h-screen bg-gaming-dark">
             {/* Hero Banner Carousel */}
-            {banners.length > 0 && banners[currentBanner] && (
-                <section className="relative h-96 overflow-hidden">
+            <section className="relative h-96 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+                {banners.length > 0 && banners[currentBanner] ? (
+                    <>
+                    {/* Banner with images */}
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentBanner}
@@ -222,9 +198,7 @@ const GamesPage = () => {
                                 backgroundPosition: 'center'
                             }}
                         >
-                            <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70" />
-                            
-                            {/* No text overlay - clean images like homepage */}
+                            {/* No dark overlay - show clean images */}
                             {/* Camera icon removed - manage via Controls/Banners */}
                         </motion.div>
                     </AnimatePresence>
@@ -255,8 +229,22 @@ const GamesPage = () => {
                             />
                         ))}
                     </div>
-                </section>
+                </>
+            ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                    <div className="text-6xl mb-4">🎮</div>
+                    <h2 className="text-3xl font-gaming font-bold text-white mb-2">
+                        Games Portal
+                    </h2>
+                    <p className="text-gray-400 max-w-md">
+                        Explore all available games and join tournaments
+                    </p>
+                    <div className="mt-6 text-sm text-gray-500">
+                        Banner images can be uploaded via Admin Panel → Image Management
+                    </div>
+                </div>
             )}
+        </section>
 
             {/* Games Grid */}
             <section className="py-16">

@@ -33,7 +33,7 @@ const designerAuth = async (req, res, next) => {
 };
 
 // @route   GET /api/site-images
-// @desc    Get all site images
+// @desc    Get all site images (with smart caching support)
 // @access  Public
 router.get('/', async (req, res) => {
   try {
@@ -42,6 +42,22 @@ router.get('/', async (req, res) => {
       .sort({ updatedAt: -1 })
       .lean();
 
+    // Find the most recent update time
+    const lastModified = images.length > 0 
+      ? new Date(Math.max(...images.map(img => new Date(img.updatedAt))))
+      : new Date();
+
+    // Check If-Modified-Since header
+    const ifModifiedSince = req.headers['if-modified-since'];
+    if (ifModifiedSince) {
+      const clientDate = new Date(ifModifiedSince);
+      if (lastModified <= clientDate) {
+        // Images not modified since client's last fetch
+        console.log('✅ Images not modified - sending 304');
+        return res.status(304).end();
+      }
+    }
+
     const formattedImages = images.reduce((acc, image) => {
       acc[image.key] = {
         id: image._id,
@@ -49,7 +65,7 @@ router.get('/', async (req, res) => {
         name: image.name,
         description: image.description,
         imageUrl: image.imageUrl,
-        responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
+        responsiveUrls: image.responsiveUrls || {},
         category: image.category,
         dimensions: image.dimensions,
         updatedBy: image.updatedBy?.username || 'System',
@@ -57,6 +73,12 @@ router.get('/', async (req, res) => {
       };
       return acc;
     }, {});
+
+    // Set Last-Modified header for smart caching
+    res.set('Last-Modified', lastModified.toUTCString());
+    
+    // Set Cache-Control header (30 minutes)
+    res.set('Cache-Control', 'public, max-age=1800'); // 30 minutes
 
     res.json({
       success: true,

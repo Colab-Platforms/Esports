@@ -368,9 +368,16 @@ router.post('/:id/submit-result', auth, async (req, res) => {
 });
 
 // @route   POST /api/matches/:id/upload-screenshot
-// @desc    Upload screenshot for match result
+// @desc    Upload screenshot for match result (Cloudinary)
 // @access  Private
-router.post('/:id/upload-screenshot', auth, fileUpload.getScreenshotUpload().single('screenshot'), async (req, res) => {
+const multer = require('multer');
+const cloudinary = require('../config/cloudinary');
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+router.post('/:id/upload-screenshot', auth, upload.single('screenshot'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -410,8 +417,24 @@ router.post('/:id/upload-screenshot', auth, fileUpload.getScreenshotUpload().sin
       });
     }
     
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'match-screenshots',
+          resource_type: 'image',
+          public_id: `match-${req.params.id}-user-${req.user.id}-${Date.now()}`
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+    
     // Update participant's screenshot URL
-    participant.screenshotUrl = fileUpload.getFileUrl(req.file.filename, 'screenshots');
+    participant.screenshotUrl = uploadResult.secure_url;
     
     await match.save();
     

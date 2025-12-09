@@ -81,10 +81,20 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - More relaxed for development/testing
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 500, // limit each IP to 500 requests per 15 minutes (increased from 100)
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many requests. Please try again later.',
+      timestamp: new Date().toISOString()
+    }
+  },
+  standardHeaders: true, // Return rate limit info in headers
+  legacyHeaders: false
 });
 app.use('/api/', limiter);
 
@@ -180,7 +190,7 @@ app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/debug', require('./routes/debug'));
 
-// Upload route with Cloudinary (optional)
+// Upload route with Cloudinary (required)
 try {
   // Check if Cloudinary is configured
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
@@ -188,10 +198,11 @@ try {
     app.use('/api/upload', uploadRoute);
     console.log('✅ Upload route with Cloudinary mounted');
   } else {
-    console.log('⚠️ Cloudinary not configured - using Base64 fallback');
+    console.error('❌ Cloudinary not configured - Image uploads will fail!');
+    console.error('📝 Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env');
   }
 } catch (error) {
-  console.error('⚠️ Cloudinary upload route failed, using Base64 fallback:', error.message);
+  console.error('❌ Cloudinary upload route failed:', error.message);
 }
 
 // Health check endpoint

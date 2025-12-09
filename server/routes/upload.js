@@ -148,4 +148,84 @@ router.post('/team-logo', auth, uploadTeamLogo.single('logo'), async (req, res) 
   }
 });
 
+// @route   POST /api/upload/image
+// @desc    Upload any image to Cloudinary (for site images, banners, etc.)
+// @access  Private (Designer/Admin)
+const multer = require('multer');
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { 
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+router.post('/image', auth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_FILE',
+          message: 'No image file uploaded',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    console.log('📤 Uploading image to Cloudinary...');
+    console.log('File size:', (req.file.size / 1024).toFixed(2), 'KB');
+
+    // Upload to Cloudinary using upload_stream
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'site-images',
+          resource_type: 'image',
+          transformation: [
+            { quality: 'auto:good' },
+            { fetch_format: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            console.log('✅ Cloudinary upload success:', result.secure_url);
+            resolve(result);
+          }
+        }
+      );
+      
+      // Write buffer to stream
+      uploadStream.end(req.file.buffer);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        imageUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        width: uploadResult.width,
+        height: uploadResult.height,
+        format: uploadResult.format,
+        size: uploadResult.bytes
+      },
+      message: 'Image uploaded successfully to Cloudinary',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Image upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'UPLOAD_ERROR',
+        message: error.message || 'Failed to upload image to Cloudinary',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 module.exports = router;

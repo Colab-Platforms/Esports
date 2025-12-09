@@ -79,7 +79,32 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
   }
 
   if (slides.length === 0) {
-    return null; // No slides, don't show banner
+    // Show placeholder when no slides uploaded
+    const placeholderContent = {
+      homepage: { icon: '🏠', title: 'Welcome to Colab Esports', desc: 'Your ultimate gaming tournament platform' },
+      bgmi: { icon: '🎮', title: 'BGMI Tournaments', desc: 'Join exciting BGMI tournaments and compete with the best' },
+      games: { icon: '🎯', title: 'Games Portal', desc: 'Explore all available games and join tournaments' },
+      tournaments: { icon: '🏆', title: 'Tournaments Hub', desc: 'Compete in exciting tournaments and win amazing prizes' }
+    };
+    
+    const content = placeholderContent[pageKey] || placeholderContent.homepage;
+    
+    return (
+      <div className={`relative ${height} overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark flex items-center justify-center`}>
+        <div className="text-center px-4">
+          <div className="text-6xl mb-4">{content.icon}</div>
+          <h2 className="text-3xl font-gaming font-bold text-white mb-2">
+            {content.title}
+          </h2>
+          <p className="text-gray-400 max-w-md mx-auto">
+            {content.desc}
+          </p>
+          <div className="mt-6 text-sm text-gray-500">
+            Banner images can be uploaded via Admin Panel → Image Management
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const currentSlideData = slides[currentSlide];

@@ -31,6 +31,20 @@ class ApiService {
       const response = await fetch(url, config);
       const data = await response.json();
       
+      // Handle token expiry
+      if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {
+        console.log('🔒 Token expired - logging out');
+        
+        // Clear auth data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Redirect to login
+        window.location.href = '/login?expired=true';
+        
+        throw new Error('Session expired. Please login again.');
+      }
+      
       if (!response.ok) {
         throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
       }

@@ -14,28 +14,42 @@ const ImageUploadPage = () => {
     setUploading(true);
 
     try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const token = localStorage.getItem('token');
+
       const uploadPromises = files.map(async (file) => {
-        // Convert to base64
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve({
-              name: file.name,
-              url: reader.result,
-              size: (file.size / 1024).toFixed(2) + ' KB',
-              type: file.type,
-              uploadedAt: new Date().toISOString()
-            });
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await axios.post(
+          `${API_URL}/api/upload/image`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+
+        if (response.data.success) {
+          return {
+            name: file.name,
+            url: response.data.data.imageUrl,
+            size: (file.size / 1024).toFixed(2) + ' KB',
+            type: file.type,
+            uploadedAt: new Date().toISOString()
           };
-          reader.readAsDataURL(file);
-        });
+        } else {
+          throw new Error('Upload failed');
+        }
       });
 
       const results = await Promise.all(uploadPromises);
       setUploadedImages(prev => [...results, ...prev]);
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload images');
+      alert('Failed to upload images to Cloudinary');
     } finally {
       setUploading(false);
     }
@@ -103,7 +117,7 @@ const ImageUploadPage = () => {
             <li>1. Upload your image(s) using the upload area above</li>
             <li>2. Copy the generated URL by clicking the copy button</li>
             <li>3. Share the URL with developers or use it in your designs</li>
-            <li>4. Images are stored as Base64 (no server storage needed)</li>
+            <li>4. Images are stored on Cloudinary (fast CDN delivery)</li>
           </ol>
         </div>
 

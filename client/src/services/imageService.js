@@ -1,12 +1,40 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
+// Add axios interceptor for token expiry
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle token expiry globally
+    if (error.response?.status === 401 && 
+        error.response?.data?.error?.code === 'TOKEN_EXPIRED') {
+      console.log('🔒 Token expired - logging out');
+      
+      // Clear auth data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Show message
+      toast.error('Session expired. Please login again.');
+      
+      // Redirect to login
+      setTimeout(() => {
+        window.location.href = '/login?expired=true';
+      }, 1000);
+    }
+    
+    return Promise.reject(error);
+  }
+);
 
 class ImageService {
   constructor() {
     this.cache = null;
     this.cacheTimestamp = null;
-    this.CACHE_DURATION = 30000; // 30 seconds
+    this.lastModified = null; // Track when images were last modified
+    this.CACHE_DURATION = 30 * 60 * 1000; // 30 minutes (1800000ms)
   }
 
   // Get auth token from localStorage
@@ -33,33 +61,82 @@ class ImageService {
   clearCache() {
     this.cache = null;
     this.cacheTimestamp = null;
+    this.lastModified = null;
   }
 
-  // Get all site images (with caching)
+  // Get all site images (with smart caching)
   async getAllImages(forceRefresh = false) {
     try {
       // Return cached data if valid and not forcing refresh
       if (!forceRefresh && this.isCacheValid()) {
-        console.log('📦 Returning cached images');
+        console.log('📦 Returning cached images (valid for 30 min)');
         return {
           success: true,
-          data: this.cache
+          data: this.cache,
+          cached: true
         };
       }
 
       console.log('🔄 Fetching fresh images from server');
-      const response = await axios.get(`${API_URL}/api/site-images`);
       
-      // Update cache
+      // Add If-Modified-Since header if we have lastModified
+      const headers = {};
+      if (this.lastModified) {
+        headers['If-Modified-Since'] = this.lastModified;
+      }
+      
+      const response = await axios.get(`${API_URL}/api/site-images`, { headers });
+      
+      // If 304 Not Modified, use cached data and refresh timestamp
+      if (response.status === 304) {
+        console.log('✅ Images not modified - using cache');
+        this.cacheTimestamp = Date.now(); // Refresh cache timestamp
+        return {
+          success: true,
+          data: this.cache,
+          cached: true,
+          notModified: true
+        };
+      }
+      
+      // Update cache with fresh data
       this.cache = response.data.data.images;
       this.cacheTimestamp = Date.now();
+      this.lastModified = response.headers['last-modified'] || new Date().toUTCString();
+      
+      console.log('✅ Fresh images loaded from server');
       
       return {
         success: true,
-        data: this.cache
+        data: this.cache,
+        cached: false
       };
     } catch (error) {
+      // If error but we have cache, return cached data
+      if (error.response?.status === 304 && this.cache) {
+        console.log('✅ Images not modified - using cache');
+        this.cacheTimestamp = Date.now();
+        return {
+          success: true,
+          data: this.cache,
+          cached: true,
+          notModified: true
+        };
+      }
+      
       console.error('❌ Error fetching images:', error);
+      
+      // Return cached data if available, even on error
+      if (this.cache) {
+        console.log('⚠️ Using cached data due to error');
+        return {
+          success: true,
+          data: this.cache,
+          cached: true,
+          error: 'Using cached data'
+        };
+      }
+      
       return {
         success: false,
         error: error.response?.data?.error?.message || 'Failed to fetch images'
@@ -111,24 +188,10 @@ class ImageService {
       }
     } catch (error) {
       console.error('❌ Cloudinary upload failed:', error);
-      // Fallback to Base64
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve({
-            success: true,
-            imageUrl: reader.result,
-            isBase64: true
-          });
-        };
-        reader.onerror = () => {
-          resolve({
-            success: false,
-            error: 'Failed to process image'
-          });
-        };
-        reader.readAsDataURL(file);
-      });
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || 'Failed to upload image to Cloudinary'
+      };
     }
   }
 

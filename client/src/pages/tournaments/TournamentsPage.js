@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import axios from 'axios';
+import imageService from '../../services/imageService';
 import { 
   fetchTournaments, 
   selectTournaments, 
@@ -26,17 +26,12 @@ const TournamentsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [siteImages, setSiteImages] = useState({});
 
-  // Fetch site images for banners
+  // Fetch site images for banners (uses cached data if available)
   useEffect(() => {
     const fetchSiteImages = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-        const response = await axios.get(`${API_URL}/api/site-images`);
-        if (response.data.success) {
-          setSiteImages(response.data.data.images);
-        }
-      } catch (error) {
-        console.error('Error fetching site images:', error);
+      const result = await imageService.getAllImages();
+      if (result.success) {
+        setSiteImages(result.data);
       }
     };
     fetchSiteImages();
@@ -49,19 +44,19 @@ const TournamentsPage = () => {
     {
       id: 1,
       imageKey: 'tournaments-slide-1',
-      image: siteImages['tournaments-slide-1']?.imageUrl || '/images/tournaments-banner-1.jpg'
+      image: siteImages['tournaments-slide-1']?.imageUrl
     },
     {
       id: 2,
       imageKey: 'tournaments-slide-2',
-      image: siteImages['tournaments-slide-2']?.imageUrl || '/images/tournaments-banner-2.jpg'
+      image: siteImages['tournaments-slide-2']?.imageUrl
     },
     {
       id: 3,
       imageKey: 'tournaments-slide-3',
-      image: siteImages['tournaments-slide-3']?.imageUrl || '/images/tournaments-banner-3.jpg'
+      image: siteImages['tournaments-slide-3']?.imageUrl
     }
-  ].filter(banner => siteImages[banner.imageKey]?.imageUrl); // Only show uploaded banners
+  ].filter(banner => banner.image); // Only show uploaded banners
 
   // Reset currentBanner if out of bounds
   useEffect(() => {
@@ -255,8 +250,10 @@ const TournamentsPage = () => {
   return (
     <div className="min-h-screen bg-gaming-dark">
       {/* Hero Banner Carousel - Plain images like homepage */}
-      {banners.length > 0 && banners[currentBanner] && (
-        <section className="relative h-80 overflow-hidden">
+      <section className="relative h-80 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+        {banners.length > 0 && banners[currentBanner] ? (
+          <>
+          {/* Banner with images */}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentBanner}
@@ -307,8 +304,22 @@ const TournamentsPage = () => {
               </div>
             </>
           )}
-        </section>
-      )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+            <div className="text-6xl mb-4">🏆</div>
+            <h2 className="text-3xl font-gaming font-bold text-white mb-2">
+              Tournaments Hub
+            </h2>
+            <p className="text-gray-400 max-w-md">
+              Compete in exciting tournaments and win amazing prizes
+            </p>
+            <div className="mt-6 text-sm text-gray-500">
+              Banner images can be uploaded via Admin Panel → Image Management
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

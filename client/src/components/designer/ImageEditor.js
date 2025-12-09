@@ -83,13 +83,36 @@ const ImageEditor = ({
       let responsiveUrls = {};
 
       if (uploadMode === 'single') {
-        // Single image upload - Use Base64 for now (Cloudinary optional)
+        // Single image upload to Cloudinary
         if (!previewUrl || !selectedFile) return;
         
-        // Try Cloudinary first, fallback to Base64
-        try {
+        const formData = new FormData();
+        formData.append('image', selectedFile);
+        
+        const uploadResponse = await axios.post(
+          `${API_URL}/api/upload/image`,
+          formData,
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
+
+        if (uploadResponse.data.success) {
+          uploadedImageUrl = uploadResponse.data.data.imageUrl;
+          console.log('✅ Uploaded to Cloudinary:', uploadedImageUrl);
+        } else {
+          throw new Error('Cloudinary upload failed');
+        }
+      } else {
+        // Device-specific upload to Cloudinary
+        const device = selectedDevice;
+        
+        if (responsiveFiles[device]) {
           const formData = new FormData();
-          formData.append('image', selectedFile);
+          formData.append('image', responsiveFiles[device]);
           
           const uploadResponse = await axios.post(
             `${API_URL}/api/upload/image`,
@@ -103,42 +126,10 @@ const ImageEditor = ({
           );
 
           if (uploadResponse.data.success) {
-            uploadedImageUrl = uploadResponse.data.data.imageUrl;
-            console.log('✅ Uploaded to Cloudinary:', uploadedImageUrl);
-          }
-        } catch (cloudinaryError) {
-          console.warn('⚠️ Cloudinary upload failed, using Base64:', cloudinaryError.message);
-          // Fallback to Base64
-          uploadedImageUrl = previewUrl;
-        }
-      } else {
-        // Device-specific upload
-        const device = selectedDevice;
-        
-        if (responsiveFiles[device]) {
-          try {
-            const formData = new FormData();
-            formData.append('image', responsiveFiles[device]);
-            
-            const uploadResponse = await axios.post(
-              `${API_URL}/api/upload/image`,
-              formData,
-              {
-                headers: { 
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'multipart/form-data'
-                }
-              }
-            );
-
-            if (uploadResponse.data.success) {
-              responsiveUrls[device] = uploadResponse.data.data.imageUrl;
-              console.log(`✅ ${device} uploaded to Cloudinary:`, uploadResponse.data.data.imageUrl);
-            }
-          } catch (cloudinaryError) {
-            console.warn(`⚠️ ${device} Cloudinary upload failed, using Base64`);
-            // Fallback to Base64
-            responsiveUrls[device] = responsivePreviews[device];
+            responsiveUrls[device] = uploadResponse.data.data.imageUrl;
+            console.log(`✅ ${device} uploaded to Cloudinary:`, uploadResponse.data.data.imageUrl);
+          } else {
+            throw new Error(`Cloudinary upload failed for ${device}`);
           }
         }
 
