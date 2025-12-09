@@ -99,14 +99,21 @@ const GamesPage = () => {
         }
     ].filter(banner => siteImages[banner.imageKey]?.imageUrl); // Only show uploaded banners
 
+    // Reset currentBanner if out of bounds
+    useEffect(() => {
+        if (banners.length > 0 && currentBanner >= banners.length) {
+            setCurrentBanner(0);
+        }
+    }, [banners.length, currentBanner]);
+
     // Auto-slide banners
     useEffect(() => {
-        if (banners.length > 0) {
-            const interval = setInterval(() => {
-                setCurrentBanner((prev) => (prev + 1) % banners.length);
-            }, 5000);
-            return () => clearInterval(interval);
-        }
+        if (banners.length === 0) return;
+        
+        const interval = setInterval(() => {
+            setCurrentBanner((prev) => (prev + 1) % banners.length);
+        }, 5000);
+        return () => clearInterval(interval);
     }, [banners.length]);
 
     const nextBanner = () => {
@@ -199,7 +206,7 @@ const GamesPage = () => {
     return (
         <div className="min-h-screen bg-gaming-dark">
             {/* Hero Banner Carousel */}
-            {banners.length > 0 && (
+            {banners.length > 0 && banners[currentBanner] && (
                 <section className="relative h-96 overflow-hidden">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -210,7 +217,7 @@ const GamesPage = () => {
                             transition={{ duration: 0.5 }}
                             className="absolute inset-0 flex items-center justify-center"
                             style={{
-                                backgroundImage: `url(${banners[currentBanner].image})`,
+                                backgroundImage: `url(${banners[currentBanner]?.image || ''})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center'
                             }}
