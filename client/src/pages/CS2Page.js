@@ -77,13 +77,13 @@ const CS2Page = () => {
   const getStatusFromTab = (tab) => {
     switch (tab) {
       case 'upcoming':
-        return 'upcoming,registration_open';
+        return 'active'; // CS2 servers are always active
       case 'live':
-        return 'active';
+        return 'active'; // CS2 servers are always active
       case 'completed':
-        return 'completed';
+        return 'completed'; // Keep completed for historical data
       default:
-        return 'upcoming,registration_open';
+        return 'active'; // Default to active for CS2
     }
   };
 
@@ -231,7 +231,20 @@ const CS2Page = () => {
     });
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, gameType) => {
+    // CS2 servers use different color scheme
+    if (gameType === 'cs2') {
+      switch (status) {
+        case 'active':
+          return 'text-green-400 bg-green-400/10'; // Green for active servers
+        case 'inactive':
+          return 'text-red-400 bg-red-400/10'; // Red for inactive servers
+        default:
+          return 'text-gray-400 bg-gray-400/10';
+      }
+    }
+    
+    // Regular tournament colors
     switch (status) {
       case 'upcoming':
         return 'text-blue-400 bg-blue-400/10';
@@ -301,6 +314,37 @@ const CS2Page = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* CS2 Installation Notice */}
+            <div className="flex justify-center mt-4">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 max-w-2xl">
+                <div className="flex items-start space-x-3">
+                  <div className="text-blue-400 text-2xl">🎮</div>
+                  <div>
+                    <div className="text-blue-400 font-bold mb-2">CS2 Installation Required</div>
+                    <div className="text-gray-300 text-sm space-y-1">
+                      <div>• Counter-Strike 2 is free on Steam</div>
+                      <div>• Download size: ~30GB</div>
+                      <div>• Requires Steam account</div>
+                    </div>
+                    <div className="mt-3 flex space-x-2">
+                      <button
+                        onClick={() => window.open('https://store.steampowered.com/app/730/CounterStrike_2/', '_blank')}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded transition-colors"
+                      >
+                        Download CS2
+                      </button>
+                      <button
+                        onClick={() => window.open('https://store.steampowered.com/about/', '_blank')}
+                        className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs font-bold rounded transition-colors"
+                      >
+                        Get Steam
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-4 mt-8">

@@ -142,6 +142,7 @@ const TournamentManagement = () => {
         data.description = data.description || 'CS2 Tournament';
         data.mode = 'team'; // Default mode for CS2
         data.format = 'elimination'; // Default format
+        data.status = data.status || 'active'; // CS2 tournaments default to active
         
         // Set dates with proper intervals if not provided
         const now = new Date();
@@ -647,7 +648,7 @@ const TournamentManagement = () => {
                     {selectedGameType === 'cs2' ? (
                       <>
                         <option value="active">Active</option>
-                        <option value="upcoming">Inactive</option>
+                        <option value="inactive">Inactive</option>
                       </>
                     ) : (
                       <>

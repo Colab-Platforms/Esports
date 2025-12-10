@@ -84,10 +84,13 @@ const tournamentSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: {
-      values: ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled'],
+      values: ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled', 'inactive'],
       message: 'Invalid tournament status'
     },
-    default: 'upcoming'
+    default: function() {
+      // CS2 tournaments default to 'active', others to 'upcoming'
+      return this.gameType === 'cs2' ? 'active' : 'upcoming';
+    }
   },
   rules: {
     type: String,
@@ -281,34 +284,36 @@ tournamentSchema.virtual('duration').get(function() {
 
 // Virtual for registration status
 tournamentSchema.virtual('isRegistrationOpen').get(function() {
-  // CS2 tournaments are always open for joining (no registration concept)
+  // CS2 tournaments: Only 'active' status allows joining, 'inactive' means server is down
   if (this.gameType === 'cs2') {
-    return true;
+    return this.status === 'active';
   }
   
   const now = new Date();
   
   // Registration is open if:
-  // 1. Status is 'upcoming' or 'registration_open' (not closed, active, completed, or cancelled)
-  // 2. Current time is before registration deadline
-  // 3. Tournament is not full
+  // 1. For CS2: Status is 'active' (server is online and available)
+  // 2. For other games: Status is 'upcoming' or 'registration_open'
+  // 3. Current time is before registration deadline (except CS2)
+  // 4. Tournament is not full
   const validStatuses = ['upcoming', 'registration_open'];
   const isValidStatus = validStatuses.includes(this.status);
   const beforeDeadline = now < this.registrationDeadline;
   const hasSpace = this.currentParticipants < this.maxParticipants;
   
-  console.log('🔍 Registration Check:', {
-    tournamentId: this._id,
-    status: this.status,
-    isValidStatus,
-    beforeDeadline,
-    hasSpace,
-    now: now.toISOString(),
-    deadline: this.registrationDeadline?.toISOString(),
-    currentParticipants: this.currentParticipants,
-    maxParticipants: this.maxParticipants,
-    result: isValidStatus && beforeDeadline && hasSpace
-  });
+  // Commented out to reduce console spam - uncomment for debugging
+  // console.log('🔍 Registration Check:', {
+  //   tournamentId: this._id,
+  //   status: this.status,
+  //   isValidStatus,
+  //   beforeDeadline,
+  //   hasSpace,
+  //   now: now.toISOString(),
+  //   deadline: this.registrationDeadline?.toISOString(),
+  //   currentParticipants: this.currentParticipants,
+  //   maxParticipants: this.maxParticipants,
+  //   result: isValidStatus && beforeDeadline && hasSpace
+  // });
   
   return isValidStatus && beforeDeadline && hasSpace;
 });
@@ -336,36 +341,50 @@ tournamentSchema.index({ createdBy: 1 });
 tournamentSchema.pre('save', function(next) {
   const now = new Date();
   
+  // Validate CS2 tournament status
+  if (this.gameType === 'cs2') {
+    if (!['active', 'inactive'].includes(this.status)) {
+      return next(new Error('CS2 tournament status must be either "active" or "inactive"'));
+    }
+    // Set default status for new CS2 tournaments
+    if (this.isNew && !this.status) {
+      this.status = 'active';
+    }
+  }
+  
   console.log('⏰ Pre-save status check:', {
     tournamentId: this._id,
+    gameType: this.gameType,
     currentStatus: this.status,
     now: now.toISOString(),
-    registrationDeadline: this.registrationDeadline.toISOString(),
-    startDate: this.startDate.toISOString(),
-    endDate: this.endDate.toISOString()
+    registrationDeadline: this.registrationDeadline?.toISOString(),
+    startDate: this.startDate?.toISOString(),
+    endDate: this.endDate?.toISOString()
   });
   
-  // Auto-open registration if tournament is upcoming and deadline hasn't passed
-  if (this.status === 'upcoming' && now < this.registrationDeadline) {
+  // Auto-open registration if tournament is upcoming and deadline hasn't passed (skip for CS2 servers)
+  if (this.gameType !== 'cs2' && this.status === 'upcoming' && this.registrationDeadline && now < this.registrationDeadline) {
     console.log('✅ Auto-opening registration for upcoming tournament');
     this.status = 'registration_open';
   }
   
   // Auto-close registration if deadline passed (handles both upcoming and registration_open)
-  if ((this.status === 'upcoming' || this.status === 'registration_open') && 
-      now >= this.registrationDeadline) {
+  // Skip auto-close for CS2 servers as they're always active
+  if (this.gameType !== 'cs2' && 
+      (this.status === 'upcoming' || this.status === 'registration_open') && 
+      this.registrationDeadline && now >= this.registrationDeadline) {
     console.log('⏰ Auto-closing registration - deadline passed');
     this.status = 'registration_closed';
   }
   
-  // Start tournament if start date reached
-  if (this.status === 'registration_closed' && now >= this.startDate) {
+  // Start tournament if start date reached (skip for CS2 servers - they should be manually managed)
+  if (this.gameType !== 'cs2' && this.status === 'registration_closed' && this.startDate && now >= this.startDate) {
     console.log('🎮 Auto-starting tournament - start date reached');
     this.status = 'active';
   }
   
-  // Complete tournament if end date reached
-  if (this.status === 'active' && now >= this.endDate) {
+  // Complete tournament if end date reached (skip for CS2 servers - they should always remain active)
+  if (this.gameType !== 'cs2' && this.status === 'active' && now >= this.endDate) {
     console.log('🏁 Auto-completing tournament - end date reached');
     this.status = 'completed';
   }
@@ -392,9 +411,17 @@ tournamentSchema.methods.addParticipant = function(userId, gameId, teamName = ''
     throw new Error('Tournament is full');
   }
   
-  // Check if registration is open (skip for CS2 tournaments)
-  if (!this.isRegistrationOpen && this.gameType !== 'cs2') {
-    throw new Error('Registration is not open for this tournament');
+  // Check if registration is open
+  // For CS2: Only allow joining if status is 'active' (server is online)
+  // For others: Check traditional registration status
+  if (this.gameType === 'cs2') {
+    if (this.status !== 'active') {
+      throw new Error('CS2 server is currently offline');
+    }
+  } else {
+    if (!this.isRegistrationOpen) {
+      throw new Error('Registration is not open for this tournament');
+    }
   }
   
   this.participants.push({

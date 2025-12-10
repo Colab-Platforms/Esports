@@ -32,9 +32,12 @@ const CS2LeaderboardPage = () => {
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/registered-players?${params}`
-      );
+      // Use multi-server endpoint if no specific server filter
+      const endpoint = filters.serverId 
+        ? `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/registered-players?${params}`
+        : `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/multi-server?${params}`;
+      
+      const response = await axios.get(endpoint);
 
       if (response.data.success) {
         setLeaderboard(response.data.leaderboard);
@@ -233,6 +236,7 @@ const CS2LeaderboardPage = () => {
                   <th><FaStar /> MVP</th>
                   <th>Matches</th>
                   <th>Rounds</th>
+                  <th>Servers</th>
                 </tr>
               </thead>
               <tbody>
@@ -273,6 +277,22 @@ const CS2LeaderboardPage = () => {
                     <td className="stat-cell mvp">{player.stats.total_mvp}</td>
                     <td className="stat-cell">{player.stats.matches_played}</td>
                     <td className="stat-cell">{player.stats.rounds_played}</td>
+                    <td className="stat-cell servers">
+                      {player.stats.servers_played ? (
+                        <div className="servers-info">
+                          <span className="servers-count">{player.stats.servers_count || 0}</span>
+                          <div className="servers-list">
+                            {player.stats.servers_played.map(serverId => (
+                              <span key={serverId} className="server-badge">
+                                S{serverId}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="no-servers">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

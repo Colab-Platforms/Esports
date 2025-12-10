@@ -22,7 +22,7 @@ const cs2TournamentsData = [
     startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
     registrationDeadline: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
-    status: 'registration_open',
+    status: 'active', // CS2 servers are always active
     region: 'mumbai', // Changed from 'India' to 'mumbai'
     rules: 'Standard CS2 competitive rules apply. All matches will be played on official Valve servers. Map pool includes de_dust2, de_mirage, de_inferno, de_cache, de_overpass, de_train, de_nuke. Format: MR12 (First to 13 rounds). Overtime: MR3 (First to 4 rounds in OT). Substitutions allowed before match starts.',
     createdBy: dummyAdminId,
@@ -57,7 +57,7 @@ const cs2TournamentsData = [
     startDate: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
     endDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
     registrationDeadline: new Date(Date.now() + 25 * 60 * 1000), // 25 minutes from now
-    status: 'registration_open',
+    status: 'active', // CS2 servers are always active
     region: 'delhi',
     rules: 'Fast-paced CS2 matches with shorter rounds. Map pool: de_dust2, de_mirage, de_inferno. Format: MR9 (First to 10 rounds). No overtime - draw allowed. Substitutions not allowed after match starts.',
     createdBy: dummyAdminId,
@@ -90,7 +90,7 @@ const cs2TournamentsData = [
     startDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
     endDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
     registrationDeadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-    status: 'registration_open',
+    status: 'active', // CS2 servers are always active
     region: 'bangalore',
     rules: 'Beginner-friendly rules with coaching allowed. Map pool: de_dust2, de_mirage. Format: MR6 (First to 7 rounds). No overtime. Substitutions allowed with admin approval.',
     createdBy: dummyAdminId,
@@ -124,7 +124,7 @@ const cs2TournamentsData = [
     startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
     endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
     registrationDeadline: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000), // 8 days from now
-    status: 'upcoming',
+    status: 'active', // CS2 servers are always active
     region: 'chennai',
     rules: 'Professional CS2 tournament rules. ESL/FACEIT compliant. Map pool: de_dust2, de_mirage, de_inferno, de_cache, de_overpass, de_train, de_nuke, de_vertigo, de_ancient. Format: MR12 (First to 13 rounds). Overtime: MR3 (First to 4 rounds in OT). Roster lock 24 hours before tournament.',
     createdBy: dummyAdminId,

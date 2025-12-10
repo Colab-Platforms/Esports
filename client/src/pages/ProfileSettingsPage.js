@@ -16,6 +16,7 @@ import {
 import { selectAuth, updateProfile } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const ProfileSettingsPage = () => {
   const { user, token } = useSelector(selectAuth);
@@ -26,6 +27,23 @@ const ProfileSettingsPage = () => {
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
+
+  // Country code to flag and name mapping
+  const getCountryInfo = (countryCode) => {
+    const countries = {
+      'IN': { flag: '🇮🇳', name: 'India' },
+      'India': { flag: '🇮🇳', name: 'India' },
+      'US': { flag: '🇺🇸', name: 'United States' },
+      'UK': { flag: '🇬🇧', name: 'United Kingdom' },
+      'CA': { flag: '🇨🇦', name: 'Canada' },
+      'AU': { flag: '🇦🇺', name: 'Australia' },
+      'PK': { flag: '🇵🇰', name: 'Pakistan' },
+      'BD': { flag: '🇧🇩', name: 'Bangladesh' },
+      'LK': { flag: '🇱🇰', name: 'Sri Lanka' },
+      'NP': { flag: '🇳🇵', name: 'Nepal' }
+    };
+    return countries[countryCode] || { flag: '🌍', name: countryCode || 'Not set' };
+  };
   
   const [profileData, setProfileData] = useState({
     username: user?.username || '',
@@ -180,6 +198,7 @@ const ProfileSettingsPage = () => {
         // Update Redux store
         dispatch(updateProfile(response.data.data.user));
         setSuccess('Profile updated successfully!');
+        toast.success('✅ Profile updated successfully!');
         setIsEditing(false);
         setTimeout(() => setSuccess(''), 3000);
       }
@@ -191,6 +210,7 @@ const ProfileSettingsPage = () => {
         || err.message 
         || 'Failed to update profile';
       setError(errorMessage);
+      toast.error(`❌ ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -313,7 +333,11 @@ const ProfileSettingsPage = () => {
 
                 <div className="border-b border-gaming-border pb-3">
                   <p className="text-gray-400 text-xs mb-1">Location</p>
-                  <p className="text-white text-sm">{profileData.country || 'Not set'}</p>
+                  <p className="text-white text-sm flex items-center space-x-2">
+                    <span className="text-xl">{getCountryInfo(profileData.country).flag}</span>
+                    <span>{getCountryInfo(profileData.country).name}</span>
+                    {profileData.state && <span className="text-gray-400">• {profileData.state}</span>}
+                  </p>
                 </div>
 
                 <div className="border-b border-gaming-border pb-3">
@@ -442,9 +466,10 @@ const ProfileSettingsPage = () => {
                         Country
                       </label>
                       <div className="w-full px-3 py-2 border border-gaming-border rounded-lg bg-gaming-dark text-gray-400 cursor-not-allowed flex items-center space-x-2">
-                        <span className="text-2xl">🇮🇳</span>
-                        <span>India</span>
+                        <span className="text-2xl">{getCountryInfo(profileData.country).flag}</span>
+                        <span>{getCountryInfo(profileData.country).name}</span>
                       </div>
+                      <p className="text-xs text-gray-500 mt-1">Country cannot be changed after registration</p>
                     </div>
 
                     <div>

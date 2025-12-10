@@ -64,10 +64,11 @@ router.get('/all-players', async (req, res) => {
           max_damage: { $max: '$dmg' },
           max_mvp: { $max: '$mvp' },
           rounds_in_match: { $sum: 1 },
-          last_played: { $max: '$match_datetime' }
+          last_played: { $max: '$match_datetime' },
+          server_id: { $first: '$server_id' }
         }
       },
-      // Step 2: Sum across all matches
+      // Step 2: Sum across all matches and collect server info
       {
         $group: {
           _id: '$_id.accountid',
@@ -78,6 +79,7 @@ router.get('/all-players', async (req, res) => {
           total_mvp: { $sum: '$max_mvp' },
           rounds_played: { $sum: '$rounds_in_match' },
           matches_played: { $addToSet: '$_id.match_id' },
+          servers_played: { $addToSet: '$server_id' },
           last_played: { $max: '$last_played' }
         }
       },
@@ -540,6 +542,168 @@ router.get('/player/:userId', async (req, res) => {
       success: false,
       error: 'Failed to fetch player stats',
       details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/cs2-leaderboard/multi-server
+ * Get CS2 leaderboard with server information for registered players
+ * Query params: 
+ *   - limit (optional, default 50)
+ */
+router.get('/multi-server', async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    // Step 1: Get registered users with Steam IDs
+    const registeredUsers = await User.find({
+      'steamProfile.isConnected': true,
+      'steamProfile.steamId': { $exists: true, $ne: '' }
+    }).select('username steamProfile.steamId steamProfile.avatar steamProfile.displayName');
+
+    if (registeredUsers.length === 0) {
+      return res.json({
+        success: true,
+        leaderboard: [],
+        message: 'No registered players found'
+      });
+    }
+
+    // Step 2: Convert Steam IDs to account IDs
+    const accountIds = [];
+    const accountIdToUser = {};
+
+    registeredUsers.forEach(user => {
+      let accountId = null;
+      const steamId = user.steamProfile.steamId;
+      
+      if (steamId && steamId.length === 17 && /^\d+$/.test(steamId)) {
+        accountId = steam64ToAccountId(steamId);
+      } else if (steamId && steamId.startsWith('STEAM_')) {
+        const match = steamId.match(/STEAM_[01]:([01]):(\d+)/);
+        if (match) {
+          const Y = parseInt(match[1], 10);
+          const Z = parseInt(match[2], 10);
+          accountId = Z * 2 + Y;
+        }
+      }
+      
+      if (accountId) {
+        accountIds.push(accountId);
+        accountIdToUser[accountId] = {
+          userId: user._id,
+          username: user.username,
+          steamId: steamId,
+          avatar: user.steamProfile.avatar,
+          displayName: user.steamProfile.displayName
+        };
+      }
+    });
+
+    console.log(`[CS2 Multi-Server] Found ${accountIds.length} registered players with valid Steam IDs`);
+
+    // Step 3: Get CS2 stats with server information
+    const stats = await CS2Match.aggregate([
+      { $match: { accountid: { $in: accountIds } } },
+      // Step 1: Get max values per match per server
+      {
+        $group: {
+          _id: { accountid: '$accountid', match_id: '$match_id', server_id: '$server_id' },
+          max_kills: { $max: '$kills' },
+          max_deaths: { $max: '$deaths' },
+          max_assists: { $max: '$assists' },
+          max_damage: { $max: '$dmg' },
+          max_mvp: { $max: '$mvp' },
+          rounds_in_match: { $sum: 1 },
+          last_played: { $max: '$match_datetime' },
+          server_id: { $first: '$server_id' }
+        }
+      },
+      // Step 2: Sum across all matches and collect server info
+      {
+        $group: {
+          _id: '$_id.accountid',
+          total_kills: { $sum: '$max_kills' },
+          total_deaths: { $sum: '$max_deaths' },
+          total_assists: { $sum: '$max_assists' },
+          total_damage: { $sum: '$max_damage' },
+          total_mvp: { $sum: '$max_mvp' },
+          rounds_played: { $sum: '$rounds_in_match' },
+          matches_played: { $addToSet: '$_id.match_id' },
+          servers_played: { $addToSet: '$server_id' },
+          last_played: { $max: '$last_played' }
+        }
+      },
+      {
+        $project: {
+          accountid: '$_id',
+          total_kills: 1,
+          total_deaths: 1,
+          total_assists: 1,
+          total_damage: 1,
+          total_mvp: 1,
+          rounds_played: 1,
+          matches_played: { $size: '$matches_played' },
+          servers_played: 1,
+          servers_count: { $size: '$servers_played' },
+          last_played: 1,
+          kdr: {
+            $cond: {
+              if: { $eq: ['$total_deaths', 0] },
+              then: '$total_kills',
+              else: { $round: [{ $divide: ['$total_kills', '$total_deaths'] }, 2] }
+            }
+          }
+        }
+      },
+      { $sort: { total_kills: -1, kdr: -1 } },
+      { $limit: parseInt(limit, 10) }
+    ]);
+
+    // Step 4: Combine with user data and add ranking
+    const leaderboard = stats.map((player, index) => {
+      const userInfo = accountIdToUser[player.accountid] || {};
+      
+      return {
+        rank: index + 1,
+        accountid: player.accountid,
+        userId: userInfo.userId,
+        username: userInfo.username || 'Unknown Player',
+        displayName: userInfo.displayName || userInfo.username || 'Unknown Player',
+        avatar: userInfo.avatar || '/default-avatar.png',
+        steamId: userInfo.steamId,
+        stats: {
+          total_kills: player.total_kills,
+          total_deaths: player.total_deaths,
+          total_assists: player.total_assists,
+          total_damage: player.total_damage,
+          total_mvp: player.total_mvp,
+          rounds_played: player.rounds_played,
+          matches_played: player.matches_played,
+          servers_played: player.servers_played,
+          servers_count: player.servers_count,
+          kdr: player.kdr,
+          last_played: player.last_played
+        }
+      };
+    });
+
+    res.json({
+      success: true,
+      leaderboard,
+      total: leaderboard.length,
+      message: `Retrieved ${leaderboard.length} players from multi-server leaderboard`
+    });
+
+  } catch (error) {
+    console.error('[CS2 Multi-Server] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to fetch multi-server leaderboard',
+        details: error.message
+      }
     });
   }
 });

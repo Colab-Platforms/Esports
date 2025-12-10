@@ -203,32 +203,36 @@ const GamesPage = () => {
                         </motion.div>
                     </AnimatePresence>
 
-                    {/* Navigation Arrows */}
-                    <button
-                        onClick={prevBanner}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg"
-                    >
-                        <FiChevronLeft className="h-6 w-6" />
-                    </button>
-
-                    <button
-                        onClick={nextBanner}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg"
-                    >
-                        <FiChevronRight className="h-6 w-6" />
-                    </button>
-
-                    {/* Banner Indicators */}
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                        {banners.map((_, index) => (
+                    {/* Navigation Arrows - Only show if multiple banners */}
+                    {banners.length > 1 && (
+                        <>
                             <button
-                                key={index}
-                                onClick={() => setCurrentBanner(index)}
-                                className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
-                                    }`}
-                            />
-                        ))}
-                    </div>
+                                onClick={prevBanner}
+                                className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
+                            >
+                                <FiChevronLeft className="h-6 w-6" />
+                            </button>
+
+                            <button
+                                onClick={nextBanner}
+                                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
+                            >
+                                <FiChevronRight className="h-6 w-6" />
+                            </button>
+
+                            {/* Banner Indicators */}
+                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+                                {banners.map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setCurrentBanner(index)}
+                                        className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
+                                            }`}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </>
             ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">

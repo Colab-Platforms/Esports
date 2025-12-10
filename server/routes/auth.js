@@ -137,6 +137,7 @@ router.post('/register', async (req, res) => {
           avatarUrl: user.avatarUrl,
           bio: user.bio,
           country: user.country,
+          state: user.state,  // ✅ Added missing state field
           favoriteGame: user.favoriteGame,
           profileVisibility: user.profileVisibility,
           socialAccounts: user.socialAccounts,
@@ -306,6 +307,7 @@ router.post('/login', [
           avatarUrl: user.avatarUrl,
           bio: user.bio,
           country: user.country,
+          state: user.state,  // ✅ Added missing state field
           favoriteGame: user.favoriteGame,
           profileVisibility: user.profileVisibility,
           socialAccounts: user.socialAccounts,
@@ -457,6 +459,7 @@ router.put('/profile', auth, async (req, res) => {
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       country: user.country,
+      state: user.state,  // ✅ Added missing state field
       favoriteGame: user.favoriteGame,
       profileVisibility: user.profileVisibility,
       socialAccounts: user.socialAccounts,

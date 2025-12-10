@@ -21,11 +21,11 @@ import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
-import ImageEditor from '../../components/designer/ImageEditor';
 import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
 import { getServerStats, getServerPlayers, getPlayerStats } from '../../utils/cs2ServerStatus';
+import notificationService from '../../services/notificationService';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -47,22 +47,6 @@ const SingleTournamentPage = () => {
   const [serverPlayers, setServerPlayers] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
 
-  const handleImageUpdate = (imageKey, newUrl) => {
-    console.log('🎨 Tournament banner updated:', imageKey, newUrl);
-    
-    setSiteImages(prev => {
-      const updated = {
-        ...prev,
-        [imageKey]: {
-          ...prev[imageKey],
-          imageUrl: newUrl
-        }
-      };
-      console.log('Updated siteImages:', updated);
-      return updated;
-    });
-  };
-
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
     const tournamentUrl = window.location.href;
@@ -80,9 +64,18 @@ const SingleTournamentPage = () => {
     } else {
       // Fallback: Copy to clipboard
       navigator.clipboard.writeText(`${shareText}\n${tournamentUrl}`).then(() => {
-        alert('Tournament link copied to clipboard!');
+        notificationService.showCustomNotification(
+          'success',
+          'Link Copied!',
+          'Tournament link copied to clipboard'
+        );
       }).catch((error) => {
         console.error('Failed to copy:', error);
+        notificationService.showCustomNotification(
+          'info',
+          'Share Tournament',
+          `Copy this link: ${tournamentUrl}`
+        );
       });
     }
   }, [tournament]);
@@ -351,7 +344,7 @@ const SingleTournamentPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Only re-fetch when tournament id changes
 
-  // Auto-refresh server stats for CS2 tournaments (every 10 seconds)
+  // Smart refresh for CS2 tournaments - uses background caching
   useEffect(() => {
     if (!tournament || tournament.gameType !== 'cs2' || !tournament.roomDetails?.cs2) {
       return;
@@ -359,6 +352,7 @@ const SingleTournamentPage = () => {
 
     const refreshServerData = async () => {
       try {
+        // These calls will use smart cache with background refresh
         const [stats, players, pStats] = await Promise.all([
           getServerStats(tournament),
           getServerPlayers(tournament),
@@ -367,14 +361,17 @@ const SingleTournamentPage = () => {
         setServerStats(stats);
         setServerPlayers(players);
         setPlayerStats(pStats);
-        console.log('🔄 Server data refreshed');
+        console.log('⚡ Server data loaded from smart cache');
       } catch (error) {
         console.error('Failed to refresh server data:', error);
       }
     };
 
-    // Refresh every 30 seconds (reduced from 10 to avoid rate limiting)
-    const interval = setInterval(refreshServerData, 30000);
+    // Initial load - subsequent updates happen via background refresh
+    refreshServerData();
+
+    // Optional: Refresh UI every 2 minutes to show updated cached data
+    const interval = setInterval(refreshServerData, 120000);
 
     return () => clearInterval(interval);
   }, [tournament]);
@@ -447,19 +444,25 @@ const SingleTournamentPage = () => {
 
         console.log('✅ Successfully joined CS2 tournament:', data);
 
-        // Show toast and launch directly
+        // Show success notification
+        notificationService.showCustomNotification(
+          'success',
+          'Tournament Joined!',
+          `Successfully joined ${tournament.name}. Launching CS2...`
+        );
+
+        // Launch CS2 directly - Steam will handle installation if needed
         if (tournament.roomDetails?.cs2?.connectCommand) {
-          alert(`🚀 Launching CS2\n\nConnecting to ${tournament.roomDetails?.cs2?.serverIp}:${tournament.roomDetails?.cs2?.serverPort}`);
-          
-          // Launch CS2 with server connection
-          setTimeout(() => {
-            window.location.href = tournament.roomDetails.cs2.connectCommand;
-          }, 500);
+          window.location.href = tournament.roomDetails.cs2.connectCommand;
         }
 
       } catch (error) {
         console.error('❌ Failed to join CS2 tournament:', error);
-        alert(`Failed to join: ${error.message}`);
+        notificationService.showCustomNotification(
+          'error',
+          'Join Failed',
+          `Failed to join tournament: ${error.message}`
+        );
       }
       return;
     }
@@ -823,8 +826,29 @@ const SingleTournamentPage = () => {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => {
-                                navigator.clipboard.writeText(tournament.roomDetails.cs2.connectCommand);
-                                alert('✅ Command copied to clipboard!');
+                                const command = tournament.roomDetails.cs2.connectCommand;
+                                
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(command).then(() => {
+                                    notificationService.showCustomNotification(
+                                      'success',
+                                      'Copied!',
+                                      'Connect command copied to clipboard'
+                                    );
+                                  }).catch(() => {
+                                    notificationService.showCustomNotification(
+                                      'error',
+                                      'Copy Failed',
+                                      'Unable to copy command automatically'
+                                    );
+                                  });
+                                } else {
+                                  notificationService.showCustomNotification(
+                                    'error',
+                                    'Copy Not Supported',
+                                    'Clipboard not supported in this browser'
+                                  );
+                                }
                               }}
                               className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded transition-colors flex items-center space-x-1"
                             >
@@ -833,6 +857,7 @@ const SingleTournamentPage = () => {
                             </button>
                             <button
                               onClick={() => {
+                                // Launch CS2 directly - no notifications needed
                                 window.location.href = tournament.roomDetails.cs2.connectCommand;
                               }}
                               className="px-4 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs font-bold rounded transition-colors flex items-center space-x-1"
@@ -1171,54 +1196,33 @@ const SingleTournamentPage = () => {
         </div>
       </div>
 
-      {/* Tournament Hero */}
-      <div className="relative h-80 overflow-hidden">
-        {/* Background Image */}
-        <OptimizedImage 
-          src={siteImages[`tournament-banner-${tournament?.gameType}`]?.imageUrl || getRandomBanner(tournament?.gameType)} 
-          alt={tournament?.name || 'Tournament'}
-          className="w-full h-full object-cover object-center"
-          fallbackSrc={getGameImage(tournament?.gameType, 'banner')}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
-        
-        {/* Designer Edit Button */}
-        {tournament?.gameType && (
-          <ImageEditor
-            imageKey={`tournament-banner-${tournament.gameType}`}
-            currentImageUrl={siteImages[`tournament-banner-${tournament.gameType}`]?.imageUrl || getRandomBanner(tournament.gameType)}
-            onImageUpdate={(newUrl) => handleImageUpdate(`tournament-banner-${tournament.gameType}`, newUrl)}
-          />
-        )}
-        
-        {/* Content */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center max-w-4xl mx-auto px-4">
-            <div className="text-6xl mb-4 drop-shadow-lg">
-              {tournament?.gameIcon || (tournament?.gameType === 'bgmi' ? '🎮' : tournament?.gameType === 'cs2' ? '⚡' : '🎯')}
+      {/* Tournament Title Section - Clean Layout */}
+      <div className="bg-gaming-card border-b border-gaming-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-gaming-neon to-gaming-neon-blue rounded-xl flex items-center justify-center text-3xl">
+                {tournament?.gameIcon || (tournament?.gameType === 'bgmi' ? '🎮' : tournament?.gameType === 'cs2' ? '⚡' : '🎯')}
+              </div>
+              <div>
+                <div className="flex items-center space-x-3 mb-2">
+                  <h1 className="text-3xl font-gaming font-bold text-white">
+                    {tournament?.name || 'Tournament'}
+                  </h1>
+                  <span className="px-3 py-1 bg-gaming-gold text-black font-bold rounded-lg text-sm">
+                    {tournament?.gameType?.toUpperCase() || 'BGMI'}
+                  </span>
+                </div>
+                <p className="text-gray-400">
+                  {tournament?.description || 'Join the ultimate gaming competition'}
+                </p>
+              </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-gaming font-bold text-white mb-4 drop-shadow-lg">
-              {tournament?.name || 'Tournament'}
-            </h1>
-            <p className="text-xl text-gray-200 drop-shadow-lg">
-              {tournament?.description || 'Join the ultimate gaming competition'}
-            </p>
-          </div>
-        </div>
-
-        {/* Game Type Badge */}
-        <div className="absolute top-6 left-6">
-          <span className="px-4 py-2 bg-gaming-gold/90 text-black font-bold rounded-lg backdrop-blur-sm">
-            {tournament?.gameType?.toUpperCase() || 'BGMI'}
-          </span>
-        </div>
-
-        {/* Prize Pool Badge */}
-        <div className="absolute top-6 right-6">
-          <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2">
-            <div className="text-gaming-gold text-sm font-medium">PRIZE POOL</div>
-            <div className="text-white text-xl font-bold">
-              ₹{tournament?.prizePool?.toLocaleString() || '25,000'}
+            <div className="text-right">
+              <div className="text-gaming-gold text-sm font-medium">PRIZE POOL</div>
+              <div className="text-white text-2xl font-bold">
+                ₹{tournament?.prizePool?.toLocaleString() || '25,000'}
+              </div>
             </div>
           </div>
         </div>

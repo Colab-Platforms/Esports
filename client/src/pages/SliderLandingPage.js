@@ -90,7 +90,7 @@ const SliderLandingPage = () => {
               gameIcon: getGameIcon(tournament.gameType),
               prizePool: `₹${tournament.prizePool?.toLocaleString() || '0'}`,
               entryFee: 'FREE',
-              status: getDisplayStatus(tournament.status),
+              status: getDisplayStatus(tournament.status, tournament.gameType),
               participants,
               timeLeft: getTimeLeft(tournament.registrationDeadline),
               featured: tournament.featured || false,
@@ -128,10 +128,16 @@ const SliderLandingPage = () => {
     return icons[gameType] || '🎮';
   };
 
-  const getDisplayStatus = (status) => {
+  const getDisplayStatus = (status, gameType) => {
+    // CS2 servers show different status labels
+    if (gameType === 'cs2') {
+      return status === 'active' ? 'SERVER ONLINE' : 'SERVER OFFLINE';
+    }
+    
+    // Regular tournament statuses
     const statuses = {
       registration_open: 'OPEN RANKS',
-      active: 'ACTIVE', // Changed from ONGOING to ACTIVE for CS2
+      active: 'ACTIVE',
       upcoming: 'UPCOMING'
     };
     return statuses[status] || 'OPEN RANKS';
@@ -450,7 +456,7 @@ const SliderLandingPage = () => {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h2 className="text-2xl md:text-3xl font-gaming font-bold text-white mb-2">
-                PC TOURNAMENTS
+                PC GAMES
               </h2>
               <div className="text-gaming-gold font-semibold">{pcTournaments.length} Active</div>
             </div>

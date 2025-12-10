@@ -749,7 +749,7 @@ const CompleteLandingPage = () => {
         </div>
       </section>
 
-      {/* Upcoming Games - Auto Slider with Borders */}
+      {/* Upcoming Games - Premium Carousel */}
       <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-purple-900/10 to-gaming-dark"></div>
         
@@ -758,7 +758,7 @@ const CompleteLandingPage = () => {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
+            className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
               More Games Coming Soon
@@ -766,57 +766,162 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg">Expanding to more titles in 2025</p>
           </motion.div>
 
-          {/* Auto-sliding Games */}
-          <div className="relative h-64 mb-8">
-            <AnimatePresence mode="wait">
-              {upcomingGames.map((game, idx) => (
-                idx === currentGameIndex && (
-                  <motion.div
-                    key={game.name}
-                    initial={{ opacity: 0, scale: 0.8, rotateY: -90 }}
-                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                    exit={{ opacity: 0, scale: 0.8, rotateY: 90 }}
-                    transition={{ duration: 0.5 }}
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <div className="relative group">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-20 rounded-2xl filter blur-2xl group-hover:blur-xl transition-all`}></div>
-                      
-                      <div className={`relative bg-gaming-charcoal border-4 ${game.color.replace('from-', 'border-').split(' ')[0]}/50 rounded-2xl p-12 text-center shadow-2xl`}>
-                        <motion.div
-                          animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="text-8xl mb-6"
-                        >
-                          {game.icon}
-                        </motion.div>
-                        <h3 className="text-3xl font-gaming font-bold text-white mb-3">{game.name}</h3>
-                        <div className={`inline-block px-6 py-2 bg-gradient-to-r ${game.color} rounded-full text-white font-bold text-sm shadow-lg`}>
-                          {game.status}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )
-              ))}
-            </AnimatePresence>
-          </div>
+          {/* Carousel Container */}
+          <div className="relative">
+            {/* Navigation Buttons */}
+            <button
+              onClick={() => setCurrentGameIndex(currentGameIndex === 0 ? upcomingGames.length - 1 : currentGameIndex - 1)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-gaming-charcoal/80 hover:bg-gaming-gold border border-gaming-gold/30 hover:border-gaming-gold rounded-full flex items-center justify-center text-white hover:text-black transition-all duration-300 backdrop-blur-sm"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => setCurrentGameIndex(currentGameIndex === upcomingGames.length - 1 ? 0 : currentGameIndex + 1)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-gaming-charcoal/80 hover:bg-gaming-gold border border-gaming-gold/30 hover:border-gaming-gold rounded-full flex items-center justify-center text-white hover:text-black transition-all duration-300 backdrop-blur-sm"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
-          {/* Slider Indicators */}
-          <div className="flex justify-center space-x-3">
-            {upcomingGames.map((_, idx) => (
-              <motion.button
-                key={idx}
-                onClick={() => setCurrentGameIndex(idx)}
-                whileHover={{ scale: 1.2 }}
-                whileTap={{ scale: 0.9 }}
-                className={`w-3 h-3 rounded-full transition-all ${
-                  idx === currentGameIndex 
-                    ? 'bg-gaming-gold w-8' 
-                    : 'bg-gray-600 hover:bg-gray-500'
-                }`}
-              />
-            ))}
+            {/* Cards Container */}
+            <div className="overflow-hidden rounded-2xl">
+              <motion.div
+                className="flex"
+                animate={{ x: `-${currentGameIndex * 100}%` }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 30,
+                  duration: 0.6
+                }}
+              >
+                {upcomingGames.map((game, idx) => (
+                  <div key={game.name} className="w-full flex-shrink-0 px-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: idx * 0.1 }}
+                      whileHover={{ 
+                        y: -10,
+                        scale: 1.02,
+                        transition: { duration: 0.3 }
+                      }}
+                      className="relative group h-96"
+                    >
+                      {/* Glow Effect */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-20 rounded-3xl filter blur-2xl group-hover:opacity-30 group-hover:blur-xl transition-all duration-500`}></div>
+                      
+                      {/* Main Card */}
+                      <div className={`relative h-full bg-gradient-to-br from-gaming-charcoal to-gaming-dark border-2 border-transparent bg-clip-padding rounded-3xl overflow-hidden shadow-2xl group-hover:shadow-gaming-gold/20 transition-all duration-500`}>
+                        {/* Border Gradient */}
+                        <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl`}></div>
+                        <div className="absolute inset-[2px] bg-gradient-to-br from-gaming-charcoal to-gaming-dark rounded-3xl"></div>
+                        
+                        {/* Content */}
+                        <div className="relative h-full flex flex-col items-center justify-center p-8 text-center">
+                          {/* Animated Icon */}
+                          <motion.div
+                            animate={{ 
+                              scale: [1, 1.1, 1],
+                              rotate: [0, 5, -5, 0]
+                            }}
+                            transition={{ 
+                              duration: 3, 
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                            className="text-9xl mb-8 filter drop-shadow-2xl"
+                          >
+                            {game.icon}
+                          </motion.div>
+                          
+                          {/* Game Title */}
+                          <h3 className="text-4xl font-gaming font-bold text-white mb-6 group-hover:text-gaming-gold transition-colors duration-300">
+                            {game.name}
+                          </h3>
+                          
+                          {/* Status Badge */}
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            className={`inline-flex items-center px-8 py-3 bg-gradient-to-r ${game.color} rounded-full text-white font-bold text-lg shadow-xl backdrop-blur-sm`}
+                          >
+                            <span className="mr-2">🚀</span>
+                            {game.status}
+                          </motion.div>
+                          
+                          {/* Coming Soon Text */}
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.5 }}
+                            className="text-gray-400 mt-4 text-sm"
+                          >
+                            Get ready for epic tournaments
+                          </motion.p>
+                        </div>
+
+                        {/* Decorative Elements */}
+                        <div className="absolute top-4 right-4 w-20 h-20 bg-gaming-gold/10 rounded-full blur-xl"></div>
+                        <div className="absolute bottom-4 left-4 w-16 h-16 bg-gaming-neon/10 rounded-full blur-lg"></div>
+                      </div>
+                    </motion.div>
+                  </div>
+                ))}
+              </motion.div>
+            </div>
+
+            {/* Enhanced Indicators */}
+            <div className="flex justify-center space-x-4 mt-12">
+              {upcomingGames.map((game, idx) => (
+                <motion.button
+                  key={idx}
+                  onClick={() => setCurrentGameIndex(idx)}
+                  whileHover={{ scale: 1.2 }}
+                  whileTap={{ scale: 0.9 }}
+                  className={`relative transition-all duration-300 ${
+                    idx === currentGameIndex 
+                      ? 'w-12 h-4' 
+                      : 'w-4 h-4 hover:w-6'
+                  }`}
+                >
+                  <div className={`w-full h-full rounded-full transition-all duration-300 ${
+                    idx === currentGameIndex 
+                      ? 'bg-gaming-gold shadow-lg shadow-gaming-gold/50' 
+                      : 'bg-gray-600 hover:bg-gray-500'
+                  }`}></div>
+                  
+                  {/* Active indicator glow */}
+                  {idx === currentGameIndex && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute inset-0 bg-gaming-gold rounded-full blur-sm opacity-50"
+                    />
+                  )}
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-8 max-w-md mx-auto">
+              <div className="w-full bg-gray-700 rounded-full h-1">
+                <motion.div
+                  className="bg-gradient-to-r from-gaming-gold to-gaming-neon h-1 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((currentGameIndex + 1) / upcomingGames.length) * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-2">
+                <span>Game {currentGameIndex + 1}</span>
+                <span>{upcomingGames.length} Total</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

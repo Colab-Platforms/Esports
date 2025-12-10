@@ -15,10 +15,11 @@ router.get('/', [
   query('status').optional().custom((value) => {
     if (typeof value === 'string') {
       const statuses = value.split(',');
-      const validStatuses = ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled'];
+      // All possible statuses (CS2 uses only 'active'/'inactive', others use full set)
+      const validStatuses = ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled', 'inactive'];
       return statuses.every(status => validStatuses.includes(status.trim()));
     }
-    return ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled'].includes(value);
+    return ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled', 'inactive'].includes(value);
   }),
   query('mode').optional().isIn(['solo', 'duo', 'squad', 'team']),
   query('entryFeeMin').optional().isNumeric(),
@@ -368,9 +369,13 @@ router.post('/', auth, [
 
     const tournamentData = {
       ...req.body,
-      createdBy: req.user.userId,
-      status: 'upcoming'
+      createdBy: req.user.userId
     };
+    
+    // Set appropriate default status based on game type
+    if (!tournamentData.status) {
+      tournamentData.status = req.body.gameType === 'cs2' ? 'active' : 'upcoming';
+    }
 
     // Set default prize distribution if not provided
     if (!tournamentData.prizeDistribution || tournamentData.prizeDistribution.length === 0) {
@@ -547,20 +552,20 @@ router.post('/:id/join', auth, [
       });
     }
 
-    // Log tournament registration status for debugging
-    const now = new Date();
-    console.log('🎮 Tournament Join Attempt:', {
-      tournamentId: tournament._id,
-      tournamentName: tournament.name,
-      status: tournament.status,
-      isRegistrationOpen: tournament.isRegistrationOpen,
-      now: now.toISOString(),
-      registrationDeadline: tournament.registrationDeadline.toISOString(),
-      startDate: tournament.startDate.toISOString(),
-      currentParticipants: tournament.currentParticipants,
-      maxParticipants: tournament.maxParticipants,
-      userId: req.user.userId
-    });
+    // Commented out to reduce console spam - uncomment for debugging
+    // const now = new Date();
+    // console.log('🎮 Tournament Join Attempt:', {
+    //   tournamentId: tournament._id,
+    //   tournamentName: tournament.name,
+    //   status: tournament.status,
+    //   isRegistrationOpen: tournament.isRegistrationOpen,
+    //   now: now.toISOString(),
+    //   registrationDeadline: tournament.registrationDeadline.toISOString(),
+    //   startDate: tournament.startDate.toISOString(),
+    //   currentParticipants: tournament.currentParticipants,
+    //   maxParticipants: tournament.maxParticipants,
+    //   userId: req.user.userId
+    // });
 
     const user = await User.findById(req.user.userId);
     if (!user) {

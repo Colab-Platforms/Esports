@@ -3,23 +3,42 @@
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
-// Cache for server status
+// Smart cache for server status with background refresh
 const statusCache = new Map();
-const CACHE_DURATION = 30000; // 30 seconds
+const BACKGROUND_CHECK_INTERVAL = 60000; // Check for updates every 1 minute
+const backgroundChecks = new Map(); // Track background check timers
 
 /**
- * Fetch server status from backend API
+ * Fetch server status from backend API with conditional requests
  * @param {string} ip - Server IP
  * @param {string} port - Server port
- * @returns {Promise<Object>} Server status
+ * @param {string} etag - Optional ETag for conditional request
+ * @returns {Promise<Object>} Server status with metadata
  */
-async function fetchServerStatus(ip, port) {
+async function fetchServerStatus(ip, port, etag = null) {
   try {
-    const response = await fetch(`${API_URL}/api/cs2-server/status/${ip}/${port}`);
+    const headers = {};
+    if (etag) {
+      headers['If-None-Match'] = etag;
+    }
+
+    const response = await fetch(`${API_URL}/api/cs2-server/status/${ip}/${port}`, { headers });
+    
+    // 304 Not Modified - data hasn't changed
+    if (response.status === 304) {
+      console.log(`✅ Server data unchanged for ${ip}:${port}`);
+      return { unchanged: true };
+    }
+    
     const data = await response.json();
     
     if (data.success) {
-      return data.data.server;
+      return {
+        ...data.data.server,
+        etag: response.headers.get('ETag'),
+        lastModified: response.headers.get('Last-Modified'),
+        unchanged: false
+      };
     }
     
     throw new Error(data.error?.message || 'Failed to fetch server status');
@@ -32,13 +51,73 @@ async function fetchServerStatus(ip, port) {
       map: 'Unknown',
       gameMode: 'Unknown',
       ping: 0,
-      error: error.message
+      error: error.message,
+      unchanged: false
     };
   }
 }
 
 /**
- * Get server status for a CS2 tournament (with caching)
+ * Background refresh function - checks for updates without blocking UI
+ * @param {string} cacheKey - Cache key for the server
+ * @param {string} ip - Server IP
+ * @param {string} port - Server port
+ */
+async function backgroundRefresh(cacheKey, ip, port) {
+  const cached = statusCache.get(cacheKey);
+  if (!cached) return;
+
+  try {
+    console.log(`🔄 Background check for ${cacheKey}`);
+    const result = await fetchServerStatus(ip, port, cached.etag);
+    
+    if (!result.unchanged) {
+      // Data has changed, update cache
+      const enrichedStatus = {
+        ...result,
+        serverIp: ip,
+        serverPort: port,
+        region: 'India',
+        uptime: result.isOnline ? '99.9%' : '0%'
+      };
+      
+      statusCache.set(cacheKey, {
+        data: enrichedStatus,
+        timestamp: Date.now(),
+        etag: result.etag,
+        lastModified: result.lastModified
+      });
+      
+      console.log(`✅ Cache updated for ${cacheKey} - data changed`);
+    }
+  } catch (error) {
+    console.error(`❌ Background refresh failed for ${cacheKey}:`, error);
+  }
+}
+
+/**
+ * Start background refresh for a server
+ * @param {string} cacheKey - Cache key
+ * @param {string} ip - Server IP  
+ * @param {string} port - Server port
+ */
+function startBackgroundRefresh(cacheKey, ip, port) {
+  // Clear existing timer if any
+  if (backgroundChecks.has(cacheKey)) {
+    clearInterval(backgroundChecks.get(cacheKey));
+  }
+
+  // Start new background refresh timer
+  const timer = setInterval(() => {
+    backgroundRefresh(cacheKey, ip, port);
+  }, BACKGROUND_CHECK_INTERVAL);
+
+  backgroundChecks.set(cacheKey, timer);
+  console.log(`🚀 Started background refresh for ${cacheKey}`);
+}
+
+/**
+ * Get server status for a CS2 tournament (smart caching with background refresh)
  * @param {Object} tournament - Tournament object with roomDetails
  * @returns {Promise<Object>} Server status information
  */
@@ -50,13 +129,21 @@ export const getCS2ServerStatus = async (tournament) => {
   const serverInfo = tournament.roomDetails.cs2;
   const cacheKey = `${serverInfo.serverIp}:${serverInfo.serverPort}`;
   
-  // Check cache
+  // Always return cached data first (instant response)
   const cached = statusCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+  if (cached) {
+    console.log(`⚡ Instant cache hit for ${cacheKey}`);
+    
+    // Start background refresh if not already running
+    if (!backgroundChecks.has(cacheKey)) {
+      startBackgroundRefresh(cacheKey, serverInfo.serverIp, serverInfo.serverPort);
+    }
+    
     return cached.data;
   }
 
-  // Fetch fresh data
+  // No cache - fetch fresh data (first time only)
+  console.log(`🔍 First time fetch for ${cacheKey}`);
   const status = await fetchServerStatus(serverInfo.serverIp, serverInfo.serverPort);
   
   // Add additional info
@@ -71,8 +158,13 @@ export const getCS2ServerStatus = async (tournament) => {
   // Cache the result
   statusCache.set(cacheKey, {
     data: enrichedStatus,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    etag: status.etag,
+    lastModified: status.lastModified
   });
+
+  // Start background refresh
+  startBackgroundRefresh(cacheKey, serverInfo.serverIp, serverInfo.serverPort);
 
   return enrichedStatus;
 };
@@ -285,4 +377,35 @@ export const getPlayerStats = async (tournament) => {
     max: maxPlayers,
     percentage: maxPlayers > 0 ? Math.round((totalPlayers / maxPlayers) * 100) : 0
   };
+};
+
+/**
+ * Cleanup function to stop background refresh for a server
+ * @param {string} ip - Server IP
+ * @param {string} port - Server port
+ */
+export const stopBackgroundRefresh = (ip, port) => {
+  const cacheKey = `${ip}:${port}`;
+  if (backgroundChecks.has(cacheKey)) {
+    clearInterval(backgroundChecks.get(cacheKey));
+    backgroundChecks.delete(cacheKey);
+    console.log(`🛑 Stopped background refresh for ${cacheKey}`);
+  }
+};
+
+/**
+ * Clear all caches and stop all background refreshes
+ */
+export const clearAllCaches = () => {
+  // Stop all background timers
+  backgroundChecks.forEach((timer, key) => {
+    clearInterval(timer);
+    console.log(`🛑 Stopped background refresh for ${key}`);
+  });
+  
+  // Clear maps
+  backgroundChecks.clear();
+  statusCache.clear();
+  
+  console.log('🧹 All CS2 caches cleared');
 };
