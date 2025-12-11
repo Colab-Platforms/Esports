@@ -27,23 +27,31 @@ const BGMIPage = () => {
     prizePoolMin: '',
     mode: ''
   });
-  const [showRegistration, setShowRegistration] = useState(false);
-  const [selectedTournament, setSelectedTournament] = useState(null);
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+
+  // Debounce filters to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   useEffect(() => {
-    // Fetch BGMI tournaments based on active tab
+    // Fetch BGMI tournaments based on active tab and debounced filters
     const status = getStatusFromTab(activeTab);
     dispatch(fetchTournaments({
       gameType: 'bgmi',
       status,
-      entryFeeMin: filters.entryFeeMin,
-      entryFeeMax: filters.entryFeeMax,
-      prizePoolMin: filters.prizePoolMin,
-      mode: filters.mode,
+      entryFeeMin: debouncedFilters.entryFeeMin,
+      entryFeeMax: debouncedFilters.entryFeeMax,
+      prizePoolMin: debouncedFilters.prizePoolMin,
+      mode: debouncedFilters.mode,
       page: 1,
       limit: 12
     }));
-  }, [dispatch, activeTab, filters.entryFeeMin, filters.entryFeeMax, filters.prizePoolMin, filters.mode]);
+  }, [dispatch, activeTab, debouncedFilters]);
 
   const getStatusFromTab = (tab) => {
     switch (tab) {
@@ -177,7 +185,7 @@ const BGMIPage = () => {
               <select
                 value={filters.mode}
                 onChange={(e) => handleFilterChange('mode', e.target.value)}
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none font-gaming"
               >
                 <option value="">All Modes</option>
                 <option value="solo">Solo</option>
@@ -195,7 +203,7 @@ const BGMIPage = () => {
                 value={filters.entryFeeMin}
                 onChange={(e) => handleFilterChange('entryFeeMin', e.target.value)}
                 placeholder="₹0"
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none font-gaming"
               />
             </div>
             
@@ -208,14 +216,14 @@ const BGMIPage = () => {
                 value={filters.entryFeeMax}
                 onChange={(e) => handleFilterChange('entryFeeMax', e.target.value)}
                 placeholder="₹1000"
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none font-gaming"
               />
             </div>
             
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
-                className="w-full px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors duration-200"
+                className="w-full px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors duration-200 font-gaming"
               >
                 Clear Filters
               </button>

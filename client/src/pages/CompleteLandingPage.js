@@ -31,6 +31,7 @@ const CompleteLandingPage = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(true);
 
   const upcomingGames = [
     { name: 'Valorant', icon: '🎯', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
@@ -44,12 +45,17 @@ const CompleteLandingPage = () => {
     fetchAllData();
     
     // Auto-slide upcoming games
-    const interval = setInterval(() => {
-      setCurrentGameIndex((prev) => (prev + 1) % upcomingGames.length);
-    }, 3000);
+    let interval;
+    if (autoPlay) {
+      interval = setInterval(() => {
+        setCurrentGameIndex((prev) => (prev + 1) % upcomingGames.length);
+      }, 6000);
+    }
     
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoPlay]);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -144,6 +150,45 @@ const CompleteLandingPage = () => {
       {/* Hero Section with Slider */}
       <HeroImageSlider />
 
+      {/* Platform Stats - Simple Text Format */}
+      <section className="py-12 bg-gaming-dark/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              <div>
+                <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
+                  {stats.totalPlayers}
+                </div>
+                <div className="text-gray-400 text-sm">Total Players</div>
+              </div>
+              <div>
+                <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
+                  {stats.totalMatches}
+                </div>
+                <div className="text-gray-400 text-sm">Matches Played</div>
+              </div>
+              <div>
+                <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
+                  {stats.totalPrizes}
+                </div>
+                <div className="text-gray-400 text-sm">Prizes Distributed</div>
+              </div>
+              <div>
+                <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
+                  {stats.activeTournaments}
+                </div>
+                <div className="text-gray-400 text-sm">Active Tournaments</div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Live Leaderboard Section - Gaming Console Style */}
       <section className="py-20 bg-gaming-charcoal/30 relative overflow-hidden">
         {/* Animated Background Grid */}
@@ -174,7 +219,7 @@ const CompleteLandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
               Live Leaderboards
             </h2>
-            <p className="text-gray-400 text-lg">Real-time rankings • Updated every match</p>
+            <p className="text-gray-400 text-lg font-gaming">Real-time rankings • Updated every match</p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -423,232 +468,12 @@ const CompleteLandingPage = () => {
                 </div>
               </div>
             </motion.div>
+
           </div>
         </div>
       </section>
 
-      {/* Features Grid - Gaming Console Style */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-gaming-charcoal/50 to-gaming-dark"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
-              Platform Features
-            </h2>
-            <p className="text-gray-400 text-lg">Everything you need for competitive gaming</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: <FiAward className="w-10 h-10" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
-              { icon: <FiTrendingUp className="w-10 h-10" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-blue-500 to-cyan-500', stat: 'Updated Live' },
-              { icon: <FiServer className="w-10 h-10" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-purple-500 to-pink-500', stat: '2 Servers' },
-              { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-green-500 to-emerald-500', stat: stats.totalPlayers + ' Players' }
-            ].map((feature, idx) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -10, scale: 1.05 }}
-                className="relative group"
-              >
-                {/* Glow Effect */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-20 rounded-xl filter blur-xl transition-opacity`}></div>
-                
-                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-xl p-6 transition-all duration-300 overflow-hidden">
-                  {/* Corner Accent */}
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-gaming-gold/5 rounded-bl-full"></div>
-                  
-                  <div className={`inline-flex p-4 rounded-lg bg-gradient-to-br ${feature.color} bg-opacity-10 text-white mb-4 shadow-lg`}>
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
-                  <p className="text-gray-400 mb-4 text-sm">{feature.desc}</p>
-                  <div className="text-gaming-gold font-bold text-sm flex items-center">
-                    <span className="w-2 h-2 bg-gaming-gold rounded-full mr-2 animate-pulse"></span>
-                    {feature.stat}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social Gaming / Community */}
-      <section className="py-20 bg-gaming-charcoal/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
-              Social Gaming
-            </h2>
-            <p className="text-gray-400 text-lg">Connect, compete, and conquer together</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { icon: '👥', title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
-              { icon: '🛡️', title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
-              { icon: '⚔️', title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'from-purple-500 to-pink-500' }
-            ].map((item, idx) => (
-              <motion.div
-                key={item.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="relative group"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-10 rounded-xl filter blur-xl transition-opacity`}></div>
-                
-                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-xl p-6 transition-all">
-                  <motion.div
-                    whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
-                    className="text-5xl mb-4"
-                  >
-                    {item.icon}
-                  </motion.div>
-                  <h3 className="text-2xl font-bold text-white mb-3">{item.title}</h3>
-                  <p className="text-gray-400 mb-4">{item.desc}</p>
-                  <div className="space-y-2">
-                    {item.features.map((feature, i) => (
-                      <div key={i} className="flex items-center text-sm text-gray-300">
-                        <div className={`w-2 h-2 bg-gradient-to-r ${item.color} rounded-full mr-2`}></div>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CS2 Servers - Only 2 Mumbai Servers */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-blue-900/10 to-gaming-dark"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                className="text-5xl"
-              >
-                ⚡
-              </motion.div>
-              <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
-                CS2 Dedicated Servers
-              </h2>
-            </div>
-            <p className="text-gray-400 text-lg">Mumbai Location • Auto Stats • 24/7 Uptime</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {servers.map((server, idx) => (
-              <motion.div
-                key={server.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.2 }}
-                whileHover={{ y: -10, scale: 1.05 }}
-                className="relative group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl filter blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                
-                <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl">
-                  {/* Server Status Indicator */}
-                  <div className="absolute top-4 right-4">
-                    <motion.div
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className={`w-3 h-3 rounded-full ${
-                        server.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                      } shadow-lg`}
-                    ></motion.div>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white mb-4">{server.name}</h3>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Status:</span>
-                      <span className={`font-bold text-sm ${
-                        server.status === 'active' ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {server.status === 'active' ? '🟢 Active' : '🔴 Full'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Players:</span>
-                      <span className="text-white font-bold">{server.players}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Map:</span>
-                      <span className="text-gaming-gold font-bold">{server.map}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Ping:</span>
-                      <span className="text-green-400 font-bold">{server.ping}</span>
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/cs2"
-                    className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
-                  >
-                    View Server Details
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <Link
-              to="/cs2"
-              className="inline-flex items-center text-gaming-gold hover:text-gaming-accent font-bold text-lg group"
-            >
-              View All CS2 Features
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <FiArrowRight className="ml-2" />
-              </motion.div>
-            </Link>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* BGMI Tournament Section - Official Wallpaper */}
+      {/* BGMI Tournament Section - Separate Section Below Leaderboards */}
       <section className="py-20 bg-gaming-charcoal/30 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -749,7 +574,230 @@ const CompleteLandingPage = () => {
         </div>
       </section>
 
-      {/* Upcoming Games - Premium Carousel */}
+      {/* Features Grid - Gaming Console Style */}
+      <section className="py-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-gaming-charcoal/50 to-gaming-dark"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
+              Platform Features
+            </h2>
+            <p className="text-gray-400 text-lg font-gaming">Everything you need for competitive gaming</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: <FiAward className="w-10 h-10" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
+              { icon: <FiTrendingUp className="w-10 h-10" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-blue-500 to-cyan-500', stat: 'Updated Live' },
+              { icon: <FiServer className="w-10 h-10" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-purple-500 to-pink-500', stat: '2 Servers' },
+              { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-green-500 to-emerald-500', stat: stats.totalPlayers + ' Players' }
+            ].map((feature, idx) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                whileHover={{ y: -10, scale: 1.05 }}
+                className="relative group"
+              >
+                {/* Glow Effect */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-20 rounded-xl filter blur-xl transition-opacity`}></div>
+                
+                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-xl p-6 transition-all duration-300 overflow-hidden">
+                  {/* Corner Accent */}
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-gaming-gold/5 rounded-bl-full"></div>
+                  
+                  <div className={`inline-flex p-4 rounded-lg bg-gradient-to-br ${feature.color} bg-opacity-10 text-white mb-4 shadow-lg`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
+                  <p className="text-gray-400 mb-4 text-sm">{feature.desc}</p>
+                  <div className="text-gaming-gold font-bold text-sm flex items-center">
+                    <span className="w-2 h-2 bg-gaming-gold rounded-full mr-2 animate-pulse"></span>
+                    {feature.stat}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Social Gaming / Community */}
+      <section className="py-20 bg-gaming-charcoal/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
+              Social Gaming
+            </h2>
+            <p className="text-gray-400 text-lg font-gaming">Connect, compete, and conquer together</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { icon: '👥', title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
+              { icon: '🛡️', title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
+              { icon: '⚔️', title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'from-purple-500 to-pink-500' }
+            ].map((item, idx) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="relative group"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-10 rounded-xl filter blur-xl transition-opacity`}></div>
+                
+                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-xl p-6 transition-all h-80 flex flex-col">
+                  <motion.div
+                    whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
+                    className="text-5xl mb-4"
+                  >
+                    {item.icon}
+                  </motion.div>
+                  <h3 className="text-2xl font-gaming font-bold text-white mb-3">{item.title}</h3>
+                  <p className="text-gray-400 mb-4 flex-1">{item.desc}</p>
+                  <div className="space-y-2 mt-auto">
+                    {item.features.map((feature, i) => (
+                      <div key={i} className="flex items-center text-sm text-gray-300 font-gaming">
+                        <div className={`w-2 h-2 bg-gradient-to-r ${item.color} rounded-full mr-2`}></div>
+                        {feature}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CS2 Servers - Only 2 Mumbai Servers */}
+      <section className="py-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-blue-900/10 to-gaming-dark"></div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <motion.div
+                animate={{ rotate: [0, 360] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="text-5xl"
+              >
+                ⚡
+              </motion.div>
+              <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
+                CS2 Dedicated Servers
+              </h2>
+            </div>
+            <p className="text-gray-400 text-lg font-gaming">Mumbai Location • Auto Stats • 24/7 Uptime</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {servers.map((server, idx) => (
+              <motion.div
+                key={server.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.2 }}
+                whileHover={{ y: -10, scale: 1.05 }}
+                className="relative group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl filter blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                
+                <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl">
+                  {/* Server Status Indicator */}
+                  <div className="absolute top-4 right-4">
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className={`w-3 h-3 rounded-full ${
+                        server.status === 'active' ? 'bg-green-400' : 'bg-red-400'
+                      } shadow-lg`}
+                    ></motion.div>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mb-4">{server.name}</h3>
+                  
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                      <span className="text-gray-400 text-sm">Status:</span>
+                      <span className={`font-bold text-sm ${
+                        server.status === 'active' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {server.status === 'active' ? '🟢 Active' : '🔴 Full'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                      <span className="text-gray-400 text-sm">Players:</span>
+                      <span className="text-white font-bold">{server.players}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                      <span className="text-gray-400 text-sm">Map:</span>
+                      <span className="text-gaming-gold font-bold">{server.map}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                      <span className="text-gray-400 text-sm">Ping:</span>
+                      <span className="text-green-400 font-bold">{server.ping}</span>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/cs2"
+                    className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
+                  >
+                    View Server Details
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <Link
+              to="/cs2"
+              className="inline-flex items-center text-gaming-gold hover:text-gaming-accent font-bold text-lg group"
+            >
+              View All CS2 Features
+              <motion.div
+                animate={{ x: [0, 5, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <FiArrowRight className="ml-2" />
+              </motion.div>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
+
+
+      {/* More Games Coming Soon - Classic Premium Design */}
       <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-purple-900/10 to-gaming-dark"></div>
         
@@ -763,39 +811,22 @@ const CompleteLandingPage = () => {
             <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
               More Games Coming Soon
             </h2>
-            <p className="text-gray-400 text-lg">Expanding to more titles in 2025</p>
+            <p className="text-gray-400 text-lg font-gaming">Expanding to more titles in 2025</p>
           </motion.div>
 
-          {/* Carousel Container */}
-          <div className="relative">
-            {/* Navigation Buttons */}
-            <button
-              onClick={() => setCurrentGameIndex(currentGameIndex === 0 ? upcomingGames.length - 1 : currentGameIndex - 1)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-gaming-charcoal/80 hover:bg-gaming-gold border border-gaming-gold/30 hover:border-gaming-gold rounded-full flex items-center justify-center text-white hover:text-black transition-all duration-300 backdrop-blur-sm"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
-            <button
-              onClick={() => setCurrentGameIndex(currentGameIndex === upcomingGames.length - 1 ? 0 : currentGameIndex + 1)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-gaming-charcoal/80 hover:bg-gaming-gold border border-gaming-gold/30 hover:border-gaming-gold rounded-full flex items-center justify-center text-white hover:text-black transition-all duration-300 backdrop-blur-sm"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          {/* Classic Premium Carousel */}
+          <div className="relative max-w-4xl mx-auto">
 
-            {/* Cards Container */}
-            <div className="overflow-hidden rounded-2xl">
+
+            {/* Premium Card Container */}
+            <div className="overflow-hidden rounded-2xl shadow-2xl">
               <motion.div
                 className="flex"
                 animate={{ x: `-${currentGameIndex * 100}%` }}
                 transition={{ 
                   type: "spring", 
-                  stiffness: 300, 
-                  damping: 30,
+                  stiffness: 150, 
+                  damping: 20,
                   duration: 0.6
                 }}
               >
@@ -807,67 +838,60 @@ const CompleteLandingPage = () => {
                       viewport={{ once: true }}
                       transition={{ delay: idx * 0.1 }}
                       whileHover={{ 
-                        y: -10,
+                        y: -8,
                         scale: 1.02,
                         transition: { duration: 0.3 }
                       }}
-                      className="relative group h-96"
+                      className="relative group h-80"
                     >
-                      {/* Glow Effect */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-20 rounded-3xl filter blur-2xl group-hover:opacity-30 group-hover:blur-xl transition-all duration-500`}></div>
+                      {/* Subtle Premium Glow */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-10 group-hover:opacity-20 rounded-2xl filter blur-xl transition-all duration-500`}></div>
                       
-                      {/* Main Card */}
-                      <div className={`relative h-full bg-gradient-to-br from-gaming-charcoal to-gaming-dark border-2 border-transparent bg-clip-padding rounded-3xl overflow-hidden shadow-2xl group-hover:shadow-gaming-gold/20 transition-all duration-500`}>
-                        {/* Border Gradient */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl`}></div>
-                        <div className="absolute inset-[2px] bg-gradient-to-br from-gaming-charcoal to-gaming-dark rounded-3xl"></div>
+                      {/* Classic Premium Card */}
+                      <div className="relative h-full bg-gradient-to-br from-gaming-charcoal to-gaming-dark border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300">
+                        {/* Premium Border Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-gaming-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         
-                        {/* Content */}
+                        {/* Classic Premium Content */}
                         <div className="relative h-full flex flex-col items-center justify-center p-8 text-center">
-                          {/* Animated Icon */}
+                          {/* Simple Elegant Icon */}
                           <motion.div
                             animate={{ 
-                              scale: [1, 1.1, 1],
-                              rotate: [0, 5, -5, 0]
+                              scale: [1, 1.05, 1]
                             }}
                             transition={{ 
                               duration: 3, 
                               repeat: Infinity,
                               ease: "easeInOut"
                             }}
-                            className="text-9xl mb-8 filter drop-shadow-2xl"
+                            whileHover={{
+                              scale: 1.1,
+                              transition: { duration: 0.3 }
+                            }}
+                            className="text-7xl mb-6 filter drop-shadow-lg"
                           >
                             {game.icon}
                           </motion.div>
                           
-                          {/* Game Title */}
-                          <h3 className="text-4xl font-gaming font-bold text-white mb-6 group-hover:text-gaming-gold transition-colors duration-300">
+                          {/* Classic Game Title */}
+                          <h3 className="text-3xl font-gaming font-bold text-white mb-4 group-hover:text-gaming-gold transition-colors duration-300">
                             {game.name}
                           </h3>
                           
-                          {/* Status Badge */}
+                          {/* Premium Status Badge */}
                           <motion.div
                             whileHover={{ scale: 1.05 }}
-                            className={`inline-flex items-center px-8 py-3 bg-gradient-to-r ${game.color} rounded-full text-white font-bold text-lg shadow-xl backdrop-blur-sm`}
+                            className={`inline-flex items-center px-6 py-3 bg-gradient-to-r ${game.color} rounded-full text-white font-gaming font-bold text-sm shadow-lg backdrop-blur-sm mb-4`}
                           >
                             <span className="mr-2">🚀</span>
                             {game.status}
                           </motion.div>
                           
-                          {/* Coming Soon Text */}
-                          <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.5 }}
-                            className="text-gray-400 mt-4 text-sm"
-                          >
+                          {/* Simple Description */}
+                          <p className="text-gray-300 font-gaming text-sm">
                             Get ready for epic tournaments
-                          </motion.p>
+                          </p>
                         </div>
-
-                        {/* Decorative Elements */}
-                        <div className="absolute top-4 right-4 w-20 h-20 bg-gaming-gold/10 rounded-full blur-xl"></div>
-                        <div className="absolute bottom-4 left-4 w-16 h-16 bg-gaming-neon/10 rounded-full blur-lg"></div>
                       </div>
                     </motion.div>
                   </div>
@@ -875,65 +899,46 @@ const CompleteLandingPage = () => {
               </motion.div>
             </div>
 
-            {/* Enhanced Indicators */}
-            <div className="flex justify-center space-x-4 mt-12">
+            {/* Classic Premium Indicators */}
+            <div className="flex justify-center space-x-3 mt-8">
               {upcomingGames.map((game, idx) => (
-                <motion.button
+                <button
                   key={idx}
                   onClick={() => setCurrentGameIndex(idx)}
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                  className={`relative transition-all duration-300 ${
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
                     idx === currentGameIndex 
-                      ? 'w-12 h-4' 
-                      : 'w-4 h-4 hover:w-6'
+                      ? 'bg-gaming-gold scale-125 shadow-lg shadow-gaming-gold/50' 
+                      : 'bg-gray-500 hover:bg-gray-400 hover:scale-110'
                   }`}
-                >
-                  <div className={`w-full h-full rounded-full transition-all duration-300 ${
-                    idx === currentGameIndex 
-                      ? 'bg-gaming-gold shadow-lg shadow-gaming-gold/50' 
-                      : 'bg-gray-600 hover:bg-gray-500'
-                  }`}></div>
-                  
-                  {/* Active indicator glow */}
-                  {idx === currentGameIndex && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute inset-0 bg-gaming-gold rounded-full blur-sm opacity-50"
-                    />
-                  )}
-                </motion.button>
+                />
               ))}
             </div>
 
-            {/* Progress Bar */}
-            <div className="mt-8 max-w-md mx-auto">
-              <div className="w-full bg-gray-700 rounded-full h-1">
-                <motion.div
-                  className="bg-gradient-to-r from-gaming-gold to-gaming-neon h-1 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${((currentGameIndex + 1) / upcomingGames.length) * 100}%` }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>Game {currentGameIndex + 1}</span>
-                <span>{upcomingGames.length} Total</span>
-              </div>
+            {/* Auto-slide Toggle */}
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => setAutoPlay(!autoPlay)}
+                className={`px-4 py-2 rounded-full font-gaming text-sm transition-all duration-300 ${
+                  autoPlay 
+                    ? 'bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/50' 
+                    : 'bg-gray-700 text-gray-300 border border-gray-600 hover:border-gray-500'
+                }`}
+              >
+                {autoPlay ? '⏸ Pause Auto-slide' : '▶ Enable Auto-slide'}
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials - Classy Gaming Style */}
-      <section className="py-20 bg-gaming-charcoal/30">
+      {/* Testimonials - Enhanced Unique Slider */}
+      <section className="py-20 bg-gaming-charcoal/30 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
+            className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white mb-4">
               What Players Say
@@ -941,104 +946,176 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg">Join thousands of satisfied gamers</p>
           </motion.div>
 
-          {/* Testimonials - Gaming Console Cards */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            {[
-              { name: 'Rahul K.', game: 'CS2 Player', avatar: '🎮', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5, color: 'from-blue-500 to-cyan-500' },
-              { name: 'Priya S.', game: 'BGMI Player', avatar: '📱', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5, color: 'from-orange-500 to-red-500' },
-              { name: 'Arjun M.', game: 'Pro Gamer', avatar: '👑', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5, color: 'from-purple-500 to-pink-500' }
-            ].map((review, idx) => (
+          {/* Enhanced Testimonials Slider */}
+          <div className="relative">
+            <div className="overflow-hidden rounded-3xl">
               <motion.div
-                key={review.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -10, scale: 1.05 }}
-                className="relative group"
+                className="flex"
+                animate={{ x: [0, -100, -200, 0] }}
+                transition={{ 
+                  duration: 15,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
               >
-                {/* Glow Effect */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${review.color} opacity-0 group-hover:opacity-20 rounded-2xl filter blur-xl transition-opacity`}></div>
-                
-                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-2xl p-6 shadow-xl transition-all">
-                  {/* Quote Icon */}
-                  <div className="absolute top-4 right-4 text-gaming-gold/20 text-6xl font-serif">"</div>
-                  
-                  {/* Avatar */}
-                  <div className="flex items-center mb-4">
-                    <motion.div
-                      whileHover={{ rotate: [0, -10, 10, -10, 0] }}
-                      className={`w-16 h-16 rounded-full bg-gradient-to-br ${review.color} flex items-center justify-center text-3xl shadow-lg mr-4`}
-                    >
-                      {review.avatar}
-                    </motion.div>
-                    <div>
-                      <div className="font-bold text-white text-lg">{review.name}</div>
-                      <div className="text-sm text-gray-400">{review.game}</div>
-                    </div>
-                  </div>
-
-                  {/* Stars */}
-                  <div className="flex items-center mb-4">
-                    {[...Array(review.rating)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, scale: 0 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: idx * 0.1 + i * 0.1 }}
-                      >
-                        <FiStar className="text-gaming-gold fill-current" size={18} />
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Review Text */}
-                  <p className="text-gray-300 italic relative z-10">"{review.text}"</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Community Stats - Gaming Dashboard Style */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-gaming-neon/20 to-gaming-gold/20 rounded-2xl filter blur-2xl"></div>
-            
-            <div className="relative bg-gaming-charcoal border-2 border-gaming-gold/30 rounded-2xl p-8 shadow-2xl">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                 {[
-                  { value: stats.totalPlayers, label: 'Total Players', icon: <FiUsers /> },
-                  { value: stats.totalMatches, label: 'Matches Played', icon: <FiTarget /> },
-                  { value: stats.totalPrizes, label: 'Prizes Distributed', icon: <FiGift /> },
-                  { value: stats.activeTournaments, label: 'Active Tournaments', icon: <FiAward /> }
-                ].map((stat, idx) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: idx * 0.1 }}
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <div className="text-gaming-gold text-3xl mb-2">{stat.icon}</div>
+                  { name: 'Rahul K.', game: 'CS2 Player', avatar: '🎮', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5, color: 'from-blue-500 to-cyan-500' },
+                  { name: 'Priya S.', game: 'BGMI Player', avatar: '📱', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5, color: 'from-orange-500 to-red-500' },
+                  { name: 'Arjun M.', game: 'Pro Gamer', avatar: '👑', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5, color: 'from-purple-500 to-pink-500' },
+                  // Duplicate for seamless loop
+                  { name: 'Rahul K.', game: 'CS2 Player', avatar: '🎮', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5, color: 'from-blue-500 to-cyan-500' },
+                  { name: 'Priya S.', game: 'BGMI Player', avatar: '📱', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5, color: 'from-orange-500 to-red-500' },
+                  { name: 'Arjun M.', game: 'Pro Gamer', avatar: '👑', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5, color: 'from-purple-500 to-pink-500' }
+                ].map((review, idx) => (
+                  <div key={`${review.name}-${idx}`} className="w-1/3 flex-shrink-0 px-4">
                     <motion.div
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: idx * 0.2 }}
-                      className="text-4xl font-gaming font-bold text-gaming-gold mb-2"
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: (idx % 3) * 0.2 }}
+                      whileHover={{ 
+                        y: -15, 
+                        scale: 1.05,
+                        rotateY: 5,
+                        transition: { duration: 0.3 }
+                      }}
+                      className="relative group h-80"
                     >
-                      {stat.value}
+                      {/* Dynamic Glow Effect */}
+                      <motion.div 
+                        className={`absolute inset-0 bg-gradient-to-br ${review.color} rounded-3xl filter blur-2xl transition-all duration-500`}
+                        animate={{ 
+                          opacity: [0.1, 0.3, 0.1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ 
+                          duration: 3, 
+                          repeat: Infinity,
+                          delay: idx * 0.5
+                        }}
+                      />
+                      
+                      <div className="relative bg-gaming-charcoal/90 backdrop-blur-sm border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-3xl p-6 shadow-2xl transition-all duration-300 h-full flex flex-col">
+                        {/* Floating Quote Icon */}
+                        <motion.div 
+                          className="absolute top-4 right-4 text-gaming-gold/30 text-5xl font-serif"
+                          animate={{ 
+                            rotate: [0, 10, -10, 0],
+                            scale: [1, 1.1, 1]
+                          }}
+                          transition={{ 
+                            duration: 4, 
+                            repeat: Infinity,
+                            delay: idx * 0.3
+                          }}
+                        >
+                          "
+                        </motion.div>
+                        
+                        {/* Avatar with Unique Animation */}
+                        <div className="flex items-center mb-6">
+                          <motion.div
+                            className={`w-16 h-16 rounded-full bg-gradient-to-br ${review.color} flex items-center justify-center text-3xl shadow-xl mr-4`}
+                            whileHover={{ 
+                              rotate: [0, -15, 15, -15, 0],
+                              scale: [1, 1.2, 1]
+                            }}
+                            animate={{
+                              boxShadow: [
+                                '0 0 20px rgba(255, 215, 0, 0.3)',
+                                '0 0 40px rgba(255, 215, 0, 0.6)',
+                                '0 0 20px rgba(255, 215, 0, 0.3)'
+                              ]
+                            }}
+                            transition={{ 
+                              duration: 2, 
+                              repeat: Infinity,
+                              delay: idx * 0.4
+                            }}
+                          >
+                            {review.avatar}
+                          </motion.div>
+                          <div>
+                            <div className="font-bold text-white text-lg group-hover:text-gaming-gold transition-colors">
+                              {review.name}
+                            </div>
+                            <div className="text-sm text-gray-400">{review.game}</div>
+                          </div>
+                        </div>
+
+                        {/* Animated Stars */}
+                        <div className="flex items-center mb-6">
+                          {[...Array(review.rating)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+                              viewport={{ once: true }}
+                              transition={{ 
+                                delay: (idx % 3) * 0.1 + i * 0.1,
+                                type: "spring",
+                                stiffness: 200
+                              }}
+                              whileHover={{ 
+                                scale: 1.3,
+                                rotate: 360,
+                                transition: { duration: 0.3 }
+                              }}
+                            >
+                              <FiStar className="text-gaming-gold fill-current mr-1" size={20} />
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        {/* Review Text with Typewriter Effect */}
+                        <div className="flex-1 flex items-center">
+                          <motion.p 
+                            className="text-gray-300 italic relative z-10 text-center leading-relaxed"
+                            initial={{ opacity: 0 }}
+                            whileInView={{ opacity: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: (idx % 3) * 0.3 }}
+                          >
+                            "{review.text}"
+                          </motion.p>
+                        </div>
+
+                        {/* Decorative Elements */}
+                        <motion.div 
+                          className="absolute bottom-4 left-4 w-8 h-8 bg-gaming-gold/20 rounded-full"
+                          animate={{ 
+                            scale: [1, 1.5, 1],
+                            opacity: [0.2, 0.5, 0.2]
+                          }}
+                          transition={{ 
+                            duration: 2, 
+                            repeat: Infinity,
+                            delay: idx * 0.6
+                          }}
+                        />
+                        <motion.div 
+                          className="absolute top-1/2 right-6 w-4 h-4 bg-gaming-neon/30 rounded-full"
+                          animate={{ 
+                            y: [-10, 10, -10],
+                            opacity: [0.3, 0.7, 0.3]
+                          }}
+                          transition={{ 
+                            duration: 3, 
+                            repeat: Infinity,
+                            delay: idx * 0.8
+                          }}
+                        />
+                      </div>
                     </motion.div>
-                    <div className="text-gray-400 text-sm">{stat.label}</div>
-                  </motion.div>
+                  </div>
                 ))}
-              </div>
+              </motion.div>
             </div>
-          </motion.div>
+
+            {/* Gradient Overlays for Seamless Loop */}
+            <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
+          </div>
         </div>
       </section>
 

@@ -35,6 +35,15 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
             responsiveUrls: slideImage.responsiveUrls,
             imageKey: slideKey
           });
+        } else {
+          // Add placeholder slide if image not found
+          pageSlides.push({
+            id: `${slideKey}-placeholder`,
+            image: null,
+            responsiveUrls: null,
+            imageKey: slideKey,
+            isPlaceholder: true
+          });
         }
       }
       
@@ -126,25 +135,41 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
           className="absolute inset-0"
         >
           <div className="w-full h-full overflow-hidden relative">
-            {(() => {
-              const hasResponsiveUrls = currentSlideData.responsiveUrls && Object.keys(currentSlideData.responsiveUrls).length > 0;
-              
-              return hasResponsiveUrls ? (
-                <ResponsiveImage
-                  imageUrl={currentSlideData.image}
-                  responsiveUrls={currentSlideData.responsiveUrls}
-                  alt={`${pageKey} slide ${currentSlide + 1}`}
-                  className="w-full h-full object-cover object-center"
-                />
-              ) : (
-                <OptimizedImage
-                  src={currentSlideData.image}
-                  alt={`${pageKey} slide ${currentSlide + 1}`}
-                  className="w-full h-full object-cover object-center"
-                  lazy={false}
-                />
-              );
-            })()}
+            {currentSlideData.isPlaceholder ? (
+              // Placeholder slide
+              <div className="w-full h-full bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark flex items-center justify-center">
+                <div className="text-center px-4">
+                  <div className="text-4xl mb-4">🎮</div>
+                  <h3 className="text-xl font-gaming font-bold text-white mb-2">
+                    Slide {currentSlide + 1}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    Upload banner via Admin Panel
+                  </p>
+                </div>
+              </div>
+            ) : (
+              // Actual image slide
+              (() => {
+                const hasResponsiveUrls = currentSlideData.responsiveUrls && Object.keys(currentSlideData.responsiveUrls).length > 0;
+                
+                return hasResponsiveUrls ? (
+                  <ResponsiveImage
+                    imageUrl={currentSlideData.image}
+                    responsiveUrls={currentSlideData.responsiveUrls}
+                    alt={`${pageKey} slide ${currentSlide + 1}`}
+                    className="w-full h-full object-cover object-center"
+                  />
+                ) : (
+                  <OptimizedImage
+                    src={currentSlideData.image}
+                    alt={`${pageKey} slide ${currentSlide + 1}`}
+                    className="w-full h-full object-cover object-center"
+                    lazy={false}
+                  />
+                );
+              })()
+            )}
           </div>
         </motion.div>
       </AnimatePresence>

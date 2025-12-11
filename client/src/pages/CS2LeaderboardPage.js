@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { FaTrophy, FaCrosshairs, FaSkull, FaHandsHelping, FaFire, FaStar } from 'react-icons/fa';
+import { selectAuth } from '../../store/slices/authSlice';
 import './CS2LeaderboardPage.css';
 
 const CS2LeaderboardPage = () => {
   const navigate = useNavigate();
+  const { user } = useSelector(selectAuth);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
+
   const [filters, setFilters] = useState({
     limit: 50,
     serverId: '',
@@ -18,8 +21,8 @@ const CS2LeaderboardPage = () => {
   });
 
   useEffect(() => {
+    console.log('🎮 CS2 Leaderboard Page Loaded - Enhanced Version');
     fetchLeaderboard();
-    fetchOverallStats();
   }, []);
 
   const fetchLeaderboard = async () => {
@@ -40,6 +43,8 @@ const CS2LeaderboardPage = () => {
       const response = await axios.get(endpoint);
 
       if (response.data.success) {
+        console.log('Debug - API Response:', response.data);
+        console.log('Debug - Leaderboard Data:', response.data.leaderboard);
         setLeaderboard(response.data.leaderboard);
       } else {
         setError(response.data.message || 'Failed to fetch leaderboard');
@@ -52,19 +57,7 @@ const CS2LeaderboardPage = () => {
     }
   };
 
-  const fetchOverallStats = async () => {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/all-stats`
-      );
 
-      if (response.data.success) {
-        setStats(response.data.stats);
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -110,51 +103,63 @@ const CS2LeaderboardPage = () => {
         <div className="header-content">
           <h1>
             <FaCrosshairs className="header-icon" />
-            CS2 Leaderboard
+            CS2 Leaderboard (Updated v2.0)
           </h1>
-          <p className="header-subtitle">Top Counter-Strike 2 Players</p>
+          <p className="header-subtitle">Top Counter-Strike 2 Players - Enhanced Version</p>
         </div>
       </div>
 
-      {/* Overall Stats Cards */}
-      {stats && (
+      {/* Personal Stats Cards */}
+      {leaderboard.length > 0 && (
         <div className="stats-cards">
-          <div className="stat-card">
-            <div className="stat-icon">
-              <FaFire />
-            </div>
-            <div className="stat-info">
-              <h3>{stats.total_matches || 0}</h3>
-              <p>Total Matches</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">
-              <FaCrosshairs />
-            </div>
-            <div className="stat-info">
-              <h3>{stats.total_kills || 0}</h3>
-              <p>Total Kills</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">
-              <FaStar />
-            </div>
-            <div className="stat-info">
-              <h3>{stats.unique_players || 0}</h3>
-              <p>Active Players</p>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">
-              <FaTrophy />
-            </div>
-            <div className="stat-info">
-              <h3>{stats.total_rounds || 0}</h3>
-              <p>Rounds Played</p>
-            </div>
-          </div>
+          {(() => {
+            const currentUserData = user ? leaderboard.find(p => p.userId === user.id) : null;
+            // Fallback to first player if no personal data found
+            const displayData = currentUserData || leaderboard[0];
+            const isPersonalData = !!currentUserData;
+            console.log('Debug - Current User:', user?.id, 'Found Data:', currentUserData);
+            console.log('Debug - Leaderboard Users:', leaderboard.map(p => ({ userId: p.userId, username: p.username })));
+            return (
+              <>
+                <div className={`stat-card ${isPersonalData ? 'personal' : ''}`}>
+                  <div className="stat-icon">
+                    <FaTrophy />
+                  </div>
+                  <div className="stat-info">
+                    <h3>#{displayData?.rank || 'N/A'}</h3>
+                    <p>{isPersonalData ? 'Your Rank' : 'Top Rank'}</p>
+                  </div>
+                </div>
+                <div className={`stat-card ${isPersonalData ? 'personal' : ''}`}>
+                  <div className="stat-icon">
+                    <FaCrosshairs />
+                  </div>
+                  <div className="stat-info">
+                    <h3>{displayData?.stats?.total_kills || 0}</h3>
+                    <p>{isPersonalData ? 'Your Kills' : 'Top Kills'}</p>
+                  </div>
+                </div>
+                <div className={`stat-card ${isPersonalData ? 'personal' : ''}`}>
+                  <div className="stat-icon">
+                    <FaSkull />
+                  </div>
+                  <div className="stat-info">
+                    <h3>{displayData?.stats?.total_deaths || 0}</h3>
+                    <p>{isPersonalData ? 'Your Deaths' : 'Top Deaths'}</p>
+                  </div>
+                </div>
+                <div className={`stat-card ${isPersonalData ? 'personal' : ''}`}>
+                  <div className="stat-icon">
+                    <FaStar />
+                  </div>
+                  <div className="stat-info">
+                    <h3>{displayData?.stats?.kdr?.toFixed(2) || '0.00'}</h3>
+                    <p>{isPersonalData ? 'Your K/D' : 'Top K/D'}</p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -278,9 +283,10 @@ const CS2LeaderboardPage = () => {
                     <td className="stat-cell">{player.stats.matches_played}</td>
                     <td className="stat-cell">{player.stats.rounds_played}</td>
                     <td className="stat-cell servers">
-                      {player.stats.servers_played ? (
+                      {console.log('Debug - Player servers:', player.username, player.stats.servers_played, player.stats.servers_count)}
+                      {player.stats.servers_played && player.stats.servers_played.length > 0 ? (
                         <div className="servers-info">
-                          <span className="servers-count">{player.stats.servers_count || 0}</span>
+                          <span className="servers-count">{player.stats.servers_count || player.stats.servers_played.length}</span>
                           <div className="servers-list">
                             {player.stats.servers_played.map(serverId => (
                               <span key={serverId} className="server-badge">

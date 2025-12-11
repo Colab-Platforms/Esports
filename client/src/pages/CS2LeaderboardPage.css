@@ -3,6 +3,8 @@
   background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
   padding: 20px;
   padding-top: 80px;
+  max-width: 100%;
+  width: 100%;
 }
 
 /* Loading State */
@@ -83,6 +85,16 @@
   background: rgba(255, 255, 255, 0.08);
   border-color: #ff6b35;
   transform: translateY(-5px);
+}
+
+.stat-card.personal {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 140, 66, 0.1) 100%);
+  border-color: rgba(255, 107, 53, 0.3);
+}
+
+.stat-card.personal:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.15) 0%, rgba(255, 140, 66, 0.15) 100%);
+  border-color: #ff6b35;
 }
 
 .stat-icon {
@@ -175,8 +187,10 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px;
-  padding: 30px;
+  padding: 20px;
   overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Error & No Data Messages */
@@ -222,12 +236,14 @@
 /* Leaderboard Table */
 .leaderboard-table-wrapper {
   overflow-x: auto;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 .leaderboard-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 1200px;
 }
 
 .leaderboard-table thead {

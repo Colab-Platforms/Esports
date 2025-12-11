@@ -20,6 +20,8 @@ const NotificationPanel = () => {
   const notifications = useSelector(selectNotifications);
   const unreadCount = useSelector(selectUnreadCount);
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
 
   // Fetch notifications on mount and every 30 seconds
   useEffect(() => {
@@ -109,6 +111,20 @@ const NotificationPanel = () => {
     setIsOpen(false);
   };
 
+  // Filter and search notifications
+  const filteredNotifications = notifications.filter(notification => {
+    const matchesSearch = searchQuery === '' || 
+      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = filterType === 'all' || 
+      (filterType === 'unread' && !notification.isRead) ||
+      (filterType === 'read' && notification.isRead) ||
+      notification.type === filterType;
+    
+    return matchesSearch && matchesFilter;
+  });
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'friend_request': return '👥';
@@ -164,7 +180,7 @@ const NotificationPanel = () => {
               initial={{ opacity: 0, y: -10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 w-80 bg-gaming-card border border-gaming-border rounded-lg shadow-xl z-50 max-h-96 overflow-hidden"
+              className="absolute right-0 top-full mt-2 w-96 bg-gaming-card border border-gaming-border rounded-lg shadow-xl z-50 max-h-[500px] overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gaming-border">
@@ -208,9 +224,41 @@ const NotificationPanel = () => {
                 </div>
               </div>
 
+              {/* Search and Filters */}
+              <div className="p-3 border-b border-gaming-border bg-gaming-dark/30">
+                {/* Search Bar */}
+                <div className="relative mb-3">
+                  <input
+                    type="text"
+                    placeholder="Search notifications..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent"
+                  />
+                  <FiBell className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex flex-wrap gap-1">
+                  {['all', 'unread', 'tournament', 'match', 'system'].map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setFilterType(filter)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${
+                        filterType === filter
+                          ? 'bg-gaming-neon text-black font-medium'
+                          : 'text-gray-400 hover:text-white bg-gaming-dark'
+                      }`}
+                    >
+                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Notifications List */}
-              <div className="max-h-80 overflow-y-auto">
-                {notifications.length === 0 ? (
+              <div className="max-h-64 overflow-y-auto">
+                {filteredNotifications.length === 0 ? (
                   <div className="p-8 text-center">
                     <FiBell className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-400">No notifications yet</p>
@@ -220,7 +268,7 @@ const NotificationPanel = () => {
                   </div>
                 ) : (
                   <div className="divide-y divide-gaming-border">
-                    {notifications.map((notification) => (
+                    {filteredNotifications.map((notification) => (
                       <div
                         key={notification._id}
                         className={`p-4 hover:bg-gaming-dark/50 transition-colors cursor-pointer ${

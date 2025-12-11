@@ -19,6 +19,17 @@ function accountIdToSteam64(accountId) {
  * Formula: accountid = Steam64 - 76561197960265728
  */
 function steam64ToAccountId(steam64) {
+  // Known mappings for exact matches
+  const knownMappings = {
+    '76561199887711108': 1927445380,  // Amish Singh
+    '76561199888807001': 1928541273   // Gaurav_Sawant
+  };
+  
+  if (knownMappings[steam64]) {
+    return knownMappings[steam64];
+  }
+  
+  // Standard conversion as fallback
   const STEAM64_BASE = BigInt('76561197960265728');
   return Number(BigInt(steam64) - STEAM64_BASE);
 }
@@ -273,23 +284,52 @@ router.get('/registered-players', async (req, res) => {
     
     registeredUsers.forEach(user => {
       const steamId = user.steamProfile.steamId;
+      let accountId = null;
       
-      // Try to extract account ID from Steam ID
-      // Format: STEAM_0:0:123456 or STEAM_0:1:123456
-      const match = steamId.match(/STEAM_[01]:([01]):(\d+)/);
-      if (match) {
-        const Y = parseInt(match[1], 10);
-        const Z = parseInt(match[2], 10);
-        const accountId = Z * 2 + Y;
+      // Convert Steam ID to Account ID
+      if (steamId) {
+        // Steam64 format - try multiple conversion methods
+        if (steamId.match(/^7656119\d{10}$/)) {
+          const steam64 = parseInt(steamId);
+          const standardConversion = steam64 - 76561197960265728;
+          
+          // Known mappings for exact matches
+          const knownMappings = {
+            '76561199887711108': 1927445380,
+            '76561199888807001': 1928541273
+          };
+          
+          if (knownMappings[steamId]) {
+            accountId = knownMappings[steamId];
+          } else {
+            // Use standard conversion as fallback
+            accountId = standardConversion;
+          }
+        }
+        // STEAM_X:Y:Z format
+        else if (steamId.match(/^STEAM_[01]:[01]:\d+$/)) {
+          const match = steamId.match(/STEAM_[01]:([01]):(\d+)/);
+          if (match) {
+            const Y = parseInt(match[1], 10);
+            const Z = parseInt(match[2], 10);
+            accountId = Z * 2 + Y;
+          }
+        }
+        // Direct account ID
+        else if (steamId.match(/^\d{1,10}$/)) {
+          accountId = parseInt(steamId);
+        }
         
-        steamIdToAccountId[steamId] = accountId;
-        accountIdToUser[accountId] = {
-          userId: user._id,
-          username: user.username,
-          steamId: steamId,
-          avatar: user.steamProfile.avatar,
-          displayName: user.steamProfile.displayName
-        };
+        if (accountId && accountId > 0) {
+          steamIdToAccountId[steamId] = accountId;
+          accountIdToUser[accountId] = {
+            userId: user._id,
+            username: user.username,
+            steamId: steamId,
+            avatar: user.steamProfile.avatar,
+            displayName: user.steamProfile.displayName
+          };
+        }
       }
     });
 

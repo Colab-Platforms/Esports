@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,9 +8,7 @@ import {
   fetchTournaments, 
   selectTournaments, 
   selectTournamentLoading, 
-  selectTournamentError,
-  setFilters,
-  selectTournamentFilters
+  selectTournamentError
 } from '../../store/slices/tournamentSlice';
 
 const TournamentsPage = () => {
@@ -18,12 +16,12 @@ const TournamentsPage = () => {
   const tournaments = useSelector(selectTournaments);
   const loading = useSelector(selectTournamentLoading);
   const error = useSelector(selectTournamentError);
-  const filters = useSelector(selectTournamentFilters);
   
   const [currentBanner, setCurrentBanner] = useState(0);
   const [activeStatusTab, setActiveStatusTab] = useState('upcoming');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [siteImages, setSiteImages] = useState({});
 
   // Fetch site images for banners (uses cached data if available)
@@ -94,14 +92,7 @@ const TournamentsPage = () => {
     console.log('Error:', error);
   }, [tournaments, loading, error]);
 
-  // Handle filter changes
-  const handleStatusTabChange = (status) => {
-    setActiveStatusTab(status);
-  };
-
-  const handleCategoryTabChange = (category) => {
-    setActiveCategoryTab(category);
-  };
+  // Handle filter changes - functions integrated directly in onClick handlers
 
   // Get game icon based on game type
   const getGameIcon = (gameType) => {
@@ -345,57 +336,130 @@ const TournamentsPage = () => {
           </div>
 
           {/* Filters Button */}
-          <button className="flex items-center space-x-2 px-6 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white hover:border-gaming-gold transition-colors duration-200">
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center space-x-2 px-6 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white hover:border-gaming-gold transition-colors duration-200 ${showFilters ? 'border-gaming-gold bg-gaming-gold/10' : ''}`}
+          >
             <FiFilter className="h-4 w-4" />
             <span>Filters</span>
           </button>
         </div>
 
-        {/* Date Filter */}
-        <div className="mb-6">
-          <select className="px-4 py-2 bg-gaming-card border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold">
-            <option>CLOSEST START DATE</option>
-            <option>LATEST START DATE</option>
-            <option>HIGHEST PRIZE POOL</option>
-            <option>LOWEST ENTRY FEE</option>
-          </select>
-        </div>
+        {/* Advanced Filters Modal */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-6 p-6 bg-gaming-card border border-gaming-border rounded-lg"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-gaming font-bold text-white">Advanced Filters</h3>
+                <button 
+                  onClick={() => setShowFilters(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
+                  <select className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming">
+                    <option>CLOSEST START DATE</option>
+                    <option>LATEST START DATE</option>
+                    <option>HIGHEST PRIZE POOL</option>
+                    <option>LOWEST ENTRY FEE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Game Type</label>
+                  <select 
+                    value={activeCategoryTab}
+                    onChange={(e) => setActiveCategoryTab(e.target.value)}
+                    className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming"
+                  >
+                    <option value="all">All Games</option>
+                    <option value="bgmi">BGMI</option>
+                    <option value="cs2">CS2</option>
+                    <option value="valorant">Valorant</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Entry Fee</label>
+                  <select className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming">
+                    <option>Any Amount</option>
+                    <option>Free</option>
+                    <option>₹1 - ₹50</option>
+                    <option>₹51 - ₹200</option>
+                    <option>₹200+</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-4 space-x-3">
+                <button 
+                  onClick={() => {
+                    setActiveCategoryTab('all');
+                    setActiveStatusTab('all');
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors font-gaming"
+                >
+                  Clear All
+                </button>
+                <button 
+                  onClick={() => setShowFilters(false)}
+                  className="px-4 py-2 bg-gaming-gold text-black rounded-lg hover:bg-gaming-accent transition-colors font-gaming font-bold"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Tournament Status Tabs */}
         <div className="mb-8">
-          <div className="flex space-x-8 border-b border-gaming-border">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveStatusTab(tab.id)}
-                className={`pb-4 px-2 font-semibold transition-colors duration-200 ${
-                  activeStatusTab === tab.id
-                    ? 'text-gaming-gold border-b-2 border-gaming-gold'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <div className="flex space-x-8 border-b border-gaming-border min-w-max">
+              {statusTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveStatusTab(tab.id)}
+                  className={`pb-4 px-2 font-semibold transition-colors duration-200 whitespace-nowrap ${
+                    activeStatusTab === tab.id
+                      ? 'text-gaming-gold border-b-2 border-gaming-gold'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Tournament Categories */}
         <div className="mb-8">
-          <div className="flex flex-wrap gap-4">
-            {categoryTabs.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveCategoryTab(category.id)}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 ${
-                  activeCategoryTab === category.id
-                    ? 'bg-gaming-gold text-black'
-                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border'
-                }`}
-              >
-                {category.label}
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <div className="flex gap-4 min-w-max pb-2">
+              {categoryTabs.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveCategoryTab(category.id)}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 whitespace-nowrap ${
+                    activeCategoryTab === category.id
+                      ? 'bg-gaming-gold text-black'
+                      : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border'
+                  }`}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
