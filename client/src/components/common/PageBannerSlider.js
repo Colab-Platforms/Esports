@@ -24,6 +24,7 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
       const pageSlides = [];
       
       // Get slides for this page (e.g., bgmi-slide-1, bgmi-slide-2, etc.)
+      // Only add slides that have actual images uploaded
       for (let i = 1; i <= 5; i++) {
         const slideKey = `${pageKey}-slide-${i}`;
         const slideImage = images[slideKey];
@@ -35,16 +36,19 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
             responsiveUrls: slideImage.responsiveUrls,
             imageKey: slideKey
           });
-        } else {
-          // Add placeholder slide if image not found
-          pageSlides.push({
-            id: `${slideKey}-placeholder`,
-            image: null,
-            responsiveUrls: null,
-            imageKey: slideKey,
-            isPlaceholder: true
-          });
         }
+        // No placeholder slides - only show actual uploaded images
+      }
+      
+      // If no slides found, add one placeholder for admin guidance
+      if (pageSlides.length === 0) {
+        pageSlides.push({
+          id: `${pageKey}-no-slides`,
+          image: null,
+          responsiveUrls: null,
+          imageKey: `${pageKey}-slide-1`,
+          isPlaceholder: true
+        });
       }
       
       setSlides(pageSlides);

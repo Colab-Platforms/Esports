@@ -242,11 +242,28 @@ const TournamentDetailsPage = () => {
                   </div>
 
                   <div className="mt-6 flex space-x-2">
-                    <button className="flex-1 btn-gaming py-2 text-sm">
-                      JOIN NOW
+                    <button 
+                      onClick={() => {
+                        // Navigate to specific tournament detail page based on game type
+                        if (gameType === 'bgmi') {
+                          window.location.href = `/tournaments/${tournament.id}`;
+                        } else {
+                          // For other games, show old modal or redirect to login
+                          alert('Registration coming soon for this game type!');
+                        }
+                      }}
+                      className="flex-1 btn-gaming py-2 text-sm"
+                    >
+                      REGISTER NOW
                     </button>
-                    <button className="px-4 py-2 border border-gaming-border text-gray-300 rounded-lg hover:border-gaming-gold hover:text-gaming-gold transition-colors duration-200 text-sm">
-                      VIEW
+                    <button 
+                      onClick={() => {
+                        // Navigate to tournament detail page
+                        window.location.href = `/tournaments/${tournament.id}`;
+                      }}
+                      className="px-4 py-2 border border-gaming-border text-gray-300 rounded-lg hover:border-gaming-gold hover:text-gaming-gold transition-colors duration-200 text-sm"
+                    >
+                      VIEW DETAILS
                     </button>
                   </div>
                 </motion.div>

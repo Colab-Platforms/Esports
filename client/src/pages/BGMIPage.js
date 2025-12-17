@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PageBannerSlider from '../components/common/PageBannerSlider';
+import BGMIRegistrationForm from '../components/bgmi/BGMIRegistrationForm';
+import { selectUser } from '../store/slices/authSlice';
 import {
   fetchTournaments,
   selectTournaments,
@@ -15,6 +17,7 @@ import {
 const BGMIPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const user = useSelector(selectUser);
   const tournaments = useSelector(selectTournaments);
   const loading = useSelector(selectTournamentLoading);
   const error = useSelector(selectTournamentError);
@@ -28,12 +31,14 @@ const BGMIPage = () => {
     mode: ''
   });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [selectedTournament, setSelectedTournament] = useState(null);
 
   // Debounce filters to avoid too many API calls
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedFilters(filters);
-    }, 500); // 500ms delay
+    }, 1500); // 1.5 second delay - enough time to type complete values
 
     return () => clearTimeout(timer);
   }, [filters]);
@@ -122,6 +127,33 @@ const BGMIPage = () => {
       default:
         return '🎮';
     }
+  };
+
+  const handleRegisterClick = (tournament) => {
+    if (!user) {
+      // Redirect to login if not authenticated
+      navigate('/login');
+      return;
+    }
+    
+    setSelectedTournament(tournament);
+    setShowRegistrationForm(true);
+  };
+
+  const handleRegistrationSuccess = (registration) => {
+    setShowRegistrationForm(false);
+    setSelectedTournament(null);
+    
+    // Show success message - no need to redirect since images are sent via WhatsApp
+    console.log('✅ Registration successful:', registration);
+    
+    // Optional: Show a success notification or stay on the same page
+    // Users will receive WhatsApp message with instructions to send images
+  };
+
+  const handleCloseRegistrationForm = () => {
+    setShowRegistrationForm(false);
+    setSelectedTournament(null);
   };
 
   // Safety check for tournaments data
@@ -279,9 +311,19 @@ const BGMIPage = () => {
                 getModeIcon={getModeIcon}
                 getStatusColor={getStatusColor}
                 formatDate={formatDate}
+                onRegisterClick={handleRegisterClick}
               />
             ))}
           </div>
+        )}
+
+        {/* Registration Form Modal */}
+        {showRegistrationForm && selectedTournament && (
+          <BGMIRegistrationForm
+            tournament={selectedTournament}
+            onClose={handleCloseRegistrationForm}
+            onSuccess={handleRegistrationSuccess}
+          />
         )}
 
         {/* Pagination */}
@@ -359,7 +401,7 @@ const BGMIPage = () => {
 };
 
 // Memoized Tournament Card Component
-const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatusColor, formatDate }) => {
+const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatusColor, formatDate, onRegisterClick }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -441,7 +483,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
         </button>
         {tournament.status === 'registration_open' && (
           <button
-            onClick={() => navigate(`/tournaments/${tournament._id}`)}
+            onClick={() => onRegisterClick(tournament)}
             className="flex-1 btn-gaming text-sm"
           >
             Register Now

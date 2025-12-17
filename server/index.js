@@ -189,6 +189,9 @@ app.use('/api/cs2-leaderboard', require('./routes/cs2Leaderboard'));
 app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
+app.use('/api/bgmi-registration', require('./routes/bgmiRegistration'));
+app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
+app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
 
 // Upload route with Cloudinary (required)

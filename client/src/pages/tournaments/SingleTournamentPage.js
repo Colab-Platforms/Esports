@@ -17,6 +17,7 @@ import {
 import { selectAuth } from '../../store/slices/authSlice';
 import TournamentRegistration from '../../components/tournaments/TournamentRegistration';
 import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
+import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
 import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
@@ -538,6 +539,8 @@ const SingleTournamentPage = () => {
       </div>
     );
   }
+
+  // Keep the original page, just change the registration modal for BGMI
 
   const tabs = [
     { id: 'general', label: 'GENERAL', icon: FiInfo },
@@ -1427,11 +1430,19 @@ const SingleTournamentPage = () => {
 
       {/* Registration Modal */}
       {showRegistration && tournament && (
-        <TournamentRegistration
-          tournament={tournament}
-          onClose={() => setShowRegistration(false)}
-          onSuccess={handleRegistrationSuccess}
-        />
+        tournament.gameType === 'bgmi' ? (
+          <BGMIRegistrationForm
+            tournament={tournament}
+            onClose={() => setShowRegistration(false)}
+            onSuccess={handleRegistrationSuccess}
+          />
+        ) : (
+          <TournamentRegistration
+            tournament={tournament}
+            onClose={() => setShowRegistration(false)}
+            onSuccess={handleRegistrationSuccess}
+          />
+        )
       )}
     </div>
   );

@@ -33,11 +33,13 @@ import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
+import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
+import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
-// import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
+import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
@@ -266,6 +268,23 @@ function App() {
               } 
             />
             
+            {/* BGMI Image Upload Route */}
+            <Route 
+              path="/bgmi/registration/:registrationId/upload-images" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <BGMIImageUpload />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+
             {/* CS2 Route */}
             <Route 
               path="/cs2" 
@@ -556,6 +575,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <ImageUploadPage />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/bgmi-registrations" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AdminBGMIRegistrations />
                   </motion.div>
                 </AdminRoute>
               } 

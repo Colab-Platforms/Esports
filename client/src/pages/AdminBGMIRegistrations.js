@@ -1,0 +1,1536 @@
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { useSelector } from 'react-redux';
+import { selectUser } from '../store/slices/authSlice';
+import api from '../services/api';
+
+const AdminBGMIRegistrations = () => {
+  const user = useSelector(selectUser);
+  const [registrations, setRegistrations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [selectedRegistration, setSelectedRegistration] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  
+  // Filters
+  const [filters, setFilters] = useState({
+    status: 'all',
+    tournamentId: '',
+    teamName: '',
+    playerName: ''
+  });
+
+  const [tournaments, setTournaments] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    imagesUploaded: 0,
+    verified: 0,
+    rejected: 0,
+    notVerified: 0
+  });
+
+  // Pagination & Caching
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  });
+  const [cache, setCache] = useState(new Map());
+  const [lastFetch, setLastFetch] = useState(null);
+
+
+  useEffect(() => {
+    fetchTournaments();
+    fetchRegistrations(1, false); // Start from page 1, no cache on initial load
+  }, []);
+
+  useEffect(() => {
+    fetchRegistrations(1, false); // Reset to page 1 when filters change, no cache
+  }, [filters]);
+
+
+
+  const fetchTournaments = async () => {
+    try {
+      console.log('🔄 Fetching tournaments...');
+      const response = await api.get('/api/tournaments');
+      console.log('📋 Tournaments API response:', response.data);
+      
+      if (response.data.success) {
+        const bgmiTournaments = response.data.data.tournaments.filter(t => t.gameType === 'BGMI');
+        console.log('🎮 BGMI tournaments found:', bgmiTournaments);
+        setTournaments(bgmiTournaments);
+      } else {
+        console.error('❌ Tournaments API failed:', response.data);
+        // Try alternative response format
+        if (response.data.tournaments) {
+          const bgmiTournaments = response.data.tournaments.filter(t => t.gameType === 'BGMI');
+          console.log('🎮 BGMI tournaments (alternative format):', bgmiTournaments);
+          setTournaments(bgmiTournaments);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Fetch tournaments error:', error);
+    }
+  };
+
+  const fetchRegistrations = async (page = 1, useCache = true) => {
+    try {
+      setLoading(true);
+      
+      // Check cache first (30 second cache)
+      const cacheKey = `${page}-${JSON.stringify(filters)}`;
+      const now = Date.now();
+      if (useCache && cache.has(cacheKey) && lastFetch && (now - lastFetch) < 30000) {
+        const cachedData = cache.get(cacheKey);
+        setRegistrations(cachedData.registrations);
+        setStats(cachedData.stats);
+        setPagination(cachedData.pagination);
+        setLoading(false);
+        return;
+      }
+      
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', page.toString());
+      queryParams.append('limit', pagination.limit.toString());
+      
+      if (filters.status !== 'all') {
+        queryParams.append('status', filters.status);
+      }
+      if (filters.tournamentId) {
+        queryParams.append('tournamentId', filters.tournamentId);
+      }
+      if (filters.teamName) {
+        queryParams.append('teamName', filters.teamName);
+      }
+      if (filters.playerName) {
+        queryParams.append('playerName', filters.playerName);
+      }
+
+      const response = await api.get(`/api/bgmi-registration/admin/registrations?${queryParams}`);
+      
+      console.log('✅ Admin API Response:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Admin API Success - Setting data');
+        const data = {
+          registrations: response.data.data?.registrations || [],
+          stats: response.data.data?.stats || {
+            total: 0,
+            pending: 0,
+            imagesUploaded: 0,
+            verified: 0,
+            rejected: 0
+          },
+          pagination: response.data.data?.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            pages: 0
+          }
+        };
+        
+        setRegistrations(data.registrations);
+        setStats(data.stats);
+        setPagination(data.pagination);
+        
+        // Cache the data
+        setCache(prev => new Map(prev.set(cacheKey, data)));
+        setLastFetch(now);
+        
+        setError(''); // Clear any previous errors
+      } else if (response.data.registrations) {
+        // Handle direct response format
+        console.log('✅ Direct format - Setting data');
+        const data = {
+          registrations: response.data.registrations || [],
+          stats: response.data.stats || {
+            total: 0,
+            pending: 0,
+            imagesUploaded: 0,
+            verified: 0,
+            rejected: 0
+          },
+          pagination: response.data.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            pages: 0
+          }
+        };
+        
+        setRegistrations(data.registrations);
+        setStats(data.stats);
+        setPagination(data.pagination);
+        
+        // Cache the data
+        setCache(prev => new Map(prev.set(cacheKey, data)));
+        setLastFetch(now);
+        
+        setError(''); // Clear any previous errors
+      } else {
+        console.error('❌ Admin API Failed:', response.data);
+        setError('Failed to fetch registrations');
+      }
+    } catch (error) {
+      console.error('❌ Fetch registrations error:', error);
+      setError(error.response?.data?.error?.message || 'Failed to fetch registrations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (registrationId, newStatus, rejectionReason = null) => {
+    try {
+      setError('');
+      setSuccess('');
+
+      const payload = { status: newStatus };
+      if (rejectionReason && rejectionReason.trim().length >= 5) {
+        payload.rejectionReason = rejectionReason.trim();
+      }
+
+      console.log('🔄 Updating registration status:', { registrationId, newStatus, rejectionReason });
+      console.log('📤 Payload being sent:', payload);
+      const response = await api.put(`/api/bgmi-registration/admin/${registrationId}/status`, payload);
+      
+      console.log('📥 API Response (direct JSON):', response);
+      console.log('📥 Response success field:', response.success);
+      console.log('📥 Response type:', typeof response);
+      
+      // Fix: API service returns JSON directly, not axios response object
+      // Check for success field in the JSON response
+      const isSuccess = (response && response.success === true);
+      
+      console.log('✅ Success check result:', isSuccess);
+      
+      if (isSuccess) {
+        // Extract registration data from JSON response
+        // API returns: {success: true, data: {registration: {...}}}
+        const updatedRegistration = response.data?.registration || response;
+        const actualStatus = updatedRegistration?.status || newStatus;
+        
+        console.log('📋 Extracted registration:', updatedRegistration);
+        console.log('📋 Actual status:', actualStatus);
+        
+        const statusMessages = {
+          verified: '✅ Registration approved! WhatsApp verification message sent to user.',
+          rejected: '❌ Registration rejected! WhatsApp notification sent to user.',
+          pending: '⏳ Registration status updated to pending.',
+          images_uploaded: '📸 Registration status updated to images uploaded.',
+          not_verified: '❌ Registration marked as not verified.'
+        };
+        
+        setSuccess(statusMessages[actualStatus] || `Registration ${actualStatus} successfully!`);
+        console.log('✅ Status update successful, updating UI immediately...');
+        
+        // Update local state immediately for instant UI feedback
+        const oldStatus = registrations.find(r => r._id === registrationId)?.status;
+        
+        setRegistrations(prevRegistrations => 
+          prevRegistrations.map(reg => 
+            reg._id === registrationId 
+              ? { 
+                  ...reg, 
+                  status: actualStatus,
+                  verificationDate: updatedRegistration?.verificationDate || new Date().toISOString(),
+                  verifiedBy: updatedRegistration?.verifiedBy || { username: 'Admin' },
+                  ...(actualStatus === 'rejected' && rejectionReason ? { rejectionReason } : {})
+                }
+              : reg
+          )
+        );
+        
+        // Update stats immediately
+        if (oldStatus && oldStatus !== actualStatus) {
+          setStats(prevStats => {
+            const newStats = { ...prevStats };
+            
+            // Decrease old status count
+            if (oldStatus === 'pending') newStats.pending = Math.max(0, newStats.pending - 1);
+            else if (oldStatus === 'images_uploaded') newStats.imagesUploaded = Math.max(0, newStats.imagesUploaded - 1);
+            else if (oldStatus === 'verified') newStats.verified = Math.max(0, newStats.verified - 1);
+            else if (oldStatus === 'rejected') newStats.rejected = Math.max(0, newStats.rejected - 1);
+            else if (oldStatus === 'not_verified') newStats.notVerified = Math.max(0, newStats.notVerified - 1);
+            
+            // Increase new status count
+            if (actualStatus === 'pending') newStats.pending = (newStats.pending || 0) + 1;
+            else if (actualStatus === 'images_uploaded') newStats.imagesUploaded = (newStats.imagesUploaded || 0) + 1;
+            else if (actualStatus === 'verified') newStats.verified = (newStats.verified || 0) + 1;
+            else if (actualStatus === 'rejected') newStats.rejected = (newStats.rejected || 0) + 1;
+            else if (actualStatus === 'not_verified') newStats.notVerified = (newStats.notVerified || 0) + 1;
+            
+            return newStats;
+          });
+        }
+        
+        // Update selected registration if modal is open
+        if (selectedRegistration && selectedRegistration._id === registrationId) {
+          const updatedReg = { 
+            ...selectedRegistration, 
+            status: actualStatus,
+            verificationDate: updatedRegistration?.verificationDate || new Date().toISOString(),
+            verifiedBy: updatedRegistration?.verifiedBy || { username: 'Admin' }
+          };
+          if (actualStatus === 'rejected' && rejectionReason) {
+            updatedReg.rejectionReason = rejectionReason;
+          }
+          console.log('🔄 Updating selected registration in modal:', updatedReg);
+          setSelectedRegistration(updatedReg);
+        }
+        
+        // Clear cache and refresh data in background
+        setCache(new Map()); // Clear all cache
+        setLastFetch(null); // Reset last fetch time
+        
+        // Force refresh data to ensure consistency
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Force refreshing data after status update...');
+            await fetchRegistrations(pagination.page, false);
+            console.log('✅ Data refreshed successfully');
+          } catch (refreshError) {
+            console.error('❌ Force refresh failed:', refreshError);
+          }
+        }, 1000); // 1 second delay to allow server to process
+        
+        // Don't close modal immediately - let user see the updated status
+        // setSelectedRegistration(null);
+        // setShowImageModal(false);
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess('');
+        }, 3000);
+      } else {
+        console.error('❌ Status update failed - Response:', JSON.stringify(response, null, 2));
+        
+        // Handle actual error responses
+        let errorMessage = 'Failed to update registration status. Please try again.';
+        
+        try {
+          if (typeof response === 'string') {
+            errorMessage = response;
+          } else if (response?.message && typeof response.message === 'string') {
+            errorMessage = response.message;
+          } else if (response?.error?.message && typeof response.error.message === 'string') {
+            errorMessage = response.error.message;
+          } else if (response?.error && typeof response.error === 'string') {
+            errorMessage = response.error;
+          }
+        } catch (parseError) {
+          console.error('❌ Error parsing response:', parseError);
+          errorMessage = 'Failed to update registration status. Please try again.';
+        }
+        
+        setError(errorMessage);
+        throw new Error(errorMessage); // Throw error so calling functions know it failed
+      }
+    } catch (error) {
+      console.error('❌ Status update error:', error);
+      console.error('❌ Error response data:', error.response?.data);
+      
+      let errorMessage = 'Failed to update registration status. Please try again.';
+      
+      // Handle different error response formats and prevent object display
+      try {
+        if (error.response?.data) {
+          const errorData = error.response.data;
+          
+          if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          } else if (errorData.message && typeof errorData.message === 'string') {
+            errorMessage = errorData.message;
+          } else if (errorData.error?.message && typeof errorData.error.message === 'string') {
+            errorMessage = errorData.error.message;
+          } else if (errorData.error && typeof errorData.error === 'string') {
+            errorMessage = errorData.error;
+          } else if (error.response.status === 400) {
+            errorMessage = 'Invalid request data';
+          } else if (error.response.status === 403) {
+            errorMessage = 'You do not have permission to perform this action';
+          } else if (error.response.status === 404) {
+            errorMessage = 'Registration not found';
+          } else if (error.response.status === 500) {
+            errorMessage = 'Server error occurred. Please try again.';
+          }
+        } else if (error.message && typeof error.message === 'string') {
+          errorMessage = error.message;
+        } else {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+      } catch (parseError) {
+        console.error('❌ Error parsing error response:', parseError);
+        errorMessage = 'Failed to update registration status. Please try again.';
+      }
+      
+      setError(errorMessage);
+      throw new Error(errorMessage); // Throw error so calling functions know it failed
+    }
+  };
+
+  const handleViewImages = (registration) => {
+    try {
+      console.log('🔍 Viewing registration details:', registration._id);
+      console.log('📸 Registration data:', registration);
+      console.log('📸 verificationImages field:', registration.verificationImages);
+      
+      // Clear any previous errors
+      setError('');
+      
+      // Images are already in registration.verificationImages
+      const images = registration.verificationImages || [];
+      console.log('📸 Found images:', images.length);
+      
+      // Always open modal, even if no images
+      setSelectedRegistration({
+        ...registration,
+        images: images // Use verificationImages from registration
+      });
+      setShowImageModal(true);
+      console.log('✅ Modal opening with', images.length, 'images');
+      
+    } catch (error) {
+      console.error('❌ View registration error:', error);
+      setError('Failed to open registration details');
+    }
+  };
+
+  // Direct approve function (for table buttons) - now works for all statuses
+  const handleDirectApprove = async (registration) => {
+    const statusText = registration.status === 'verified' ? 're-verify' : 'verify';
+    const confirmed = window.confirm(`${statusText.charAt(0).toUpperCase() + statusText.slice(1)} registration for team "${registration.teamName}"?\n\nThis will send a WhatsApp verification message to the team.`);
+    if (confirmed) {
+      try {
+        console.log(`🔄 Direct ${statusText} - updating status...`);
+        await handleStatusUpdate(registration._id, 'verified');
+        console.log(`✅ Direct ${statusText} completed`);
+      } catch (error) {
+        console.error(`❌ Direct ${statusText} failed:`, error);
+        setError(`Failed to ${statusText} registration. Please try again.`);
+      }
+    }
+  };
+
+  // Direct reject function (for table buttons)
+  const handleDirectReject = async (registration) => {
+    const reason = window.prompt(`Enter rejection reason for team "${registration.teamName}":\n\nThis will send a WhatsApp notification to the team.`);
+    if (reason && reason.trim()) {
+      console.log('🔄 Direct reject - updating status...');
+      await handleStatusUpdate(registration._id, 'rejected', reason.trim());
+      console.log('✅ Direct reject completed');
+    }
+  };
+
+  // Set registration to pending (for incomplete images or follow-up needed)
+  const handleSetPending = async (registration) => {
+    const reason = window.prompt(`Set "${registration.teamName}" to pending status?\n\nEnter reason (optional):`);
+    if (reason !== null) { // User didn't cancel
+      try {
+        console.log('🔄 Setting registration to pending...');
+        const pendingReason = reason.trim() || 'Set to pending status by admin';
+        console.log('📝 Pending reason:', pendingReason, 'Length:', pendingReason.length);
+        await handleStatusUpdate(registration._id, 'pending', pendingReason);
+        console.log('✅ Set to pending completed');
+      } catch (error) {
+        console.error('❌ Set pending failed:', error);
+        setError('Failed to set registration to pending. Please try again.');
+      }
+    }
+  };
+
+  // Mark registration as not verified (for wrong information or fake registrations)
+  const handleNotVerified = async (registration) => {
+    const reason = window.prompt(`Mark "${registration.teamName}" as NOT VERIFIED?\n\nEnter reason for not verifying:`);
+    if (reason && reason.trim()) {
+      try {
+        console.log('🔄 Marking registration as not verified...');
+        await handleStatusUpdate(registration._id, 'rejected', `Not Verified: ${reason.trim()}`);
+        console.log('✅ Not verified completed');
+      } catch (error) {
+        console.error('❌ Not verified failed:', error);
+        setError('Failed to mark registration as not verified. Please try again.');
+      }
+    }
+  };
+
+  const handleEditRegistration = (registration) => {
+    // Open edit modal with registration data
+    setSelectedRegistration(registration);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteRegistration = async (registration) => {
+    console.log('🗑️ Attempting to delete registration:', registration._id);
+    
+    if (!window.confirm(`Are you sure you want to delete team "${registration.teamName}"? This action cannot be undone.`)) {
+      console.log('❌ Delete cancelled by user');
+      return;
+    }
+
+    try {
+      setError('');
+      setSuccess('');
+
+      console.log('🔄 Sending delete request...');
+      const response = await api.delete(`/api/bgmi-registration/admin/${registration._id}`);
+      
+      console.log('📤 Delete API response:', response);
+      
+      // Check if response has data property (axios format) or is direct response
+      const responseData = response.data || response;
+      
+      if (responseData && responseData.success) {
+        setSuccess(`Team "${registration.teamName}" deleted successfully!`);
+        console.log('✅ Delete successful, refreshing data...');
+        
+        // Clear cache and refresh data immediately
+        setCache(new Map()); // Clear all cache
+        setLastFetch(null); // Reset last fetch time
+        await fetchRegistrations(pagination.page, false); // Force refresh without cache
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setSuccess('');
+        }, 3000);
+      } else {
+        console.error('❌ Delete API failed:', responseData);
+        setError(responseData?.message || 'Failed to delete registration');
+      }
+    } catch (error) {
+      console.error('❌ Delete registration error:', error);
+      setError(error.response?.data?.error?.message || 'Failed to delete registration');
+    }
+  };
+
+  const getStatusBadge = (registration) => {
+    // Determine actual status based on rejection reason
+    let actualStatus = registration.status;
+    if (registration.status === 'rejected' && registration.rejectionReason?.startsWith('Not Verified')) {
+      actualStatus = 'not_verified';
+    }
+    
+    const badges = {
+      pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      images_uploaded: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      verified: 'bg-green-500/20 text-green-400 border-green-500/30',
+      rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
+      not_verified: 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+    };
+    
+    const labels = {
+      pending: 'Pending',
+      images_uploaded: 'Images Uploaded',
+      verified: 'Verified',
+      rejected: 'Rejected',
+      not_verified: 'Not Verified'
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${badges[actualStatus]}`}>
+        {labels[actualStatus]}
+      </span>
+    );
+  };
+
+  if (loading && registrations.length === 0) {
+    return (
+      <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading registrations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gaming-dark">
+      <div className="w-full max-w-none mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
+        {/* Header */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">BGMI Tournament Registrations</h1>
+              <p className="text-gray-400 text-sm md:text-base">Manage and verify tournament registrations</p>
+            </div>
+            <div>
+              {/* Simple refresh button */}
+              <button
+                onClick={() => {
+                  setCache(new Map());
+                  setLastFetch(null);
+                  fetchRegistrations(pagination.page, false);
+                }}
+                className="px-3 md:px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors flex items-center space-x-2 text-sm md:text-base"
+                disabled={loading}
+              >
+                <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Messages */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <span className="text-red-400">⚠️</span>
+              <span className="text-red-400 font-medium">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-2">
+              <span className="text-green-400">✅</span>
+              <span className="text-green-400 font-medium">{success}</span>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-white">{stats.total}</div>
+            <div className="text-xs md:text-sm text-gray-400">Total</div>
+          </div>
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-yellow-400">{stats.pending}</div>
+            <div className="text-xs md:text-sm text-gray-400">Pending</div>
+          </div>
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-blue-400">{stats.imagesUploaded}</div>
+            <div className="text-xs md:text-sm text-gray-400">Images</div>
+          </div>
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-green-400">{stats.verified}</div>
+            <div className="text-xs md:text-sm text-gray-400">Verified</div>
+          </div>
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-red-400">{stats.rejected}</div>
+            <div className="text-xs md:text-sm text-gray-400">Rejected</div>
+          </div>
+          <div className="card-gaming p-3 md:p-4 text-center">
+            <div className="text-xl md:text-2xl font-bold text-orange-400">{stats.notVerified || 0}</div>
+            <div className="text-xs md:text-sm text-gray-400">Not Verified</div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="card-gaming p-4 md:p-6 mb-6">
+          <h3 className="text-lg font-bold text-white mb-4">Filters</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="images_uploaded">Images Uploaded</option>
+                <option value="verified">Verified</option>
+                <option value="rejected">Rejected</option>
+                <option value="not_verified">Not Verified</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Tournament</label>
+              <select
+                value={filters.tournamentId}
+                onChange={(e) => setFilters(prev => ({ ...prev, tournamentId: e.target.value }))}
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              >
+                <option value="">All Tournaments</option>
+                {tournaments.map(tournament => (
+                  <option key={tournament._id} value={tournament._id}>
+                    {tournament.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Team Name</label>
+              <input
+                type="text"
+                value={filters.teamName}
+                onChange={(e) => setFilters(prev => ({ ...prev, teamName: e.target.value }))}
+                placeholder="Search team name..."
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Player Name</label>
+              <input
+                type="text"
+                value={filters.playerName}
+                onChange={(e) => setFilters(prev => ({ ...prev, playerName: e.target.value }))}
+                placeholder="Search player name..."
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Registrations Table */}
+        <div className="card-gaming overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] md:min-w-[800px]">
+              <thead className="bg-gaming-charcoal">
+                <tr>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Team
+                  </th>
+                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
+                    Tournament
+                  </th>
+                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Leader
+                  </th>
+                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden lg:table-cell">
+                    Images
+                  </th>
+                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
+                    Registered
+                  </th>
+                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gaming-slate">
+                {registrations.map((registration) => (
+                  <tr key={registration._id} className="hover:bg-gaming-slate/50">
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {registration.teamName}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          4 players
+                        </div>
+                        {/* Show tournament on smaller screens */}
+                        <div className="text-xs text-gray-500 xl:hidden mt-1">
+                          {registration.tournamentId.name}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap hidden xl:table-cell">
+                      <div className="text-sm text-white">
+                        {registration.tournamentId.name}
+                      </div>
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {registration.teamLeader.name}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {registration.teamLeader.phone}
+                        </div>
+                        {/* Show images count on smaller screens */}
+                        <div className="text-xs text-gray-500 lg:hidden mt-1">
+                          Images: {registration.verificationImages?.length || 0}/8
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap">
+                      {getStatusBadge(registration)}
+                      {/* Show date on smaller screens */}
+                      <div className="text-xs text-gray-500 xl:hidden mt-1">
+                        {new Date(registration.registeredAt).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap hidden lg:table-cell">
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm text-white">
+                          {registration.verificationImages?.length || 0}/8
+                        </div>
+                        {/* Visual progress indicator */}
+                        <div className="flex space-x-1">
+                          {Array.from({ length: 8 }, (_, i) => (
+                            <div
+                              key={i}
+                              className={`w-2 h-2 rounded-full ${
+                                i < (registration.verificationImages?.length || 0)
+                                  ? 'bg-gaming-neon'
+                                  : 'bg-gray-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-400 hidden xl:table-cell">
+                      {new Date(registration.registeredAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-1">
+                        {/* View Details Button - Always visible */}
+                        <button
+                          onClick={() => handleViewImages(registration)}
+                          className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded-md transition-colors"
+                          title="View Details"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+
+                        {/* Primary Action Button - Changes based on status */}
+                        {registration.status !== 'verified' ? (
+                          <button
+                            onClick={() => handleDirectApprove(registration)}
+                            className="p-1.5 text-green-400 hover:text-green-300 hover:bg-green-400/10 rounded-md transition-colors"
+                            title="Verify"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleSetPending(registration)}
+                            className="p-1.5 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 rounded-md transition-colors"
+                            title="Set Pending"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* Secondary Action Button */}
+                        {!(registration.status === 'rejected' && registration.rejectionReason?.startsWith('Not Verified')) ? (
+                          <button
+                            onClick={() => handleNotVerified(registration)}
+                            className="p-1.5 text-orange-400 hover:text-orange-300 hover:bg-orange-400/10 rounded-md transition-colors"
+                            title="Not Verified"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleDirectReject(registration)}
+                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-md transition-colors"
+                            title="Reject"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* More Actions Dropdown - Visible on tablets and up */}
+                        <div className="relative hidden sm:block">
+                          <button
+                            onClick={() => {
+                              const dropdown = document.getElementById(`dropdown-${registration._id}`);
+                              dropdown.classList.toggle('hidden');
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-400/10 rounded-md transition-colors"
+                            title="More Actions"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                          </button>
+                          
+                          {/* Dropdown Menu */}
+                          <div
+                            id={`dropdown-${registration._id}`}
+                            className="hidden absolute right-0 mt-2 w-44 bg-gaming-charcoal border border-gaming-slate rounded-lg shadow-lg z-10"
+                          >
+                            <button
+                              onClick={() => {
+                                handleEditRegistration(registration);
+                                document.getElementById(`dropdown-${registration._id}`).classList.add('hidden');
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-yellow-400 hover:bg-gaming-slate rounded-t-lg"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleDeleteRegistration(registration);
+                                document.getElementById(`dropdown-${registration._id}`).classList.add('hidden');
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gaming-slate rounded-b-lg"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {registrations.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 text-4xl mb-4">📋</div>
+              <p className="text-gray-400">No registrations found</p>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="card-gaming p-3 md:p-4 mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-gray-300 text-xs md:text-sm text-center sm:text-left">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                {pagination.total} registrations
+              </div>
+              
+              <div className="flex items-center justify-center space-x-1 md:space-x-2">
+                <button
+                  onClick={() => fetchRegistrations(pagination.page - 1, false)}
+                  disabled={pagination.page <= 1 || loading}
+                  className="px-2 md:px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon transition-colors text-sm"
+                >
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">‹</span>
+                </button>
+                
+                <div className="flex space-x-1">
+                  {Array.from({ length: Math.min(3, pagination.pages) }, (_, i) => {
+                    let pageNum;
+                    if (pagination.pages <= 3) {
+                      pageNum = i + 1;
+                    } else {
+                      // Smart pagination - show pages around current page
+                      const start = Math.max(1, pagination.page - 1);
+                      const end = Math.min(pagination.pages, start + 2);
+                      pageNum = start + i;
+                      if (pageNum > end) return null;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => fetchRegistrations(pageNum, false)}
+                        disabled={loading}
+                        className={`px-2 md:px-3 py-1 rounded transition-colors text-sm ${
+                          pageNum === pagination.page
+                            ? 'bg-gaming-neon text-black font-medium'
+                            : 'bg-gaming-charcoal border border-gray-600 text-white hover:border-gaming-neon'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  }).filter(Boolean)}
+                </div>
+                
+                <button
+                  onClick={() => fetchRegistrations(pagination.page + 1, false)}
+                  disabled={pagination.page >= pagination.pages || loading}
+                  className="px-2 md:px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon transition-colors text-sm"
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">›</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Modal */}
+        {showImageModal && selectedRegistration && (
+          <ImageVerificationModal
+            registration={selectedRegistration}
+            onClose={() => {
+              setShowImageModal(false);
+              setSelectedRegistration(null);
+            }}
+            onStatusUpdate={handleStatusUpdate}
+            getStatusBadge={getStatusBadge}
+            onSetPending={handleSetPending}
+            onNotVerified={handleNotVerified}
+          />
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && selectedRegistration && (
+          <EditRegistrationModal
+            registration={selectedRegistration}
+            onClose={() => {
+              setShowEditModal(false);
+              setSelectedRegistration(null);
+            }}
+            onUpdate={() => {
+              fetchRegistrations(pagination.page, false); // Refresh without cache
+              setShowEditModal(false);
+              setSelectedRegistration(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Image Verification Modal Component
+const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStatusBadge, onSetPending, onNotVerified }) => {
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectForm, setShowRejectForm] = useState(false);
+
+  // Debug logging
+  console.log('🔍 Modal rendered with registration:', registration);
+  console.log('📸 Modal images:', registration?.verificationImages?.length || 0);
+
+  const handleApprove = () => {
+    onStatusUpdate(registration._id, 'verified');
+  };
+
+  const handleReject = () => {
+    if (!rejectionReason.trim()) {
+      alert('Please enter a rejection reason');
+      return;
+    }
+    onStatusUpdate(registration._id, 'rejected', rejectionReason);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-2 md:mx-4"
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-gaming-dark border-b border-gaming-slate p-4 md:p-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Registration Details</h2>
+            <p className="text-gray-400">Team: {registration.teamName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 md:p-6">
+          {/* Team Info - Simplified */}
+          <div className="mb-6">
+            <div className="card-gaming p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">Team: {registration.teamName}</h3>
+                <div>{getStatusBadge(registration)}</div>
+              </div>
+              {/* Team Members - Compact */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Team Leader */}
+                <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-3">
+                  <div className="text-gaming-neon font-medium text-sm">👑 Leader</div>
+                  <div className="text-white font-medium">{registration.teamLeader.name}</div>
+                  <div className="text-xs text-gray-400">{registration.teamLeader.bgmiId}</div>
+                </div>
+                
+                {/* Team Members */}
+                {registration.teamMembers.map((member, index) => (
+                  <div key={index} className="bg-gaming-slate/30 border border-gray-600 rounded-lg p-3">
+                    <div className="text-gray-300 font-medium text-sm">👤 Member {index + 1}</div>
+                    <div className="text-white font-medium">{member.name}</div>
+                    <div className="text-xs text-gray-400">{member.bgmiId}</div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-3 text-sm text-gray-400">
+                WhatsApp: {registration.whatsappNumber} • Registered: {new Date(registration.registeredAt).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+
+          {/* Images Section */}
+          <div className="card-gaming p-4 mb-6">
+            <h3 className="text-lg font-bold text-white mb-4">
+              Verification Images ({registration.verificationImages?.length || 0}/8)
+              <span className="text-sm text-gray-400 ml-2">• Received via WhatsApp</span>
+            </h3>
+            
+            {registration.verificationImages && registration.verificationImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {registration.verificationImages.map((image, index) => (
+                  <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden">
+                    <img
+                      src={image.cloudinaryUrl}
+                      alt={`${image.playerId} - Image ${image.imageNumber}`}
+                      className="w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => window.open(image.cloudinaryUrl, '_blank')}
+                    />
+                    <div className="p-2 bg-gaming-charcoal">
+                      <div className="text-xs text-white font-medium">
+                        {image.playerId === 'leader' ? '👑 Leader' : `👤 Member ${image.playerId.replace('member', '')}`}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {image.imageNumber === 1 ? 'ID Proof' : 'BGMI Screenshot'}
+                      </div>
+                      {image.caption && (
+                        <div className="text-xs text-gaming-neon mt-1 truncate">
+                          "{image.caption}"
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(image.uploadedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-4xl mb-2">📸</div>
+                <p className="text-gray-400">No images received yet</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  User will send verification images via WhatsApp
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex space-x-4">
+            {registration.status === 'pending' && (
+              <>
+                <div className="flex-1 text-center p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <div className="text-yellow-400 font-medium">⏳ Waiting for images</div>
+                  <div className="text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
+                </div>
+                <div className="flex space-x-3 mt-3">
+                  <button
+                    onClick={handleApprove}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    ✅ Verify Now
+                  </button>
+                  <button
+                    onClick={() => onNotVerified(registration)}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    ❌ Not Verified
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {registration.status === 'images_uploaded' && (
+              <>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleApprove}
+                    className="flex-1 px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    ✅ Approve Registration
+                  </button>
+                  <button
+                    onClick={() => setShowRejectForm(true)}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    ❌ Reject Registration
+                  </button>
+                </div>
+                <div className="flex space-x-3 mt-3">
+                  <button
+                    onClick={() => onSetPending(registration)}
+                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                  >
+                    ⏳ Set Pending
+                  </button>
+                  <button
+                    onClick={() => onNotVerified(registration)}
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                  >
+                    ❌ Not Verified
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {registration.status === 'verified' && (
+              <>
+                <div className="flex-1 text-center p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <div className="text-green-400 font-medium">✅ Registration Approved</div>
+                  <div className="text-sm text-gray-400 mt-1">WhatsApp verification message sent</div>
+                </div>
+                <div className="flex space-x-3 mt-3">
+                  <button
+                    onClick={() => onSetPending(registration)}
+                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                  >
+                    ⏳ Set Pending
+                  </button>
+                  <button
+                    onClick={() => onNotVerified(registration)}
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                  >
+                    ❌ Not Verified
+                  </button>
+                </div>
+              </>
+            )}
+            
+            {registration.status === 'rejected' && (
+              <>
+                <div className="flex-1 text-center p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <div className="text-red-400 font-medium">
+                    {registration.rejectionReason?.startsWith('Not Verified') ? '❌ Not Verified' : '❌ Registration Rejected'}
+                  </div>
+                  <div className="text-sm text-gray-400 mt-1">Reason: {registration.rejectionReason}</div>
+                </div>
+                <div className="flex space-x-3 mt-3">
+                  <button
+                    onClick={handleApprove}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    ✅ Verify Now
+                  </button>
+                  <button
+                    onClick={() => onSetPending(registration)}
+                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                  >
+                    ⏳ Set Pending
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Rejection Form */}
+          {showRejectForm && (
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <h4 className="text-lg font-bold text-red-400 mb-3">Reject Registration</h4>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-red-400 focus:outline-none"
+                rows={3}
+              />
+              <div className="flex space-x-3 mt-3">
+                <button
+                  onClick={handleReject}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Confirm Rejection
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRejectForm(false);
+                    setRejectionReason('');
+                  }}
+                  className="px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Edit Registration Modal Component
+const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
+  const [formData, setFormData] = useState({
+    teamName: registration.teamName,
+    teamLeader: { ...registration.teamLeader },
+    teamMembers: [...registration.teamMembers],
+    whatsappNumber: registration.whatsappNumber
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleInputChange = (section, field, value, index = null) => {
+    setFormData(prev => {
+      if (section === 'teamLeader') {
+        return {
+          ...prev,
+          teamLeader: { ...prev.teamLeader, [field]: value }
+        };
+      } else if (section === 'teamMembers') {
+        const updatedMembers = [...prev.teamMembers];
+        updatedMembers[index] = { ...updatedMembers[index], [field]: value };
+        return { ...prev, teamMembers: updatedMembers };
+      } else {
+        return { ...prev, [field]: value };
+      }
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('🔄 Updating registration:', registration._id);
+      console.log('📝 Form data:', formData);
+      
+      // Validate form data before sending
+      if (!formData.teamName || formData.teamName.trim().length < 3) {
+        setError('Team name must be at least 3 characters');
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.teamLeader.name || !formData.teamLeader.bgmiId || !formData.teamLeader.phone) {
+        setError('Team leader information is incomplete');
+        setLoading(false);
+        return;
+      }
+      
+      if (formData.teamMembers.length !== 3) {
+        setError('Team must have exactly 3 members');
+        setLoading(false);
+        return;
+      }
+      
+      // Check for duplicate BGMI IDs
+      const allBgmiIds = [formData.teamLeader.bgmiId, ...formData.teamMembers.map(m => m.bgmiId)];
+      const uniqueBgmiIds = [...new Set(allBgmiIds)];
+      if (allBgmiIds.length !== uniqueBgmiIds.length) {
+        setError('All team members must have unique BGMI IDs');
+        setLoading(false);
+        return;
+      }
+      
+      // Ensure team members have required fields
+      for (let i = 0; i < formData.teamMembers.length; i++) {
+        if (!formData.teamMembers[i].name || !formData.teamMembers[i].bgmiId) {
+          setError(`Team member ${i + 1} information is incomplete`);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      const response = await api.put(`/api/bgmi-registration/admin/${registration._id}`, formData);
+      
+      console.log('📥 Update response:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Registration updated successfully');
+        onUpdate();
+      } else {
+        console.error('❌ Update failed:', response.data);
+        setError(response.data.message || 'Failed to update registration');
+      }
+    } catch (error) {
+      console.error('❌ Update registration error:', error);
+      console.error('❌ Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // More specific error messages
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.error?.message || error.response?.data?.message;
+        if (errorMsg?.includes('unique BGMI IDs')) {
+          setError('All team members must have unique BGMI IDs');
+        } else if (errorMsg?.includes('exactly 3 members')) {
+          setError('Team must have exactly 3 members');
+        } else if (errorMsg?.includes('validation')) {
+          setError('Please check all required fields are filled correctly');
+        } else {
+          setError(errorMsg || 'Invalid data provided');
+        }
+      } else if (error.response?.status === 404) {
+        setError('Registration not found');
+      } else if (error.response?.status === 403) {
+        setError('You do not have permission to edit this registration');
+      } else {
+        setError('Failed to update registration. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-gaming-dark border-b border-gaming-slate p-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Edit Registration</h2>
+            <p className="text-gray-400">Team: {registration.teamName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <span className="text-red-400">{error}</span>
+            </div>
+          )}
+
+          {/* Team Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Team Name</label>
+            <input
+              type="text"
+              value={formData.teamName}
+              onChange={(e) => handleInputChange('', 'teamName', e.target.value)}
+              className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+            />
+          </div>
+
+          {/* Team Leader */}
+          <div className="bg-gaming-charcoal rounded-lg p-6">
+            <h3 className="text-lg font-bold text-gaming-neon mb-4">👑 Team Leader</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                <input
+                  type="text"
+                  value={formData.teamLeader.name}
+                  onChange={(e) => handleInputChange('teamLeader', 'name', e.target.value)}
+                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                <input
+                  type="text"
+                  value={formData.teamLeader.bgmiId}
+                  onChange={(e) => handleInputChange('teamLeader', 'bgmiId', e.target.value)}
+                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
+                <input
+                  type="tel"
+                  value={formData.teamLeader.phone}
+                  onChange={(e) => handleInputChange('teamLeader', 'phone', e.target.value)}
+                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Team Members */}
+          <div className="bg-gaming-charcoal rounded-lg p-6">
+            <h3 className="text-lg font-bold text-gaming-neon mb-4">👥 Team Members</h3>
+            {formData.teamMembers.map((member, index) => (
+              <div key={index} className="mb-6 last:mb-0">
+                <h4 className="text-md font-medium text-white mb-3">Member {index + 1}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={member.name}
+                      onChange={(e) => handleInputChange('teamMembers', 'name', e.target.value, index)}
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                    <input
+                      type="text"
+                      value={member.bgmiId}
+                      onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* WhatsApp Number */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp Number</label>
+            <input
+              type="tel"
+              value={formData.whatsappNumber}
+              onChange={(e) => handleInputChange('', 'whatsappNumber', e.target.value)}
+              className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+            />
+          </div>
+
+          {/* Submit Buttons */}
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-6 py-3 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-6 py-3 bg-gaming-neon text-gaming-dark font-bold rounded-lg hover:bg-gaming-neon/90 transition-colors disabled:opacity-50"
+              disabled={loading}
+            >
+              {loading ? 'Updating...' : 'Update Registration'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+export default AdminBGMIRegistrations;

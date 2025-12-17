@@ -287,6 +287,22 @@ const ImageManagement = () => {
       description: 'Third banner on BGMI tournaments page',
       category: 'bgmi'
     },
+    { 
+      key: 'bgmi-slide-4', 
+      name: 'BGMI Page Slide 4', 
+      location: 'BGMI Page - Banner Slider (Slide 4)',
+      recommended: '1920x400',
+      description: 'Fourth banner on BGMI tournaments page',
+      category: 'bgmi'
+    },
+    { 
+      key: 'bgmi-slide-5', 
+      name: 'BGMI Page Slide 5', 
+      location: 'BGMI Page - Banner Slider (Slide 5)',
+      recommended: '1920x400',
+      description: 'Fifth banner on BGMI tournaments page',
+      category: 'bgmi'
+    },
     
     // Games Page Slides
     { 
@@ -313,6 +329,22 @@ const ImageManagement = () => {
       description: 'Third slide on games page',
       category: 'games'
     },
+    { 
+      key: 'games-slide-4', 
+      name: 'Games Page Slide 4', 
+      location: 'Games Page - Hero Slider (Slide 4)',
+      recommended: '1920x1080',
+      description: 'Fourth slide on games page',
+      category: 'games'
+    },
+    { 
+      key: 'games-slide-5', 
+      name: 'Games Page Slide 5', 
+      location: 'Games Page - Hero Slider (Slide 5)',
+      recommended: '1920x1080',
+      description: 'Fifth slide on games page',
+      category: 'games'
+    },
     
     // Tournament Page Slides
     { 
@@ -337,6 +369,22 @@ const ImageManagement = () => {
       location: 'Tournaments Page - Hero Slider (Slide 3)',
       recommended: '1920x1080',
       description: 'Third slide on tournaments page',
+      category: 'tournaments'
+    },
+    { 
+      key: 'tournaments-slide-4', 
+      name: 'Tournaments Page Slide 4', 
+      location: 'Tournaments Page - Hero Slider (Slide 4)',
+      recommended: '1920x1080',
+      description: 'Fourth slide on tournaments page',
+      category: 'tournaments'
+    },
+    { 
+      key: 'tournaments-slide-5', 
+      name: 'Tournaments Page Slide 5', 
+      location: 'Tournaments Page - Hero Slider (Slide 5)',
+      recommended: '1920x1080',
+      description: 'Fifth slide on tournaments page',
       category: 'tournaments'
     },
     

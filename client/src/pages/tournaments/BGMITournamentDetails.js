@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
 import {
   fetchTournamentById,
   joinTournament,
@@ -12,26 +13,41 @@ import {
 } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
 
-const BGMITournamentDetails = () => {
+const BGMITournamentDetails = ({ 
+  tournamentData = null, 
+  isUserRegistered: propIsUserRegistered = false,
+  registeredTeams: propRegisteredTeams = [],
+  loadingTournament: propLoading = false,
+  fetchError: propError = null 
+}) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(selectAuth);
-  const tournament = useSelector(selectCurrentTournament);
-  const loading = useSelector(selectTournamentLoading);
-  const error = useSelector(selectTournamentError);
+  
+  // Always call hooks, then use props if provided
+  const reduxTournament = useSelector(selectCurrentTournament);
+  const reduxLoading = useSelector(selectTournamentLoading);
+  const reduxError = useSelector(selectTournamentError);
+  
+  // Use props if provided, otherwise fallback to Redux
+  const tournament = tournamentData || reduxTournament;
+  const loading = propLoading ? { tournamentDetails: propLoading } : reduxLoading;
+  const error = propError ? { tournamentDetails: propError } : reduxError;
 
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [joinForm, setJoinForm] = useState({
     gameId: '',
     teamName: ''
   });
 
   useEffect(() => {
-    if (id) {
+    // Only fetch tournament data if not provided via props
+    if (id && !tournamentData) {
       dispatch(fetchTournamentById(id));
     }
-  }, [dispatch, id]);
+  }, [dispatch, id, tournamentData]);
 
   const handleJoinTournament = async (e) => {
     e.preventDefault();
@@ -95,6 +111,8 @@ const BGMITournamentDetails = () => {
   };
 
   const isUserRegistered = () => {
+    // Use prop if provided, otherwise check tournament participants
+    if (propIsUserRegistered !== false) return propIsUserRegistered;
     if (!tournament || !user) return false;
     return tournament.participants?.some(p => p.userId === user.id);
   };
@@ -106,7 +124,7 @@ const BGMITournamentDetails = () => {
            !isUserRegistered();
   };
 
-  if (loading.tournamentDetails) {
+  if (loading && loading.tournamentDetails) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <div className="text-center">
@@ -117,13 +135,13 @@ const BGMITournamentDetails = () => {
     );
   }
 
-  if (error.tournamentDetails) {
+  if (error && error.tournamentDetails) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-400 text-6xl mb-4">⚠️</div>
           <h2 className="text-xl font-bold text-white mb-2">Error Loading Tournament</h2>
-          <p className="text-gray-300 mb-4">{error.tournamentDetails.message}</p>
+          <p className="text-gray-300 mb-4">{error.tournamentDetails.message || error.tournamentDetails}</p>
           <div className="space-x-4">
             <button
               onClick={() => {
@@ -185,7 +203,7 @@ const BGMITournamentDetails = () => {
               {tournament.name}
             </h1>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-              {tournament.description}
+              {typeof tournament.description === 'string' ? tournament.description : tournament.description?.description || 'BGMI Tournament'}
             </p>
             
             {/* Quick Stats */}
@@ -253,7 +271,9 @@ const BGMITournamentDetails = () => {
                     </div>
                     <div>
                       <div className="text-sm text-gray-400">Format</div>
-                      <div className="text-white font-medium capitalize">{tournament.format.replace('_', ' ')}</div>
+                      <div className="text-white font-medium capitalize">
+                        {typeof tournament.format === 'string' ? tournament.format.replace('_', ' ') : tournament.format?.format?.replace('_', ' ') || 'Battle Royale'}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -288,7 +308,7 @@ const BGMITournamentDetails = () => {
               <h2 className="text-2xl font-bold text-white mb-6">📋 Tournament Rules</h2>
               <div className="prose prose-invert max-w-none">
                 <div className="text-gray-300 whitespace-pre-line">
-                  {tournament.rules}
+                  {typeof tournament.rules === 'string' ? tournament.rules : tournament.rules?.rules || 'Tournament rules will be updated soon.'}
                 </div>
               </div>
               
@@ -372,7 +392,13 @@ const BGMITournamentDetails = () => {
                 </div>
               ) : canRegister() ? (
                 <button
-                  onClick={() => setShowJoinModal(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login');
+                      return;
+                    }
+                    setShowRegistrationForm(true);
+                  }}
                   className="w-full btn-gaming mb-4"
                 >
                   Register Now - ₹{tournament.entryFee}
@@ -443,7 +469,21 @@ const BGMITournamentDetails = () => {
         </div>
       </div>
 
-      {/* Join Tournament Modal */}
+      {/* BGMI Registration Form Modal */}
+      {showRegistrationForm && tournament && (
+        <BGMIRegistrationForm
+          tournament={tournament}
+          onClose={() => setShowRegistrationForm(false)}
+          onSuccess={(registration) => {
+            setShowRegistrationForm(false);
+            // Refresh tournament data to show updated participant count
+            dispatch(fetchTournamentById(id));
+            console.log('✅ Registration successful:', registration);
+          }}
+        />
+      )}
+
+      {/* Old Join Tournament Modal (kept for backward compatibility) */}
       {showJoinModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div

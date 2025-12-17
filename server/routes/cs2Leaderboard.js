@@ -62,32 +62,34 @@ router.get('/all-players', async (req, res) => {
     }
 
     // Get CS2 stats for ALL players
-    // Fix cumulative issue: Get MAX per match, then sum
+    // FIXED: Only take final round stats per match (cumulative data)
     const stats = await CS2Match.aggregate([
       { $match: matchQuery },
-      // Step 1: Get max values per match (last round has cumulative total)
+      // Sort by match_id and round_number to get latest round per match
+      { $sort: { match_id: 1, round_number: -1 } },
+      // Step 1: Get ONLY final round stats per match (which are cumulative)
       {
         $group: {
           _id: { accountid: '$accountid', match_id: '$match_id' },
-          max_kills: { $max: '$kills' },
-          max_deaths: { $max: '$deaths' },
-          max_assists: { $max: '$assists' },
-          max_damage: { $max: '$dmg' },
-          max_mvp: { $max: '$mvp' },
+          final_kills: { $first: '$kills' },      // Final round cumulative kills
+          final_deaths: { $first: '$deaths' },    // Final round cumulative deaths
+          final_assists: { $first: '$assists' },  // Final round cumulative assists
+          final_damage: { $first: '$dmg' },       // Final round cumulative damage
+          final_mvp: { $first: '$mvp' },          // Final round cumulative MVP
           rounds_in_match: { $sum: 1 },
           last_played: { $max: '$match_datetime' },
           server_id: { $first: '$server_id' }
         }
       },
-      // Step 2: Sum across all matches and collect server info
+      // Step 2: Sum across all matches (not rounds)
       {
         $group: {
           _id: '$_id.accountid',
-          total_kills: { $sum: '$max_kills' },
-          total_deaths: { $sum: '$max_deaths' },
-          total_assists: { $sum: '$max_assists' },
-          total_damage: { $sum: '$max_damage' },
-          total_mvp: { $sum: '$max_mvp' },
+          total_kills: { $sum: '$final_kills' },
+          total_deaths: { $sum: '$final_deaths' },
+          total_assists: { $sum: '$final_assists' },
+          total_damage: { $sum: '$final_damage' },
+          total_mvp: { $sum: '$final_mvp' },
           rounds_played: { $sum: '$rounds_in_match' },
           matches_played: { $addToSet: '$_id.match_id' },
           servers_played: { $addToSet: '$server_id' },
@@ -363,31 +365,33 @@ router.get('/registered-players', async (req, res) => {
     }
 
     // Step 4: Get CS2 stats for these players
-    // Fix cumulative issue: Get MAX per match, then sum
+    // FIXED: Only take final round stats per match (cumulative data)
     const stats = await CS2Match.aggregate([
       { $match: matchQuery },
-      // Step 1: Get max values per match (last round has cumulative total)
+      // Sort by match_id and round_number to get latest round per match
+      { $sort: { match_id: 1, round_number: -1 } },
+      // Step 1: Get ONLY final round stats per match (which are cumulative)
       {
         $group: {
           _id: { accountid: '$accountid', match_id: '$match_id' },
-          max_kills: { $max: '$kills' },
-          max_deaths: { $max: '$deaths' },
-          max_assists: { $max: '$assists' },
-          max_damage: { $max: '$dmg' },
-          max_mvp: { $max: '$mvp' },
+          final_kills: { $first: '$kills' },      // Final round cumulative kills
+          final_deaths: { $first: '$deaths' },    // Final round cumulative deaths
+          final_assists: { $first: '$assists' },  // Final round cumulative assists
+          final_damage: { $first: '$dmg' },       // Final round cumulative damage
+          final_mvp: { $first: '$mvp' },          // Final round cumulative MVP
           rounds_in_match: { $sum: 1 },
           last_played: { $max: '$match_datetime' }
         }
       },
-      // Step 2: Sum across all matches
+      // Step 2: Sum across all matches (not rounds)
       {
         $group: {
           _id: '$_id.accountid',
-          total_kills: { $sum: '$max_kills' },
-          total_deaths: { $sum: '$max_deaths' },
-          total_assists: { $sum: '$max_assists' },
-          total_damage: { $sum: '$max_damage' },
-          total_mvp: { $sum: '$max_mvp' },
+          total_kills: { $sum: '$final_kills' },
+          total_deaths: { $sum: '$final_deaths' },
+          total_assists: { $sum: '$final_assists' },
+          total_damage: { $sum: '$final_damage' },
+          total_mvp: { $sum: '$final_mvp' },
           rounds_played: { $sum: '$rounds_in_match' },
           matches_played: { $addToSet: '$_id.match_id' },
           last_played: { $max: '$last_played' }
@@ -644,17 +648,20 @@ router.get('/multi-server', async (req, res) => {
     console.log(`[CS2 Multi-Server] Found ${accountIds.length} registered players with valid Steam IDs`);
 
     // Step 3: Get CS2 stats with server information
+    // FIXED: Only take final round stats per match (cumulative data)
     const stats = await CS2Match.aggregate([
       { $match: { accountid: { $in: accountIds } } },
-      // Step 1: Get max values per match per server
+      // Sort by match_id and round_number to get latest round per match
+      { $sort: { match_id: 1, round_number: -1 } },
+      // Step 1: Get ONLY final round stats per match per server
       {
         $group: {
           _id: { accountid: '$accountid', match_id: '$match_id', server_id: '$server_id' },
-          max_kills: { $max: '$kills' },
-          max_deaths: { $max: '$deaths' },
-          max_assists: { $max: '$assists' },
-          max_damage: { $max: '$dmg' },
-          max_mvp: { $max: '$mvp' },
+          final_kills: { $first: '$kills' },      // Final round cumulative kills
+          final_deaths: { $first: '$deaths' },    // Final round cumulative deaths
+          final_assists: { $first: '$assists' },  // Final round cumulative assists
+          final_damage: { $first: '$dmg' },       // Final round cumulative damage
+          final_mvp: { $first: '$mvp' },          // Final round cumulative MVP
           rounds_in_match: { $sum: 1 },
           last_played: { $max: '$match_datetime' },
           server_id: { $first: '$server_id' }
@@ -664,11 +671,11 @@ router.get('/multi-server', async (req, res) => {
       {
         $group: {
           _id: '$_id.accountid',
-          total_kills: { $sum: '$max_kills' },
-          total_deaths: { $sum: '$max_deaths' },
-          total_assists: { $sum: '$max_assists' },
-          total_damage: { $sum: '$max_damage' },
-          total_mvp: { $sum: '$max_mvp' },
+          total_kills: { $sum: '$final_kills' },
+          total_deaths: { $sum: '$final_deaths' },
+          total_assists: { $sum: '$final_assists' },
+          total_damage: { $sum: '$final_damage' },
+          total_mvp: { $sum: '$final_mvp' },
           rounds_played: { $sum: '$rounds_in_match' },
           matches_played: { $addToSet: '$_id.match_id' },
           servers_played: { $addToSet: '$server_id' },
@@ -807,6 +814,80 @@ router.get('/all-stats', async (req, res) => {
       success: false,
       error: 'Failed to fetch statistics',
       details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/cs2-leaderboard/debug/:accountId
+ * Debug endpoint to check raw match data for a specific player
+ */
+router.get('/debug/:accountId', async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    
+    console.log(`🔍 DEBUG: Checking raw data for AccountID: ${accountId}`);
+    
+    // Get all raw match data for this player
+    const rawMatches = await CS2Match.find({ accountid: parseInt(accountId) })
+      .sort({ match_datetime: -1, round_number: 1 })
+      .limit(100);
+    
+    // Group by match_id to see per-match progression
+    const matchGroups = {};
+    rawMatches.forEach(match => {
+      if (!matchGroups[match.match_id]) {
+        matchGroups[match.match_id] = [];
+      }
+      matchGroups[match.match_id].push({
+        round: match.round_number,
+        kills: match.kills,
+        deaths: match.deaths,
+        match_number: match.match_number,
+        date: match.match_datetime
+      });
+    });
+    
+    // Calculate what FIXED aggregation is doing
+    const aggregationResult = await CS2Match.aggregate([
+      { $match: { accountid: parseInt(accountId) } },
+      { $sort: { match_id: 1, round_number: -1 } },
+      {
+        $group: {
+          _id: { accountid: '$accountid', match_id: '$match_id' },
+          final_kills: { $first: '$kills' },     // Final round cumulative kills
+          final_deaths: { $first: '$deaths' },   // Final round cumulative deaths
+          rounds_in_match: { $sum: 1 },
+          match_number: { $first: '$match_number' },
+          date: { $max: '$match_datetime' }
+        }
+      },
+      { $sort: { date: -1 } }
+    ]);
+    
+    const totalKills = aggregationResult.reduce((sum, match) => sum + match.final_kills, 0);
+    const totalDeaths = aggregationResult.reduce((sum, match) => sum + match.final_deaths, 0);
+    
+    res.json({
+      success: true,
+      debug: {
+        accountId: parseInt(accountId),
+        totalMatches: Object.keys(matchGroups).length,
+        totalRawEntries: rawMatches.length,
+        currentTotals: {
+          kills: totalKills,
+          deaths: totalDeaths
+        },
+        recentMatches: matchGroups,
+        aggregationBreakdown: aggregationResult
+      }
+    });
+    
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
