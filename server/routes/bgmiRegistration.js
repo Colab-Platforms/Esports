@@ -204,16 +204,7 @@ router.post('/:tournamentId/register', auth, [
     await registration.populate('tournamentId', 'name gameType mode');
     await registration.populate('userId', 'username email');
 
-    // Add user to old server's BGMI users list
-    try {
-      await axios.post('https://your-old-server.com/api/add-bgmi-user', {
-        phone: whatsappNumber
-      }, { timeout: 3000 });
-      console.log('✅ Added user to old server BGMI list');
-    } catch (error) {
-      console.log('⚠️ Failed to add user to old server list:', error.message);
-      // Don't fail registration if this fails
-    }
+    // Note: Old server integration removed for Railway deployment stability
 
     res.status(201).json({
       success: true,
