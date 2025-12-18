@@ -234,6 +234,22 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// WhatsApp service debug endpoint
+app.get('/api/whatsapp/debug', (req, res) => {
+  const whatsappService = require('./services/whatsappService');
+  res.json({
+    success: true,
+    whatsappConfig: {
+      hasPhoneNumberId: !!process.env.WHATSAPP_PHONE_NUMBER_ID,
+      hasAccessToken: !!process.env.WHATSAPP_ACCESS_TOKEN,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ? 'Set' : 'Missing',
+      accessToken: process.env.WHATSAPP_ACCESS_TOKEN ? 'Set (length: ' + process.env.WHATSAPP_ACCESS_TOKEN.length + ')' : 'Missing',
+      baseURL: process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v24.0'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Test endpoint for match system
 app.get('/api/test/matches', async (req, res) => {
   try {
