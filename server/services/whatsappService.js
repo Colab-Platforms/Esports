@@ -392,10 +392,15 @@ Room details will be shared 30 minutes before the match.
 
 Best of luck! 🏆`;
 
-      const result = await this.sendTextMessage(phoneNumber, messageText);
+      // Use template message instead of text message for better delivery
+      const result = await this.sendTemplateMessage(
+        phoneNumber,
+        this.templates.verification_approved, // 'verified' template
+        [teamName, tournamentName] // Template parameters
+      );
       
       if (result.success) {
-        console.log('✅ Verification approved message sent');
+        console.log('✅ Verification approved message sent via template');
       } else {
         console.error('❌ Verification approved message failed:', result.error);
       }
@@ -440,10 +445,15 @@ You can re-register with correct information.
 
 Contact support if you need help.`;
 
-      const result = await this.sendTextMessage(phoneNumber, messageText);
+      // Use template message instead of text message for better delivery
+      const result = await this.sendTemplateMessage(
+        phoneNumber,
+        this.templates.verification_rejected, // 'not_eligible' template
+        [teamName, tournamentName, reason] // Template parameters
+      );
       
       if (result.success) {
-        console.log('✅ Verification rejected message sent');
+        console.log('✅ Verification rejected message sent via template');
       } else {
         console.error('❌ Verification rejected message failed:', result.error);
       }
@@ -477,25 +487,16 @@ Contact support if you need help.`;
         reason: reason
       });
 
-      const messageText = `⏳ Registration Status: Pending
-
-Team: ${teamName}
-Tournament: ${tournamentName}
-
-${reason ? `Reason: ${reason}` : 'Your registration is under review.'}
-
-📸 Please ensure you have sent all required verification images:
-• 2 images per player (ID proof + BGMI screenshot)
-• Total 8 images for 4 players
-
-Send any missing images via WhatsApp to complete your registration.
-
-Contact support if you need help.`;
-
-      const result = await this.sendTextMessage(phoneNumber, messageText);
+      // Use 'pending' template instead of text message
+      // Template messages can be sent anytime, text messages need 24-hour window
+      const result = await this.sendTemplateMessage(
+        phoneNumber,
+        this.templates.tournament_update, // 'pending' template
+        [teamName, tournamentName] // Template parameters
+      );
       
       if (result.success) {
-        console.log('✅ Pending status message sent');
+        console.log('✅ Pending status message sent via template');
       } else {
         console.error('❌ Pending status message failed:', result.error);
       }
