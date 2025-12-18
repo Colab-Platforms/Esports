@@ -250,6 +250,33 @@ app.get('/api/whatsapp/debug', (req, res) => {
   });
 });
 
+// BGMI update debug endpoint
+app.put('/api/bgmi-registration/debug/:registrationId', async (req, res) => {
+  try {
+    console.log('🧪 DEBUG: Update route hit');
+    console.log('🧪 Registration ID:', req.params.registrationId);
+    console.log('🧪 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🧪 Headers:', req.headers.authorization ? 'Auth present' : 'No auth');
+    
+    res.json({
+      success: true,
+      message: 'Debug endpoint working',
+      receivedData: {
+        registrationId: req.params.registrationId,
+        bodyKeys: Object.keys(req.body),
+        hasAuth: !!req.headers.authorization
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Test endpoint for match system
 app.get('/api/test/matches', async (req, res) => {
   try {
