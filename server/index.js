@@ -277,6 +277,75 @@ app.put('/api/bgmi-registration/debug/:registrationId', async (req, res) => {
   }
 });
 
+// WhatsApp send message endpoint for admin chat
+app.post('/api/whatsapp/send-message', async (req, res) => {
+  try {
+    const { phoneNumber, message, registrationId } = req.body;
+    
+    if (!phoneNumber || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number and message are required'
+      });
+    }
+
+    console.log('📱 Admin sending WhatsApp message:', {
+      phoneNumber,
+      messageLength: message.length,
+      registrationId
+    });
+
+    const whatsappService = require('./services/whatsappService');
+    const result = await whatsappService.sendTextMessage(phoneNumber, message);
+
+    if (result.success) {
+      console.log('✅ Admin WhatsApp message sent successfully');
+      
+      // Optionally save message to database for chat history
+      if (registrationId) {
+        try {
+          const WhatsAppMessage = require('./models/WhatsAppMessage');
+          await WhatsAppMessage.create({
+            registrationId,
+            phoneNumber,
+            messageType: 'admin_chat',
+            templateName: null,
+            messageContent: message,
+            status: 'sent',
+            messageId: result.messageId,
+            sentAt: new Date()
+          });
+          console.log('💾 Admin message saved to database');
+        } catch (dbError) {
+          console.error('❌ Failed to save admin message to database:', dbError);
+          // Don't fail the API call if database save fails
+        }
+      }
+
+      res.json({
+        success: true,
+        messageId: result.messageId,
+        message: 'Message sent successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('❌ Admin WhatsApp message failed:', result.error);
+      res.status(400).json({
+        success: false,
+        error: result.error || 'Failed to send message',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('❌ Admin WhatsApp send error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Test endpoint for match system
 app.get('/api/test/matches', async (req, res) => {
   try {

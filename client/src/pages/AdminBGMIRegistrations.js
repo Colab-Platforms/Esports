@@ -993,10 +993,13 @@ const AdminBGMIRegistrations = () => {
   );
 };
 
-// Image Verification Modal Component
+// Image Verification Modal Component with WhatsApp Chat
 const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStatusBadge, onSetPending, onNotVerified }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   // Debug logging
   console.log('🔍 Modal rendered with registration:', registration);
@@ -1014,6 +1017,72 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
     onStatusUpdate(registration._id, 'rejected', rejectionReason);
   };
 
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim() || sendingMessage) return;
+
+    setSendingMessage(true);
+    const messageText = chatMessage.trim();
+    setChatMessage('');
+
+    // Add message to chat immediately (optimistic update)
+    const newMessage = {
+      id: Date.now(),
+      text: messageText,
+      sender: 'admin',
+      timestamp: new Date(),
+      status: 'sending'
+    };
+    setChatMessages(prev => [...prev, newMessage]);
+
+    try {
+      // Send message via API
+      const response = await api.post('/api/whatsapp/send-message', {
+        phoneNumber: registration.whatsappNumber,
+        message: messageText,
+        registrationId: registration._id
+      });
+
+      if (response.success) {
+        // Update message status to sent
+        setChatMessages(prev => 
+          prev.map(msg => 
+            msg.id === newMessage.id 
+              ? { ...msg, status: 'sent', messageId: response.messageId }
+              : msg
+          )
+        );
+      } else {
+        // Update message status to failed
+        setChatMessages(prev => 
+          prev.map(msg => 
+            msg.id === newMessage.id 
+              ? { ...msg, status: 'failed' }
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      console.error('❌ Send message error:', error);
+      // Update message status to failed
+      setChatMessages(prev => 
+        prev.map(msg => 
+          msg.id === newMessage.id 
+            ? { ...msg, status: 'failed' }
+            : msg
+        )
+      );
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1025,10 +1094,10 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto mx-2 md:mx-4"
+        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-7xl w-full max-h-[95vh] lg:max-h-[90vh] overflow-hidden mx-1 md:mx-4"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gaming-dark border-b border-gaming-slate p-4 md:p-6 flex items-center justify-between">
+        <div className="bg-gaming-dark border-b border-gaming-slate p-4 md:p-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-white">Registration Details</h2>
             <p className="text-gray-400">Team: {registration.teamName}</p>
@@ -1043,226 +1112,347 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 md:p-6">
-          {/* Team Info - Simplified */}
-          <div className="mb-6">
-            <div className="card-gaming p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Team: {registration.teamName}</h3>
-                <div>{getStatusBadge(registration)}</div>
-              </div>
-              {/* Team Members - Compact */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Team Leader */}
-                <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg p-3">
-                  <div className="text-gaming-neon font-medium text-sm">👑 Leader</div>
-                  <div className="text-white font-medium">{registration.teamLeader.name}</div>
-                  <div className="text-xs text-gray-400">{registration.teamLeader.bgmiId}</div>
+        {/* Split Screen Content - Responsive */}
+        <div className="flex flex-col lg:flex-row h-[calc(95vh-100px)] lg:h-[calc(90vh-120px)]">
+          {/* Left Side - Images & Team Info with Sticky Layout */}
+          <div className="w-full lg:w-1/2 lg:border-r border-gaming-slate flex flex-col">
+            {/* Sticky Team Info Header - Compact */}
+            <div className="sticky top-0 bg-gaming-dark border-b border-gaming-slate p-3 z-10">
+              <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-bold text-white">Team: {registration.teamName}</h3>
+                  <div>{getStatusBadge(registration)}</div>
                 </div>
                 
-                {/* Team Members */}
-                {registration.teamMembers.map((member, index) => (
-                  <div key={index} className="bg-gaming-slate/30 border border-gray-600 rounded-lg p-3">
-                    <div className="text-gray-300 font-medium text-sm">👤 Member {index + 1}</div>
-                    <div className="text-white font-medium">{member.name}</div>
-                    <div className="text-xs text-gray-400">{member.bgmiId}</div>
+                {/* Team Members - Ultra Compact */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2">
+                  {/* Team Leader */}
+                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-2">
+                    <div className="text-gaming-neon font-medium text-xs">👑 Leader</div>
+                    <div className="text-white text-sm font-medium truncate">{registration.teamLeader.name}</div>
+                    <div className="text-xs text-gray-400 truncate">{registration.teamLeader.bgmiId}</div>
                   </div>
-                ))}
+                  
+                  {/* Team Members */}
+                  {registration.teamMembers.map((member, index) => (
+                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-2">
+                      <div className="text-gray-300 font-medium text-xs">👤 M{index + 1}</div>
+                      <div className="text-white text-sm font-medium truncate">{member.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
+                  <span>📱 {registration.whatsappNumber}</span>
+                  <span>📅 {new Date(registration.registeredAt).toLocaleDateString()}</span>
+                </div>
               </div>
-              
-              <div className="mt-3 text-sm text-gray-400">
-                WhatsApp: {registration.whatsappNumber} • Registered: {new Date(registration.registeredAt).toLocaleDateString()}
+            </div>
+
+            {/* Scrollable Images Section - Optimized */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-3">
+                <h3 className="text-base font-bold text-white mb-3 flex items-center justify-between">
+                  <span>Verification Images ({registration.verificationImages?.length || 0}/8)</span>
+                  <span className="text-xs text-gray-400">📱 WhatsApp</span>
+                </h3>
+                
+                {registration.verificationImages && registration.verificationImages.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
+                    {registration.verificationImages.map((image, index) => (
+                      <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors">
+                        <img
+                          src={image.cloudinaryUrl}
+                          alt={`${image.playerId} - Image ${image.imageNumber}`}
+                          className="w-full h-36 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => window.open(image.cloudinaryUrl, '_blank')}
+                        />
+                        <div className="p-2 bg-gaming-charcoal">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-white font-medium">
+                              {image.playerId === 'leader' ? '👑 Leader' : `👤 M${image.playerId.replace('member', '')}`}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {image.imageNumber === 1 ? '🆔 ID' : '🎮 BGMI'}
+                            </div>
+                          </div>
+                          {image.caption && (
+                            <div className="text-xs text-gaming-neon mt-1 truncate">
+                              "{image.caption}"
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(image.uploadedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 text-5xl mb-3">📸</div>
+                    <p className="text-gray-400 font-medium">No images received yet</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      User will send verification images via WhatsApp
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sticky Action Buttons Footer - Compact */}
+            <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-slate p-3 z-10">
+              <div className="space-y-3">
+                {registration.status === 'pending' && (
+                  <>
+                    <div className="text-center p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <div className="text-yellow-400 font-medium">⏳ Waiting for images</div>
+                      <div className="text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
+                    </div>
+                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+                      <button
+                        onClick={handleApprove}
+                        className="flex-1 px-3 md:px-4 py-2 bg-green-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        ✅ Verify Now
+                      </button>
+                      <button
+                        onClick={() => onNotVerified(registration)}
+                        className="flex-1 px-3 md:px-4 py-2 bg-red-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        ❌ Not Verified
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                {registration.status === 'images_uploaded' && (
+                  <>
+                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+                      <button
+                        onClick={handleApprove}
+                        className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-green-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        ✅ Approve Registration
+                      </button>
+                      <button
+                        onClick={() => setShowRejectForm(true)}
+                        className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-red-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        ❌ Reject Registration
+                      </button>
+                    </div>
+                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3 mt-2">
+                      <button
+                        onClick={() => onSetPending(registration)}
+                        className="flex-1 px-3 md:px-4 py-2 bg-yellow-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        ⏳ Set Pending
+                      </button>
+                      <button
+                        onClick={() => onNotVerified(registration)}
+                        className="flex-1 px-3 md:px-4 py-2 bg-orange-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                      >
+                        ❌ Not Verified
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                {registration.status === 'verified' && (
+                  <>
+                    <div className="text-center p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <div className="text-green-400 font-medium">✅ Registration Approved</div>
+                      <div className="text-sm text-gray-400 mt-1">WhatsApp verification message sent</div>
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => onSetPending(registration)}
+                        className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        ⏳ Set Pending
+                      </button>
+                      <button
+                        onClick={() => onNotVerified(registration)}
+                        className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                      >
+                        ❌ Not Verified
+                      </button>
+                    </div>
+                  </>
+                )}
+                
+                {registration.status === 'rejected' && (
+                  <>
+                    <div className="text-center p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <div className="text-red-400 font-medium">
+                        {registration.rejectionReason?.startsWith('Not Verified') ? '❌ Not Verified' : '❌ Registration Rejected'}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">Reason: {registration.rejectionReason}</div>
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handleApprove}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        ✅ Verify Now
+                      </button>
+                      <button
+                        onClick={() => onSetPending(registration)}
+                        className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        ⏳ Set Pending
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* Rejection Form */}
+                {showRejectForm && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <h4 className="text-lg font-bold text-red-400 mb-3">Reject Registration</h4>
+                    <textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Enter reason for rejection..."
+                      className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-red-400 focus:outline-none"
+                      rows={3}
+                    />
+                    <div className="flex space-x-3 mt-3">
+                      <button
+                        onClick={handleReject}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Confirm Rejection
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowRejectForm(false);
+                          setRejectionReason('');
+                        }}
+                        className="px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Images Section */}
-          <div className="card-gaming p-4 mb-6">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Verification Images ({registration.verificationImages?.length || 0}/8)
-              <span className="text-sm text-gray-400 ml-2">• Received via WhatsApp</span>
-            </h3>
-            
-            {registration.verificationImages && registration.verificationImages.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {registration.verificationImages.map((image, index) => (
-                  <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden">
-                    <img
-                      src={image.cloudinaryUrl}
-                      alt={`${image.playerId} - Image ${image.imageNumber}`}
-                      className="w-full h-32 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(image.cloudinaryUrl, '_blank')}
-                    />
-                    <div className="p-2 bg-gaming-charcoal">
-                      <div className="text-xs text-white font-medium">
-                        {image.playerId === 'leader' ? '👑 Leader' : `👤 Member ${image.playerId.replace('member', '')}`}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {image.imageNumber === 1 ? 'ID Proof' : 'BGMI Screenshot'}
-                      </div>
-                      {image.caption && (
-                        <div className="text-xs text-gaming-neon mt-1 truncate">
-                          "{image.caption}"
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">
-                        {new Date(image.uploadedAt).toLocaleDateString()}
+          {/* Right Side - WhatsApp Chat Interface */}
+          <div className="w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 lg:border-l border-gaming-slate">
+            {/* Chat Header */}
+            <div className="bg-gaming-charcoal p-4 border-b border-gaming-slate">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.785"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-white font-medium">{registration.teamLeader.name}</div>
+                  <div className="text-sm text-gray-400">+91 {registration.whatsappNumber}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
+              {chatMessages.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-4xl mb-2">💬</div>
+                  <p className="text-gray-400">Start a conversation</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Send messages directly to user's WhatsApp
+                  </p>
+                </div>
+              ) : (
+                chatMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender === 'admin'
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gaming-slate text-white'
+                      }`}
+                    >
+                      <p className="text-sm">{message.text}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs opacity-70">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {message.sender === 'admin' && (
+                          <span className="text-xs opacity-70 ml-2">
+                            {message.status === 'sending' && '⏳'}
+                            {message.status === 'sent' && '✓'}
+                            {message.status === 'failed' && '❌'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-4xl mb-2">📸</div>
-                <p className="text-gray-400">No images received yet</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  User will send verification images via WhatsApp
-                </p>
-              </div>
-            )}
-          </div>
+                ))
+              )}
+            </div>
 
-          {/* Actions */}
-          <div className="flex space-x-4">
-            {registration.status === 'pending' && (
-              <>
-                <div className="flex-1 text-center p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                  <div className="text-yellow-400 font-medium">⏳ Waiting for images</div>
-                  <div className="text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
-                </div>
-                <div className="flex space-x-3 mt-3">
-                  <button
-                    onClick={handleApprove}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    ✅ Verify Now
-                  </button>
-                  <button
-                    onClick={() => onNotVerified(registration)}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    ❌ Not Verified
-                  </button>
-                </div>
-              </>
-            )}
-            
-            {registration.status === 'images_uploaded' && (
-              <>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleApprove}
-                    className="flex-1 px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    ✅ Approve Registration
-                  </button>
-                  <button
-                    onClick={() => setShowRejectForm(true)}
-                    className="flex-1 px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    ❌ Reject Registration
-                  </button>
-                </div>
-                <div className="flex space-x-3 mt-3">
-                  <button
-                    onClick={() => onSetPending(registration)}
-                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
-                  >
-                    ⏳ Set Pending
-                  </button>
-                  <button
-                    onClick={() => onNotVerified(registration)}
-                    className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
-                  >
-                    ❌ Not Verified
-                  </button>
-                </div>
-              </>
-            )}
-            
-            {registration.status === 'verified' && (
-              <>
-                <div className="flex-1 text-center p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                  <div className="text-green-400 font-medium">✅ Registration Approved</div>
-                  <div className="text-sm text-gray-400 mt-1">WhatsApp verification message sent</div>
-                </div>
-                <div className="flex space-x-3 mt-3">
-                  <button
-                    onClick={() => onSetPending(registration)}
-                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
-                  >
-                    ⏳ Set Pending
-                  </button>
-                  <button
-                    onClick={() => onNotVerified(registration)}
-                    className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
-                  >
-                    ❌ Not Verified
-                  </button>
-                </div>
-              </>
-            )}
-            
-            {registration.status === 'rejected' && (
-              <>
-                <div className="flex-1 text-center p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                  <div className="text-red-400 font-medium">
-                    {registration.rejectionReason?.startsWith('Not Verified') ? '❌ Not Verified' : '❌ Registration Rejected'}
-                  </div>
-                  <div className="text-sm text-gray-400 mt-1">Reason: {registration.rejectionReason}</div>
-                </div>
-                <div className="flex space-x-3 mt-3">
-                  <button
-                    onClick={handleApprove}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    ✅ Verify Now
-                  </button>
-                  <button
-                    onClick={() => onSetPending(registration)}
-                    className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
-                  >
-                    ⏳ Set Pending
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Rejection Form */}
-          {showRejectForm && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <h4 className="text-lg font-bold text-red-400 mb-3">Reject Registration</h4>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter reason for rejection..."
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-red-400 focus:outline-none"
-                rows={3}
-              />
-              <div className="flex space-x-3 mt-3">
+            {/* Chat Input */}
+            <div className="bg-gaming-charcoal p-2 md:p-4 border-t border-gaming-slate">
+              <div className="flex space-x-3">
+                <input
+                  type="text"
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 bg-gaming-dark border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  disabled={sendingMessage}
+                />
                 <button
-                  onClick={handleReject}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  onClick={handleSendMessage}
+                  disabled={!chatMessage.trim() || sendingMessage}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Confirm Rejection
+                  {sendingMessage ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              
+              {/* Quick Message Templates */}
+              <div className="flex flex-wrap gap-1 md:gap-2 mt-2 md:mt-3">
+                <button
+                  onClick={() => setChatMessage('Please send your verification images as requested.')}
+                  className="px-2 md:px-3 py-1 bg-gaming-slate text-xs text-white rounded-full hover:bg-gaming-charcoal transition-colors"
+                >
+                  📸 Images
                 </button>
                 <button
-                  onClick={() => {
-                    setShowRejectForm(false);
-                    setRejectionReason('');
-                  }}
-                  className="px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+                  onClick={() => setChatMessage('Your registration is under review. We will update you soon.')}
+                  className="px-2 md:px-3 py-1 bg-gaming-slate text-xs text-white rounded-full hover:bg-gaming-charcoal transition-colors"
                 >
-                  Cancel
+                  ⏳ Review
+                </button>
+                <button
+                  onClick={() => setChatMessage('Thank you for your registration. Good luck in the tournament!')}
+                  className="px-2 md:px-3 py-1 bg-gaming-slate text-xs text-white rounded-full hover:bg-gaming-charcoal transition-colors"
+                >
+                  🍀 Good Luck
                 </button>
               </div>
             </div>
-          )}
-
-
+          </div>
         </div>
       </motion.div>
     </motion.div>
@@ -1345,14 +1535,14 @@ const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
       
       const response = await api.put(`/api/bgmi-registration/admin/${registration._id}`, formData);
       
-      console.log('📥 Update response:', response.data);
+      console.log('📥 Update response:', response);
       
-      if (response.data.success) {
+      if (response.success) {
         console.log('✅ Registration updated successfully');
         onUpdate();
       } else {
-        console.error('❌ Update failed:', response.data);
-        setError(response.data.message || 'Failed to update registration');
+        console.error('❌ Update failed:', response);
+        setError(response.message || 'Failed to update registration');
       }
     } catch (error) {
       console.error('❌ Update registration error:', error);
