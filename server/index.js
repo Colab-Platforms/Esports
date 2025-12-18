@@ -189,8 +189,23 @@ app.use('/api/cs2-leaderboard', require('./routes/cs2Leaderboard'));
 app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
-app.use('/api/bgmi-registration', require('./routes/bgmiRegistration'));
-console.log('✅ BGMI Registration routes registered at /api/bgmi-registration');
+console.log('🔄 Loading BGMI Registration routes...');
+try {
+  // Check if file exists
+  const fs = require('fs');
+  const path = require('path');
+  const routePath = path.join(__dirname, 'routes', 'bgmiRegistration.js');
+  console.log('📁 Checking route file:', routePath);
+  console.log('📁 File exists:', fs.existsSync(routePath));
+  
+  const bgmiRoutes = require('./routes/bgmiRegistration');
+  app.use('/api/bgmi-registration', bgmiRoutes);
+  console.log('✅ BGMI Registration routes registered at /api/bgmi-registration');
+} catch (error) {
+  console.error('❌ Failed to load BGMI Registration routes:', error);
+  console.error('❌ Error details:', error.message);
+  console.error('❌ Error stack:', error.stack);
+}
 app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
@@ -217,6 +232,132 @@ app.get('/api/health', (req, res) => {
     message: '🎮 Colab Esports Platform API is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// EMERGENCY BGMI TEST - Direct in main server
+app.get('/api/bgmi-registration/direct-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'DIRECT: BGMI route working from main server!',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// EMERGENCY BACKUP - Admin registrations route directly in main server
+app.get('/api/bgmi-registration/admin/registrations', async (req, res) => {
+  try {
+    console.log('🚨 EMERGENCY: Using backup admin registrations route');
+    
+    // Import models directly
+    const TournamentRegistration = require('./models/TournamentRegistration');
+    const User = require('./models/User');
+    
+    // Basic auth check (simplified)
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'No token provided' }
+      });
+    }
+    
+    // Get registrations (simplified)
+    const registrations = await TournamentRegistration.find({})
+      .populate('tournamentId', 'name gameType mode')
+      .populate('userId', 'username email')
+      .populate('verifiedBy', 'username')
+      .sort({ registeredAt: -1 })
+      .limit(20);
+    
+    // Get stats
+    const stats = {
+      total: await TournamentRegistration.countDocuments({}),
+      pending: await TournamentRegistration.countDocuments({ status: 'pending' }),
+      imagesUploaded: await TournamentRegistration.countDocuments({ status: 'images_uploaded' }),
+      verified: await TournamentRegistration.countDocuments({ status: 'verified' }),
+      rejected: await TournamentRegistration.countDocuments({ status: 'rejected' }),
+      notVerified: await TournamentRegistration.countDocuments({ 
+        status: 'rejected', 
+        rejectionReason: /^Not Verified/ 
+      })
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        registrations,
+        stats,
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: stats.total,
+          pages: Math.ceil(stats.total / 20)
+        }
+      },
+      message: 'EMERGENCY: Using backup route',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Emergency backup route failed:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Emergency backup route failed: ' + error.message }
+    });
+  }
+});
+
+// EMERGENCY BACKUP - Status update route
+app.put('/api/bgmi-registration/admin/:registrationId/status', async (req, res) => {
+  try {
+    console.log('🚨 EMERGENCY: Using backup status update route');
+    
+    const TournamentRegistration = require('./models/TournamentRegistration');
+    const { registrationId } = req.params;
+    const { status, rejectionReason } = req.body;
+    
+    const registration = await TournamentRegistration.findById(registrationId)
+      .populate('tournamentId', 'name');
+    
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Registration not found' }
+      });
+    }
+    
+    // Update status
+    if (status === 'verified') {
+      registration.status = 'verified';
+      registration.verificationDate = new Date();
+    } else if (status === 'rejected') {
+      registration.status = 'rejected';
+      registration.rejectionReason = rejectionReason;
+    } else if (status === 'pending') {
+      registration.status = 'pending';
+      registration.rejectionReason = rejectionReason || null;
+    }
+    
+    await registration.save();
+    
+    // Populate for response
+    await registration.populate('tournamentId', 'name gameType mode');
+    await registration.populate('userId', 'username email');
+    
+    res.json({
+      success: true,
+      data: { registration },
+      message: `Registration ${status} successfully (EMERGENCY BACKUP)`,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Emergency status update failed:', error);
+    res.status(500).json({
+      success: false,
+      error: { message: 'Emergency status update failed: ' + error.message }
+    });
+  }
 });
 
 // Test endpoint for match system

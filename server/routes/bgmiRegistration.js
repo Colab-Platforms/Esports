@@ -12,6 +12,26 @@ const router = express.Router();
 // Debug logging for route loading
 console.log('🎮 BGMI Registration routes loading...');
 
+// EMERGENCY TEST ROUTE - Add at the very beginning
+router.get('/emergency-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'EMERGENCY: BGMI Route is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// EMERGENCY ADMIN TEST - No auth middleware
+router.get('/admin/emergency-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'EMERGENCY: BGMI Admin Route is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // @route   POST /api/bgmi-registration/:tournamentId/register
 // @desc    Register a 4-player team for BGMI tournament
 // @access  Private
