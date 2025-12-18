@@ -610,6 +610,8 @@ router.put('/admin/:registrationId/status', auth, [
       
       // Send WhatsApp verification message
       try {
+        console.log('🔄 Sending WhatsApp verification message to:', registration.whatsappNumber);
+        
         await WhatsAppMessage.createVerificationMessage(
           registration._id,
           registration.whatsappNumber,
@@ -623,13 +625,16 @@ router.put('/admin/:registrationId/status', auth, [
           registration.tournamentId.name
         );
 
+        console.log('📱 WhatsApp API Response:', JSON.stringify(whatsappResult, null, 2));
+
         if (whatsappResult.success) {
-          console.log('✅ WhatsApp verification message sent');
+          console.log('✅ WhatsApp verification message sent successfully');
         } else {
           console.error('❌ WhatsApp verification message failed:', whatsappResult.error);
         }
       } catch (whatsappError) {
-        console.error('❌ WhatsApp verification message error:', whatsappError);
+        console.error('❌ WhatsApp verification message error:', whatsappError.message);
+        console.error('❌ WhatsApp error stack:', whatsappError.stack);
         // Don't fail the verification if WhatsApp fails
       }
     } else if (status === 'rejected') {
