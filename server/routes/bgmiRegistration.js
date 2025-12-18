@@ -9,6 +9,9 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// Debug logging for route loading
+console.log('🎮 BGMI Registration routes loading...');
+
 // @route   POST /api/bgmi-registration/:tournamentId/register
 // @desc    Register a 4-player team for BGMI tournament
 // @access  Private
@@ -759,6 +762,42 @@ router.get('/debug/registrations-count', auth, async (req, res) => {
   }
 });
 
+// Simple test endpoint to check if route is accessible
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'BGMI Registration route is working',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Test endpoint for admin route specifically
+router.get('/admin/test', auth, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.user.userId);
+    
+    res.json({
+      success: true,
+      message: 'BGMI Admin route is working',
+      user: {
+        id: user._id,
+        role: user.role || 'no role set',
+        isAdmin: ['admin', 'moderator'].includes(user.role)
+      },
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'BGMI Admin route test failed'
+    });
+  }
+});
+
 // Debug endpoint to check user role
 router.get('/debug/user-role', auth, async (req, res) => {
   try {
@@ -1278,4 +1317,5 @@ router.get('/check-user/:phone', async (req, res) => {
   }
 });
 
+console.log('✅ BGMI Registration routes loaded successfully');
 module.exports = router;

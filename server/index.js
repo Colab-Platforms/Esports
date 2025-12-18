@@ -190,6 +190,7 @@ app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/bgmi-registration', require('./routes/bgmiRegistration'));
+console.log('✅ BGMI Registration routes registered at /api/bgmi-registration');
 app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
