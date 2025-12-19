@@ -126,8 +126,8 @@ const Navbar = () => {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation - Shows from 1280px+ */}
+          <div className="hidden xl:flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
@@ -188,8 +188,8 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Desktop Auth Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Auth Section - Shows from 1280px+ */}
+          <div className="hidden xl:flex items-center space-x-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 {/* Theme Toggle */}
@@ -287,10 +287,10 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Shows until 1280px */}
           <button
             onClick={toggleMobileMenu}
-            className="md:hidden p-2 text-theme-text-secondary hover:text-theme-accent transition-colors duration-200"
+            className="xl:hidden p-2 text-theme-text-secondary hover:text-theme-accent transition-colors duration-200"
           >
             {isMobileMenuOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
           </button>
@@ -304,7 +304,7 @@ const Navbar = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            className="fixed inset-0 bg-black/50 z-40 xl:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
@@ -318,7 +318,7 @@ const Navbar = () => {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'tween', duration: 0.3 }}
-            className="fixed top-0 left-0 h-screen w-80 max-w-[85vw] bg-theme-bg-card border-r border-theme-border z-50 md:hidden overflow-y-auto shadow-2xl"
+            className="fixed top-0 left-0 h-screen w-80 max-w-[85vw] bg-theme-bg-card border-r border-theme-border z-50 xl:hidden overflow-y-auto shadow-2xl"
           >
             {/* Mobile Menu Header */}
             <div className="flex items-center justify-between p-4 border-b border-theme-border">

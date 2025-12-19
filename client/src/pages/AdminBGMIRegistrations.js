@@ -550,7 +550,7 @@ const AdminBGMIRegistrations = () => {
 
   return (
     <div className="min-h-screen bg-gaming-dark">
-      <div className="w-full max-w-none mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
+      <div className="w-full mx-auto px-3 sm:px-4 md:px-6 xl:px-8 py-4 md:py-6 xl:py-8">
         {/* Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -599,8 +599,8 @@ const AdminBGMIRegistrations = () => {
 
 
 
-        {/* Stats Cards - iPad Optimized */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3 lg:gap-4 mb-4 md:mb-6 lg:mb-8">
+        {/* Stats Cards - Responsive Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3 xl:gap-4 mb-4 md:mb-6 xl:mb-8">
           <div className="card-gaming p-3 md:p-4 text-center">
             <div className="text-xl md:text-2xl font-bold text-white">{stats.total}</div>
             <div className="text-xs md:text-sm text-gray-400">Total</div>
@@ -627,16 +627,16 @@ const AdminBGMIRegistrations = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="card-gaming p-4 md:p-6 mb-6">
-          <h3 className="text-lg font-bold text-white mb-4">Filters</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        {/* Filters - iPad Optimized */}
+        <div className="card-gaming p-3 md:p-4 xl:p-6 mb-4 md:mb-6">
+          <h3 className="text-base xl:text-lg font-bold text-white mb-3 xl:mb-4">Filters</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3 xl:gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Status</label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -647,11 +647,11 @@ const AdminBGMIRegistrations = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Tournament</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Tournament</label>
               <select
                 value={filters.tournamentId}
                 onChange={(e) => setFilters(prev => ({ ...prev, tournamentId: e.target.value }))}
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               >
                 <option value="">All Tournaments</option>
                 {tournaments.map(tournament => (
@@ -662,53 +662,154 @@ const AdminBGMIRegistrations = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Team Name</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Team Name</label>
               <input
                 type="text"
                 value={filters.teamName}
                 onChange={(e) => setFilters(prev => ({ ...prev, teamName: e.target.value }))}
                 placeholder="Search team name..."
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Player Name</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Player Name</label>
               <input
                 type="text"
                 value={filters.playerName}
                 onChange={(e) => setFilters(prev => ({ ...prev, playerName: e.target.value }))}
                 placeholder="Search player name..."
-                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
           </div>
         </div>
 
-        {/* Registrations Table */}
+        {/* Registrations Table - iPad Optimized */}
         <div className="card-gaming overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] md:min-w-[800px]">
+          {/* Mobile/Tablet Card View for screens smaller than xl (1280px) */}
+          <div className="block xl:hidden">
+            <div className="space-y-4">
+              {registrations.map((registration) => (
+                <div key={registration._id} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4">
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white">{registration.teamName}</h3>
+                      <p className="text-sm text-gray-400">{registration.tournamentId.name}</p>
+                    </div>
+                    <div className="ml-3">
+                      {getStatusBadge(registration)}
+                    </div>
+                  </div>
+                  
+                  {/* Team Leader Info */}
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-gaming-neon">👑 Team Leader</div>
+                    <div className="text-white font-medium">{registration.teamLeader.name}</div>
+                    <div className="text-xs text-gray-400">{registration.teamLeader.phone}</div>
+                  </div>
+                  
+                  {/* Images Progress */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-300">Verification Images</span>
+                      <span className="text-sm text-white font-medium">
+                        {registration.verificationImages?.length || 0}/8
+                      </span>
+                    </div>
+                    <div className="flex space-x-1">
+                      {Array.from({ length: 8 }, (_, i) => (
+                        <div
+                          key={i}
+                          className={`flex-1 h-2 rounded-full ${
+                            i < (registration.verificationImages?.length || 0)
+                              ? 'bg-gaming-neon'
+                              : 'bg-gray-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Registration Date */}
+                  <div className="mb-4 text-xs text-gray-400">
+                    📅 Registered: {new Date(registration.registeredAt).toLocaleDateString()}
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => handleViewImages(registration)}
+                      className="flex-1 min-w-[120px] px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span>View Details</span>
+                    </button>
+                    
+                    {registration.status !== 'verified' ? (
+                      <button
+                        onClick={() => handleDirectApprove(registration)}
+                        className="flex-1 min-w-[100px] px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Verify</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSetPending(registration)}
+                        className="flex-1 min-w-[100px] px-3 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Pending</span>
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => handleNotVerified(registration)}
+                      className="px-3 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span>Not Verified</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Table View for xl screens and up (1280px+) */}
+          <div className="hidden xl:block overflow-x-auto">
+            <table className="w-full">
               <thead className="bg-gaming-charcoal">
                 <tr>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Team
                   </th>
-                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
                     Tournament
                   </th>
-                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Leader
                   </th>
-                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Images
                   </th>
-                  <th className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
                     Registered
                   </th>
-                  <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -716,7 +817,7 @@ const AdminBGMIRegistrations = () => {
               <tbody className="divide-y divide-gaming-slate">
                 {registrations.map((registration) => (
                   <tr key={registration._id} className="hover:bg-gaming-slate/50">
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                    <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-white">
                           {registration.teamName}
@@ -730,12 +831,12 @@ const AdminBGMIRegistrations = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap hidden xl:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap hidden xl:table-cell">
                       <div className="text-sm text-white">
                         {registration.tournamentId.name}
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4">
+                    <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-white">
                           {registration.teamLeader.name}
@@ -743,20 +844,16 @@ const AdminBGMIRegistrations = () => {
                         <div className="text-xs text-gray-400">
                           {registration.teamLeader.phone}
                         </div>
-                        {/* Show images count on smaller screens */}
-                        <div className="text-xs text-gray-500 lg:hidden mt-1">
-                          Images: {registration.verificationImages?.length || 0}/8
-                        </div>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(registration)}
                       {/* Show date on smaller screens */}
                       <div className="text-xs text-gray-500 xl:hidden mt-1">
                         {new Date(registration.registeredAt).toLocaleDateString()}
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <div className="text-sm text-white">
                           {registration.verificationImages?.length || 0}/8
@@ -776,10 +873,10 @@ const AdminBGMIRegistrations = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-gray-400 hidden xl:table-cell">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 hidden xl:table-cell">
                       {new Date(registration.registeredAt).toLocaleDateString()}
                     </td>
-                    <td className="px-2 sm:px-3 md:px-4 lg:px-6 py-3 md:py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-1">
                         {/* View Details Button - Always visible */}
                         <button
@@ -839,8 +936,8 @@ const AdminBGMIRegistrations = () => {
                           </button>
                         )}
 
-                        {/* More Actions Dropdown - Visible on tablets and up */}
-                        <div className="relative hidden sm:block">
+                        {/* More Actions Dropdown */}
+                        <div className="relative">
                           <button
                             onClick={() => {
                               const dropdown = document.getElementById(`dropdown-${registration._id}`);
@@ -1088,13 +1185,13 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 overflow-y-auto"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-7xl w-full max-h-[95vh] lg:max-h-[90vh] overflow-hidden mx-1 md:mx-4"
+        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-7xl w-full my-4 mx-1 md:mx-4"
       >
         {/* Header */}
         <div className="bg-gaming-dark border-b border-gaming-slate p-4 md:p-6 flex items-center justify-between">
@@ -1112,32 +1209,32 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
           </button>
         </div>
 
-        {/* Split Screen Content - Responsive */}
-        <div className="flex flex-col lg:flex-row h-[calc(95vh-100px)] lg:h-[calc(90vh-120px)]">
-          {/* Left Side - Images & Team Info with Sticky Layout */}
-          <div className="w-full lg:w-1/2 lg:border-r border-gaming-slate flex flex-col">
-            {/* Sticky Team Info Header - Compact */}
-            <div className="sticky top-0 bg-gaming-dark border-b border-gaming-slate p-3 z-10">
-              <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-3">
+        {/* Split Screen Content - Responsive for 1300px+ */}
+        <div className="flex flex-col xl:flex-row">
+          {/* Left Side - Images & Team Info */}
+          <div className="w-full xl:w-1/2 xl:border-r border-gaming-slate">
+            {/* Team Info Header - Scrollable */}
+            <div className="bg-gaming-dark border-b border-gaming-slate p-2 md:p-3">
+              <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-2 md:p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-bold text-white">Team: {registration.teamName}</h3>
-                  <div>{getStatusBadge(registration)}</div>
+                  <h3 className="text-sm md:text-base font-bold text-white truncate">Team: {registration.teamName}</h3>
+                  <div className="ml-2">{getStatusBadge(registration)}</div>
                 </div>
                 
-                {/* Team Members - Ultra Compact */}
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2">
+                {/* Team Members - iPad Optimized Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 md:gap-2">
                   {/* Team Leader */}
-                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-2">
+                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-1.5 md:p-2">
                     <div className="text-gaming-neon font-medium text-xs">👑 Leader</div>
-                    <div className="text-white text-sm font-medium truncate">{registration.teamLeader.name}</div>
+                    <div className="text-white text-xs md:text-sm font-medium truncate">{registration.teamLeader.name}</div>
                     <div className="text-xs text-gray-400 truncate">{registration.teamLeader.bgmiId}</div>
                   </div>
                   
                   {/* Team Members */}
                   {registration.teamMembers.map((member, index) => (
-                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-2">
+                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-1.5 md:p-2">
                       <div className="text-gray-300 font-medium text-xs">👤 M{index + 1}</div>
-                      <div className="text-white text-sm font-medium truncate">{member.name}</div>
+                      <div className="text-white text-xs md:text-sm font-medium truncate">{member.name}</div>
                       <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
                     </div>
                   ))}
@@ -1150,22 +1247,22 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
               </div>
             </div>
 
-            {/* Scrollable Images Section - Optimized */}
-            <div className="flex-1 overflow-y-auto p-3">
-              <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-3">
-                <h3 className="text-base font-bold text-white mb-3 flex items-center justify-between">
-                  <span>Verification Images ({registration.verificationImages?.length || 0}/8)</span>
+            {/* Images Section - Scrollable */}
+            <div className="p-2 md:p-3">
+              <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-2 md:p-3">
+                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between">
+                  <span>Images ({registration.verificationImages?.length || 0}/8)</span>
                   <span className="text-xs text-gray-400">📱 WhatsApp</span>
                 </h3>
                 
                 {registration.verificationImages && registration.verificationImages.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3">
                     {registration.verificationImages.map((image, index) => (
                       <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors">
                         <img
                           src={image.cloudinaryUrl}
                           alt={`${image.playerId} - Image ${image.imageNumber}`}
-                          className="w-full h-36 object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          className="w-full h-32 md:h-36 object-cover cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => window.open(image.cloudinaryUrl, '_blank')}
                         />
                         <div className="p-2 bg-gaming-charcoal">
@@ -1201,16 +1298,16 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
               </div>
             </div>
 
-            {/* Sticky Action Buttons Footer - Compact */}
-            <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-slate p-3 z-10">
-              <div className="space-y-3">
+            {/* Action Buttons Footer - Scrollable */}
+            <div className="bg-gaming-dark border-t border-gaming-slate p-2 md:p-3">
+              <div className="space-y-2 md:space-y-3">
                 {registration.status === 'pending' && (
                   <>
-                    <div className="text-center p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                      <div className="text-yellow-400 font-medium">⏳ Waiting for images</div>
-                      <div className="text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
+                    <div className="text-center p-2 md:p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <div className="text-yellow-400 font-medium text-sm md:text-base">⏳ Waiting for images</div>
+                      <div className="text-xs md:text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
                     </div>
-                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
                       <button
                         onClick={handleApprove}
                         className="flex-1 px-3 md:px-4 py-2 bg-green-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-green-700 transition-colors"
@@ -1229,26 +1326,26 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                 
                 {registration.status === 'images_uploaded' && (
                   <>
-                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3">
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
                       <button
                         onClick={handleApprove}
-                        className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-green-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-green-700 transition-colors"
+                        className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-green-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-green-700 transition-colors"
                       >
-                        ✅ Approve Registration
+                        ✅ Approve
                       </button>
                       <button
                         onClick={() => setShowRejectForm(true)}
-                        className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-red-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-red-700 transition-colors"
+                        className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-red-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-red-700 transition-colors"
                       >
-                        ❌ Reject Registration
+                        ❌ Reject
                       </button>
                     </div>
-                    <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3 mt-2">
+                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
                       <button
                         onClick={() => onSetPending(registration)}
                         className="flex-1 px-3 md:px-4 py-2 bg-yellow-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                       >
-                        ⏳ Set Pending
+                        ⏳ Pending
                       </button>
                       <button
                         onClick={() => onNotVerified(registration)}
@@ -1343,7 +1440,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
           </div>
 
           {/* Right Side - WhatsApp Chat Interface */}
-          <div className="w-full lg:w-1/2 flex flex-col border-t lg:border-t-0 lg:border-l border-gaming-slate">
+          <div className="w-full xl:w-1/2 border-t xl:border-t-0 xl:border-l border-gaming-slate">
             {/* Chat Header */}
             <div className="bg-gaming-charcoal p-4 border-b border-gaming-slate">
               <div className="flex items-center space-x-3">
@@ -1360,7 +1457,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
+            <div className="h-64 xl:h-80 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
               {chatMessages.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-gray-400 text-4xl mb-2">💬</div>
@@ -1376,7 +1473,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                     className={`flex ${message.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      className={`max-w-xs xl:max-w-md px-4 py-2 rounded-lg ${
                         message.sender === 'admin'
                           ? 'bg-green-500 text-white'
                           : 'bg-gaming-slate text-white'

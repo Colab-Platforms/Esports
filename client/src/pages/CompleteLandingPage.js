@@ -240,9 +240,9 @@ const CompleteLandingPage = () => {
                     <motion.div
                       animate={{ rotate: [0, 360] }}
                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                      className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-2xl shadow-lg"
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
                     >
-                      📱
+                      <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391' />
                     </motion.div>
                     <div>
                       <h3 className="text-2xl font-gaming font-bold text-white">BGMI</h3>
@@ -288,13 +288,13 @@ const CompleteLandingPage = () => {
                             <motion.div
                               whileHover={{ rotate: [0, -10, 10, -10, 0] }}
                               className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg shadow-lg ${
-                                idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' :
-                                idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' :
-                                idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-black' :
+                                idx === 0 ? 'text-black' :
+                                idx === 1 ? 'text-black' :
+                                idx === 2 ? 'text-black' :
                                 'bg-gray-700 text-white'
                               }`}
                             >
-                              {idx === 0 ? '👑' : idx + 1}
+                              {idx === 0 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/03_Medal_01.png?v=1766135699' /> : idx === 1 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/04_Medal_02.png?v=1766135698' /> : <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/05_Medal_03.png?v=1766135699' /> }
                             </motion.div>
                             
                             <div>
@@ -353,9 +353,9 @@ const CompleteLandingPage = () => {
                     <motion.div
                       animate={{ rotate: [0, -360] }}
                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                      className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-2xl shadow-lg"
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
                     >
-                      ⚡
+                      <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/02_CS2.png?v=1766135507' />
                     </motion.div>
                     <div>
                       <h3 className="text-2xl font-gaming font-bold text-white">CS2</h3>
@@ -414,13 +414,13 @@ const CompleteLandingPage = () => {
                               <motion.div
                                 whileHover={{ rotate: [0, -10, 10, -10, 0] }}
                                 className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg shadow-lg ${
-                                  idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-black' :
-                                  idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500 text-black' :
-                                  idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-black' :
+                                  idx === 0 ? 'text-black' :
+                                  idx === 1 ? 'text-black' :
+                                  idx === 2 ? 'text-black' :
                                   'bg-gray-700 text-white'
                                 }`}
                               >
-                                {idx === 0 ? '👑' : idx + 1}
+                                {idx === 0 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/03_Medal_01.png?v=1766135699' /> : idx === 1 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/04_Medal_02.png?v=1766135698' /> : <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/05_Medal_03.png?v=1766135699' /> }
                               </motion.div>
                               
                               <div>
@@ -513,11 +513,11 @@ const CompleteLandingPage = () => {
             >
               <div className="flex items-center space-x-3 mb-6">
                 <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  // animate={{ rotate: [0, 360] }}
+                  // transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                   className="text-6xl"
                 >
-                  📱
+                  <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391' width={150} height={150}/>
                 </motion.div>
                 <div>
                   <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
@@ -593,10 +593,10 @@ const CompleteLandingPage = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: <FiAward className="w-10 h-10" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
-              { icon: <FiTrendingUp className="w-10 h-10" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-blue-500 to-cyan-500', stat: 'Updated Live' },
-              { icon: <FiServer className="w-10 h-10" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-purple-500 to-pink-500', stat: '2 Servers' },
-              { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-green-500 to-emerald-500', stat: stats.totalPlayers + ' Players' }
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/10_Tournament.png?v=1766138330' className="w-10 h-10" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/11_LiveLeaderboard.png?v=1766138330' className="w-10 h-10" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-yellow-500 to-orange-500', stat: 'Updated Live' },
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/12_Dedicated_Servers.png?v=1766138329' className="w-10 h-10" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-yellow-500 to-orange-500', stat: '2 Servers' },
+              { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-yellow-500 to-orange-500', stat: stats.totalPlayers + ' Players' }
             ].map((feature, idx) => (
               <motion.div
                 key={feature.title}
@@ -647,9 +647,9 @@ const CompleteLandingPage = () => {
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: '👥', title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
-              { icon: '🛡️', title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
-              { icon: '⚔️', title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'from-purple-500 to-pink-500' }
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/14_FriendsSystem_1.png?v=1766147500' height={70} width={70} />, title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/15_TeamManagement_1.png?v=1766147500' height={70} width={70} />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
+              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/16_Challenges_1.png?v=1766147499' height={70} width={70} />, title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'bg-gradient-to-b from-purple-500 to-pink-500' }
             ].map((item, idx) => (
               <motion.div
                 key={item.title}
@@ -699,11 +699,11 @@ const CompleteLandingPage = () => {
           >
             <div className="flex items-center justify-center space-x-3 mb-4">
               <motion.div
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                // animate={{ rotate: [0, 360] }}
+                // transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 className="text-5xl"
               >
-                ⚡
+                <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/02_CS2.png?v=1766135507' height={150} width={150} />
               </motion.div>
               <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
                 CS2 Dedicated Servers
