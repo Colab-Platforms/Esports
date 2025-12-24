@@ -56,20 +56,15 @@ const AdminBGMIRegistrations = () => {
 
   const fetchTournaments = async () => {
     try {
-      console.log('🔄 Fetching tournaments...');
       const response = await api.get('/api/tournaments');
-      console.log('📋 Tournaments API response:', response.data);
       
       if (response.data.success) {
         const bgmiTournaments = response.data.data.tournaments.filter(t => t.gameType === 'BGMI');
-        console.log('🎮 BGMI tournaments found:', bgmiTournaments);
         setTournaments(bgmiTournaments);
       } else {
-        console.error('❌ Tournaments API failed:', response.data);
         // Try alternative response format
         if (response.data.tournaments) {
           const bgmiTournaments = response.data.tournaments.filter(t => t.gameType === 'BGMI');
-          console.log('🎮 BGMI tournaments (alternative format):', bgmiTournaments);
           setTournaments(bgmiTournaments);
         }
       }
@@ -1104,56 +1099,36 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
   console.log('🔍 Modal rendered with registration:', registration);
   console.log('📸 Modal images:', registration?.verificationImages?.length || 0);
 
-  // Fetch chat messages when modal opens
+  // Fetch chat messages when modal opens (NO AUTO-POLLING)
   useEffect(() => {
     if (registration?._id) {
       fetchChatMessages();
-      
-      // Set up polling for new messages every 5 seconds
-      const pollInterval = setInterval(() => {
-        console.log('🔄 Polling for new messages...');
-        fetchChatMessages();
-      }, 5000);
-      
-      // Cleanup interval on unmount
-      return () => {
-        console.log('🛑 Stopping message polling');
-        clearInterval(pollInterval);
-      };
+      // No automatic polling - user can manually refresh if needed
     }
   }, [registration?._id]);
 
-  const fetchChatMessages = async () => {
+  const fetchChatMessages = async (loadMore = false) => {
     try {
-      setLoadingChat(true);
-      console.log('📱 Fetching chat messages for registration:', registration._id);
+      if (!loadMore) setLoadingChat(true);
       
-      const response = await api.get(`/api/whatsapp/chat/${registration._id}`);
-      console.log('📱 Chat API response:', response);
+      // Use pagination to limit database reads (prevent Firebase-like limits)
+      const page = loadMore ? Math.ceil(chatMessages.length / 20) + 1 : 1;
+      const limit = 20; // Limit to 20 messages per request
+      
+      const response = await api.get(`/api/whatsapp/chat/${registration._id}?page=${page}&limit=${limit}`);
       
       // Handle multiple response formats
       let messages = [];
       if (response.data && response.data.success && response.data.data && response.data.data.messages) {
         messages = response.data.data.messages;
-        console.log('📱 Using response.data.data.messages format');
       } else if (response.data && Array.isArray(response.data)) {
         messages = response.data;
-        console.log('📱 Using response.data array format');
       } else if (response && Array.isArray(response)) {
         messages = response;
-        console.log('📱 Using response array format');
       } else if (response.data && response.data.messages) {
         messages = response.data.messages;
-        console.log('📱 Using response.data.messages format');
       } else if (response.messages) {
         messages = response.messages;
-        console.log('📱 Using response.messages format');
-      }
-      
-      console.log('📱 Raw messages found:', messages.length);
-      if (messages.length > 0) {
-        console.log('📱 First message sample:', messages[0]);
-        console.log('📱 Last message sample:', messages[messages.length - 1]);
       }
       
       const formattedMessages = messages.map(msg => ({
@@ -1166,16 +1141,19 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
         messageType: msg.messageType || 'unknown'
       }));
       
-      console.log('📱 Formatted messages:', formattedMessages.length);
-      
       // Sort messages by timestamp (oldest first)
       formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       
-      setChatMessages(formattedMessages);
+      if (loadMore) {
+        // Append new messages for pagination
+        setChatMessages(prev => [...prev, ...formattedMessages]);
+      } else {
+        // Replace messages for initial load
+        setChatMessages(formattedMessages);
+      }
       
       // If no messages, show helpful test messages
-      if (formattedMessages.length === 0) {
-        console.log('📱 No messages found, showing welcome message');
+      if (formattedMessages.length === 0 && !loadMore) {
         setChatMessages([
           {
             id: 'welcome',
@@ -1186,27 +1164,25 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             messageType: 'system'
           }
         ]);
-      } else {
-        console.log('✅ Chat messages loaded successfully:', formattedMessages.length);
-        console.log('📱 Message types:', formattedMessages.map(m => m.messageType).join(', '));
       }
       
     } catch (error) {
       console.error('❌ Failed to fetch chat messages:', error);
-      console.error('❌ Error response:', error.response?.data);
       // Show error but keep interface functional
-      setChatMessages([
-        {
-          id: 'error',
-          text: `Error loading messages: ${error.message}. You can still send new messages.`,
-          sender: 'admin',
-          timestamp: new Date(),
-          status: 'failed',
-          messageType: 'error'
-        }
-      ]);
+      if (!loadMore) {
+        setChatMessages([
+          {
+            id: 'error',
+            text: `Error loading messages: ${error.message}. You can still send new messages.`,
+            sender: 'admin',
+            timestamp: new Date(),
+            status: 'failed',
+            messageType: 'error'
+          }
+        ]);
+      }
     } finally {
-      setLoadingChat(false);
+      if (!loadMore) setLoadingChat(false);
     }
   };
 
@@ -1292,27 +1268,17 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
       }
 
       if (success) {
-        // Update message status to sent
+        // Update message status to sent immediately
         setChatMessages(prev => 
           prev.map(msg => 
             msg.id === newMessage.id 
-              ? { ...msg, status: 'sent' }
+              ? { ...msg, status: 'delivered' } // Skip intermediate states for speed
               : msg
           )
         );
         console.log('✅ Message sent successfully');
         
-        // After a short delay, mark as delivered (simulating WhatsApp behavior)
-        setTimeout(() => {
-          setChatMessages(prev => 
-            prev.map(msg => 
-              msg.id === newMessage.id 
-                ? { ...msg, status: 'delivered' }
-                : msg
-            )
-          );
-        }, 1000);
-        
+        // No artificial delay - immediate status update
       } else {
         console.error('❌ Message send failed:', response);
         setChatMessages(prev => 
@@ -1350,13 +1316,13 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-7xl w-full my-4 mx-1 md:mx-4"
+        className="bg-gaming-dark border border-gaming-slate rounded-lg max-w-7xl w-full max-h-[85vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="bg-gaming-dark border-b border-gaming-slate p-4 md:p-6 flex items-center justify-between">
@@ -1375,9 +1341,9 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
         </div>
 
         {/* Split Screen Content - Responsive for 1300px+ */}
-        <div className="flex flex-col xl:flex-row">
+        <div className="flex flex-col xl:flex-row flex-1 overflow-hidden">
           {/* Left Side - Images & Team Info */}
-          <div className="w-full xl:w-1/2 xl:border-r border-gaming-slate">
+          <div className="w-full xl:w-1/2 xl:border-r border-gaming-slate flex flex-col overflow-hidden">
             {/* Team Info Header - Scrollable */}
             <div className="bg-gaming-dark border-b border-gaming-slate p-2 md:p-3">
               <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-2 md:p-3">
@@ -1413,7 +1379,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             </div>
 
             {/* Images Section - Scrollable */}
-            <div className="p-2 md:p-3 max-h-96 overflow-y-auto">
+            <div className="flex-1 p-2 md:p-3 overflow-y-auto">
               <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-2 md:p-3">
                 <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between sticky top-0 bg-gaming-slate/20 z-10 pb-2">
                   <span>Images ({registration.verificationImages?.length || 0}/8)</span>
@@ -1421,7 +1387,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                 </h3>
                 
                 {registration.verificationImages && registration.verificationImages.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3 max-h-80 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3">
                     {registration.verificationImages.map((image, index) => (
                       <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors relative group">
                         {/* Delete Button */}
@@ -1623,7 +1589,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
           </div>
 
           {/* Right Side - WhatsApp Chat Interface */}
-          <div className="w-full xl:w-1/2 border-t xl:border-t-0 xl:border-l border-gaming-slate">
+          <div className="w-full xl:w-1/2 border-t xl:border-t-0 xl:border-l border-gaming-slate flex flex-col overflow-hidden">
             {/* Chat Header */}
             <div className="bg-gaming-charcoal p-4 border-b border-gaming-slate">
               <div className="flex items-center justify-between">
@@ -1641,10 +1607,10 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                 
                 {/* Refresh Chat Button */}
                 <button
-                  onClick={fetchChatMessages}
+                  onClick={() => fetchChatMessages(false)}
                   disabled={loadingChat}
                   className="p-2 bg-gaming-slate hover:bg-gaming-charcoal rounded-lg transition-colors disabled:opacity-50"
-                  title="Refresh Chat"
+                  title="Refresh Chat (Manual)"
                 >
                   <svg className={`w-5 h-5 text-white ${loadingChat ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1654,7 +1620,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             </div>
 
             {/* Chat Messages */}
-            <div className="h-64 xl:h-80 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
               {loadingChat ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-neon mx-auto mb-2"></div>
@@ -1758,42 +1724,6 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                   className="px-2 md:px-3 py-1 bg-gaming-slate text-xs text-white rounded-full hover:bg-gaming-charcoal transition-colors"
                 >
                   🍀 Good Luck
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('🧪 Testing API connection...');
-                    console.log('📱 Registration ID:', registration._id);
-                    console.log('📱 WhatsApp Number:', registration.whatsappNumber);
-                    fetchChatMessages();
-                  }}
-                  className="px-2 md:px-3 py-1 bg-blue-600 text-xs text-white rounded-full hover:bg-blue-700 transition-colors"
-                >
-                  🧪 Test API
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      console.log('🔍 Checking database messages...');
-                      const response = await api.get(`/api/whatsapp/debug/messages/${registration._id}`);
-                      console.log('🔍 Database debug response:', response);
-                      
-                      // Handle both response formats
-                      let totalMessages = 0;
-                      if (response.data && response.data.debug && response.data.debug.totalMessages) {
-                        totalMessages = response.data.debug.totalMessages;
-                      } else if (response.debug && response.debug.totalMessages) {
-                        totalMessages = response.debug.totalMessages;
-                      }
-                      
-                      alert(`Database has ${totalMessages} messages for this registration. Check console for details.`);
-                    } catch (error) {
-                      console.error('❌ Debug failed:', error);
-                      alert('Debug failed. Check console for details.');
-                    }
-                  }}
-                  className="px-2 md:px-3 py-1 bg-purple-600 text-xs text-white rounded-full hover:bg-purple-700 transition-colors"
-                >
-                  🔍 Check DB
                 </button>
               </div>
             </div>

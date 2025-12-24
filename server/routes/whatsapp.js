@@ -129,9 +129,8 @@ async function processIncomingMessage(message, value) {
 
     if (!registration) {
       console.log('❌ No pending registration found for phone:', shortPhone);
-      // Send help message
-      await whatsappService.sendTextMessage(shortPhone, 
-        '❌ No pending registration found. Please register for a tournament first through our website.');
+      // Don't send automatic messages - just log and return
+      console.log('📱 Skipping automatic response for unregistered number');
       return;
     }
 
@@ -1011,21 +1010,23 @@ router.get('/chat/:registrationId', auth, async (req, res) => {
     }
 
     const { registrationId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 20 } = req.query; // Reduced default limit from 50 to 20
 
-    console.log('📱 Fetching chat messages for registration:', registrationId);
+    console.log('📱 Fetching chat messages for registration:', registrationId, `(page: ${page}, limit: ${limit})`);
 
-    // Get chat messages for this registration
+    // Optimized query with pagination and field selection
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const messages = await WhatsAppMessage.find({ registrationId })
+      .select('messageContent direction queuedAt createdAt status imageUrl messageType') // Only select needed fields
       .sort({ queuedAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean(); // Use lean() for better performance
 
-    console.log('📱 Found messages:', messages.length);
+    console.log('📱 Found messages:', messages.length, `(limited to ${limit})`);
 
-    // Get total count
-    const total = await WhatsAppMessage.countDocuments({ registrationId });
+    // Get total count only if needed (for pagination)
+    const total = parseInt(page) === 1 ? await WhatsAppMessage.countDocuments({ registrationId }) : 0;
 
     // Reverse to show oldest first and map to frontend format
     const formattedMessages = messages.reverse().map(msg => ({
@@ -1274,65 +1275,6 @@ router.delete('/image/:registrationId/:imageId', auth, async (req, res) => {
         details: error.message,
         timestamp: new Date().toISOString()
       }
-    });
-  }
-});
-
-// @route   GET /api/whatsapp/debug/messages/:registrationId
-// @desc    Debug endpoint to check messages in database (Admin only)
-// @access  Private (Admin)
-router.get('/debug/messages/:registrationId', auth, async (req, res) => {
-  try {
-    // Check if user is admin
-    const user = await User.findById(req.user.userId);
-    if (!user || !['admin', 'moderator'].includes(user.role)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Admin privileges required'
-      });
-    }
-
-    const { registrationId } = req.params;
-    
-    // Get registration info
-    const registration = await TournamentRegistration.findById(registrationId);
-    if (!registration) {
-      return res.status(404).json({
-        success: false,
-        error: 'Registration not found'
-      });
-    }
-
-    // Get all messages for this registration
-    const messages = await WhatsAppMessage.find({ registrationId }).sort({ queuedAt: -1 });
-    
-    res.json({
-      success: true,
-      debug: {
-        registrationId,
-        teamName: registration.teamName,
-        whatsappNumber: registration.whatsappNumber,
-        teamLeaderPhone: registration.teamLeader.phone,
-        registrationStatus: registration.status,
-        totalMessages: messages.length,
-        messages: messages.map(msg => ({
-          id: msg._id,
-          type: msg.messageType,
-          content: msg.messageContent,
-          direction: msg.direction,
-          recipientPhone: msg.recipientPhone,
-          status: msg.status,
-          created: msg.queuedAt,
-          adminUser: msg.adminUser
-        }))
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Debug messages error:', error);
-    res.json({
-      success: false,
-      error: error.message
     });
   }
 });
