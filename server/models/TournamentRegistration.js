@@ -131,7 +131,7 @@ tournamentRegistrationSchema.index({ verifiedBy: 1 });
 
 // Virtual to check if all images are uploaded (8 images total)
 tournamentRegistrationSchema.virtual('allImagesUploaded').get(function() {
-  return this.verificationImages.length === 8;
+  return (this.verificationImages && this.verificationImages.length === 8) || false;
 });
 
 // Virtual to get images by player
@@ -143,9 +143,14 @@ tournamentRegistrationSchema.virtual('imagesByPlayer').get(function() {
     member3: []
   };
   
-  this.verificationImages.forEach(image => {
-    imagesByPlayer[image.playerId].push(image);
-  });
+  // Check if verificationImages exists and is an array before forEach
+  if (this.verificationImages && Array.isArray(this.verificationImages)) {
+    this.verificationImages.forEach(image => {
+      if (image.playerId && imagesByPlayer[image.playerId]) {
+        imagesByPlayer[image.playerId].push(image);
+      }
+    });
+  }
   
   return imagesByPlayer;
 });
@@ -206,7 +211,7 @@ tournamentRegistrationSchema.methods.addVerificationImage = function(playerId, i
   }
   
   // Update status if all 8 images are uploaded
-  if (this.verificationImages.length === 8 && this.status === 'pending') {
+  if (this.verificationImages && this.verificationImages.length === 8 && this.status === 'pending') {
     this.status = 'images_uploaded';
   }
   

@@ -10,7 +10,7 @@ const whatsAppMessageSchema = new mongoose.Schema({
   // Message Details
   messageType: {
     type: String,
-    enum: ['registration_success', 'verification_approved', 'verification_rejected', 'tournament_update'],
+    enum: ['registration_success', 'verification_approved', 'verification_rejected', 'tournament_update', 'admin_message', 'text_received', 'text_sent', 'image_received'],
     required: [true, 'Message type is required']
   },
   
@@ -23,7 +23,10 @@ const whatsAppMessageSchema = new mongoose.Schema({
   // WhatsApp Template Information
   templateName: {
     type: String,
-    required: [true, 'Template name is required']
+    required: function() {
+      // Only required for template messages, not for chat messages
+      return ['registration_success', 'verification_approved', 'verification_rejected'].includes(this.messageType);
+    }
   },
   
   templateParams: {
@@ -90,6 +93,25 @@ const whatsAppMessageSchema = new mongoose.Schema({
   maxRetries: {
     type: Number,
     default: 3
+  },
+  
+  // Message Direction (for chat interface)
+  direction: {
+    type: String,
+    enum: ['incoming', 'outgoing'],
+    default: 'outgoing'
+  },
+  
+  // Image URL (for image messages)
+  imageUrl: {
+    type: String,
+    default: null
+  },
+  
+  // Admin user who sent the message (for outgoing messages)
+  adminUser: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true,

@@ -1097,10 +1097,149 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
   const [chatMessage, setChatMessage] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingChat, setLoadingChat] = useState(true);
+  const [deletingImage, setDeletingImage] = useState(null);
 
   // Debug logging
   console.log('🔍 Modal rendered with registration:', registration);
   console.log('📸 Modal images:', registration?.verificationImages?.length || 0);
+
+  // Fetch chat messages when modal opens
+  useEffect(() => {
+    if (registration?._id) {
+      fetchChatMessages();
+      
+      // Set up polling for new messages every 5 seconds
+      const pollInterval = setInterval(() => {
+        console.log('🔄 Polling for new messages...');
+        fetchChatMessages();
+      }, 5000);
+      
+      // Cleanup interval on unmount
+      return () => {
+        console.log('🛑 Stopping message polling');
+        clearInterval(pollInterval);
+      };
+    }
+  }, [registration?._id]);
+
+  const fetchChatMessages = async () => {
+    try {
+      setLoadingChat(true);
+      console.log('📱 Fetching chat messages for registration:', registration._id);
+      
+      const response = await api.get(`/api/whatsapp/chat/${registration._id}`);
+      console.log('📱 Chat API response:', response);
+      
+      // Handle multiple response formats
+      let messages = [];
+      if (response.data && response.data.success && response.data.data && response.data.data.messages) {
+        messages = response.data.data.messages;
+        console.log('📱 Using response.data.data.messages format');
+      } else if (response.data && Array.isArray(response.data)) {
+        messages = response.data;
+        console.log('📱 Using response.data array format');
+      } else if (response && Array.isArray(response)) {
+        messages = response;
+        console.log('📱 Using response array format');
+      } else if (response.data && response.data.messages) {
+        messages = response.data.messages;
+        console.log('📱 Using response.data.messages format');
+      } else if (response.messages) {
+        messages = response.messages;
+        console.log('📱 Using response.messages format');
+      }
+      
+      console.log('📱 Raw messages found:', messages.length);
+      if (messages.length > 0) {
+        console.log('📱 First message sample:', messages[0]);
+        console.log('📱 Last message sample:', messages[messages.length - 1]);
+      }
+      
+      const formattedMessages = messages.map(msg => ({
+        id: msg._id || msg.id || Date.now() + Math.random(),
+        text: msg.content || msg.messageContent || msg.text || 'No content',
+        sender: msg.direction === 'outgoing' ? 'admin' : 'user',
+        timestamp: new Date(msg.queuedAt || msg.createdAt || Date.now()),
+        status: msg.status || 'delivered',
+        imageUrl: msg.imageUrl || null,
+        messageType: msg.messageType || 'unknown'
+      }));
+      
+      console.log('📱 Formatted messages:', formattedMessages.length);
+      
+      // Sort messages by timestamp (oldest first)
+      formattedMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      setChatMessages(formattedMessages);
+      
+      // If no messages, show helpful test messages
+      if (formattedMessages.length === 0) {
+        console.log('📱 No messages found, showing welcome message');
+        setChatMessages([
+          {
+            id: 'welcome',
+            text: 'Chat interface is ready! Send a message to test WhatsApp integration.',
+            sender: 'admin',
+            timestamp: new Date(),
+            status: 'delivered',
+            messageType: 'system'
+          }
+        ]);
+      } else {
+        console.log('✅ Chat messages loaded successfully:', formattedMessages.length);
+        console.log('📱 Message types:', formattedMessages.map(m => m.messageType).join(', '));
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to fetch chat messages:', error);
+      console.error('❌ Error response:', error.response?.data);
+      // Show error but keep interface functional
+      setChatMessages([
+        {
+          id: 'error',
+          text: `Error loading messages: ${error.message}. You can still send new messages.`,
+          sender: 'admin',
+          timestamp: new Date(),
+          status: 'failed',
+          messageType: 'error'
+        }
+      ]);
+    } finally {
+      setLoadingChat(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId) => {
+    if (!window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingImage(imageId);
+      console.log('🗑️ Deleting image:', imageId);
+      
+      const response = await api.delete(`/api/whatsapp/image/${registration._id}/${imageId}`);
+      console.log('🗑️ Delete response:', response.data);
+      
+      if (response.data.success) {
+        // Update the registration data locally
+        const updatedImages = registration.verificationImages.filter(img => img._id !== imageId);
+        registration.verificationImages = updatedImages;
+        
+        // Show success message
+        alert(`Image deleted successfully! Remaining images: ${updatedImages.length}/8`);
+        
+        // Refresh the parent component
+        window.location.reload(); // Simple refresh for now
+      }
+    } catch (error) {
+      console.error('❌ Failed to delete image:', error);
+      alert('Failed to delete image. Please try again.');
+    } finally {
+      setDeletingImage(null);
+    }
+  };
 
   const handleApprove = () => {
     onStatusUpdate(registration._id, 'verified');
@@ -1132,24 +1271,50 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
     setChatMessages(prev => [...prev, newMessage]);
 
     try {
+      console.log('📱 Sending message to registration:', registration._id);
+      console.log('📱 Message content:', messageText);
+      
       // Send message via API
-      const response = await api.post('/api/whatsapp/send-message', {
-        phoneNumber: registration.whatsappNumber,
-        message: messageText,
-        registrationId: registration._id
+      const response = await api.post(`/api/whatsapp/chat/${registration._id}/send`, {
+        message: messageText
       });
+      
+      console.log('📱 Send message response:', response);
 
-      if (response.success) {
+      // Handle both response formats
+      let success = false;
+      if (response.data && response.data.success) {
+        success = true;
+      } else if (response.success) {
+        success = true;
+      } else if (response && !response.error) {
+        success = true; // Assume success if no error
+      }
+
+      if (success) {
         // Update message status to sent
         setChatMessages(prev => 
           prev.map(msg => 
             msg.id === newMessage.id 
-              ? { ...msg, status: 'sent', messageId: response.messageId }
+              ? { ...msg, status: 'sent' }
               : msg
           )
         );
+        console.log('✅ Message sent successfully');
+        
+        // After a short delay, mark as delivered (simulating WhatsApp behavior)
+        setTimeout(() => {
+          setChatMessages(prev => 
+            prev.map(msg => 
+              msg.id === newMessage.id 
+                ? { ...msg, status: 'delivered' }
+                : msg
+            )
+          );
+        }, 1000);
+        
       } else {
-        // Update message status to failed
+        console.error('❌ Message send failed:', response);
         setChatMessages(prev => 
           prev.map(msg => 
             msg.id === newMessage.id 
@@ -1160,7 +1325,6 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
       }
     } catch (error) {
       console.error('❌ Send message error:', error);
-      // Update message status to failed
       setChatMessages(prev => 
         prev.map(msg => 
           msg.id === newMessage.id 
@@ -1168,6 +1332,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             : msg
         )
       );
+      console.log('❌ Error details:', error.response?.data);
     } finally {
       setSendingMessage(false);
     }
@@ -1248,17 +1413,35 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             </div>
 
             {/* Images Section - Scrollable */}
-            <div className="p-2 md:p-3">
+            <div className="p-2 md:p-3 max-h-96 overflow-y-auto">
               <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-2 md:p-3">
-                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between">
+                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between sticky top-0 bg-gaming-slate/20 z-10 pb-2">
                   <span>Images ({registration.verificationImages?.length || 0}/8)</span>
                   <span className="text-xs text-gray-400">📱 WhatsApp</span>
                 </h3>
                 
                 {registration.verificationImages && registration.verificationImages.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3 max-h-80 overflow-y-auto">
                     {registration.verificationImages.map((image, index) => (
-                      <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors">
+                      <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors relative group">
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteImage(image._id)}
+                          disabled={deletingImage === image._id}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          title="Delete Image"
+                        >
+                          {deletingImage === image._id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                        
                         <img
                           src={image.cloudinaryUrl}
                           alt={`${image.playerId} - Image ${image.imageNumber}`}
@@ -1443,22 +1626,41 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
           <div className="w-full xl:w-1/2 border-t xl:border-t-0 xl:border-l border-gaming-slate">
             {/* Chat Header */}
             <div className="bg-gaming-charcoal p-4 border-b border-gaming-slate">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.785"/>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.785"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-white font-medium">{registration.teamLeader.name}</div>
+                    <div className="text-sm text-gray-400">+91 {registration.whatsappNumber}</div>
+                  </div>
+                </div>
+                
+                {/* Refresh Chat Button */}
+                <button
+                  onClick={fetchChatMessages}
+                  disabled={loadingChat}
+                  className="p-2 bg-gaming-slate hover:bg-gaming-charcoal rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh Chat"
+                >
+                  <svg className={`w-5 h-5 text-white ${loadingChat ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                </div>
-                <div>
-                  <div className="text-white font-medium">{registration.teamLeader.name}</div>
-                  <div className="text-sm text-gray-400">+91 {registration.whatsappNumber}</div>
-                </div>
+                </button>
               </div>
             </div>
 
             {/* Chat Messages */}
             <div className="h-64 xl:h-80 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3 bg-gray-900">
-              {chatMessages.length === 0 ? (
+              {loadingChat ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-neon mx-auto mb-2"></div>
+                  <p className="text-gray-400 text-sm">Loading chat messages...</p>
+                </div>
+              ) : chatMessages.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-gray-400 text-4xl mb-2">💬</div>
                   <p className="text-gray-400">Start a conversation</p>
@@ -1479,6 +1681,14 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                           : 'bg-gaming-slate text-white'
                       }`}
                     >
+                      {message.imageUrl && (
+                        <img 
+                          src={message.imageUrl} 
+                          alt="Shared image" 
+                          className="w-full h-32 object-cover rounded mb-2 cursor-pointer"
+                          onClick={() => window.open(message.imageUrl, '_blank')}
+                        />
+                      )}
                       <p className="text-sm">{message.text}</p>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-xs opacity-70">
@@ -1488,6 +1698,8 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                           <span className="text-xs opacity-70 ml-2">
                             {message.status === 'sending' && '⏳'}
                             {message.status === 'sent' && '✓'}
+                            {message.status === 'delivered' && '✓✓'}
+                            {message.status === 'read' && '✓✓'}
                             {message.status === 'failed' && '❌'}
                           </span>
                         )}
@@ -1546,6 +1758,42 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                   className="px-2 md:px-3 py-1 bg-gaming-slate text-xs text-white rounded-full hover:bg-gaming-charcoal transition-colors"
                 >
                   🍀 Good Luck
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🧪 Testing API connection...');
+                    console.log('📱 Registration ID:', registration._id);
+                    console.log('📱 WhatsApp Number:', registration.whatsappNumber);
+                    fetchChatMessages();
+                  }}
+                  className="px-2 md:px-3 py-1 bg-blue-600 text-xs text-white rounded-full hover:bg-blue-700 transition-colors"
+                >
+                  🧪 Test API
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🔍 Checking database messages...');
+                      const response = await api.get(`/api/whatsapp/debug/messages/${registration._id}`);
+                      console.log('🔍 Database debug response:', response);
+                      
+                      // Handle both response formats
+                      let totalMessages = 0;
+                      if (response.data && response.data.debug && response.data.debug.totalMessages) {
+                        totalMessages = response.data.debug.totalMessages;
+                      } else if (response.debug && response.debug.totalMessages) {
+                        totalMessages = response.debug.totalMessages;
+                      }
+                      
+                      alert(`Database has ${totalMessages} messages for this registration. Check console for details.`);
+                    } catch (error) {
+                      console.error('❌ Debug failed:', error);
+                      alert('Debug failed. Check console for details.');
+                    }
+                  }}
+                  className="px-2 md:px-3 py-1 bg-purple-600 text-xs text-white rounded-full hover:bg-purple-700 transition-colors"
+                >
+                  🔍 Check DB
                 </button>
               </div>
             </div>
