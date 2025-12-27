@@ -17,6 +17,7 @@ import HeroImageSlider from '../components/common/HeroImageSlider';
 import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
 import { getSteamAuthUrl } from '../utils/apiConfig';
 import { getPlayerCountText } from '../utils/cs2ServerStatus';
+import GameIcon from '../components/common/GameIcon';
 
 const SliderLandingPage = () => {
   const dispatch = useDispatch();
@@ -118,14 +119,7 @@ const SliderLandingPage = () => {
   }, [tournaments, isAuthenticated]);
 
   const getGameIcon = (gameType) => {
-    const icons = {
-      bgmi: '📱',
-      cs2: '⚡',
-      valorant: '🎯',
-      freefire: '🔥',
-      ml: '🎮'
-    };
-    return icons[gameType] || '🎮';
+    return <GameIcon gameType={gameType} size="lg" style="cdn" />;
   };
 
   const getDisplayStatus = (status, gameType) => {

@@ -11,7 +11,8 @@ import {
   FiZap, FiShield, FiTrendingUp, FiGift,
   FiArrowRight, FiPlay, FiStar, FiActivity
 } from 'react-icons/fi';
-import { getGameAsset } from '../assets/gameAssets';
+import { getGameAsset, getCdnIcon, getMedalIcon } from '../assets/gameAssets';
+import GameIcon from '../components/common/GameIcon';
 import OptimizedImage from '../components/common/OptimizedImage';
 import HeroImageSlider from '../components/common/HeroImageSlider';
 
@@ -19,8 +20,22 @@ const CompleteLandingPage = () => {
   const { isAuthenticated } = useSelector(selectAuth);
   const navigate = useNavigate();
   
-  const [bgmiLeaderboard, setBgmiLeaderboard] = useState([]);
+  const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
   const [cs2Leaderboard, setCs2Leaderboard] = useState([]);
+  const [latestBgmiScoreboard, setLatestBgmiScoreboard] = useState(null);
+  
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔍 BGMI Scoreboards state changed:', bgmiScoreboards.length, 'items');
+    console.log('📊 Current scoreboards:', bgmiScoreboards);
+  }, [bgmiScoreboards]);
+
+  // Initial data fetch on component mount
+  useEffect(() => {
+    console.log('🚀 CompleteLandingPage mounted - fetching initial data');
+    fetchAllData();
+  }, []); // Empty dependency array = runs once on mount
+
   const [stats, setStats] = useState({
     totalPlayers: '0',
     activeTournaments: '0',
@@ -28,21 +43,55 @@ const CompleteLandingPage = () => {
     totalMatches: '0'
   });
   const [servers, setServers] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
+  const [lastDataFetch, setLastDataFetch] = useState(null);
+
+  // Helper function to generate testimonials with colors for display
+  const generateTestimonialsForDisplay = () => {
+    const colorMap = {
+      'cs2': 'from-blue-500 to-cyan-500',
+      'bgmi': 'from-orange-500 to-red-500',
+      'valorant': 'from-purple-500 to-pink-500',
+      'freefire': 'from-yellow-500 to-orange-500',
+      'ml': 'from-green-500 to-emerald-500',
+      'apex': 'from-red-500 to-pink-500',
+      'rainbow6': 'from-indigo-500 to-purple-500',
+      'fc24': 'from-green-500 to-blue-500'
+    };
+
+    const displayTestimonials = testimonials.map(testimonial => ({
+      name: testimonial.name,
+      game: testimonial.gameTitle,
+      gameType: testimonial.gameType,
+      text: testimonial.text,
+      rating: testimonial.rating,
+      color: colorMap[testimonial.gameType] || 'from-gray-500 to-gray-600'
+    }));
+
+    // Duplicate for seamless loop (need at least 6 items for smooth 3-column animation)
+    const duplicatedTestimonials = [...displayTestimonials, ...displayTestimonials];
+    return duplicatedTestimonials.slice(0, 6); // Take first 6 items
+  };
 
   const upcomingGames = [
-    { name: 'Valorant', icon: '🎯', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
-    { name: 'Apex Legends', icon: '🎮', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
-    { name: 'Free Fire', icon: '🔥', status: 'Coming Q2 2025', color: 'from-yellow-500 to-orange-500' },
-    { name: 'Rainbow Six', icon: '🛡️', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
-    { name: 'FC 24', icon: '⚽', status: 'Coming Q3 2025', color: 'from-green-500 to-blue-500' }
+    { name: 'Valorant', gameType: 'valorant', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
+    { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
+    { name: 'Free Fire', gameType: 'freefire', status: 'Coming Q2 2025', color: 'from-yellow-500 to-orange-500' },
+    { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
+    { name: 'FC 24', gameType: 'fc24', status: 'Coming Q3 2025', color: 'from-green-500 to-blue-500' }
   ];
 
   useEffect(() => {
-    fetchAllData();
+    // Only fetch data if it's been more than 5 minutes since last fetch
+    const now = Date.now();
+    if (!lastDataFetch || (now - lastDataFetch) > 5 * 60 * 1000) {
+      fetchAllData();
+      setLastDataFetch(now);
+    }
     
     // Auto-slide upcoming games
     let interval;
@@ -59,13 +108,35 @@ const CompleteLandingPage = () => {
 
   const fetchAllData = async () => {
     setLoading(true);
-    await Promise.all([
-      fetchLeaderboards(),
-      fetchPlatformStats(),
-      fetchServers(),
-      fetchTournaments()
-    ]);
-    setLoading(false);
+    
+    try {
+      // Sequential API calls with longer delays to prevent rate limiting
+      console.log('🔄 Starting data fetch sequence...');
+      
+      await fetchLeaderboards();
+      await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+      
+      await fetchPlatformStats();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await fetchBgmiScoreboards(); // This is the important one for BGMI images
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await fetchServers();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await fetchTestimonials();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await fetchTournaments();
+      
+      console.log('✅ All data fetched successfully');
+      
+    } catch (error) {
+      console.error('❌ Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchLeaderboards = async () => {
@@ -89,14 +160,53 @@ const CompleteLandingPage = () => {
         setCs2Leaderboard(mappedData);
       }
       
-      // BGMI hardcoded for now (no data in DB yet)
-      setBgmiLeaderboard([
-        { username: 'ProGamer_BGMI', kills: 1250, rank: 1 },
-        { username: 'ElitePlayer', kills: 1180, rank: 2 },
-        { username: 'SkillMaster', kills: 1120, rank: 3 }
-      ]);
+      // BGMI scoreboards are now fetched separately in fetchBgmiScoreboards()
     } catch (error) {
       console.error('Error fetching leaderboards:', error);
+    }
+  };
+
+  const fetchBgmiScoreboards = async () => {
+    try {
+      console.log('🔍 Fetching BGMI scoreboards for CompleteLandingPage...');
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      
+      // Direct fetch without API service to avoid rate limiting
+      const response = await fetch(`${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 BGMI scoreboards response:', data);
+      
+      if (data.success && data.data.scoreboards) {
+        console.log('✅ Setting BGMI scoreboards:', data.data.scoreboards.length, 'items');
+        setBgmiScoreboards(data.data.scoreboards);
+        
+        // Set the latest one for backward compatibility
+        if (data.data.scoreboards.length > 0) {
+          setLatestBgmiScoreboard({
+            ...data.data.scoreboards[0],
+            tournamentName: data.data.scoreboards[0].tournament.name
+          });
+        }
+      } else {
+        console.log('❌ No BGMI scoreboards found or API failed');
+        setBgmiScoreboards([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching BGMI scoreboards:', error);
+      setBgmiScoreboards([]);
     }
   };
 
@@ -126,11 +236,80 @@ const CompleteLandingPage = () => {
   };
 
   const fetchServers = async () => {
-    // Only 2 Mumbai servers
-    setServers([
-      { id: 1, name: 'Mumbai Server #1', players: '8/10', status: 'active', map: 'de_dust2', ping: '12ms' },
-      { id: 2, name: 'Mumbai Server #2', players: '10/10', status: 'full', map: 'de_mirage', ping: '15ms' }
-    ]);
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      console.log('🔍 Fetching CS2 tournaments from:', `${API_URL}/api/tournaments?gameType=cs2&status=active`);
+      
+      // Fetch CS2 tournaments instead of separate servers
+      const response = await fetch(`${API_URL}/api/tournaments?gameType=cs2&status=active`);
+      const data = await response.json();
+      
+      console.log('📊 CS2 tournaments API response:', data);
+      
+      if (data.success && data.data && data.data.tournaments) {
+        console.log('✅ Found tournaments:', data.data.tournaments.length);
+        
+        // Map CS2 tournaments to server display format
+        const mappedServers = data.data.tournaments.map((tournament, index) => {
+          console.log('🎮 Processing tournament:', tournament.name);
+          
+          const serverData = {
+            id: tournament._id,
+            name: tournament.roomDetails?.cs2?.serverName || tournament.name || `CS2 Server #${index + 1}`,
+            players: `${tournament.currentParticipants}/${tournament.maxParticipants}`,
+            status: tournament.status === 'active' ? 'active' : 'inactive',
+            map: tournament.roomDetails?.cs2?.mapPool?.[0] || 'de_dust2',
+            ping: '12ms', // Default ping for now
+            region: tournament.region || 'mumbai',
+            ip: tournament.roomDetails?.cs2?.serverIp || '',
+            port: tournament.roomDetails?.cs2?.serverPort || '27015',
+            prizePool: tournament.prizePool || 0,
+            tournamentName: tournament.name
+          };
+          
+          console.log('🗺️ Mapped server:', serverData);
+          return serverData;
+        });
+        
+        console.log('🎯 Setting servers:', mappedServers);
+        setServers(mappedServers);
+      } else {
+        console.log('⚠️ No tournaments found or invalid response structure');
+        // Fallback to empty array if no CS2 tournaments
+        setServers([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching CS2 tournaments:', error);
+      // Fallback to empty array
+      setServers([]);
+    }
+  };
+
+  const fetchTestimonials = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_URL}/api/testimonials`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setTestimonials(data.data);
+      } else {
+        // Fallback to hardcoded testimonials if API fails
+        setTestimonials([
+          { name: 'Rahul K.', gameTitle: 'CS2 Player', gameType: 'cs2', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5 },
+          { name: 'Priya S.', gameTitle: 'BGMI Player', gameType: 'bgmi', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5 },
+          { name: 'Arjun M.', gameTitle: 'Pro Gamer', gameType: 'valorant', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5 }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching testimonials:', error);
+      // Fallback to hardcoded testimonials
+      setTestimonials([
+        { name: 'Rahul K.', gameTitle: 'CS2 Player', gameType: 'cs2', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5 },
+        { name: 'Priya S.', gameTitle: 'BGMI Player', gameType: 'bgmi', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5 },
+        { name: 'Arjun M.', gameTitle: 'Pro Gamer', gameType: 'valorant', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5 }
+      ]);
+    }
   };
 
   const fetchTournaments = async () => {
@@ -242,7 +421,7 @@ const CompleteLandingPage = () => {
                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                       className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
                     >
-                      <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391' />
+                      <GameIcon gameType="bgmi" size="lg" />
                     </motion.div>
                     <div>
                       <h3 className="text-2xl font-gaming font-bold text-white">BGMI</h3>
@@ -260,69 +439,132 @@ const CompleteLandingPage = () => {
                   </Link>
                 </div>
 
-                {/* Leaderboard Entries */}
+                {/* Tournament Results Gallery - Replace Table Rows */}
                 <div className="space-y-3">
-                  {bgmiLeaderboard.map((player, idx) => (
-                    <motion.div
-                      key={player.username || idx}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: idx * 0.1 }}
-                      whileHover={{ scale: 1.02, x: 5 }}
-                      className="relative group"
-                    >
-                      {/* Rank Glow */}
-                      {idx < 3 && (
-                        <div className={`absolute inset-0 rounded-lg filter blur-md ${
-                          idx === 0 ? 'bg-yellow-500/20' :
-                          idx === 1 ? 'bg-gray-400/20' :
-                          'bg-orange-500/20'
-                        }`}></div>
-                      )}
-                      
-                      <div className="relative bg-gaming-dark/70 rounded-lg p-4 border border-gray-700 group-hover:border-gaming-gold/50 transition-all backdrop-blur-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            {/* Rank Badge */}
-                            <motion.div
-                              whileHover={{ rotate: [0, -10, 10, -10, 0] }}
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg shadow-lg ${
-                                idx === 0 ? 'text-black' :
-                                idx === 1 ? 'text-black' :
-                                idx === 2 ? 'text-black' :
-                                'bg-gray-700 text-white'
-                              }`}
-                            >
-                              {idx === 0 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/03_Medal_01.png?v=1766135699' /> : idx === 1 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/04_Medal_02.png?v=1766135698' /> : <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/05_Medal_03.png?v=1766135699' /> }
-                            </motion.div>
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-sm">Loading tournament results...</p>
+                    </div>
+                  ) : bgmiScoreboards.length > 0 ? (
+                    bgmiScoreboards.map((scoreboard, idx) => (
+                      <motion.div
+                        key={scoreboard._id}
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: idx * 0.1 }}
+                        whileHover={{ scale: 1.02, x: 5 }}
+                        className="relative group cursor-pointer"
+                        onClick={() => window.open(scoreboard.imageUrl, '_blank')}
+                      >
+                        <div className="relative bg-gaming-dark/70 rounded-lg overflow-hidden border border-gray-700 group-hover:border-gaming-gold/50 transition-all backdrop-blur-sm">
+                          <div className="flex">
+                            {/* Image Section */}
+                            <div className="w-24 h-16 flex-shrink-0">
+                              <img
+                                src={scoreboard.imageUrl}
+                                alt={scoreboard.description}
+                                className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                              />
+                            </div>
                             
-                            <div>
-                              <div className="font-bold text-white group-hover:text-gaming-gold transition-colors">
-                                {player.username}
+                            {/* Details Section */}
+                            <div className="flex-1 p-3 flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-white text-sm group-hover:text-gaming-gold transition-colors">
+                                  {scoreboard.tournament.name}
+                                </div>
+                                <div className="text-xs text-gray-400 flex items-center">
+                                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                                  {new Date(scoreboard.tournament.endDate).toLocaleDateString()}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-400 flex items-center">
-                                <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                                Rank #{idx + 1}
+                              
+                              <div className="text-right">
+                                <div className="text-xs font-bold text-gaming-gold">
+                                  #{idx + 1}
+                                </div>
+                                <div className="text-xs text-gray-400">Latest</div>
                               </div>
                             </div>
                           </div>
-
-                          <div className="text-right">
-                            <motion.div
-                              animate={{ scale: [1, 1.1, 1] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: idx * 0.2 }}
-                              className="text-xl font-bold text-gaming-gold"
-                            >
-                              {player.kills || player.totalKills || 0}
-                            </motion.div>
-                            <div className="text-xs text-gray-400">Kills</div>
+                          
+                          {/* Hover Overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-orange-500 text-black px-3 py-1 rounded-full text-xs font-bold">
+                              View Full Results
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-4xl mb-2">🏆</div>
+                      <p className="text-gray-400 text-sm">No tournament results yet</p>
+                      <p className="text-xs text-gray-500 mt-1">Results will appear here after tournaments</p>
+                      
+                      {/* Debug button - temporary */}
+                      <button
+                        onClick={async () => {
+                          console.log('🔄 Manual test of BGMI scoreboards API');
+                          try {
+                            const API_URL = process.env.REACT_APP_API_URL || '';
+                            const testUrl = `${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`;
+                            console.log('📡 Testing URL:', testUrl);
+                            
+                            // Direct fetch to avoid rate limiting
+                            const response = await fetch(testUrl, {
+                              method: 'GET',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Cache-Control': 'no-cache'
+                              }
+                            });
+                            
+                            console.log('📥 Raw API Response Status:', response.status);
+                            
+                            if (!response.ok) {
+                              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('📥 Response Data:', data);
+                            
+                            if (data.success && data.data.scoreboards) {
+                              console.log('✅ Found scoreboards:', data.data.scoreboards.length);
+                              console.log('🖼️ Scoreboards:', data.data.scoreboards);
+                              setBgmiScoreboards(data.data.scoreboards);
+                              alert(`✅ API Working! Found ${data.data.scoreboards.length} scoreboards. Check console for details.`);
+                            } else {
+                              console.log('❌ No scoreboards found');
+                              alert('❌ API working but no scoreboards found');
+                            }
+                          } catch (error) {
+                            console.error('❌ API Test Error:', error);
+                            alert(`❌ API Error: ${error.message}`);
+                          }
+                        }}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                      >
+                        🧪 Test API (Direct)
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('🔄 Manual refresh of BGMI scoreboards');
+                          fetchBgmiScoreboards();
+                        }}
+                        className="mt-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                      >
+                        🔄 Refresh Results
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+
 
                 {/* Console Footer */}
                 <div className="mt-6 pt-4 border-t-2 border-orange-500/20">
@@ -355,7 +597,7 @@ const CompleteLandingPage = () => {
                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                       className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
                     >
-                      <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/02_CS2.png?v=1766135507' />
+                      <GameIcon gameType="cs2" size="lg" />
                     </motion.div>
                     <div>
                       <h3 className="text-2xl font-gaming font-bold text-white">CS2</h3>
@@ -420,7 +662,7 @@ const CompleteLandingPage = () => {
                                   'bg-gray-700 text-white'
                                 }`}
                               >
-                                {idx === 0 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/03_Medal_01.png?v=1766135699' /> : idx === 1 ? <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/04_Medal_02.png?v=1766135698' /> : <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/05_Medal_03.png?v=1766135699' /> }
+                                {getMedalIcon(idx) ? <img src={getMedalIcon(idx)} alt={`Medal ${idx + 1}`} /> : idx + 1}
                               </motion.div>
                               
                               <div>
@@ -450,7 +692,9 @@ const CompleteLandingPage = () => {
                     ))
                   ) : (
                     <div className="text-center py-12 text-gray-400">
-                      <div className="text-4xl mb-4">🎮</div>
+                      <div className="text-4xl mb-4">
+                        <GameIcon gameType="cs2" size="xl" />
+                      </div>
                       <p>No leaderboard data yet</p>
                       <p className="text-sm mt-2">Be the first to compete!</p>
                     </div>
@@ -498,9 +742,10 @@ const CompleteLandingPage = () => {
                 <motion.div
                   animate={{ y: [0, -10, 0] }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute top-6 right-6 bg-gaming-gold text-black px-4 py-2 rounded-full font-bold text-sm shadow-lg"
+                  className="absolute top-6 right-6 bg-gaming-gold text-black px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center space-x-2"
                 >
-                  🔥 LIVE NOW
+                  <GameIcon gameType="freefire" size="sm" />
+                  <span>LIVE NOW</span>
                 </motion.div>
               </div>
             </motion.div>
@@ -513,11 +758,9 @@ const CompleteLandingPage = () => {
             >
               <div className="flex items-center space-x-3 mb-6">
                 <motion.div
-                  // animate={{ rotate: [0, 360] }}
-                  // transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                   className="text-6xl"
                 >
-                  <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391' width={150} height={150}/>
+                  <GameIcon gameType="bgmi" size="2xl" />
                 </motion.div>
                 <div>
                   <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
@@ -593,9 +836,9 @@ const CompleteLandingPage = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/10_Tournament.png?v=1766138330' className="w-10 h-10" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/11_LiveLeaderboard.png?v=1766138330' className="w-10 h-10" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-yellow-500 to-orange-500', stat: 'Updated Live' },
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/12_Dedicated_Servers.png?v=1766138329' className="w-10 h-10" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-yellow-500 to-orange-500', stat: '2 Servers' },
+              { icon: <img src={getCdnIcon('features', 'tournaments')} className="w-10 h-10" alt="Tournaments" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
+              { icon: <img src={getCdnIcon('features', 'leaderboards')} className="w-10 h-10" alt="Leaderboards" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-yellow-500 to-orange-500', stat: 'Updated Live' },
+              { icon: <img src={getCdnIcon('features', 'servers')} className="w-10 h-10" alt="Servers" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-yellow-500 to-orange-500', stat: '2 Servers' },
               { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-yellow-500 to-orange-500', stat: stats.totalPlayers + ' Players' }
             ].map((feature, idx) => (
               <motion.div
@@ -647,9 +890,9 @@ const CompleteLandingPage = () => {
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/14_FriendsSystem_1.png?v=1766147500' height={70} width={70} />, title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/15_TeamManagement_1.png?v=1766147500' height={70} width={70} />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
-              { icon: <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/16_Challenges_1.png?v=1766147499' height={70} width={70} />, title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'bg-gradient-to-b from-purple-500 to-pink-500' }
+              { icon: <img src={getCdnIcon('social', 'friends')} height={70} width={70} alt="Friends System" />, title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
+              { icon: <img src={getCdnIcon('social', 'teams')} height={70} width={70} alt="Team Management" />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
+              { icon: <img src={getCdnIcon('social', 'challenges')} height={70} width={70} alt="Challenges" />, title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'bg-gradient-to-b from-purple-500 to-pink-500' }
             ].map((item, idx) => (
               <motion.div
                 key={item.title}
@@ -699,78 +942,99 @@ const CompleteLandingPage = () => {
           >
             <div className="flex items-center justify-center space-x-3 mb-4">
               <motion.div
-                // animate={{ rotate: [0, 360] }}
-                // transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 className="text-5xl"
               >
-                <img src='https://cdn.shopify.com/s/files/1/0636/5226/6115/files/02_CS2.png?v=1766135507' height={150} width={150} />
+                <GameIcon gameType="cs2" size="2xl" />
               </motion.div>
               <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
-                CS2 Dedicated Servers
+                CS2 Tournament Servers
               </h2>
             </div>
-            <p className="text-gray-400 text-lg font-gaming">Mumbai Location • Auto Stats • 24/7 Uptime</p>
+            <p className="text-gray-400 text-lg font-gaming">Active Tournaments • Real Prizes • Join Now</p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {servers.map((server, idx) => (
-              <motion.div
-                key={server.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.2 }}
-                whileHover={{ y: -10, scale: 1.05 }}
-                className="relative group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl filter blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                
-                <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl">
-                  {/* Server Status Indicator */}
-                  <div className="absolute top-4 right-4">
-                    <motion.div
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className={`w-3 h-3 rounded-full ${
-                        server.status === 'active' ? 'bg-green-400' : 'bg-red-400'
-                      } shadow-lg`}
-                    ></motion.div>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white mb-4">{server.name}</h3>
+            {servers.length > 0 ? (
+              servers.map((server, idx) => (
+                <motion.div
+                  key={server.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.2 }}
+                  whileHover={{ y: -10, scale: 1.05 }}
+                  className="relative group"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl filter blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Status:</span>
-                      <span className={`font-bold text-sm ${
-                        server.status === 'active' ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {server.status === 'active' ? '🟢 Active' : '🔴 Full'}
-                      </span>
+                  <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl">
+                    {/* Server Status Indicator */}
+                    <div className="absolute top-4 right-4">
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className={`w-3 h-3 rounded-full ${
+                          server.status === 'active' ? 'bg-green-400' : 'bg-red-400'
+                        } shadow-lg`}
+                      ></motion.div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Players:</span>
-                      <span className="text-white font-bold">{server.players}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Map:</span>
-                      <span className="text-gaming-gold font-bold">{server.map}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
-                      <span className="text-gray-400 text-sm">Ping:</span>
-                      <span className="text-green-400 font-bold">{server.ping}</span>
-                    </div>
-                  </div>
 
-                  <Link
-                    to="/cs2"
-                    className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
-                  >
-                    View Server Details
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
+                    <h3 className="text-xl font-bold text-white mb-4">{server.name}</h3>
+                    
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                        <span className="text-gray-400 text-sm">Status:</span>
+                        <span className={`font-bold text-sm ${
+                          server.status === 'active' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {server.status === 'active' ? '🟢 Active' : '🔴 Offline'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                        <span className="text-gray-400 text-sm">Players:</span>
+                        <span className="text-white font-bold">{server.players}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                        <span className="text-gray-400 text-sm">Map:</span>
+                        <span className="text-gaming-gold font-bold">{server.map}</span>
+                      </div>
+                      {server.prizePool > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-gaming-dark/50 rounded-lg">
+                          <span className="text-gray-400 text-sm">Prize Pool:</span>
+                          <span className="text-gaming-gold font-bold">₹{server.prizePool}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Link
+                      to={`/tournaments/${server.id}`}
+                      className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
+                    >
+                      Join Tournament
+                    </Link>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-2 text-center py-12">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="text-6xl mb-6"
+                >
+                  <GameIcon gameType="cs2" size="2xl" />
+                </motion.div>
+                <h3 className="text-2xl font-bold text-white mb-4">No Active CS2 Tournaments</h3>
+                <p className="text-gray-400 mb-6">Check back soon for new tournaments!</p>
+                <Link
+                  to="/tournaments"
+                  className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold hover:from-blue-500/30 hover:to-cyan-500/30 transition-all"
+                >
+                  View All Tournaments
+                </Link>
+              </div>
+            )}
           </div>
 
           <motion.div
@@ -822,7 +1086,7 @@ const CompleteLandingPage = () => {
             <div className="overflow-hidden rounded-2xl shadow-2xl">
               <motion.div
                 className="flex"
-                animate={{ x: `-${currentGameIndex * 100}%` }}
+                animate={{ x: `${-currentGameIndex * 100}%` }}
                 transition={{ 
                   type: "spring", 
                   stiffness: 150, 
@@ -870,7 +1134,7 @@ const CompleteLandingPage = () => {
                             }}
                             className="text-7xl mb-6 filter drop-shadow-lg"
                           >
-                            {game.icon}
+                            <GameIcon gameType={game.gameType} size="2xl" />
                           </motion.div>
                           
                           {/* Classic Game Title */}
@@ -948,26 +1212,64 @@ const CompleteLandingPage = () => {
 
           {/* Enhanced Testimonials Slider */}
           <div className="relative">
-            <div className="overflow-hidden rounded-3xl">
+            {/* Mobile: Single column, Desktop: 3 columns with animation */}
+            <div className="block md:hidden">
+              {/* Mobile testimonials - simple grid */}
+              <div className="grid gap-6">
+                {generateTestimonialsForDisplay().slice(0, 3).map((review, idx) => (
+                  <motion.div
+                    key={`mobile-${review.name}-${idx}`}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.2 }}
+                    className="relative group"
+                  >
+                    {/* Mobile testimonial card */}
+                    <div className="relative bg-gaming-charcoal/90 backdrop-blur-sm border-2 border-gray-700 rounded-3xl p-6 shadow-2xl">
+                      {/* Avatar */}
+                      <div className="flex items-center mb-4">
+                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${review.color} flex items-center justify-center text-xl shadow-xl mr-3`}>
+                          <GameIcon gameType={review.gameType} size="sm" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-white text-sm">{review.name}</div>
+                          <div className="text-xs text-gray-400">{review.game}</div>
+                        </div>
+                      </div>
+
+                      {/* Stars */}
+                      <div className="flex items-center mb-4">
+                        {[...Array(review.rating)].map((_, i) => (
+                          <FiStar key={i} className="text-gaming-gold fill-current mr-1" size={16} />
+                        ))}
+                      </div>
+
+                      {/* Review text */}
+                      <p className="text-gray-300 text-sm leading-relaxed">
+                        "{review.text}"
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop: Animated slider */}
+            <div className="hidden md:block overflow-hidden rounded-3xl">
               <motion.div
                 className="flex"
-                animate={{ x: [0, -100, -200, 0] }}
+                animate={{ 
+                  x: ['0%', '-33.33%', '-66.66%', '0%'] // All percentage strings
+                }}
                 transition={{ 
                   duration: 15,
                   repeat: Infinity,
                   ease: "linear"
                 }}
               >
-                {[
-                  { name: 'Rahul K.', game: 'CS2 Player', avatar: '🎮', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5, color: 'from-blue-500 to-cyan-500' },
-                  { name: 'Priya S.', game: 'BGMI Player', avatar: '📱', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5, color: 'from-orange-500 to-red-500' },
-                  { name: 'Arjun M.', game: 'Pro Gamer', avatar: '👑', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5, color: 'from-purple-500 to-pink-500' },
-                  // Duplicate for seamless loop
-                  { name: 'Rahul K.', game: 'CS2 Player', avatar: '🎮', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5, color: 'from-blue-500 to-cyan-500' },
-                  { name: 'Priya S.', game: 'BGMI Player', avatar: '📱', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5, color: 'from-orange-500 to-red-500' },
-                  { name: 'Arjun M.', game: 'Pro Gamer', avatar: '👑', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5, color: 'from-purple-500 to-pink-500' }
-                ].map((review, idx) => (
-                  <div key={`${review.name}-${idx}`} className="w-1/3 flex-shrink-0 px-4">
+                {generateTestimonialsForDisplay().map((review, idx) => (
+                  <div key={`desktop-${review.name}-${idx}`} className="w-1/3 flex-shrink-0 px-4">
                     <motion.div
                       initial={{ opacity: 0, y: 30 }}
                       whileInView={{ opacity: 1, y: 0 }}
@@ -1033,7 +1335,7 @@ const CompleteLandingPage = () => {
                               delay: idx * 0.4
                             }}
                           >
-                            {review.avatar}
+                            <GameIcon gameType={review.gameType} size="md" />
                           </motion.div>
                           <div>
                             <div className="font-bold text-white text-lg group-hover:text-gaming-gold transition-colors">
@@ -1110,11 +1412,11 @@ const CompleteLandingPage = () => {
                   </div>
                 ))}
               </motion.div>
-            </div>
 
-            {/* Gradient Overlays for Seamless Loop */}
-            <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
+              {/* Gradient Overlays for Seamless Loop - Desktop only */}
+              <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
+            </div>
           </div>
         </div>
       </section>

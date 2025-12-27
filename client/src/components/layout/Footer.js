@@ -15,7 +15,16 @@ const Footer = () => {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
               <div className="w-8 h-8 bg-gradient-neon rounded-lg flex items-center justify-center">
-                <span className="text-gaming-dark font-bold text-lg">C</span>
+                <img 
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log-White_KB_1.png?v=1750315800" 
+                  alt="Colab Esports Logo"
+                  className="w-6 h-6 object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <span className="hidden text-gaming-dark font-bold text-lg">C</span>
               </div>
               <span className="text-xl font-gaming font-bold text-gaming-neon">
                 Colab Esports

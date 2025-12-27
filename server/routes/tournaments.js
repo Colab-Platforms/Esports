@@ -878,4 +878,479 @@ router.get('/:id/participants', async (req, res) => {
   }
 });
 
+// @route   POST /api/tournaments/:id/scoreboards
+// @desc    Upload scoreboard image for completed tournament (Admin only)
+// @access  Private (Admin)
+router.post('/:id/scoreboards', auth, async (req, res) => {
+  try {
+    const { imageUrl, description = 'Tournament Results' } = req.body;
+    
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_IMAGE_URL',
+          message: 'Image URL is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Check if user is admin (fix user ID field mismatch)
+    const user = await User.findById(req.user.userId || req.user.id);
+    
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_ACCESS_REQUIRED',
+          message: 'Admin access required to upload scoreboards',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Add scoreboard to tournament
+    const newScoreboard = {
+      imageUrl,
+      description,
+      uploadedBy: req.user.userId || req.user.id,
+      uploadedAt: new Date(),
+      order: tournament.scoreboards.length
+    };
+    
+    tournament.scoreboards.push(newScoreboard);
+    await tournament.save();
+    
+    res.json({
+      success: true,
+      data: {
+        message: 'Scoreboard uploaded successfully',
+        scoreboard: newScoreboard,
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          scoreboardCount: tournament.scoreboards.length
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error uploading scoreboard:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SCOREBOARD_UPLOAD_FAILED',
+        message: 'Failed to upload scoreboard',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// Specific routes moved before generic /:id routes to avoid conflicts
+
+// @route   DELETE /api/tournaments/:id/scoreboards/:scoreboardId
+// @desc    Delete a scoreboard (Admin only)
+// @access  Private (Admin)
+router.delete('/:id/scoreboards/:scoreboardId', auth, async (req, res) => {
+  try {
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Check if user is admin
+    const user = await User.findById(req.user.userId || req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_ACCESS_REQUIRED',
+          message: 'Admin access required to delete scoreboards',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Find and remove scoreboard
+    const scoreboardIndex = tournament.scoreboards.findIndex(
+      sb => sb._id.toString() === req.params.scoreboardId
+    );
+    
+    if (scoreboardIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'SCOREBOARD_NOT_FOUND',
+          message: 'Scoreboard not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    tournament.scoreboards.splice(scoreboardIndex, 1);
+    await tournament.save();
+    
+    res.json({
+      success: true,
+      data: {
+        message: 'Scoreboard deleted successfully',
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          scoreboardCount: tournament.scoreboards.length
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error deleting scoreboard:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SCOREBOARD_DELETE_FAILED',
+        message: 'Failed to delete scoreboard',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/tournaments/debug-status/:id
+// @desc    Debug tournament status and dates (Admin only)
+// @access  Private (Admin)
+router.get('/debug-status/:id', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId || req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_ACCESS_REQUIRED',
+          message: 'Admin access required to debug tournament status',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    const now = new Date();
+    
+    // Calculate status checks
+    const statusChecks = {
+      currentTime: now.toISOString(),
+      registrationDeadline: tournament.registrationDeadline?.toISOString(),
+      startDate: tournament.startDate?.toISOString(),
+      endDate: tournament.endDate?.toISOString(),
+      currentStatus: tournament.status,
+      gameType: tournament.gameType,
+      
+      // Time comparisons
+      isAfterRegistrationDeadline: tournament.registrationDeadline ? now >= tournament.registrationDeadline : null,
+      isAfterStartDate: tournament.startDate ? now >= tournament.startDate : null,
+      isAfterEndDate: tournament.endDate ? now >= tournament.endDate : null,
+      
+      // Status logic
+      shouldBeRegistrationClosed: tournament.registrationDeadline && now >= tournament.registrationDeadline,
+      shouldBeActive: tournament.startDate && now >= tournament.startDate && tournament.status === 'registration_closed',
+      shouldBeCompleted: tournament.endDate && now >= tournament.endDate && tournament.status === 'active',
+      
+      // Registration status
+      isRegistrationOpen: tournament.isRegistrationOpen,
+      
+      // Participants
+      currentParticipants: tournament.currentParticipants,
+      maxParticipants: tournament.maxParticipants,
+      isFull: tournament.isFull
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          gameType: tournament.gameType,
+          status: tournament.status
+        },
+        debug: statusChecks,
+        recommendations: {
+          suggestedStatus: 
+            statusChecks.shouldBeCompleted ? 'completed' :
+            statusChecks.shouldBeActive ? 'active' :
+            statusChecks.shouldBeRegistrationClosed ? 'registration_closed' :
+            tournament.status
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error debugging tournament status:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'DEBUG_FAILED',
+        message: 'Failed to debug tournament status',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/tournaments/update-statuses
+// @desc    Manually update tournament statuses (Admin only)
+// @access  Private (Admin)
+router.post('/update-statuses', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId || req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_ACCESS_REQUIRED',
+          message: 'Admin access required to update tournament statuses',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Update tournament statuses
+    const result = await Tournament.updateTournamentStatuses();
+    
+    res.json({
+      success: true,
+      data: {
+        message: 'Tournament statuses updated successfully',
+        updatedCount: result.updatedCount,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error updating tournament statuses:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'STATUS_UPDATE_FAILED',
+        message: 'Failed to update tournament statuses',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/tournaments/bgmi/scoreboards
+// @desc    Get all BGMI tournament scoreboards (public)
+// @access  Public
+router.get('/bgmi/scoreboards', async (req, res) => {
+  try {
+    console.log('📥 BGMI Scoreboards API called');
+    const { limit = 10 } = req.query;
+    console.log('📊 Requested limit:', limit);
+    
+    // Find all BGMI tournaments with scoreboards
+    const tournaments = await Tournament.find({
+      gameType: 'bgmi',
+      'scoreboards.0': { $exists: true } // Only tournaments with at least one scoreboard
+    })
+    .select('name gameType status endDate scoreboards')
+    .populate('scoreboards.uploadedBy', 'username')
+    .sort({ 'scoreboards.uploadedAt': -1 }); // Sort by latest scoreboard upload
+    
+    // Flatten all scoreboards from all tournaments
+    const allScoreboards = [];
+    
+    tournaments.forEach(tournament => {
+      tournament.scoreboards.forEach(scoreboard => {
+        allScoreboards.push({
+          _id: scoreboard._id,
+          imageUrl: scoreboard.imageUrl,
+          description: scoreboard.description,
+          uploadedAt: scoreboard.uploadedAt,
+          tournament: {
+            id: tournament._id,
+            name: tournament.name,
+            gameType: tournament.gameType,
+            status: tournament.status,
+            endDate: tournament.endDate
+          },
+          uploadedBy: scoreboard.uploadedBy
+        });
+      });
+    });
+    
+    // Sort by upload date (newest first) and limit results
+    const sortedScoreboards = allScoreboards
+      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+      .slice(0, parseInt(limit));
+    
+    res.json({
+      success: true,
+      data: {
+        scoreboards: sortedScoreboards,
+        count: sortedScoreboards.length,
+        total: allScoreboards.length
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error fetching BGMI scoreboards:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'BGMI_SCOREBOARDS_FETCH_FAILED',
+        message: 'Failed to fetch BGMI scoreboards',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/tournaments/user/scoreboards
+// @desc    Get scoreboards for tournaments where user participated
+// @access  Private
+router.get('/user/scoreboards', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    
+    // Find tournaments where user participated
+    const tournaments = await Tournament.find({
+      'participants.userId': userId,
+      'scoreboards.0': { $exists: true } // Only tournaments with at least one scoreboard
+    })
+    .select('name gameType status endDate scoreboards participants')
+    .populate('scoreboards.uploadedBy', 'username')
+    .sort({ endDate: -1 }); // Most recent first
+    
+    // Format the response with scoreboard details
+    const userScoreboards = [];
+    
+    tournaments.forEach(tournament => {
+      tournament.scoreboards.forEach(scoreboard => {
+        userScoreboards.push({
+          _id: scoreboard._id,
+          imageUrl: scoreboard.imageUrl,
+          description: scoreboard.description,
+          uploadedAt: scoreboard.uploadedAt,
+          tournament: {
+            id: tournament._id,
+            name: tournament.name,
+            gameType: tournament.gameType,
+            status: tournament.status,
+            endDate: tournament.endDate
+          },
+          uploadedBy: scoreboard.uploadedBy
+        });
+      });
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        scoreboards: userScoreboards,
+        count: userScoreboards.length
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error fetching user scoreboards:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'USER_SCOREBOARDS_FETCH_FAILED',
+        message: 'Failed to fetch user scoreboards',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/tournaments/:id/scoreboards
+// @desc    Get all scoreboards for a tournament
+// @access  Public
+router.get('/:id/scoreboards', async (req, res) => {
+  try {
+    const tournament = await Tournament.findById(req.params.id)
+      .populate('scoreboards.uploadedBy', 'username')
+      .select('name gameType status scoreboards');
+      
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Sort scoreboards by order
+    const sortedScoreboards = tournament.scoreboards.sort((a, b) => a.order - b.order);
+    
+    res.json({
+      success: true,
+      data: {
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          gameType: tournament.gameType,
+          status: tournament.status
+        },
+        scoreboards: sortedScoreboards
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error fetching scoreboards:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SCOREBOARDS_FETCH_FAILED',
+        message: 'Failed to fetch scoreboards',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 module.exports = router;

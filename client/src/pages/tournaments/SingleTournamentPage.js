@@ -18,9 +18,10 @@ import { selectAuth } from '../../store/slices/authSlice';
 import TournamentRegistration from '../../components/tournaments/TournamentRegistration';
 import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
 import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
+import GameIcon from '../../components/common/GameIcon';
 import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
-import { getGameAsset } from '../../assets/gameAssets';
+import { getCdnIcon, getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
 import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
@@ -47,6 +48,7 @@ const SingleTournamentPage = () => {
   const [serverStats, setServerStats] = useState([]);
   const [serverPlayers, setServerPlayers] = useState([]);
   const [playerStats, setPlayerStats] = useState(null);
+  const [scoreboards, setScoreboards] = useState([]);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -190,8 +192,7 @@ const SingleTournamentPage = () => {
           const enhancedTournament = {
             ...tournamentData,
             closesIn: '2 hours 30 minutes', // Default value
-            gameIcon: tournamentData.gameType === 'bgmi' ? '🎮' :
-              tournamentData.gameType === 'cs2' ? '⚡' : '🎯',
+            gameType: tournamentData.gameType, // Keep gameType for GameIcon component
             background: 'linear-gradient(135deg, #00d4ff 0%, #000000 100%)',
             registration: {
               closesIn: '2 hours 30 minutes',
@@ -344,6 +345,36 @@ const SingleTournamentPage = () => {
     fetchRegisteredTeams();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Only re-fetch when tournament id changes
+
+  // Fetch scoreboards for completed tournaments
+  const fetchScoreboards = React.useCallback(async () => {
+    if (!tournament?._id || tournament.status !== 'completed') return;
+    
+    try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/scoreboards`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const scoreboardsData = data.data.scoreboards || [];
+        setScoreboards(scoreboardsData);
+        // Update tournament with scoreboards for UI checks
+        setTournament(prev => ({
+          ...prev,
+          scoreboards: scoreboardsData
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching scoreboards:', error);
+    }
+  }, [tournament?._id, tournament?.status]);
+
+  // Fetch scoreboards when tournament is loaded and completed
+  useEffect(() => {
+    if (tournament && tournament.status === 'completed') {
+      fetchScoreboards();
+    }
+  }, [tournament, fetchScoreboards]);
 
   // Smart refresh for CS2 tournaments - uses background caching
   useEffect(() => {
@@ -545,7 +576,11 @@ const SingleTournamentPage = () => {
   const tabs = [
     { id: 'general', label: 'GENERAL', icon: FiInfo },
     { id: 'teams', label: 'TEAMS', icon: FiUsers },
-    { id: 'chat', label: 'CHAT', icon: FiMessageCircle }
+    { id: 'chat', label: 'CHAT', icon: FiMessageCircle },
+    // Show results tab for completed tournaments, regardless of scoreboards loaded yet
+    ...(tournament?.status === 'completed' 
+      ? [{ id: 'results', label: 'RESULTS', icon: FiAward }] 
+      : [])
   ];
 
   const renderTabContent = () => {
@@ -1165,6 +1200,70 @@ const SingleTournamentPage = () => {
           </div>
         );
 
+      case 'results':
+        return (
+          <div className="space-y-6">
+            {/* Results Header */}
+            <div className="text-center mb-8">
+              <div className="text-6xl mb-4">🏆</div>
+              <h3 className="text-2xl font-bold text-white mb-2">Tournament Results</h3>
+              <p className="text-gray-400">Final standings and scoreboard</p>
+            </div>
+
+            {/* Scoreboard Gallery */}
+            {scoreboards.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {scoreboards.map((scoreboard, index) => (
+                  <div key={scoreboard._id || index} className="bg-gaming-card border border-gaming-border rounded-lg overflow-hidden">
+                    <img
+                      src={scoreboard.imageUrl}
+                      alt={scoreboard.description}
+                      className="w-full h-64 md:h-80 object-contain bg-gaming-charcoal cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(scoreboard.imageUrl, '_blank')}
+                    />
+                    <div className="p-4">
+                      <h4 className="font-bold text-white mb-1">{scoreboard.description}</h4>
+                      <p className="text-xs text-gray-400">
+                        Uploaded on {new Date(scoreboard.uploadedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-4 text-gray-400">📊</div>
+                <h3 className="text-xl font-bold text-white mb-2">Results Coming Soon</h3>
+                <p className="text-gray-400">Tournament results will be posted here once available</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Admin is preparing the final scoreboard images
+                </p>
+              </div>
+            )}
+
+            {/* Download All Button */}
+            {scoreboards.length > 1 && (
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    scoreboards.forEach((scoreboard, index) => {
+                      setTimeout(() => {
+                        const link = document.createElement('a');
+                        link.href = scoreboard.imageUrl;
+                        link.download = `${tournament.name}_Result_${index + 1}.jpg`;
+                        link.click();
+                      }, index * 500);
+                    });
+                  }}
+                  className="px-6 py-3 bg-gaming-neon text-black font-bold rounded-lg hover:bg-gaming-neon/80 transition-colors"
+                >
+                  Download All Results
+                </button>
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -1205,7 +1304,7 @@ const SingleTournamentPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-gradient-to-br from-gaming-neon to-gaming-neon-blue rounded-xl flex items-center justify-center text-3xl">
-                {tournament?.gameIcon || (tournament?.gameType === 'bgmi' ? '🎮' : tournament?.gameType === 'cs2' ? '⚡' : '🎯')}
+                <GameIcon gameType={tournament?.gameType} size="xl" />
               </div>
               <div>
                 <div className="flex items-center space-x-3 mb-2">
@@ -1386,6 +1485,18 @@ const SingleTournamentPage = () => {
             <span className="px-4 py-1.5 bg-gray-700 text-white text-xs font-bold rounded-full uppercase">
               {tournament?.mode || 'Squad'}
             </span>
+            
+            {/* See Results Button for Completed Tournaments */}
+            {tournament?.status === 'completed' && tournament?.scoreboards?.length > 0 && (
+              <button
+                onClick={() => setActiveTab('results')}
+                className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-full uppercase transition-colors flex items-center space-x-1"
+              >
+                <span>🏆</span>
+                <span>See Results</span>
+              </button>
+            )}
+            
             <div className="flex-1"></div>
             <div className="flex items-center space-x-2 text-gray-400 text-sm">
               <div className="w-6 h-6 bg-gaming-gold rounded-full flex items-center justify-center">

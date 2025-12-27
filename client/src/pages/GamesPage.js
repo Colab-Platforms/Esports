@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiPlay, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../services/api';
 import imageService from '../services/imageService';
+import GameIcon from '../components/common/GameIcon';
 
 const GamesPage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
@@ -98,6 +99,41 @@ const GamesPage = () => {
         setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
     };
 
+    // Helper function to map database game names/ids to gameAssets keys
+    const getGameType = (game) => {
+        const name = game.name?.toLowerCase() || '';
+        const id = game.id?.toLowerCase() || '';
+        
+        // Map common game names to gameAssets keys
+        if (name.includes('bgmi') || name.includes('battlegrounds') || id.includes('bgmi')) {
+            return 'bgmi';
+        }
+        if (name.includes('cs2') || name.includes('counter-strike') || id.includes('cs2')) {
+            return 'cs2';
+        }
+        if (name.includes('valorant') || id.includes('valorant')) {
+            return 'valorant';
+        }
+        if (name.includes('free fire') || name.includes('freefire') || id.includes('freefire')) {
+            return 'freefire';
+        }
+        if (name.includes('mobile legends') || name.includes('ml') || id.includes('ml')) {
+            return 'ml';
+        }
+        if (name.includes('apex') || id.includes('apex')) {
+            return 'apex';
+        }
+        if (name.includes('rainbow') || name.includes('siege') || id.includes('rainbow')) {
+            return 'rainbow6';
+        }
+        if (name.includes('fc 24') || name.includes('fifa') || id.includes('fc24')) {
+            return 'fc24';
+        }
+        
+        // Default fallback
+        return 'bgmi';
+    };
+
     const GameCard = ({ game }) => (
         <Link to={`/game/${game.id}`}>
             <motion.div
@@ -110,7 +146,13 @@ const GamesPage = () => {
                 <div className="relative p-6 h-64 flex flex-col justify-between">
                     {/* Game Icon & Category */}
                     <div className="flex justify-between items-start">
-                        <div className="text-5xl">{game.icon}</div>
+                        <div className="flex items-center justify-center">
+                            <GameIcon 
+                                gameType={getGameType(game)} 
+                                size="2xl" 
+                                style="cdn"
+                            />
+                        </div>
                         <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
                             {game.category}
                         </span>

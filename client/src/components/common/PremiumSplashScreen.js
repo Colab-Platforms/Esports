@@ -6,13 +6,13 @@ const PremiumSplashScreen = ({ onComplete }) => {
   const [phase, setPhase] = useState('glitch'); // glitch -> grid -> reveal -> complete
 
   useEffect(() => {
-    const glitchTimer = setTimeout(() => setPhase('grid'), 800);
-    const gridTimer = setTimeout(() => setPhase('reveal'), 1800);
-    const completeTimer = setTimeout(() => setPhase('complete'), 3500);
+    const glitchTimer = setTimeout(() => setPhase('grid'), 1500); // Increased from 800
+    const gridTimer = setTimeout(() => setPhase('reveal'), 3000); // Increased from 1800
+    const completeTimer = setTimeout(() => setPhase('complete'), 5500); // Increased from 3500
     const hideTimer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(() => onComplete?.(), 500);
-    }, 4000);
+    }, 6000); // Increased from 4000
 
     return () => {
       clearTimeout(glitchTimer);
@@ -181,8 +181,8 @@ const PremiumSplashScreen = ({ onComplete }) => {
               >
                 {/* Main Logo */}
                 <motion.img
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
-                  alt="Colab Esports Logo"
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
+                  alt="Infinity Logo"
                   className="w-full h-full object-contain"
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -194,7 +194,7 @@ const PremiumSplashScreen = ({ onComplete }) => {
                 
                 {/* Glitch clone - Cyan */}
                 <img
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
                   alt=""
                   className="absolute inset-0 w-full h-full object-contain opacity-50"
                   style={{ 
@@ -205,7 +205,7 @@ const PremiumSplashScreen = ({ onComplete }) => {
                 
                 {/* Glitch clone - Red */}
                 <img
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_2.0.png?v=1764827729"
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
                   alt=""
                   className="absolute inset-0 w-full h-full object-contain opacity-50"
                   style={{ 
@@ -219,45 +219,30 @@ const PremiumSplashScreen = ({ onComplete }) => {
             {/* Phase 2 & 3: Text Reveal */}
             {(phase === 'grid' || phase === 'reveal' || phase === 'complete') && (
               <div className="text-center">
-                {/* Main Title - Marvel Style Clean & Mobile Responsive */}
+                {/* Main Title - Logo Image instead of text */}
                 <div className="relative mb-8 px-4">
-                  <motion.h1
-                    className="text-5xl sm:text-7xl md:text-8xl lg:text-[10rem] font-black tracking-wider relative uppercase whitespace-nowrap"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                  <motion.div
+                    className="flex justify-center items-center"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.8, delay: 0.5 }}
                   >
-                    {/* Clean white/silver metallic text - Marvel style */}
-                    <span className="relative inline-block">
-                      {'COLAB ESPORTS'.split('').map((letter, i) => (
-                        <motion.span
-                          key={i}
-                          className="inline-block"
-                          initial={{ y: 50, opacity: 0, scale: 0.5 }}
-                          animate={{ y: 0, opacity: 1, scale: 1 }}
-                          transition={{
-                            duration: 0.4,
-                            delay: i * 0.06,
-                            ease: "easeOut"
-                          }}
-                          style={{
-                            fontWeight: 900,
-                            color: '#ffffff',
-                            textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 5px 15px rgba(0, 0, 0, 0.5)',
-                            letterSpacing: '0.02em'
-                          }}
-                        >
-                          {letter}
-                        </motion.span>
-                      ))}
-                    </span>
-                  </motion.h1>
+                    <img
+                      src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Logo_Text.png?v=1766727294"
+                      alt="Colab Esports Text Logo"
+                      className="h-16 sm:h-20 md:h-24 lg:h-32 object-contain"
+                      style={{
+                        filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.8)) drop-shadow(0 5px 15px rgba(0, 0, 0, 0.5))'
+                      }}
+                    />
+                  </motion.div>
 
                   {/* Subtle underline glow */}
                   <motion.div
                     className="absolute -bottom-2 left-1/2 h-0.5"
                     initial={{ width: 0, x: '-50%' }}
                     animate={{ width: '80%', x: '-50%' }}
-                    transition={{ duration: 0.8, delay: 1 }}
+                    transition={{ duration: 0.8, delay: 1.5 }}
                     style={{
                       background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent)',
                       boxShadow: '0 0 10px rgba(255, 255, 255, 0.3)'

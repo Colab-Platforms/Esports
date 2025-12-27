@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import OptimizedImage from './OptimizedImage';
 import ResponsiveImage from './ResponsiveImage';
+import LoadingSpinner from './LoadingSpinner';
 import imageService from '../../services/imageService';
 
 const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
@@ -83,10 +84,7 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
   if (loading) {
     return (
       <div className={`relative ${height} bg-gaming-dark flex items-center justify-center`}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-gaming-gold border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading...</p>
-        </div>
+        <LoadingSpinner size="md" text="Loading..." />
       </div>
     );
   }
@@ -125,16 +123,16 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
   return (
     <div className={`relative ${height} overflow-hidden bg-gaming-dark`}>
       {/* Background Images */}
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence initial={false}>
         <motion.div
           key={currentSlide}
-          initial={{ x: '100%', opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: '-100%', opacity: 0 }}
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '-100%' }}
           transition={{ 
             type: 'tween',
             ease: 'easeInOut',
-            duration: 0.7
+            duration: 0.6
           }}
           className="absolute inset-0"
         >

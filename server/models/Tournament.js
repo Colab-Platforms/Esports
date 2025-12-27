@@ -267,7 +267,32 @@ const tournamentSchema = new mongoose.Schema({
     type: String,
     enum: ['mumbai', 'delhi', 'bangalore', 'chennai', 'kolkata', 'hyderabad', 'pune', 'singapore'],
     default: 'mumbai'
-  }
+  },
+  
+  // Scoreboard Images (for completed tournaments)
+  scoreboards: [{
+    imageUrl: {
+      type: String,
+      required: true
+    },
+    description: {
+      type: String,
+      default: 'Tournament Results'
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    order: {
+      type: Number,
+      default: 0
+    }
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -458,6 +483,63 @@ tournamentSchema.methods.isUserRegistered = function(userId) {
 // Method to get participant by user ID
 tournamentSchema.methods.getParticipant = function(userId) {
   return this.participants.find(p => p.userId.toString() === userId.toString());
+};
+
+// Static method to update tournament statuses (can be called manually or via cron)
+tournamentSchema.statics.updateTournamentStatuses = async function() {
+  const now = new Date();
+  console.log('🔄 Running tournament status update check at:', now.toISOString());
+  
+  try {
+    // Find all tournaments that might need status updates (exclude CS2)
+    const tournaments = await this.find({
+      gameType: { $ne: 'cs2' },
+      status: { $in: ['upcoming', 'registration_open', 'registration_closed', 'active'] }
+    });
+    
+    let updatedCount = 0;
+    
+    for (const tournament of tournaments) {
+      let needsUpdate = false;
+      let newStatus = tournament.status;
+      
+      // Auto-close registration if deadline passed
+      if ((tournament.status === 'upcoming' || tournament.status === 'registration_open') && 
+          tournament.registrationDeadline && now >= tournament.registrationDeadline) {
+        newStatus = 'registration_closed';
+        needsUpdate = true;
+        console.log(`⏰ Closing registration for tournament: ${tournament.name}`);
+      }
+      
+      // Start tournament if start date reached
+      if (tournament.status === 'registration_closed' && 
+          tournament.startDate && now >= tournament.startDate) {
+        newStatus = 'active';
+        needsUpdate = true;
+        console.log(`🎮 Starting tournament: ${tournament.name}`);
+      }
+      
+      // Complete tournament if end date reached
+      if (tournament.status === 'active' && 
+          tournament.endDate && now >= tournament.endDate) {
+        newStatus = 'completed';
+        needsUpdate = true;
+        console.log(`🏁 Completing tournament: ${tournament.name}`);
+      }
+      
+      if (needsUpdate) {
+        await this.findByIdAndUpdate(tournament._id, { status: newStatus });
+        updatedCount++;
+      }
+    }
+    
+    console.log(`✅ Tournament status update complete. Updated ${updatedCount} tournaments.`);
+    return { success: true, updatedCount };
+    
+  } catch (error) {
+    console.error('❌ Error updating tournament statuses:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Static method to get tournaments with filters

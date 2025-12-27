@@ -84,7 +84,7 @@ app.use(cors({
 // Rate limiting - More relaxed for development/testing
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // limit each IP to 500 requests per 15 minutes (increased from 100)
+  max: 1000, // limit each IP to 1000 requests per 15 minutes (increased from 500)
   message: {
     success: false,
     error: {
@@ -94,7 +94,15 @@ const limiter = rateLimit({
     }
   },
   standardHeaders: true, // Return rate limit info in headers
-  legacyHeaders: false
+  legacyHeaders: false,
+  // Skip rate limiting for admin users in development
+  skip: (req) => {
+    // Skip rate limiting for admin panel in development
+    if (process.env.NODE_ENV === 'development' && req.path.includes('/admin')) {
+      return true;
+    }
+    return false;
+  }
 });
 app.use('/api/', limiter);
 
@@ -209,6 +217,8 @@ try {
 app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
+app.use('/api/servers', require('./routes/servers'));
+app.use('/api/testimonials', require('./routes/testimonials'));
 
 // Upload route with Cloudinary (required)
 try {
@@ -379,10 +389,16 @@ app.get('/api/test/matches', async (req, res) => {
 
 
 
+// Import tournament scheduler
+const tournamentScheduler = require('./utils/tournamentScheduler');
+
 // Start server
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+  
+  // Start tournament status scheduler
+  tournamentScheduler.start();
 });

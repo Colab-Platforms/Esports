@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import OptimizedImage from './OptimizedImage';
 import ResponsiveImage from './ResponsiveImage';
+import LoadingSpinner from './LoadingSpinner';
 import imageService from '../../services/imageService';
 
 const HeroImageSlider = () => {
@@ -155,9 +156,8 @@ const HeroImageSlider = () => {
     return (
       <div className="relative h-screen flex items-center justify-center bg-gaming-dark">
         <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/20 to-gaming-neon-blue/20" />
-        <div className="relative z-10 text-center">
-          <div className="w-16 h-16 border-4 border-gaming-neon border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading amazing content...</p>
+        <div className="relative z-10">
+          <LoadingSpinner size="xl" text="Loading amazing content..." />
         </div>
       </div>
     );

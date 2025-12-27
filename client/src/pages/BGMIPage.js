@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PageBannerSlider from '../components/common/PageBannerSlider';
 import BGMIRegistrationForm from '../components/bgmi/BGMIRegistrationForm';
+import GameIcon from '../components/common/GameIcon';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { getCdnIcon } from '../assets/gameAssets';
 import { selectUser } from '../store/slices/authSlice';
 import {
   fetchTournaments,
@@ -171,10 +174,7 @@ const BGMIPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading BGMI tournaments...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading BGMI tournaments..." />
       </div>
     );
   }
@@ -290,7 +290,9 @@ const BGMIPage = () => {
         {/* Tournaments Grid */}
         {!tournaments || tournaments.length === 0 ? (
           <div className="card-gaming p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">🎮</div>
+            <div className="text-gray-400 text-6xl mb-4">
+              <img src={getCdnIcon('features', 'tournaments')} alt="No tournaments" className="w-16 h-16 mx-auto opacity-50" />
+            </div>
             <h2 className="text-xl font-bold text-white mb-2">No BGMI Tournaments Found</h2>
             <p className="text-gray-300 mb-4">
               {activeTab === 'upcoming' 
@@ -374,7 +376,10 @@ const BGMIPage = () => {
         {/* BGMI Specific Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
           <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4">🎮 BGMI Tournament Rules</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <GameIcon gameType="bgmi" size="sm" />
+              <span>BGMI Tournament Rules</span>
+            </h3>
             <div className="space-y-2 text-sm text-gray-300">
               <div>• Room ID and password will be shared 30 minutes before match</div>
               <div>• Screenshots required for result verification</div>
@@ -385,7 +390,10 @@ const BGMIPage = () => {
           </div>
 
           <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4">📱 How to Join BGMI Match</h3>
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+              <GameIcon gameType="bgmi" size="sm" />
+              <span>How to Join BGMI Match</span>
+            </h3>
             <div className="space-y-2 text-sm text-gray-300">
               <div>1. Register for the tournament</div>
               <div>2. Get room credentials before match time</div>

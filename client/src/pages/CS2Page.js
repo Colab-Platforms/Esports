@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiSettings } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import GameIcon from '../components/common/GameIcon';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 import {
   fetchTournaments,
   selectTournaments,
@@ -262,10 +264,7 @@ const CS2Page = () => {
   if (loading.tournaments) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading CS2 tournaments...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading CS2 tournaments..." />
       </div>
     );
   }
@@ -281,7 +280,7 @@ const CS2Page = () => {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            <div className="text-6xl mb-4">⚡</div>
+            <GameIcon gameType="cs2" size="2xl" />
             <h1 className="text-4xl md:text-6xl font-gaming font-bold text-white">
               Counter-Strike 2 Tournaments
             </h1>
@@ -320,7 +319,9 @@ const CS2Page = () => {
             <div className="flex justify-center mt-4">
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 max-w-2xl">
                 <div className="flex items-start space-x-3">
-                  <div className="text-blue-400 text-2xl">🎮</div>
+                  <div className="text-blue-400 text-2xl">
+                    <GameIcon gameType="cs2" size="md" />
+                  </div>
                   <div>
                     <div className="text-blue-400 font-bold mb-2">CS2 Installation Required</div>
                     <div className="text-gray-300 text-sm space-y-1">
@@ -371,7 +372,9 @@ const CS2Page = () => {
           <div className="card-gaming p-6 mb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="text-3xl">🎮</div>
+                <div className="text-3xl">
+                  <GameIcon gameType="cs2" size="lg" />
+                </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Steam Integration</h3>
                   <p className="text-gray-400 text-sm">Required for CS2 tournament participation</p>
@@ -493,7 +496,9 @@ const CS2Page = () => {
         {/* Tournaments Grid */}
         {!tournaments || tournaments.length === 0 ? (
           <div className="card-gaming p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">⚡</div>
+            <div className="text-gray-400 text-6xl mb-4">
+              <GameIcon gameType="cs2" size="2xl" />
+            </div>
             <h2 className="text-xl font-bold text-white mb-2">No CS2 Tournaments Found</h2>
             <p className="text-gray-300 mb-4">
               {activeTab === 'upcoming'
@@ -517,7 +522,7 @@ const CS2Page = () => {
                 {/* Tournament Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-2">
-                    <span className="text-2xl">⚡</span>
+                    <GameIcon gameType="cs2" size="md" />
                     {(() => {
                       const serverStatus = serverStatuses[tournament._id];
                       const badge = serverStatus?.badge || {
@@ -566,7 +571,7 @@ const CS2Page = () => {
                 {/* Steam Requirement Notice */}
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
                   <div className="flex items-center space-x-2">
-                    <span className="text-blue-400">🎮</span>
+                    <GameIcon gameType="cs2" size="sm" />
                     <span className="text-blue-400 text-sm font-medium">Steam Required</span>
                   </div>
                   <div className="text-gray-300 text-xs mt-1">
@@ -640,30 +645,38 @@ const CS2Page = () => {
           </div>
         )}
 
-        {/* CS2 Specific Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4">⚡ CS2 Tournament Features</h3>
-            <div className="space-y-2 text-sm text-gray-300">
-              <div>• Dedicated 128-tick servers</div>
-              <div>• Professional match configurations</div>
-              <div>• Automatic demo recording</div>
-              <div>• Anti-cheat integration</div>
-              <div>• Server-side result verification</div>
-            </div>
+          <div className="grid md:grid-cols-2 gap-6 mt-8">
+            {[
+              { icon: <GameIcon gameType="cs2" size="sm" />, title: 'CS2 Tournament Features', desc: 'Professional match configurations' },
+              { icon: <GameIcon gameType="cs2" size="sm" />, title: 'Steam Integration', desc: 'Automatic match result tracking' }
+            ].map((item, idx) => (
+              <div key={item.title} className="card-gaming p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                  {item.icon}
+                  <span>{item.title}</span>
+                </h3>
+                <div className="space-y-2 text-sm text-gray-300">
+                  {idx === 0 ? (
+                    <>
+                      <div>• Dedicated 128-tick servers</div>
+                      <div>• Professional match configurations</div>
+                      <div>• Automatic demo recording</div>
+                      <div>• Anti-cheat integration</div>
+                      <div>• Server-side result verification</div>
+                    </>
+                  ) : (
+                    <>
+                      <div>1. Connect your Steam account</div>
+                      <div>2. Verify CS2 ownership</div>
+                      <div>3. Join tournament servers via Steam</div>
+                      <div>4. Automatic match result tracking</div>
+                      <div>5. Steam profile verification</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-
-          <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4">🎮 Steam Integration</h3>
-            <div className="space-y-2 text-sm text-gray-300">
-              <div>1. Connect your Steam account</div>
-              <div>2. Verify CS2 ownership</div>
-              <div>3. Join tournament servers via Steam</div>
-              <div>4. Automatic match result tracking</div>
-              <div>5. Steam profile verification</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Steam Linking Modal */}

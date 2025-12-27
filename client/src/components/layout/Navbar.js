@@ -106,23 +106,53 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 from-theme-accent to-theme-accent-hover rounded-lg flex items-center justify-center shadow-lg">
+            {/* Mobile/Tablet: Only Infinity Logo (up to 1024px) */}
+            <div className="lg:hidden w-10 h-10 flex items-center justify-center">
               <img 
-                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow.png?v=1764826142" 
-                alt="Colab Esports Logo"
-                className="w-6 h-6 rounded"
+                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                alt="Infinity Logo"
+                className="w-full h-full object-contain"
+                style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'block';
                 }}
               />
-              <span className="hidden text-white font-bold text-lg">🎮</span>
+              <span className="hidden text-yellow-400 font-bold text-lg">∞</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-gaming font-bold text-theme-accent">
-                Colab Esports
-              </span>
-              <span className="text-xs text-theme-text-muted -mt-1">Gaming Platform</span>
+            
+            {/* Desktop: Infinity Logo + Text Logo (1024px+) */}
+            <div className="hidden lg:flex items-center space-x-3">
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img 
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                  alt="Infinity Logo"
+                  className="w-full h-full object-contain"
+                  style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <span className="hidden text-yellow-400 font-bold text-lg">∞</span>
+              </div>
+              <div className="h-8 flex items-center">
+                <img 
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Logo_Text.png?v=1766727294" 
+                  alt="Colab Esports Text"
+                  className="h-full object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="hidden flex-col">
+                  <span className="text-xl font-gaming font-bold text-theme-accent">
+                    Colab Esports
+                  </span>
+                  <span className="text-xs text-theme-text-muted -mt-1">Gaming Platform</span>
+                </div>
+              </div>
             </div>
           </Link>
 
@@ -323,8 +353,18 @@ const Navbar = () => {
             {/* Mobile Menu Header */}
             <div className="flex items-center justify-between p-4 border-b border-theme-border">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-theme-accent to-theme-accent-hover rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">🎮</span>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <img 
+                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                    alt="Infinity Logo"
+                    className="w-full h-full object-contain"
+                    style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <span className="hidden text-yellow-400 font-bold text-sm">∞</span>
                 </div>
                 <span className="text-lg font-gaming font-bold text-theme-accent">Colab Esports</span>
               </div>

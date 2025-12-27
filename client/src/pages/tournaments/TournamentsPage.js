@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import GameIcon from '../../components/common/GameIcon';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import imageService from '../../services/imageService';
 import { 
   fetchTournaments, 
@@ -96,16 +98,8 @@ const TournamentsPage = () => {
 
   // Get game icon based on game type
   const getGameIcon = (gameType) => {
-    switch (gameType) {
-      case 'bgmi':
-        return '📱';
-      case 'valorant':
-        return '🎯';
-      case 'cs2':
-        return '⚡';
-      default:
-        return '🎮';
-    }
+    // Use GameIcon component instead of hardcoded emojis
+    return <GameIcon gameType={gameType} size="sm" />;
   };
 
   // Format date
@@ -245,13 +239,17 @@ const TournamentsPage = () => {
         {banners.length > 0 && banners[currentBanner] ? (
           <>
           {/* Banner with images */}
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false}>
             <motion.div
               key={currentBanner}
-              initial={{ opacity: 0, x: 300 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -300 }}
-              transition={{ duration: 0.5 }}
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ 
+                type: 'tween',
+                ease: 'easeInOut',
+                duration: 0.6
+              }}
               className="absolute inset-0"
               style={{
                 backgroundImage: `url(${banners[currentBanner]?.image || ''})`,
@@ -298,7 +296,9 @@ const TournamentsPage = () => {
           </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-            <div className="text-6xl mb-4">🏆</div>
+            <div className="text-6xl mb-4">
+              <GameIcon gameType="valorant" size="2xl" />
+            </div>
             <h2 className="text-3xl font-gaming font-bold text-white mb-2">
               Tournaments Hub
             </h2>

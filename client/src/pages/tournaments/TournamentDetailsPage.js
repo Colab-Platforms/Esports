@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiSearch, FiFilter, FiCalendar, FiUsers, FiDollarSign, FiClock, FiAward } from 'react-icons/fi';
+import GameIcon from '../../components/common/GameIcon';
 
 const TournamentDetailsPage = () => {
   const { gameType } = useParams();
@@ -9,24 +10,21 @@ const TournamentDetailsPage = () => {
   const [activeCategory, setActiveCategory] = useState('colab');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock data based on game type
+  // Helper function to get game info
   const getGameInfo = (game) => {
     const games = {
       valorant: {
         name: 'VALORANT',
-        hero: '🎯',
         bgImage: 'linear-gradient(135deg, #ff4655 0%, #000000 100%)',
         description: 'Tactical FPS tournaments with strategic gameplay'
       },
       bgmi: {
         name: 'BGMI',
-        hero: '📱',
         bgImage: 'linear-gradient(135deg, #ff6b35 0%, #000000 100%)',
         description: 'Battle Royale tournaments for mobile champions'
       },
       cs2: {
         name: 'CS2',
-        hero: '⚡',
         bgImage: 'linear-gradient(135deg, #1e3c72 0%, #000000 100%)',
         description: 'Counter-Strike 2 competitive tournaments'
       }
@@ -104,7 +102,7 @@ const TournamentDetailsPage = () => {
             animate={{ opacity: 1, scale: 1 }}
             className="text-8xl mb-4"
           >
-            {gameInfo.hero}
+            <GameIcon gameType={gameType} size="2xl" />
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}

@@ -16,6 +16,7 @@ import {
   selectLeaderboardPagination
 } from '../store/slices/leaderboardSlice';
 import { selectAuth } from '../store/slices/authSlice';
+import GameIcon from '../components/common/GameIcon';
 
 const LeaderboardPage = () => {
   const dispatch = useDispatch();
@@ -35,13 +36,26 @@ const LeaderboardPage = () => {
   const [cs2Stats, setCs2Stats] = useState(null);
   const [cs2Loading, setCs2Loading] = useState(false);
   const [cs2Limit, setCs2Limit] = useState(50);
+  
+  // BGMI specific state
+  const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
+  const [bgmiLoading, setBgmiLoading] = useState(false);
+  
+  // Debug: Log BGMI state changes
+  useEffect(() => {
+    console.log('🔍 LeaderboardPage - BGMI Scoreboards state changed:', bgmiScoreboards.length, 'items');
+    console.log('📊 Current BGMI scoreboards:', bgmiScoreboards);
+  }, [bgmiScoreboards]);
 
   useEffect(() => {
     if (selectedGame === 'cs2') {
       // Fetch CS2 leaderboard data
       fetchCS2Leaderboard();
+    } else if (selectedGame === 'bgmi') {
+      // Fetch BGMI scoreboards instead of regular leaderboard
+      fetchBgmiScoreboards();
     } else {
-      // Fetch regular leaderboard data
+      // Fetch regular leaderboard data for other games
       dispatch(fetchLeaderboard({
         gameType: selectedGame,
         leaderboardType: activeTab,
@@ -64,6 +78,45 @@ const LeaderboardPage = () => {
       }));
     }
   }, [dispatch, selectedGame, activeTab, isAuthenticated]);
+
+  const fetchBgmiScoreboards = async () => {
+    try {
+      console.log('🔍 Fetching BGMI scoreboards for LeaderboardPage...');
+      setBgmiLoading(true);
+      
+      // Direct fetch without axios to avoid rate limiting
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_URL}/api/tournaments/bgmi/scoreboards`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 BGMI scoreboards response:', data);
+      
+      if (data.success && data.data.scoreboards) {
+        console.log('✅ Setting BGMI scoreboards:', data.data.scoreboards.length, 'items');
+        setBgmiScoreboards(data.data.scoreboards);
+      } else {
+        console.log('❌ No BGMI scoreboards found or API failed');
+        setBgmiScoreboards([]);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching BGMI scoreboards:', err);
+      setBgmiScoreboards([]);
+    } finally {
+      setBgmiLoading(false);
+    }
+  };
 
   const fetchCS2Leaderboard = async () => {
     try {
@@ -124,11 +177,7 @@ const LeaderboardPage = () => {
   };
 
   const getGameIcon = (game) => {
-    switch (game) {
-      case 'bgmi': return '🎮';
-      case 'cs2': return '⚡';
-      default: return '🎮';
-    }
+    return <GameIcon gameType={game} size="sm" style="cdn" />;
   };
 
   if (loading.leaderboard || cs2Loading) {
@@ -255,8 +304,8 @@ const LeaderboardPage = () => {
           </div>
         )}
 
-        {/* Leaderboard Type Tabs - Hide for CS2 */}
-        {selectedGame !== 'cs2' && (
+        {/* Leaderboard Type Tabs - Hide for CS2 and BGMI */}
+        {selectedGame !== 'cs2' && selectedGame !== 'bgmi' && (
           <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6 mb-6">
             <div className="flex flex-wrap gap-2">
               {[
@@ -289,12 +338,16 @@ const LeaderboardPage = () => {
                 <h2 className="text-xl font-bold text-theme-text-primary">
                   {selectedGame === 'cs2' 
                     ? '⚡ CS2 Player Rankings' 
+                    : selectedGame === 'bgmi'
+                    ? '🏆 BGMI Tournament Results'
                     : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Rankings`
                   }
                 </h2>
                 <div className="text-sm text-theme-text-secondary">
                   {selectedGame === 'cs2' 
                     ? `${cs2Leaderboard.length} players` 
+                    : selectedGame === 'bgmi'
+                    ? `${bgmiScoreboards.length} tournament results`
                     : `${pagination.total} players`
                   }
                 </div>
@@ -442,6 +495,132 @@ const LeaderboardPage = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )
+              ) : selectedGame === 'bgmi' ? (
+                // BGMI Tournament Results Gallery
+                bgmiScoreboards.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-4">🏆</div>
+                    <h3 className="text-xl font-bold text-theme-text-primary mb-2">No Tournament Results Yet</h3>
+                    <p className="text-theme-text-secondary mb-4">
+                      Tournament results will appear here after competitions are completed.
+                    </p>
+                    <button
+                      onClick={() => window.location.href = '/tournaments'}
+                      className="px-6 py-3 bg-theme-accent text-white font-bold rounded-lg hover:bg-theme-accent/80 transition-colors"
+                    >
+                      Browse Tournaments
+                    </button>
+                    
+                    {/* Debug button - temporary */}
+                    <button
+                      onClick={async () => {
+                        console.log('🔄 Manual test of BGMI scoreboards API from LeaderboardPage');
+                        try {
+                          const testUrl = `${process.env.REACT_APP_API_URL}/api/tournaments/bgmi/scoreboards`;
+                          console.log('📡 Testing URL:', testUrl);
+                          
+                          const response = await axios.get(testUrl);
+                          console.log('📥 Response:', response.data);
+                          
+                          if (response.data.success && response.data.data.scoreboards) {
+                            console.log('✅ Found scoreboards:', response.data.data.scoreboards.length);
+                            alert(`✅ API Working! Found ${response.data.data.scoreboards.length} scoreboards`);
+                            setBgmiScoreboards(response.data.data.scoreboards);
+                          } else {
+                            console.log('❌ No scoreboards found');
+                            alert('❌ API working but no scoreboards found');
+                          }
+                        } catch (error) {
+                          console.error('❌ API Test Error:', error);
+                          alert(`❌ API Error: ${error.message}`);
+                        }
+                      }}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    >
+                      🧪 Test BGMI API
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {bgmiScoreboards.map((scoreboard, index) => (
+                      <motion.div
+                        key={scoreboard._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="bg-theme-bg-hover rounded-lg overflow-hidden border border-theme-border hover:border-theme-accent/50 transition-all group cursor-pointer"
+                        onClick={() => window.open(scoreboard.imageUrl, '_blank')}
+                      >
+                        <div className="flex flex-col md:flex-row">
+                          {/* Image Section */}
+                          <div className="md:w-1/3">
+                            <img
+                              src={scoreboard.imageUrl}
+                              alt={scoreboard.description}
+                              className="w-full h-48 md:h-32 object-cover group-hover:opacity-80 transition-opacity"
+                            />
+                          </div>
+                          
+                          {/* Details Section */}
+                          <div className="flex-1 p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex-1">
+                                <h4 className="text-lg font-bold text-theme-text-primary mb-1 group-hover:text-theme-accent transition-colors">
+                                  {scoreboard.tournament.name}
+                                </h4>
+                                <p className="text-sm text-theme-text-secondary mb-2">
+                                  {scoreboard.description}
+                                </p>
+                                
+                                <div className="flex flex-wrap items-center gap-4 text-xs text-theme-text-muted">
+                                  <div className="flex items-center space-x-1">
+                                    <GameIcon gameType="bgmi" size="sm" />
+                                    <span className="uppercase font-medium">BGMI</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-1">
+                                    <FaTrophy className="text-theme-accent" />
+                                    <span>
+                                      Ended: {new Date(scoreboard.tournament.endDate).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-1">
+                                    <span>📅</span>
+                                    <span>
+                                      Uploaded: {new Date(scoreboard.uploadedAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-3 sm:mt-0 sm:ml-4 flex flex-col items-end">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                                  scoreboard.tournament.status === 'completed' 
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                    : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                }`}>
+                                  {scoreboard.tournament.status === 'completed' ? '✅ Completed' : '🔄 Active'}
+                                </span>
+                                
+                                <div className="mt-2 text-xs text-theme-text-muted">
+                                  #{index + 1}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-theme-accent text-white px-4 py-2 rounded-full text-sm font-bold">
+                            View Full Results
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 )
               ) : leaderboard.length === 0 ? (

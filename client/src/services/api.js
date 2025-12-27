@@ -1,4 +1,6 @@
 // Simple API service for making HTTP requests
+import apiCallTracker from '../utils/apiCallTracker';
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class ApiService {
@@ -7,53 +9,71 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem('token');
-    
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-      cache: 'no-store', // Disable browser caching
-      ...options,
-    };
+    // Use API call tracker to prevent rate limiting
+    return apiCallTracker.throttledCall(async () => {
+      const url = `${this.baseURL}${endpoint}`;
+      const token = localStorage.getItem('token');
+      
+      const config = {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...options.headers,
+        },
+        cache: 'no-store', // Disable browser caching
+        ...options,
+      };
 
-    if (config.body && typeof config.body === 'object') {
-      config.body = JSON.stringify(config.body);
-    }
+      // Handle different body types
+      if (config.body) {
+        if (config.body instanceof FormData) {
+          // Don't set Content-Type for FormData - browser will set it with boundary
+          delete config.headers['Content-Type'];
+        } else if (typeof config.body === 'object') {
+          // Set Content-Type for JSON and stringify
+          config.headers['Content-Type'] = 'application/json';
+          config.body = JSON.stringify(config.body);
+        }
+      } else {
+        // Set default Content-Type for non-FormData requests
+        config.headers['Content-Type'] = 'application/json';
+      }
 
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-      
-      // Handle token expiry
-      if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {
-        console.log('🔒 Token expired - logging out');
+      try {
+        const response = await fetch(url, config);
+        const data = await response.json();
         
-        // Clear auth data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // Handle token expiry
+        if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {
+          // Clear auth data
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          
+          // Redirect to login
+          window.location.href = '/login?expired=true';
+          
+          throw new Error('Session expired. Please login again.');
+        }
         
-        // Redirect to login
-        window.location.href = '/login?expired=true';
+        if (!response.ok) {
+          console.error('❌ API request failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: data.error,
+            url,
+            method: config.method
+          });
+          throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+        }
         
-        throw new Error('Session expired. Please login again.');
+        return data;
+      } catch (error) {
+        console.error('❌ API request failed:', error);
+        throw error;
       }
-      
-      if (!response.ok) {
-        throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+    });
   }
 
   async get(endpoint, options = {}) {

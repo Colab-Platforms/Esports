@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../store/slices/authSlice';
 import api from '../services/api';
+import GameIcon from '../components/common/GameIcon';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { createPortal } from 'react-dom';
 
 const AdminBGMIRegistrations = () => {
   const user = useSelector(selectUser);
@@ -13,7 +16,7 @@ const AdminBGMIRegistrations = () => {
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  
+
   // Filters
   const [filters, setFilters] = useState({
     status: 'all',
@@ -48,9 +51,14 @@ const AdminBGMIRegistrations = () => {
     fetchRegistrations(1, false); // Start from page 1, no cache on initial load
   }, []);
 
+  // Debounced effect for filters to prevent excessive API calls
   useEffect(() => {
-    fetchRegistrations(1, false); // Reset to page 1 when filters change, no cache
-  }, [filters]);
+    const timeoutId = setTimeout(() => {
+      fetchRegistrations(1, false); // Reset to page 1 when filters change, no cache
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName]); // Only specific filter values
 
 
 
@@ -59,12 +67,20 @@ const AdminBGMIRegistrations = () => {
       const response = await api.get('/api/tournaments');
       
       if (response.data.success) {
-        const bgmiTournaments = response.data.data.tournaments.filter(t => t.gameType === 'BGMI');
+        // Fix case sensitivity - tournaments are stored as 'bgmi' (lowercase)
+        const bgmiTournaments = response.data.data.tournaments.filter(t => 
+          t.gameType === 'bgmi' || t.gameType === 'BGMI'
+        );
+        console.log('🔍 Found BGMI tournaments:', bgmiTournaments.length);
+        console.log('🔍 Tournament names:', bgmiTournaments.map(t => `${t.name} (${t.status})`));
         setTournaments(bgmiTournaments);
       } else {
         // Try alternative response format
         if (response.data.tournaments) {
-          const bgmiTournaments = response.data.tournaments.filter(t => t.gameType === 'BGMI');
+          const bgmiTournaments = response.data.tournaments.filter(t => 
+            t.gameType === 'bgmi' || t.gameType === 'BGMI'
+          );
+          console.log('🔍 Found BGMI tournaments (alt format):', bgmiTournaments.length);
           setTournaments(bgmiTournaments);
         }
       }
@@ -76,6 +92,11 @@ const AdminBGMIRegistrations = () => {
   const fetchRegistrations = async (page = 1, useCache = true) => {
     try {
       setLoading(true);
+      
+      // Debug logging
+      console.log('🔍 DEBUG: Starting fetchRegistrations');
+      console.log('🔍 DEBUG: User:', user);
+      console.log('🔍 DEBUG: Token exists:', !!localStorage.getItem('token'));
       
       // Check cache first (30 second cache)
       const cacheKey = `${page}-${JSON.stringify(filters)}`;
@@ -106,22 +127,24 @@ const AdminBGMIRegistrations = () => {
         queryParams.append('playerName', filters.playerName);
       }
 
-      const response = await api.get(`/api/bgmi-registration/admin/registrations?${queryParams}`);
+      const apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+      console.log('🔍 DEBUG: API URL:', apiUrl);
       
-      console.log('✅ Admin API Response:', response.data);
+      const response = await api.get(apiUrl);
+      console.log('🔍 DEBUG: API Response:', response);
       
-      if (response.data.success) {
+      if (response && response.success) {
         console.log('✅ Admin API Success - Setting data');
         const data = {
-          registrations: response.data.data?.registrations || [],
-          stats: response.data.data?.stats || {
+          registrations: response.data?.registrations || [],
+          stats: response.data?.stats || {
             total: 0,
             pending: 0,
             imagesUploaded: 0,
             verified: 0,
             rejected: 0
           },
-          pagination: response.data.data?.pagination || {
+          pagination: response.data?.pagination || {
             page: 1,
             limit: 10,
             total: 0,
@@ -138,19 +161,19 @@ const AdminBGMIRegistrations = () => {
         setLastFetch(now);
         
         setError(''); // Clear any previous errors
-      } else if (response.data.registrations) {
+      } else if (response && response.registrations) {
         // Handle direct response format
         console.log('✅ Direct format - Setting data');
         const data = {
-          registrations: response.data.registrations || [],
-          stats: response.data.stats || {
+          registrations: response.registrations || [],
+          stats: response.stats || {
             total: 0,
             pending: 0,
             imagesUploaded: 0,
             verified: 0,
             rejected: 0
           },
-          pagination: response.data.pagination || {
+          pagination: response.pagination || {
             page: 1,
             limit: 10,
             total: 0,
@@ -168,12 +191,25 @@ const AdminBGMIRegistrations = () => {
         
         setError(''); // Clear any previous errors
       } else {
-        console.error('❌ Admin API Failed:', response.data);
-        setError('Failed to fetch registrations');
+        console.error('❌ Admin API Failed - No data received');
+        console.error('❌ Response structure:', response);
+        setError('No registration data received from server. Check if you have admin privileges.');
       }
     } catch (error) {
       console.error('❌ Fetch registrations error:', error);
-      setError(error.response?.data?.error?.message || 'Failed to fetch registrations');
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      if (error.response?.status === 401) {
+        setError('Authentication required. Please login again.');
+      } else if (error.response?.status === 403) {
+        setError('Access denied. Admin privileges required. Contact administrator.');
+      } else {
+        setError(error.response?.data?.error?.message || error.message || 'Failed to fetch registrations. Check console for details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -535,10 +571,7 @@ const AdminBGMIRegistrations = () => {
   if (loading && registrations.length === 0) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading registrations...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading registrations..." />
       </div>
     );
   }
@@ -550,8 +583,11 @@ const AdminBGMIRegistrations = () => {
         <div className="mb-6 md:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">BGMI Tournament Registrations</h1>
-              <p className="text-gray-400 text-sm md:text-base">Manage and verify tournament registrations</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center space-x-3">
+                <GameIcon gameType="bgmi" size="lg" />
+                <span>BGMI Admin Dashboard</span>
+              </h1>
+              <p className="text-gray-400 text-sm md:text-base">Manage BGMI tournament registrations and scoreboards</p>
             </div>
             <div>
               {/* Simple refresh button */}
@@ -573,12 +609,15 @@ const AdminBGMIRegistrations = () => {
           </div>
         </div>
 
-        {/* Status Messages */}
+        {/* Error State */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
             <div className="flex items-center space-x-2">
               <span className="text-red-400">⚠️</span>
               <span className="text-red-400 font-medium">{error}</span>
+            </div>
+            <div className="mt-2 text-xs text-gray-400">
+              Debug Info: Check browser console for more details. Try refreshing the page.
             </div>
           </div>
         )}
@@ -592,61 +631,59 @@ const AdminBGMIRegistrations = () => {
           </div>
         )}
 
+        {/* Admin Registration Management */}
+        <div className="card-gaming p-4 md:p-6 mb-6">
+          <h3 className="text-lg xl:text-xl font-bold text-white mb-4 flex items-center space-x-2">
+            <span>👥</span>
+            <span>Registration Management</span>
+          </h3>
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="card-gaming p-3 text-center">
+              <div className="text-xl font-bold text-gaming-neon">{stats.total}</div>
+              <div className="text-xs text-gray-400">Total</div>
+            </div>
+            <div className="card-gaming p-3 text-center">
+              <div className="text-xl font-bold text-yellow-400">{stats.pending}</div>
+              <div className="text-xs text-gray-400">Pending</div>
+            </div>
+            <div className="card-gaming p-3 text-center">
+              <div className="text-xl font-bold text-blue-400">{stats.imagesUploaded}</div>
+              <div className="text-xs text-gray-400">Images</div>
+            </div>
+            <div className="card-gaming p-3 text-center">
+              <div className="text-xl font-bold text-green-400">{stats.verified}</div>
+              <div className="text-xs text-gray-400">Verified</div>
+            </div>
+            <div className="card-gaming p-3 text-center">
+              <div className="text-xl font-bold text-red-400">{stats.rejected}</div>
+              <div className="text-xs text-gray-400">Rejected</div>
+            </div>
+          </div>
 
-        {/* Stats Cards - Responsive Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3 xl:gap-4 mb-4 md:mb-6 xl:mb-8">
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-white">{stats.total}</div>
-            <div className="text-xs md:text-sm text-gray-400">Total</div>
-          </div>
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-yellow-400">{stats.pending}</div>
-            <div className="text-xs md:text-sm text-gray-400">Pending</div>
-          </div>
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-blue-400">{stats.imagesUploaded}</div>
-            <div className="text-xs md:text-sm text-gray-400">Images</div>
-          </div>
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-green-400">{stats.verified}</div>
-            <div className="text-xs md:text-sm text-gray-400">Verified</div>
-          </div>
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-red-400">{stats.rejected}</div>
-            <div className="text-xs md:text-sm text-gray-400">Rejected</div>
-          </div>
-          <div className="card-gaming p-3 md:p-4 text-center">
-            <div className="text-xl md:text-2xl font-bold text-orange-400">{stats.notVerified || 0}</div>
-            <div className="text-xs md:text-sm text-gray-400">Not Verified</div>
-          </div>
-        </div>
-
-        {/* Filters - iPad Optimized */}
-        <div className="card-gaming p-3 md:p-4 xl:p-6 mb-4 md:mb-6">
-          <h3 className="text-base xl:text-lg font-bold text-white mb-3 xl:mb-4">Filters</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3 xl:gap-4">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Status</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
                 <option value="images_uploaded">Images Uploaded</option>
                 <option value="verified">Verified</option>
                 <option value="rejected">Rejected</option>
-                <option value="not_verified">Not Verified</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Tournament</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Tournament</label>
               <select
                 value={filters.tournamentId}
                 onChange={(e) => setFilters(prev => ({ ...prev, tournamentId: e.target.value }))}
-                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               >
                 <option value="">All Tournaments</option>
                 {tournaments.map(tournament => (
@@ -657,398 +694,182 @@ const AdminBGMIRegistrations = () => {
               </select>
             </div>
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Team Name</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Team Name</label>
               <input
                 type="text"
                 value={filters.teamName}
                 onChange={(e) => setFilters(prev => ({ ...prev, teamName: e.target.value }))}
                 placeholder="Search team name..."
-                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-300 mb-1 md:mb-2">Player Name</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Player Name</label>
               <input
                 type="text"
                 value={filters.playerName}
                 onChange={(e) => setFilters(prev => ({ ...prev, playerName: e.target.value }))}
                 placeholder="Search player name..."
-                className="w-full px-2 md:px-3 py-2 text-sm md:text-base bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
           </div>
-        </div>
 
-        {/* Registrations Table - iPad Optimized */}
-        <div className="card-gaming overflow-hidden">
-          {/* Mobile/Tablet Card View for screens smaller than xl (1280px) */}
-          <div className="block xl:hidden">
+          {/* Registration Cards */}
+          {loading && registrations.length === 0 ? (
+            <div className="text-center py-8">
+              <LoadingSpinner size="lg" text="Loading registrations..." />
+            </div>
+          ) : registrations.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-4xl mb-2">👥</div>
+              <p className="text-gray-400">No registrations found</p>
+              <p className="text-xs text-gray-500 mt-1">Try adjusting your filters</p>
+            </div>
+          ) : (
             <div className="space-y-4">
               {registrations.map((registration) => (
-                <div key={registration._id} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between mb-3">
+                <div key={registration._id} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 hover:border-gaming-neon/50 transition-colors">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white">{registration.teamName}</h3>
-                      <p className="text-sm text-gray-400">{registration.tournamentId.name}</p>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-lg font-bold text-white">{registration.teamName}</h4>
+                        {getStatusBadge(registration)}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-400">Leader:</span>
+                          <span className="text-white ml-1">{registration.teamLeader.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">WhatsApp:</span>
+                          <span className="text-white ml-1">{registration.whatsappNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Images:</span>
+                          <span className="text-white ml-1">{registration.verificationImages?.length || 0}/8</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Registered:</span>
+                          <span className="text-white ml-1">{new Date(registration.registeredAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="ml-3">
-                      {getStatusBadge(registration)}
-                    </div>
-                  </div>
-                  
-                  {/* Team Leader Info */}
-                  <div className="mb-3">
-                    <div className="text-sm font-medium text-gaming-neon">👑 Team Leader</div>
-                    <div className="text-white font-medium">{registration.teamLeader.name}</div>
-                    <div className="text-xs text-gray-400">{registration.teamLeader.phone}</div>
-                  </div>
-                  
-                  {/* Images Progress */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-300">Verification Images</span>
-                      <span className="text-sm text-white font-medium">
-                        {registration.verificationImages?.length || 0}/8
-                      </span>
-                    </div>
-                    <div className="flex space-x-1">
-                      {Array.from({ length: 8 }, (_, i) => (
-                        <div
-                          key={i}
-                          className={`flex-1 h-2 rounded-full ${
-                            i < (registration.verificationImages?.length || 0)
-                              ? 'bg-gaming-neon'
-                              : 'bg-gray-600'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Registration Date */}
-                  <div className="mb-4 text-xs text-gray-400">
-                    📅 Registered: {new Date(registration.registeredAt).toLocaleDateString()}
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleViewImages(registration)}
-                      className="flex-1 min-w-[120px] px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      <span>View Details</span>
-                    </button>
                     
-                    {registration.status !== 'verified' ? (
+                    <div className="mt-3 lg:mt-0 lg:ml-4 flex flex-wrap gap-2">
                       <button
-                        onClick={() => handleDirectApprove(registration)}
-                        className="flex-1 min-w-[100px] px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                        onClick={() => handleViewImages(registration)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Verify</span>
+                        View Details
                       </button>
-                    ) : (
+                      
+                      {registration.status === 'images_uploaded' && (
+                        <>
+                          <button
+                            onClick={() => handleDirectApprove(registration)}
+                            className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors"
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            onClick={() => handleDirectReject(registration)}
+                            className="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors"
+                          >
+                            ❌ Reject
+                          </button>
+                        </>
+                      )}
+                      
+                      {registration.status === 'verified' && (
+                        <button
+                          onClick={() => handleSetPending(registration)}
+                          className="px-3 py-1 bg-yellow-600 text-white text-sm font-medium rounded hover:bg-yellow-700 transition-colors"
+                        >
+                          ⏳ Pending
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => handleSetPending(registration)}
-                        className="flex-1 min-w-[100px] px-3 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors flex items-center justify-center space-x-2"
+                        onClick={() => handleEditRegistration(registration)}
+                        className="px-3 py-1 bg-gaming-slate text-white text-sm font-medium rounded hover:bg-gaming-charcoal transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Pending</span>
+                        ✏️ Edit
                       </button>
-                    )}
-                    
-                    <button
-                      onClick={() => handleNotVerified(registration)}
-                      className="px-3 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <span>Not Verified</span>
-                    </button>
+                      
+                      <button
+                        onClick={() => handleDeleteRegistration(registration)}
+                        className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded hover:bg-red-600 transition-colors"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
 
-          {/* Desktop Table View for xl screens and up (1280px+) */}
-          <div className="hidden xl:block overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gaming-charcoal">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Team
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
-                    Tournament
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Leader
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Images
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider hidden xl:table-cell">
-                    Registered
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gaming-slate">
-                {registrations.map((registration) => (
-                  <tr key={registration._id} className="hover:bg-gaming-slate/50">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {registration.teamName}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          4 players
-                        </div>
-                        {/* Show tournament on smaller screens */}
-                        <div className="text-xs text-gray-500 xl:hidden mt-1">
-                          {registration.tournamentId.name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap hidden xl:table-cell">
-                      <div className="text-sm text-white">
-                        {registration.tournamentId.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {registration.teamLeader.name}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {registration.teamLeader.phone}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(registration)}
-                      {/* Show date on smaller screens */}
-                      <div className="text-xs text-gray-500 xl:hidden mt-1">
-                        {new Date(registration.registeredAt).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm text-white">
-                          {registration.verificationImages?.length || 0}/8
-                        </div>
-                        {/* Visual progress indicator */}
-                        <div className="flex space-x-1">
-                          {Array.from({ length: 8 }, (_, i) => (
-                            <div
-                              key={i}
-                              className={`w-2 h-2 rounded-full ${
-                                i < (registration.verificationImages?.length || 0)
-                                  ? 'bg-gaming-neon'
-                                  : 'bg-gray-600'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 hidden xl:table-cell">
-                      {new Date(registration.registeredAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-1">
-                        {/* View Details Button - Always visible */}
-                        <button
-                          onClick={() => handleViewImages(registration)}
-                          className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 rounded-md transition-colors"
-                          title="View Details"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-
-                        {/* Primary Action Button - Changes based on status */}
-                        {registration.status !== 'verified' ? (
-                          <button
-                            onClick={() => handleDirectApprove(registration)}
-                            className="p-1.5 text-green-400 hover:text-green-300 hover:bg-green-400/10 rounded-md transition-colors"
-                            title="Verify"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleSetPending(registration)}
-                            className="p-1.5 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 rounded-md transition-colors"
-                            title="Set Pending"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </button>
-                        )}
-
-                        {/* Secondary Action Button */}
-                        {!(registration.status === 'rejected' && registration.rejectionReason?.startsWith('Not Verified')) ? (
-                          <button
-                            onClick={() => handleNotVerified(registration)}
-                            className="p-1.5 text-orange-400 hover:text-orange-300 hover:bg-orange-400/10 rounded-md transition-colors"
-                            title="Not Verified"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                            </svg>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleDirectReject(registration)}
-                            className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-md transition-colors"
-                            title="Reject"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-
-                        {/* More Actions Dropdown */}
-                        <div className="relative">
-                          <button
-                            onClick={() => {
-                              const dropdown = document.getElementById(`dropdown-${registration._id}`);
-                              dropdown.classList.toggle('hidden');
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-400/10 rounded-md transition-colors"
-                            title="More Actions"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                            </svg>
-                          </button>
-                          
-                          {/* Dropdown Menu */}
-                          <div
-                            id={`dropdown-${registration._id}`}
-                            className="hidden absolute right-0 mt-2 w-44 bg-gaming-charcoal border border-gaming-slate rounded-lg shadow-lg z-10"
-                          >
-                            <button
-                              onClick={() => {
-                                handleEditRegistration(registration);
-                                document.getElementById(`dropdown-${registration._id}`).classList.add('hidden');
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-yellow-400 hover:bg-gaming-slate rounded-t-lg"
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleDeleteRegistration(registration);
-                                document.getElementById(`dropdown-${registration._id}`).classList.add('hidden');
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gaming-slate rounded-b-lg"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {registrations.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 text-4xl mb-4">📋</div>
-              <p className="text-gray-400">No registrations found</p>
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-400">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} registrations
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => fetchRegistrations(pagination.page - 1, false)}
+                  disabled={pagination.page <= 1 || loading}
+                  className="px-3 py-1 bg-gaming-slate text-white text-sm rounded hover:bg-gaming-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1 bg-gaming-neon text-black text-sm font-medium rounded">
+                  {pagination.page} / {pagination.pages}
+                </span>
+                <button
+                  onClick={() => fetchRegistrations(pagination.page + 1, false)}
+                  disabled={pagination.page >= pagination.pages || loading}
+                  className="px-3 py-1 bg-gaming-slate text-white text-sm rounded hover:bg-gaming-charcoal transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="card-gaming p-3 md:p-4 mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-gray-300 text-xs md:text-sm text-center sm:text-left">
-                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                {pagination.total} registrations
+        {/* Tournament Scoreboard Management */}
+        <div className="card-gaming p-4 md:p-6 mb-4 md:mb-6">
+          <h3 className="text-lg xl:text-xl font-bold text-white mb-4 flex items-center space-x-2">
+            <span>🏆</span>
+            <span>Tournament Scoreboard Management</span>
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Show all tournaments, not just completed ones */}
+            {tournaments.map(tournament => (
+              <TournamentScoreboardCard 
+                key={tournament._id} 
+                tournament={tournament}
+                onScoreboardUploaded={() => {
+                  setSuccess('Scoreboard uploaded successfully!');
+                  setTimeout(() => setSuccess(''), 3000);
+                }}
+              />
+            ))}
+            
+            {tournaments.length === 0 && (
+              <div className="col-span-full text-center py-8 text-gray-400">
+                <div className="text-4xl mb-2">📊</div>
+                <p>No BGMI tournaments found</p>
+                <p className="text-sm">Create a tournament to upload scoreboards</p>
               </div>
-              
-              <div className="flex items-center justify-center space-x-1 md:space-x-2">
-                <button
-                  onClick={() => fetchRegistrations(pagination.page - 1, false)}
-                  disabled={pagination.page <= 1 || loading}
-                  className="px-2 md:px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon transition-colors text-sm"
-                >
-                  <span className="hidden sm:inline">Previous</span>
-                  <span className="sm:hidden">‹</span>
-                </button>
-                
-                <div className="flex space-x-1">
-                  {Array.from({ length: Math.min(3, pagination.pages) }, (_, i) => {
-                    let pageNum;
-                    if (pagination.pages <= 3) {
-                      pageNum = i + 1;
-                    } else {
-                      // Smart pagination - show pages around current page
-                      const start = Math.max(1, pagination.page - 1);
-                      const end = Math.min(pagination.pages, start + 2);
-                      pageNum = start + i;
-                      if (pageNum > end) return null;
-                    }
-                    
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => fetchRegistrations(pageNum, false)}
-                        disabled={loading}
-                        className={`px-2 md:px-3 py-1 rounded transition-colors text-sm ${
-                          pageNum === pagination.page
-                            ? 'bg-gaming-neon text-black font-medium'
-                            : 'bg-gaming-charcoal border border-gray-600 text-white hover:border-gaming-neon'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  }).filter(Boolean)}
-                </div>
-                
-                <button
-                  onClick={() => fetchRegistrations(pagination.page + 1, false)}
-                  disabled={pagination.page >= pagination.pages || loading}
-                  className="px-2 md:px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon transition-colors text-sm"
-                >
-                  <span className="hidden sm:inline">Next</span>
-                  <span className="sm:hidden">›</span>
-                </button>
-              </div>
-            </div>
+            )}
           </div>
-        )}
+          
+        </div>
 
         {/* Image Modal */}
         {showImageModal && selectedRegistration && (
@@ -1995,6 +1816,433 @@ const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
         </form>
       </motion.div>
     </motion.div>
+  );
+};
+
+// Tournament Scoreboard Card Component
+const TournamentScoreboardCard = ({ tournament, onScoreboardUploaded }) => {
+  const [uploading, setUploading] = useState(false);
+  const [scoreboards, setScoreboards] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadData, setUploadData] = useState({
+    imageUrl: '',
+    description: 'Tournament Results',
+    uploadMethod: 'url',
+    file: null
+  });
+
+  useEffect(() => {
+    fetchScoreboards();
+  }, [tournament._id]);
+
+  // Refresh gallery when component becomes visible again (user returns to page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refresh gallery
+        fetchScoreboards(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [tournament._id]);
+
+  // Add CSS and escape key handling for modal
+  useEffect(() => {
+    if (showUploadModal) {
+      // Add CSS to ensure modal appears on top
+      const style = document.createElement('style');
+      style.id = 'upload-modal-styles';
+      style.textContent = `
+        .upload-modal-portal {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          z-index: 2147483647 !important;
+          pointer-events: auto !important;
+        }
+        .upload-modal-content {
+          z-index: 2147483647 !important;
+          position: relative !important;
+          pointer-events: auto !important;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Add escape key listener
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          setShowUploadModal(false);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+      
+      return () => {
+        const existingStyle = document.getElementById('upload-modal-styles');
+        if (existingStyle) {
+          document.head.removeChild(existingStyle);
+        }
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [showUploadModal]);
+
+  const fetchScoreboards = async (forceRefresh = false) => {
+    try {
+      // Add cache-busting parameter for force refresh
+      const url = forceRefresh 
+        ? `/api/tournaments/${tournament._id}/scoreboards?t=${Date.now()}`
+        : `/api/tournaments/${tournament._id}/scoreboards`;
+        
+      const response = await api.get(url);
+      if (response.data && response.data.success) {
+        setScoreboards(response.data.data.scoreboards);
+      } else if (response.success) {
+        setScoreboards(response.data.scoreboards);
+      }
+    } catch (error) {
+      console.error('Error fetching scoreboards:', error);
+      // Set empty array on error to prevent stale data
+      setScoreboards([]);
+    }
+  };
+
+  const handleUploadScoreboard = async () => {
+    if (uploadData.uploadMethod === 'file' && !uploadData.file) {
+      alert('Please select an image file');
+      return;
+    }
+    
+    if (uploadData.uploadMethod === 'url' && !uploadData.imageUrl.trim()) {
+      alert('Please enter image URL');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      let imageUrl = uploadData.imageUrl;
+      
+      // If file upload, first upload to server
+      if (uploadData.uploadMethod === 'file' && uploadData.file) {
+        const formData = new FormData();
+        formData.append('image', uploadData.file);
+        formData.append('type', 'scoreboard');
+        
+        const uploadResponse = await api.post('/api/upload/image', formData);
+        
+        if (uploadResponse && uploadResponse.success) {
+          imageUrl = uploadResponse.data.imageUrl;
+        } else {
+          throw new Error('Failed to upload image file');
+        }
+      }
+      
+      // Upload scoreboard with image URL
+      const response = await api.post(`/api/tournaments/${tournament._id}/scoreboards`, {
+        imageUrl,
+        description: uploadData.description
+      });
+      
+      if (response && response.success) {
+        // Refresh the gallery immediately after successful upload
+        await fetchScoreboards(true); // Force refresh with cache-busting
+        
+        setUploadData({ 
+          imageUrl: '', 
+          description: 'Tournament Results',
+          uploadMethod: 'url',
+          file: null
+        });
+        setShowUploadModal(false);
+        
+        alert('✅ Scoreboard uploaded successfully!\n\n📍 Where to find it:\n• Tournament page → RESULTS tab\n• Homepage → BGMI Leaderboard\n• Admin panel → Gallery below');
+        
+        onScoreboardUploaded();
+      } else {
+        throw new Error(response?.message || 'Failed to create scoreboard entry');
+      }
+    } catch (error) {
+      console.error('❌ Upload scoreboard error:', error);
+      
+      let errorMessage = 'Failed to upload scoreboard. ';
+      
+      if (error.message.includes('NO_TOKEN') || error.message.includes('Access denied')) {
+        errorMessage += 'Authentication required. Please login again.';
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.message.includes('ADMIN_ACCESS_REQUIRED')) {
+        errorMessage += 'Admin privileges required to upload scoreboards.';
+      } else if (error.message.includes('TOURNAMENT_NOT_FOUND')) {
+        errorMessage += 'Tournament not found.';
+      } else {
+        errorMessage += error.message || 'Please try again.';
+      }
+      
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteScoreboard = async (scoreboardId) => {
+    if (!window.confirm('Are you sure you want to delete this scoreboard?')) return;
+
+    try {
+      await api.delete(`/api/tournaments/${tournament._id}/scoreboards/${scoreboardId}`);
+      // Refresh the gallery after successful deletion
+      await fetchScoreboards(true);
+      alert('Scoreboard deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting scoreboard:', error);
+      alert('Failed to delete scoreboard');
+    }
+  };
+
+  return (
+    <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h4 className="font-bold text-white text-sm">{tournament.name}</h4>
+          <p className="text-xs text-gray-400">
+            Status: <span className={`font-medium ${
+              tournament.status === 'completed' ? 'text-green-400' : 
+              tournament.status === 'active' ? 'text-blue-400' : 'text-yellow-400'
+            }`}>{tournament.status}</span>
+          </p>
+          <p className="text-xs text-gray-400">
+            {scoreboards.length} scoreboard{scoreboards.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => fetchScoreboards(true)}
+            className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors"
+            title="Refresh Gallery"
+          >
+            🔄
+          </button>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="px-3 py-1 bg-gaming-neon text-black text-xs font-bold rounded hover:bg-gaming-neon/80 transition-colors"
+          >
+            Upload
+          </button>
+        </div>
+        
+
+      </div>
+
+      {/* Scoreboard Gallery */}
+      {scoreboards.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {scoreboards.slice(0, 4).map((scoreboard, index) => (
+            <div key={scoreboard._id} className="relative group">
+              <img
+                src={scoreboard.imageUrl}
+                alt={scoreboard.description}
+                className="w-full h-16 object-cover rounded border border-gaming-border"
+              />
+              <button
+                onClick={() => handleDeleteScoreboard(scoreboard._id)}
+                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {scoreboards.length > 4 && (
+            <div className="flex items-center justify-center bg-gaming-charcoal rounded border border-gaming-border text-xs text-gray-400">
+              +{scoreboards.length - 4} more
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload Modal - React Portal for Maximum Z-Index */}
+      {showUploadModal && createPortal(
+        <div 
+          className="fixed inset-0 flex items-center justify-center p-4 upload-modal-portal"
+          style={{ 
+            zIndex: 2147483647, // Maximum z-index value
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            pointerEvents: 'auto'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowUploadModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-gaming-card border-2 border-gaming-neon rounded-lg p-6 w-full max-w-md shadow-2xl upload-modal-content" 
+            style={{ 
+              zIndex: 2147483647, // Maximum z-index
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(34, 197, 94, 0.8)',
+              position: 'relative',
+              backgroundColor: '#1a1a1a',
+              border: '2px solid #22c55e',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              pointerEvents: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4" style={{ zIndex: 2147483647, position: 'relative' }}>
+              <h3 className="text-lg font-bold text-white">Upload Scoreboard</h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-red-500/20 rounded"
+                style={{ zIndex: 2147483647, position: 'relative' }}
+                title="Close Modal (ESC)"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Info about where scoreboards will appear */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-blue-400 font-medium text-sm">Where will this appear?</span>
+                </div>
+                <ul className="text-xs text-gray-300 space-y-1">
+                  <li>• Tournament detail page → RESULTS tab</li>
+                  <li>• Homepage → BGMI Leaderboard section</li>
+                  <li>• Admin panel → Scoreboard gallery below</li>
+                </ul>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Upload Method
+                </label>
+                <div className="flex space-x-4 mb-3">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="uploadMethod"
+                      value="url"
+                      checked={uploadData.uploadMethod !== 'file'}
+                      onChange={() => setUploadData(prev => ({ ...prev, uploadMethod: 'url', file: null }))}
+                      className="mr-2"
+                    />
+                    <span className="text-white text-sm">Image URL</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="uploadMethod"
+                      value="file"
+                      checked={uploadData.uploadMethod === 'file'}
+                      onChange={() => setUploadData(prev => ({ ...prev, uploadMethod: 'file', imageUrl: '' }))}
+                      className="mr-2"
+                    />
+                    <span className="text-white text-sm">Upload File</span>
+                  </label>
+                </div>
+              </div>
+
+              {uploadData.uploadMethod === 'file' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Select Image File
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setUploadData(prev => ({ ...prev, file: e.target.files[0] }))}
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  />
+                  {uploadData.file && (
+                    <div className="mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded">
+                      <p className="text-xs text-green-400 flex items-center space-x-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Selected: {uploadData.file.name}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={uploadData.imageUrl}
+                    onChange={(e) => setUploadData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                    placeholder="https://example.com/scoreboard.jpg"
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  />
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={uploadData.description}
+                  onChange={(e) => setUploadData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Tournament Results"
+                  className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6" style={{ zIndex: 2147483647, position: 'relative' }}>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                style={{ zIndex: 2147483647, position: 'relative' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadScoreboard}
+                disabled={uploading}
+                className="flex-1 px-4 py-2 bg-gaming-neon text-black font-bold rounded-lg hover:bg-gaming-neon/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ zIndex: 2147483647, position: 'relative' }}
+              >
+                {uploading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Uploading...</span>
+                  </div>
+                ) : 'Upload'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
   );
 };
 
