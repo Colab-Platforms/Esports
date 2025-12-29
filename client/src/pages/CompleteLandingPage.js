@@ -20,22 +20,10 @@ const CompleteLandingPage = () => {
   const { isAuthenticated } = useSelector(selectAuth);
   const navigate = useNavigate();
   
+  // All state declarations first
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
   const [cs2Leaderboard, setCs2Leaderboard] = useState([]);
   const [latestBgmiScoreboard, setLatestBgmiScoreboard] = useState(null);
-  
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('🔍 BGMI Scoreboards state changed:', bgmiScoreboards.length, 'items');
-    console.log('📊 Current scoreboards:', bgmiScoreboards);
-  }, [bgmiScoreboards]);
-
-  // Initial data fetch on component mount
-  useEffect(() => {
-    console.log('🚀 CompleteLandingPage mounted - fetching initial data');
-    fetchAllData();
-  }, []); // Empty dependency array = runs once on mount
-
   const [stats, setStats] = useState({
     totalPlayers: '0',
     activeTournaments: '0',
@@ -45,10 +33,137 @@ const CompleteLandingPage = () => {
   const [servers, setServers] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [tournaments, setTournaments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false, only show loading when actually fetching
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
-  const [lastDataFetch, setLastDataFetch] = useState(null);
+  
+  // Cache system for API data - Extended cache duration
+  const [dataCache, setDataCache] = useState(new Map());
+  const [cacheTimestamps, setCacheTimestamps] = useState(new Map());
+  const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache
+
+  // Upcoming games data
+  const upcomingGames = [
+    { name: 'Valorant', gameType: 'valorant', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
+    { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
+    { name: 'Free Fire', gameType: 'freefire', status: 'Coming Q2 2025', color: 'from-yellow-500 to-orange-500' },
+    { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
+    { name: 'FC 24', gameType: 'fc24', status: 'Coming Q3 2025', color: 'from-green-500 to-blue-500' }
+  ];
+
+  // Initial data fetch on component mount - with cache checking
+  useEffect(() => {
+    // Check if we have any cached data at all
+    const hasAnyCache = dataCache.size > 0;
+    
+    if (!hasAnyCache) {
+      // First time visit - show loading and fetch data
+      setLoading(true);
+    }
+    
+    initializeData();
+  }, []); // Empty dependency array = runs once on mount
+
+  // Smart initialization that checks cache first
+  const initializeData = async () => {
+    // Check if we have valid cached data for all critical sections
+    const criticalDataKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats'];
+    const cachedDataStatus = criticalDataKeys.map(key => ({
+      key,
+      hasCache: getCachedData(key) !== null
+    }));
+    
+    const hasCachedData = cachedDataStatus.every(item => item.hasCache);
+    
+    if (hasCachedData) {
+      // Load all data from cache instantly - no loading state needed
+      await loadFromCache();
+      // Don't set loading to false here, let loadFromCache handle it
+    } else {
+      // Only show loading if we need to fetch fresh data
+      setLoading(true);
+      await fetchAllData();
+    }
+  };
+
+  // Load data from cache for instant display
+  const loadFromCache = async () => {
+    // Load CS2 leaderboard from cache
+    const cachedCs2Data = getCachedData('cs2-leaderboard');
+    if (cachedCs2Data) {
+      setCs2Leaderboard(cachedCs2Data);
+    }
+
+    // Load BGMI scoreboards from cache
+    const cachedBgmiData = getCachedData('bgmi-scoreboards');
+    if (cachedBgmiData) {
+      setBgmiScoreboards(cachedBgmiData.scoreboards);
+      if (cachedBgmiData.latestScoreboard) {
+        setLatestBgmiScoreboard(cachedBgmiData.latestScoreboard);
+      }
+    }
+
+    // Load platform stats from cache
+    const cachedStats = getCachedData('platform-stats');
+    if (cachedStats) {
+      setStats(cachedStats);
+    }
+
+    // Load other cached data
+    const cachedServers = getCachedData('servers');
+    if (cachedServers) {
+      setServers(cachedServers);
+    }
+
+    const cachedTestimonials = getCachedData('testimonials');
+    if (cachedTestimonials) {
+      setTestimonials(cachedTestimonials);
+    }
+
+    const cachedTournaments = getCachedData('tournaments');
+    if (cachedTournaments) {
+      setTournaments(cachedTournaments);
+    }
+
+    // Set loading to false after cache data is loaded
+    setLoading(false);
+  };
+
+  // Auto-slide upcoming games - separate from data fetching
+  useEffect(() => {
+    let interval;
+    if (autoPlay) {
+      interval = setInterval(() => {
+        setCurrentGameIndex((prev) => (prev + 1) % upcomingGames.length);
+      }, 6000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoPlay]);
+
+  // Cache helper functions
+  const getCachedData = (key) => {
+    const timestamp = cacheTimestamps.get(key);
+    const now = Date.now();
+    
+    if (timestamp && (now - timestamp) < CACHE_DURATION) {
+      return dataCache.get(key);
+    }
+    
+    return null;
+  };
+
+  const setCachedData = (key, data) => {
+    setDataCache(prev => new Map(prev.set(key, data)));
+    setCacheTimestamps(prev => new Map(prev.set(key, Date.now())));
+  };
+
+  const clearCache = () => {
+    setDataCache(new Map());
+    setCacheTimestamps(new Map());
+  };
 
   // Helper function to generate testimonials with colors for display
   const generateTestimonialsForDisplay = () => {
@@ -77,49 +192,18 @@ const CompleteLandingPage = () => {
     return duplicatedTestimonials.slice(0, 6); // Take first 6 items
   };
 
-  const upcomingGames = [
-    { name: 'Valorant', gameType: 'valorant', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
-    { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
-    { name: 'Free Fire', gameType: 'freefire', status: 'Coming Q2 2025', color: 'from-yellow-500 to-orange-500' },
-    { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
-    { name: 'FC 24', gameType: 'fc24', status: 'Coming Q3 2025', color: 'from-green-500 to-blue-500' }
-  ];
-
-  useEffect(() => {
-    // Only fetch data if it's been more than 5 minutes since last fetch
-    const now = Date.now();
-    if (!lastDataFetch || (now - lastDataFetch) > 5 * 60 * 1000) {
-      fetchAllData();
-      setLastDataFetch(now);
-    }
-    
-    // Auto-slide upcoming games
-    let interval;
-    if (autoPlay) {
-      interval = setInterval(() => {
-        setCurrentGameIndex((prev) => (prev + 1) % upcomingGames.length);
-      }, 6000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [autoPlay]);
-
   const fetchAllData = async () => {
     setLoading(true);
     
     try {
-      // Sequential API calls with longer delays to prevent rate limiting
-      console.log('🔄 Starting data fetch sequence...');
-      
+      // Sequential API calls with delays to prevent rate limiting
       await fetchLeaderboards();
-      await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       await fetchPlatformStats();
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      await fetchBgmiScoreboards(); // This is the important one for BGMI images
+      await fetchBgmiScoreboards();
       await new Promise(resolve => setTimeout(resolve, 500));
       
       await fetchServers();
@@ -130,8 +214,6 @@ const CompleteLandingPage = () => {
       
       await fetchTournaments();
       
-      console.log('✅ All data fetched successfully');
-      
     } catch (error) {
       console.error('❌ Error fetching data:', error);
     } finally {
@@ -141,6 +223,13 @@ const CompleteLandingPage = () => {
 
   const fetchLeaderboards = async () => {
     try {
+      // Check cache first
+      const cachedCs2Data = getCachedData('cs2-leaderboard');
+      if (cachedCs2Data) {
+        setCs2Leaderboard(cachedCs2Data);
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       
       // Fetch CS2 leaderboard (limit 3, show only available)
@@ -157,7 +246,9 @@ const CompleteLandingPage = () => {
           avatar: player.avatar,
           kdr: player.stats.kdr
         }));
+        
         setCs2Leaderboard(mappedData);
+        setCachedData('cs2-leaderboard', mappedData);
       }
       
       // BGMI scoreboards are now fetched separately in fetchBgmiScoreboards()
@@ -168,7 +259,16 @@ const CompleteLandingPage = () => {
 
   const fetchBgmiScoreboards = async () => {
     try {
-      console.log('🔍 Fetching BGMI scoreboards for CompleteLandingPage...');
+      // Check cache first
+      const cachedData = getCachedData('bgmi-scoreboards');
+      if (cachedData) {
+        setBgmiScoreboards(cachedData.scoreboards);
+        if (cachedData.latestScoreboard) {
+          setLatestBgmiScoreboard(cachedData.latestScoreboard);
+        }
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       
       // Direct fetch without API service to avoid rate limiting
@@ -180,28 +280,31 @@ const CompleteLandingPage = () => {
         }
       });
       
-      console.log('📥 Response status:', response.status);
-      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('📥 BGMI scoreboards response:', data);
       
       if (data.success && data.data.scoreboards) {
-        console.log('✅ Setting BGMI scoreboards:', data.data.scoreboards.length, 'items');
         setBgmiScoreboards(data.data.scoreboards);
         
         // Set the latest one for backward compatibility
+        let latestScoreboard = null;
         if (data.data.scoreboards.length > 0) {
-          setLatestBgmiScoreboard({
+          latestScoreboard = {
             ...data.data.scoreboards[0],
             tournamentName: data.data.scoreboards[0].tournament.name
-          });
+          };
+          setLatestBgmiScoreboard(latestScoreboard);
         }
+
+        // Cache the data
+        setCachedData('bgmi-scoreboards', {
+          scoreboards: data.data.scoreboards,
+          latestScoreboard
+        });
       } else {
-        console.log('❌ No BGMI scoreboards found or API failed');
         setBgmiScoreboards([]);
       }
     } catch (error) {
@@ -212,6 +315,13 @@ const CompleteLandingPage = () => {
 
   const fetchPlatformStats = async () => {
     try {
+      // Check cache first
+      const cachedData = getCachedData('platform-stats');
+      if (cachedData) {
+        setStats(cachedData);
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       
       const [statsRes, usersRes] = await Promise.all([
@@ -223,12 +333,15 @@ const CompleteLandingPage = () => {
       const usersData = await usersRes.json();
       
       if (statsData.success && statsData.data) {
-        setStats({
+        const newStats = {
           totalPlayers: usersData.success ? usersData.count.toString() : '0',
           activeTournaments: statsData.data.activeTournaments || '0',
           totalPrizes: statsData.data.totalPrizes || '₹0',
           totalMatches: statsData.data.totalTransactions || '0'
-        });
+        };
+        
+        setStats(newStats);
+        setCachedData('platform-stats', newStats);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -237,6 +350,13 @@ const CompleteLandingPage = () => {
 
   const fetchServers = async () => {
     try {
+      // Check cache first
+      const cachedData = getCachedData('cs2-servers');
+      if (cachedData) {
+        setServers(cachedData);
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       console.log('🔍 Fetching CS2 tournaments from:', `${API_URL}/api/tournaments?gameType=cs2&status=active`);
       
@@ -273,6 +393,7 @@ const CompleteLandingPage = () => {
         
         console.log('🎯 Setting servers:', mappedServers);
         setServers(mappedServers);
+        setCachedData('cs2-servers', mappedServers);
       } else {
         console.log('⚠️ No tournaments found or invalid response structure');
         // Fallback to empty array if no CS2 tournaments
@@ -287,38 +408,61 @@ const CompleteLandingPage = () => {
 
   const fetchTestimonials = async () => {
     try {
+      // Check cache first
+      const cachedData = getCachedData('testimonials');
+      if (cachedData) {
+        setTestimonials(cachedData);
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${API_URL}/api/testimonials`);
       const data = await response.json();
       
       if (data.success && data.data) {
         setTestimonials(data.data);
+        setCachedData('testimonials', data.data);
       } else {
         // Fallback to hardcoded testimonials if API fails
-        setTestimonials([
+        const fallbackTestimonials = [
           { name: 'Rahul K.', gameTitle: 'CS2 Player', gameType: 'cs2', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5 },
           { name: 'Priya S.', gameTitle: 'BGMI Player', gameType: 'bgmi', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5 },
           { name: 'Arjun M.', gameTitle: 'Pro Gamer', gameType: 'valorant', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5 }
-        ]);
+        ];
+        setTestimonials(fallbackTestimonials);
+        setCachedData('testimonials', fallbackTestimonials);
       }
     } catch (error) {
       console.error('Error fetching testimonials:', error);
       // Fallback to hardcoded testimonials
-      setTestimonials([
+      const fallbackTestimonials = [
         { name: 'Rahul K.', gameTitle: 'CS2 Player', gameType: 'cs2', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5 },
         { name: 'Priya S.', gameTitle: 'BGMI Player', gameType: 'bgmi', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5 },
         { name: 'Arjun M.', gameTitle: 'Pro Gamer', gameType: 'valorant', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5 }
-      ]);
+      ];
+      setTestimonials(fallbackTestimonials);
+      setCachedData('testimonials', fallbackTestimonials);
     }
   };
 
   const fetchTournaments = async () => {
     try {
+      // Check cache first
+      const cachedData = getCachedData('tournaments');
+      if (cachedData) {
+        setTournaments(cachedData);
+        return;
+      }
+
       const API_URL = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${API_URL}/api/tournaments?status=registration_open&limit=3`);
       const data = await response.json();
       
-      if (data.success) setTournaments(data.data || []);
+      if (data.success) {
+        const tournamentsData = data.data || [];
+        setTournaments(tournamentsData);
+        setCachedData('tournaments', tournamentsData);
+      }
     } catch (error) {
       console.error('Error fetching tournaments:', error);
     }
@@ -508,7 +652,8 @@ const CompleteLandingPage = () => {
                       {/* Debug button - temporary */}
                       <button
                         onClick={async () => {
-                          console.log('🔄 Manual test of BGMI scoreboards API');
+                          console.log('🔄 Manual test of BGMI scoreboards API - clearing cache first');
+                          clearCache(); // Clear cache before testing
                           try {
                             const API_URL = process.env.REACT_APP_API_URL || '';
                             const testUrl = `${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`;
@@ -536,7 +681,17 @@ const CompleteLandingPage = () => {
                               console.log('✅ Found scoreboards:', data.data.scoreboards.length);
                               console.log('🖼️ Scoreboards:', data.data.scoreboards);
                               setBgmiScoreboards(data.data.scoreboards);
-                              alert(`✅ API Working! Found ${data.data.scoreboards.length} scoreboards. Check console for details.`);
+                              
+                              // Cache the fresh data
+                              setCachedData('bgmi-scoreboards', {
+                                scoreboards: data.data.scoreboards,
+                                latestScoreboard: data.data.scoreboards.length > 0 ? {
+                                  ...data.data.scoreboards[0],
+                                  tournamentName: data.data.scoreboards[0].tournament.name
+                                } : null
+                              });
+                              
+                              alert(`✅ API Working! Found ${data.data.scoreboards.length} scoreboards. Data cached for 5 minutes.`);
                             } else {
                               console.log('❌ No scoreboards found');
                               alert('❌ API working but no scoreboards found');
@@ -548,17 +703,34 @@ const CompleteLandingPage = () => {
                         }}
                         className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
                       >
-                        🧪 Test API (Direct)
+                        🧪 Test API (Fresh)
                       </button>
                       
                       <button
                         onClick={() => {
-                          console.log('🔄 Manual refresh of BGMI scoreboards');
+                          clearCache(); // Clear all cache
                           fetchBgmiScoreboards();
                         }}
                         className="mt-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700"
                       >
                         🔄 Refresh Results
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          const cacheInfo = {
+                            'cs2-leaderboard': getCachedData('cs2-leaderboard') !== null,
+                            'bgmi-scoreboards': getCachedData('bgmi-scoreboards') !== null,
+                            'platform-stats': getCachedData('platform-stats') !== null,
+                            'servers': getCachedData('servers') !== null,
+                            'testimonials': getCachedData('testimonials') !== null,
+                            'tournaments': getCachedData('tournaments') !== null
+                          };
+                          alert(`Cache Status:\n${JSON.stringify(cacheInfo, null, 2)}`);
+                        }}
+                        className="mt-2 ml-2 px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                      >
+                        🔍 Check Cache
                       </button>
                     </div>
                   )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -35,17 +35,10 @@ const LeaderboardPage = () => {
   const [cs2Leaderboard, setCs2Leaderboard] = useState([]);
   const [cs2Stats, setCs2Stats] = useState(null);
   const [cs2Loading, setCs2Loading] = useState(false);
-  const [cs2Limit, setCs2Limit] = useState(50);
   
   // BGMI specific state
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
   const [bgmiLoading, setBgmiLoading] = useState(false);
-  
-  // Debug: Log BGMI state changes
-  useEffect(() => {
-    console.log('🔍 LeaderboardPage - BGMI Scoreboards state changed:', bgmiScoreboards.length, 'items');
-    console.log('📊 Current BGMI scoreboards:', bgmiScoreboards);
-  }, [bgmiScoreboards]);
 
   useEffect(() => {
     if (selectedGame === 'cs2') {
@@ -81,7 +74,6 @@ const LeaderboardPage = () => {
 
   const fetchBgmiScoreboards = async () => {
     try {
-      console.log('🔍 Fetching BGMI scoreboards for LeaderboardPage...');
       setBgmiLoading(true);
       
       // Direct fetch without axios to avoid rate limiting
@@ -94,20 +86,15 @@ const LeaderboardPage = () => {
         }
       });
       
-      console.log('📥 Response status:', response.status);
-      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('📥 BGMI scoreboards response:', data);
       
       if (data.success && data.data.scoreboards) {
-        console.log('✅ Setting BGMI scoreboards:', data.data.scoreboards.length, 'items');
         setBgmiScoreboards(data.data.scoreboards);
       } else {
-        console.log('❌ No BGMI scoreboards found or API failed');
         setBgmiScoreboards([]);
       }
     } catch (err) {
@@ -124,7 +111,7 @@ const LeaderboardPage = () => {
       
       // Fetch ALL players leaderboard (only registered)
       const leaderboardRes = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/all-players?limit=${cs2Limit}`
+        `${process.env.REACT_APP_API_URL}/api/cs2-leaderboard/all-players?limit=50`
       );
       
       // Fetch overall stats
@@ -140,7 +127,12 @@ const LeaderboardPage = () => {
         setCs2Stats(statsRes.data.stats);
       }
     } catch (err) {
-      console.error('Error fetching CS2 leaderboard:', err);
+      console.error('❌ Error fetching CS2 leaderboard:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
     } finally {
       setCs2Loading(false);
     }
@@ -333,7 +325,7 @@ const LeaderboardPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Leaderboard */}
           <div className="lg:col-span-3">
-            <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6">
+            <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6" key={selectedGame}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-theme-text-primary">
                   {selectedGame === 'cs2' 
@@ -345,7 +337,7 @@ const LeaderboardPage = () => {
                 </h2>
                 <div className="text-sm text-theme-text-secondary">
                   {selectedGame === 'cs2' 
-                    ? `${cs2Leaderboard.length} players` 
+                    ? `${cs2Leaderboard.length} players (${cs2Leaderboard.filter(p => p.isRegistered).length} registered)` 
                     : selectedGame === 'bgmi'
                     ? `${bgmiScoreboards.length} tournament results`
                     : `${pagination.total} players`
@@ -354,26 +346,44 @@ const LeaderboardPage = () => {
               </div>
 
               {selectedGame === 'cs2' ? (
-                // CS2 Leaderboard
-                cs2Leaderboard.filter(p => p.isRegistered).length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4"><FaTrophy className="inline-block text-theme-accent" /></div>
-                    <h3 className="text-xl font-bold text-theme-text-primary mb-2">No Registered Players Yet</h3>
-                    <p className="text-theme-text-secondary mb-4">
-                      Register and connect your Steam account to appear on the leaderboard!
-                    </p>
-                    {cs2Stats && (
-                      <div className="mt-6 text-sm text-theme-text-muted">
-                        <p>Total Matches: {cs2Stats.total_matches} | Total Kills: {cs2Stats.total_kills}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-theme-bg-hover">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-theme-text-secondary text-sm font-semibold">Rank</th>
+                // CS2 Leaderboard - ISOLATED SECTION
+                <div className="cs2-section" style={{backgroundColor: '#1e3a8a20', border: '2px solid #3b82f6', padding: '20px', borderRadius: '10px'}}>
+                  
+                  {cs2Loading ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                      <p className="text-blue-400">Loading CS2 leaderboard...</p>
+                    </div>
+                  ) : cs2Leaderboard.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4"><FaTrophy className="inline-block text-theme-accent" /></div>
+                      <h3 className="text-xl font-bold text-theme-text-primary mb-2">No CS2 Players Found</h3>
+                      <p className="text-theme-text-secondary mb-4">
+                        Connect your Steam account and play CS2 matches to appear on the leaderboard!
+                      </p>
+                      {cs2Stats && (
+                        <div className="mt-6 text-sm text-theme-text-muted">
+                          <p>Total Matches: {cs2Stats.total_matches} | Total Kills: {cs2Stats.total_kills}</p>
+                        </div>
+                      )}
+                      {/* Debug button for testing */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          fetchCS2Leaderboard();
+                        }}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        🔄 Refresh CS2 Data
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-theme-bg-hover">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-theme-text-secondary text-sm font-semibold">Rank</th>
                           <th className="px-4 py-3 text-left text-theme-text-secondary text-sm font-semibold">Player</th>
                           <th className="px-4 py-3 text-center text-theme-text-secondary text-sm font-semibold">
                             <FaCrosshairs className="inline mr-1" /> Kills
@@ -397,7 +407,6 @@ const LeaderboardPage = () => {
                       </thead>
                       <tbody>
                         {cs2Leaderboard
-                          .filter(player => player.isRegistered) // Only show registered players
                           .map((player, index) => (
                           <motion.tr
                             key={player.accountid}
@@ -496,10 +505,14 @@ const LeaderboardPage = () => {
                       </tbody>
                     </table>
                   </div>
-                )
+                  )
+                }
+                </div>
               ) : selectedGame === 'bgmi' ? (
-                // BGMI Tournament Results Gallery
-                bgmiScoreboards.length === 0 ? (
+                // BGMI Tournament Results Gallery - ISOLATED SECTION
+                <div className="bgmi-section" style={{backgroundColor: '#ea580c20', border: '2px solid #f97316', padding: '20px', borderRadius: '10px'}}>
+                  
+                  {bgmiScoreboards.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-6xl mb-4">🏆</div>
                     <h3 className="text-xl font-bold text-theme-text-primary mb-2">No Tournament Results Yet</h3>
@@ -512,35 +525,6 @@ const LeaderboardPage = () => {
                     >
                       Browse Tournaments
                     </button>
-                    
-                    {/* Debug button - temporary */}
-                    <button
-                      onClick={async () => {
-                        console.log('🔄 Manual test of BGMI scoreboards API from LeaderboardPage');
-                        try {
-                          const testUrl = `${process.env.REACT_APP_API_URL}/api/tournaments/bgmi/scoreboards`;
-                          console.log('📡 Testing URL:', testUrl);
-                          
-                          const response = await axios.get(testUrl);
-                          console.log('📥 Response:', response.data);
-                          
-                          if (response.data.success && response.data.data.scoreboards) {
-                            console.log('✅ Found scoreboards:', response.data.data.scoreboards.length);
-                            alert(`✅ API Working! Found ${response.data.data.scoreboards.length} scoreboards`);
-                            setBgmiScoreboards(response.data.data.scoreboards);
-                          } else {
-                            console.log('❌ No scoreboards found');
-                            alert('❌ API working but no scoreboards found');
-                          }
-                        } catch (error) {
-                          console.error('❌ API Test Error:', error);
-                          alert(`❌ API Error: ${error.message}`);
-                        }
-                      }}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-                    >
-                      🧪 Test BGMI API
-                    </button>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -551,7 +535,6 @@ const LeaderboardPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
                         className="bg-theme-bg-hover rounded-lg overflow-hidden border border-theme-border hover:border-theme-accent/50 transition-all group cursor-pointer"
-                        onClick={() => window.open(scoreboard.imageUrl, '_blank')}
                       >
                         <div className="flex flex-col md:flex-row">
                           {/* Image Section */}
@@ -559,7 +542,12 @@ const LeaderboardPage = () => {
                             <img
                               src={scoreboard.imageUrl}
                               alt={scoreboard.description}
-                              className="w-full h-48 md:h-32 object-cover group-hover:opacity-80 transition-opacity"
+                              className="w-full h-48 md:h-32 object-cover group-hover:opacity-80 transition-opacity cursor-pointer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(scoreboard.imageUrl, '_blank');
+                              }}
                             />
                           </div>
                           
@@ -613,16 +601,12 @@ const LeaderboardPage = () => {
                           </div>
                         </div>
                         
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-theme-accent text-white px-4 py-2 rounded-full text-sm font-bold">
-                            View Full Results
-                          </div>
-                        </div>
+
                       </motion.div>
                     ))}
                   </div>
-                )
+                  )}
+                </div>
               ) : leaderboard.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🏆</div>
