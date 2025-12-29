@@ -42,6 +42,7 @@
     "passport": "^0.7.0",
     "passport-steam": "^1.0.18",
     "razorpay": "^2.9.6",
+    "redis": "^5.10.0",
     "socket.io": "^4.7.2"
   },
   "devDependencies": {

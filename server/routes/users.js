@@ -753,4 +753,137 @@ router.get('/profile/:username', async (req, res) => {
   }
 });
 
+// @route   GET /api/users/testimonials
+// @desc    Get user testimonials for landing page
+// @access  Public
+router.get('/testimonials', async (req, res) => {
+  try {
+    // Fetch users who have provided testimonials (have testimonial field)
+    const users = await User.find({
+      isActive: true,
+      'testimonial.text': { $exists: true, $ne: '' },
+      'testimonial.rating': { $gte: 4 } // Only show 4+ star reviews
+    })
+    .select('username avatarUrl testimonial favoriteGame games level')
+    .limit(10)
+    .sort({ 'testimonial.createdAt': -1 }) // Most recent first
+    .lean();
+
+    console.log(`✅ Found ${users.length} user testimonials`);
+
+    // Format testimonials for frontend
+    const testimonials = users.map(user => ({
+      name: user.username,
+      gameTitle: getGameTitle(user.favoriteGame || (user.games && user.games[0]) || 'bgmi'),
+      gameType: user.favoriteGame || (user.games && user.games[0]) || 'bgmi',
+      text: user.testimonial.text,
+      rating: user.testimonial.rating,
+      avatar: user.avatarUrl,
+      level: user.level || 1,
+      createdAt: user.testimonial.createdAt || new Date()
+    }));
+
+    // If no real testimonials, provide fallback
+    if (testimonials.length === 0) {
+      const fallbackTestimonials = [
+        { 
+          name: 'Rahul K.', 
+          gameTitle: 'CS2 Player', 
+          gameType: 'cs2', 
+          text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', 
+          rating: 5,
+          avatar: null,
+          level: 15
+        },
+        { 
+          name: 'Priya S.', 
+          gameTitle: 'BGMI Player', 
+          gameType: 'bgmi', 
+          text: 'Love the free tournaments and smooth registration process. Highly recommended!', 
+          rating: 5,
+          avatar: null,
+          level: 12
+        },
+        { 
+          name: 'Arjun M.', 
+          gameTitle: 'Pro Gamer', 
+          gameType: 'valorant', 
+          text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', 
+          rating: 5,
+          avatar: null,
+          level: 20
+        }
+      ];
+      
+      return res.json({
+        success: true,
+        data: fallbackTestimonials,
+        source: 'fallback'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: testimonials,
+      source: 'database'
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching testimonials:', error);
+    
+    // Return fallback testimonials on error
+    const fallbackTestimonials = [
+      { 
+        name: 'Rahul K.', 
+        gameTitle: 'CS2 Player', 
+        gameType: 'cs2', 
+        text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', 
+        rating: 5,
+        avatar: null,
+        level: 15
+      },
+      { 
+        name: 'Priya S.', 
+        gameTitle: 'BGMI Player', 
+        gameType: 'bgmi', 
+        text: 'Love the free tournaments and smooth registration process. Highly recommended!', 
+        rating: 5,
+        avatar: null,
+        level: 12
+      },
+      { 
+        name: 'Arjun M.', 
+        gameTitle: 'Pro Gamer', 
+        gameType: 'valorant', 
+        text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', 
+        rating: 5,
+        avatar: null,
+        level: 20
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: fallbackTestimonials,
+      source: 'fallback'
+    });
+  }
+});
+
+// Helper function to get game title
+function getGameTitle(gameType) {
+  const gameTitles = {
+    'cs2': 'CS2 Player',
+    'bgmi': 'BGMI Player', 
+    'valorant': 'Valorant Player',
+    'freefire': 'Free Fire Player',
+    'ml': 'Mobile Legends Player',
+    'apex': 'Apex Legends Player',
+    'rainbow6': 'Rainbow Six Player',
+    'fc24': 'FC 24 Player'
+  };
+  
+  return gameTitles[gameType] || 'Pro Gamer';
+}
+
 module.exports = router;

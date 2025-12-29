@@ -131,17 +131,29 @@ const CompleteLandingPage = () => {
 
   // Auto-slide upcoming games - separate from data fetching
   useEffect(() => {
+    console.log('🎮 Auto-slide useEffect triggered. autoPlay:', autoPlay, 'upcomingGames.length:', upcomingGames.length);
+    
     let interval;
-    if (autoPlay) {
+    if (autoPlay && upcomingGames.length > 0) {
+      console.log('🎮 Starting auto-slide interval');
       interval = setInterval(() => {
-        setCurrentGameIndex((prev) => (prev + 1) % upcomingGames.length);
+        setCurrentGameIndex((prev) => {
+          const nextIndex = (prev + 1) % upcomingGames.length;
+          console.log('🎮 Auto-slide: changing from', prev, 'to', nextIndex);
+          return nextIndex;
+        });
       }, 6000);
+    } else {
+      console.log('🎮 Auto-slide stopped or no games available');
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) {
+        console.log('🎮 Clearing auto-slide interval');
+        clearInterval(interval);
+      }
     };
-  }, [autoPlay]);
+  }, [autoPlay, upcomingGames.length]);
 
   // Cache helper functions
   const getCachedData = (key) => {
@@ -416,7 +428,7 @@ const CompleteLandingPage = () => {
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${API_URL}/api/testimonials`);
+      const response = await fetch(`${API_URL}/api/users/testimonials`);
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -1335,33 +1347,75 @@ const CompleteLandingPage = () => {
               </motion.div>
             </div>
 
-            {/* Classic Premium Indicators */}
-            <div className="flex justify-center space-x-3 mt-8">
-              {upcomingGames.map((game, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentGameIndex(idx)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    idx === currentGameIndex 
-                      ? 'bg-gaming-gold scale-125 shadow-lg shadow-gaming-gold/50' 
-                      : 'bg-gray-500 hover:bg-gray-400 hover:scale-110'
-                  }`}
-                />
-              ))}
+            {/* Classic Premium Indicators with Navigation */}
+            <div className="flex items-center justify-center space-x-4 mt-8">
+              {/* Previous Button */}
+              <button
+                onClick={() => {
+                  const prevIndex = currentGameIndex === 0 ? upcomingGames.length - 1 : currentGameIndex - 1;
+                  setCurrentGameIndex(prevIndex);
+                  console.log('🎮 Manual navigation: previous to', prevIndex);
+                }}
+                className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-all duration-300"
+              >
+                ←
+              </button>
+              
+              {/* Indicators */}
+              <div className="flex space-x-3">
+                {upcomingGames.map((game, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setCurrentGameIndex(idx);
+                      console.log('🎮 Manual navigation: jumped to', idx);
+                    }}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      idx === currentGameIndex 
+                        ? 'bg-gaming-gold scale-125 shadow-lg shadow-gaming-gold/50' 
+                        : 'bg-gray-500 hover:bg-gray-400 hover:scale-110'
+                    }`}
+                  />
+                ))}
+              </div>
+              
+              {/* Next Button */}
+              <button
+                onClick={() => {
+                  const nextIndex = (currentGameIndex + 1) % upcomingGames.length;
+                  setCurrentGameIndex(nextIndex);
+                  console.log('🎮 Manual navigation: next to', nextIndex);
+                }}
+                className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-all duration-300"
+              >
+                →
+              </button>
             </div>
 
-            {/* Auto-slide Toggle */}
-            <div className="flex justify-center mt-6">
+            {/* Auto-slide Toggle with Status */}
+            <div className="flex flex-col items-center mt-6 space-y-2">
               <button
-                onClick={() => setAutoPlay(!autoPlay)}
+                onClick={() => {
+                  console.log('🎮 Auto-slide toggle clicked. Current autoPlay:', autoPlay);
+                  setAutoPlay(!autoPlay);
+                  console.log('🎮 Auto-slide will be:', !autoPlay);
+                }}
                 className={`px-4 py-2 rounded-full font-gaming text-sm transition-all duration-300 ${
                   autoPlay 
-                    ? 'bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/50' 
-                    : 'bg-gray-700 text-gray-300 border border-gray-600 hover:border-gray-500'
+                    ? 'bg-gaming-gold/20 text-gaming-gold border border-gaming-gold/50 hover:bg-gaming-gold/30' 
+                    : 'bg-gray-700 text-gray-300 border border-gray-600 hover:border-gray-500 hover:bg-gray-600'
                 }`}
               >
-                {autoPlay ? '⏸ Pause Auto-slide' : '▶ Enable Auto-slide'}
+                {autoPlay ? '⏸️ Pause Auto-slide' : '▶️ Enable Auto-slide'}
               </button>
+              
+              {/* Status Indicator */}
+              <div className="flex items-center space-x-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${autoPlay ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
+                <span className="text-gray-400">
+                  {autoPlay ? 'Auto-sliding active' : 'Auto-slide paused'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -1391,10 +1445,10 @@ const CompleteLandingPage = () => {
                 {generateTestimonialsForDisplay().slice(0, 3).map((review, idx) => (
                   <motion.div
                     key={`mobile-${review.name}-${idx}`}
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: idx * 0.2 }}
+                    transition={{ delay: idx * 0.1 }}
                     className="relative group"
                   >
                     {/* Mobile testimonial card */}
@@ -1427,15 +1481,15 @@ const CompleteLandingPage = () => {
               </div>
             </div>
 
-            {/* Desktop: Animated slider */}
+            {/* Desktop: Simplified slider */}
             <div className="hidden md:block overflow-hidden rounded-3xl">
               <motion.div
                 className="flex"
                 animate={{ 
-                  x: ['0%', '-33.33%', '-66.66%', '0%'] // All percentage strings
+                  x: ['0%', '-33.33%', '-66.66%', '0%']
                 }}
                 transition={{ 
-                  duration: 15,
+                  duration: 12,
                   repeat: Infinity,
                   ease: "linear"
                 }}
@@ -1443,72 +1497,22 @@ const CompleteLandingPage = () => {
                 {generateTestimonialsForDisplay().map((review, idx) => (
                   <div key={`desktop-${review.name}-${idx}`} className="w-1/3 flex-shrink-0 px-4">
                     <motion.div
-                      initial={{ opacity: 0, y: 30 }}
+                      initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
-                      transition={{ delay: (idx % 3) * 0.2 }}
-                      whileHover={{ 
-                        y: -15, 
-                        scale: 1.05,
-                        rotateY: 5,
-                        transition: { duration: 0.3 }
-                      }}
+                      transition={{ delay: (idx % 3) * 0.1 }}
+                      whileHover={{ y: -10, scale: 1.02 }}
                       className="relative group h-80"
                     >
-                      {/* Dynamic Glow Effect */}
-                      <motion.div 
-                        className={`absolute inset-0 bg-gradient-to-br ${review.color} rounded-3xl filter blur-2xl transition-all duration-500`}
-                        animate={{ 
-                          opacity: [0.1, 0.3, 0.1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ 
-                          duration: 3, 
-                          repeat: Infinity,
-                          delay: idx * 0.5
-                        }}
-                      />
-                      
                       <div className="relative bg-gaming-charcoal/90 backdrop-blur-sm border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-3xl p-6 shadow-2xl transition-all duration-300 h-full flex flex-col">
-                        {/* Floating Quote Icon */}
-                        <motion.div 
-                          className="absolute top-4 right-4 text-gaming-gold/30 text-5xl font-serif"
-                          animate={{ 
-                            rotate: [0, 10, -10, 0],
-                            scale: [1, 1.1, 1]
-                          }}
-                          transition={{ 
-                            duration: 4, 
-                            repeat: Infinity,
-                            delay: idx * 0.3
-                          }}
-                        >
-                          "
-                        </motion.div>
                         
-                        {/* Avatar with Unique Animation */}
+                        {/* Avatar */}
                         <div className="flex items-center mb-6">
-                          <motion.div
+                          <div
                             className={`w-16 h-16 rounded-full bg-gradient-to-br ${review.color} flex items-center justify-center text-3xl shadow-xl mr-4`}
-                            whileHover={{ 
-                              rotate: [0, -15, 15, -15, 0],
-                              scale: [1, 1.2, 1]
-                            }}
-                            animate={{
-                              boxShadow: [
-                                '0 0 20px rgba(255, 215, 0, 0.3)',
-                                '0 0 40px rgba(255, 215, 0, 0.6)',
-                                '0 0 20px rgba(255, 215, 0, 0.3)'
-                              ]
-                            }}
-                            transition={{ 
-                              duration: 2, 
-                              repeat: Infinity,
-                              delay: idx * 0.4
-                            }}
                           >
                             <GameIcon gameType={review.gameType} size="md" />
-                          </motion.div>
+                          </div>
                           <div>
                             <div className="font-bold text-white text-lg group-hover:text-gaming-gold transition-colors">
                               {review.name}
@@ -1517,77 +1521,24 @@ const CompleteLandingPage = () => {
                           </div>
                         </div>
 
-                        {/* Animated Stars */}
+                        {/* Stars */}
                         <div className="flex items-center mb-6">
                           {[...Array(review.rating)].map((_, i) => (
-                            <motion.div
-                              key={i}
-                              initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                              whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
-                              viewport={{ once: true }}
-                              transition={{ 
-                                delay: (idx % 3) * 0.1 + i * 0.1,
-                                type: "spring",
-                                stiffness: 200
-                              }}
-                              whileHover={{ 
-                                scale: 1.3,
-                                rotate: 360,
-                                transition: { duration: 0.3 }
-                              }}
-                            >
-                              <FiStar className="text-gaming-gold fill-current mr-1" size={20} />
-                            </motion.div>
+                            <FiStar key={i} className="text-gaming-gold fill-current mr-1" size={20} />
                           ))}
                         </div>
 
-                        {/* Review Text with Typewriter Effect */}
+                        {/* Review Text */}
                         <div className="flex-1 flex items-center">
-                          <motion.p 
-                            className="text-gray-300 italic relative z-10 text-center leading-relaxed"
-                            initial={{ opacity: 0 }}
-                            whileInView={{ opacity: 1 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: (idx % 3) * 0.3 }}
-                          >
+                          <p className="text-gray-300 italic relative z-10 text-center leading-relaxed">
                             "{review.text}"
-                          </motion.p>
+                          </p>
                         </div>
-
-                        {/* Decorative Elements */}
-                        <motion.div 
-                          className="absolute bottom-4 left-4 w-8 h-8 bg-gaming-gold/20 rounded-full"
-                          animate={{ 
-                            scale: [1, 1.5, 1],
-                            opacity: [0.2, 0.5, 0.2]
-                          }}
-                          transition={{ 
-                            duration: 2, 
-                            repeat: Infinity,
-                            delay: idx * 0.6
-                          }}
-                        />
-                        <motion.div 
-                          className="absolute top-1/2 right-6 w-4 h-4 bg-gaming-neon/30 rounded-full"
-                          animate={{ 
-                            y: [-10, 10, -10],
-                            opacity: [0.3, 0.7, 0.3]
-                          }}
-                          transition={{ 
-                            duration: 3, 
-                            repeat: Infinity,
-                            delay: idx * 0.8
-                          }}
-                        />
                       </div>
                     </motion.div>
                   </div>
                 ))}
               </motion.div>
-
-              {/* Gradient Overlays for Seamless Loop - Desktop only */}
-              <div className="absolute left-0 top-0 w-32 h-full bg-gradient-to-r from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 w-32 h-full bg-gradient-to-l from-gaming-charcoal/30 to-transparent z-10 pointer-events-none" />
             </div>
           </div>
         </div>
