@@ -163,7 +163,7 @@ tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
   ];
 });
 
-// Pre-save validation
+// Pre-save middleware to update tournament participant count
 tournamentRegistrationSchema.pre('save', function(next) {
   // Ensure exactly 3 team members (plus leader = 4 total)
   if (this.teamMembers.length !== 3) {
@@ -181,6 +181,56 @@ tournamentRegistrationSchema.pre('save', function(next) {
   // No phone number validation for team members needed
   
   next();
+});
+
+// Post-save middleware to sync tournament participant count
+tournamentRegistrationSchema.post('save', async function(doc) {
+  try {
+    const Tournament = require('./Tournament');
+    const tournament = await Tournament.findById(doc.tournamentId);
+    
+    if (tournament && tournament.gameType === 'bgmi') {
+      // Count active registrations
+      const registrationCount = await this.constructor.countDocuments({
+        tournamentId: doc.tournamentId,
+        status: { $in: ['pending', 'images_uploaded', 'verified'] }
+      });
+      
+      // Update tournament participant count
+      tournament.currentParticipants = registrationCount;
+      await tournament.save();
+      
+      console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount}`);
+    }
+  } catch (error) {
+    console.error('❌ Error syncing tournament participant count:', error);
+  }
+});
+
+// Post-remove middleware to sync tournament participant count
+tournamentRegistrationSchema.post('findOneAndDelete', async function(doc) {
+  if (doc) {
+    try {
+      const Tournament = require('./Tournament');
+      const tournament = await Tournament.findById(doc.tournamentId);
+      
+      if (tournament && tournament.gameType === 'bgmi') {
+        // Count active registrations
+        const registrationCount = await mongoose.model('TournamentRegistration').countDocuments({
+          tournamentId: doc.tournamentId,
+          status: { $in: ['pending', 'images_uploaded', 'verified'] }
+        });
+        
+        // Update tournament participant count
+        tournament.currentParticipants = registrationCount;
+        await tournament.save();
+        
+        console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount} after deletion`);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing tournament participant count after deletion:', error);
+    }
+  }
 });
 
 // Method to add verification image
@@ -236,6 +286,42 @@ tournamentRegistrationSchema.methods.reject = function(adminUserId, reason) {
   this.rejectionReason = reason;
   
   return this.save();
+};
+
+// Static method to sync all tournament participant counts
+tournamentRegistrationSchema.statics.syncTournamentCounts = async function() {
+  try {
+    const Tournament = require('./Tournament');
+    
+    // Get all BGMI tournaments
+    const bgmiTournaments = await Tournament.find({ gameType: 'bgmi' });
+    
+    let updatedCount = 0;
+    
+    for (const tournament of bgmiTournaments) {
+      // Count active registrations for this tournament
+      const registrationCount = await this.countDocuments({
+        tournamentId: tournament._id,
+        status: { $in: ['pending', 'images_uploaded', 'verified'] }
+      });
+      
+      // Update if count is different
+      if (tournament.currentParticipants !== registrationCount) {
+        tournament.currentParticipants = registrationCount;
+        await tournament.save();
+        updatedCount++;
+        
+        console.log(`🔄 Synced tournament "${tournament.name}": ${registrationCount} participants`);
+      }
+    }
+    
+    console.log(`✅ Tournament count sync complete. Updated ${updatedCount} tournaments.`);
+    return { success: true, updatedCount };
+    
+  } catch (error) {
+    console.error('❌ Error syncing tournament counts:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Static method to get registrations with filters

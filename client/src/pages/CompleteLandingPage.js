@@ -37,10 +37,12 @@ const CompleteLandingPage = () => {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
   
-  // Cache system for API data - Extended cache duration
+  // Cache system for API data - Extended cache duration with localStorage persistence
   const [dataCache, setDataCache] = useState(new Map());
   const [cacheTimestamps, setCacheTimestamps] = useState(new Map());
   const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache
+  const CACHE_KEY_PREFIX = 'landing_page_cache_';
+  const CACHE_TIMESTAMP_PREFIX = 'landing_page_timestamp_';
 
   // Upcoming games data
   const upcomingGames = [
@@ -53,6 +55,9 @@ const CompleteLandingPage = () => {
 
   // Initial data fetch on component mount - with cache checking
   useEffect(() => {
+    // Initialize cache from localStorage on mount
+    initializeCacheFromStorage();
+    
     // Check if we have any cached data at all
     const hasAnyCache = dataCache.size > 0;
     
@@ -63,6 +68,36 @@ const CompleteLandingPage = () => {
     
     initializeData();
   }, []); // Empty dependency array = runs once on mount
+
+  // Initialize cache from localStorage
+  const initializeCacheFromStorage = () => {
+    try {
+      const keys = Object.keys(localStorage);
+      const cacheKeys = keys.filter(key => key.startsWith(CACHE_KEY_PREFIX));
+      const now = Date.now();
+      
+      cacheKeys.forEach(storageKey => {
+        const key = storageKey.replace(CACHE_KEY_PREFIX, '');
+        const timestampKey = CACHE_TIMESTAMP_PREFIX + key;
+        const timestamp = localStorage.getItem(timestampKey);
+        
+        if (timestamp && (now - parseInt(timestamp)) < CACHE_DURATION) {
+          const cachedData = localStorage.getItem(storageKey);
+          if (cachedData) {
+            const parsedData = JSON.parse(cachedData);
+            setDataCache(prev => new Map(prev.set(key, parsedData)));
+            setCacheTimestamps(prev => new Map(prev.set(key, parseInt(timestamp))));
+          }
+        } else {
+          // Remove expired cache
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem(timestampKey);
+        }
+      });
+    } catch (error) {
+      console.error('Error initializing cache from storage:', error);
+    }
+  };
 
   // Smart initialization that checks cache first
   const initializeData = async () => {
@@ -155,26 +190,68 @@ const CompleteLandingPage = () => {
     };
   }, [autoPlay, upcomingGames.length]);
 
-  // Cache helper functions
+  // Cache helper functions with localStorage persistence
   const getCachedData = (key) => {
-    const timestamp = cacheTimestamps.get(key);
-    const now = Date.now();
-    
-    if (timestamp && (now - timestamp) < CACHE_DURATION) {
-      return dataCache.get(key);
+    try {
+      // First check in-memory cache
+      const memoryTimestamp = cacheTimestamps.get(key);
+      const now = Date.now();
+      
+      if (memoryTimestamp && (now - memoryTimestamp) < CACHE_DURATION) {
+        return dataCache.get(key);
+      }
+      
+      // Check localStorage cache
+      const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
+      if (storageTimestamp && (now - parseInt(storageTimestamp)) < CACHE_DURATION) {
+        const cachedData = localStorage.getItem(CACHE_KEY_PREFIX + key);
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          // Update in-memory cache
+          setDataCache(prev => new Map(prev.set(key, parsedData)));
+          setCacheTimestamps(prev => new Map(prev.set(key, parseInt(storageTimestamp))));
+          return parsedData;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading from cache:', error);
     }
     
     return null;
   };
 
   const setCachedData = (key, data) => {
-    setDataCache(prev => new Map(prev.set(key, data)));
-    setCacheTimestamps(prev => new Map(prev.set(key, Date.now())));
+    try {
+      const timestamp = Date.now();
+      
+      // Update in-memory cache
+      setDataCache(prev => new Map(prev.set(key, data)));
+      setCacheTimestamps(prev => new Map(prev.set(key, timestamp)));
+      
+      // Update localStorage cache
+      localStorage.setItem(CACHE_KEY_PREFIX + key, JSON.stringify(data));
+      localStorage.setItem(CACHE_TIMESTAMP_PREFIX + key, timestamp.toString());
+    } catch (error) {
+      console.error('Error writing to cache:', error);
+    }
   };
 
   const clearCache = () => {
+    // Clear in-memory cache
     setDataCache(new Map());
     setCacheTimestamps(new Map());
+    
+    // Clear localStorage cache
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith(CACHE_KEY_PREFIX) || key.startsWith(CACHE_TIMESTAMP_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error('Error clearing localStorage cache:', error);
+    }
   };
 
   // Helper function to generate testimonials with colors for display

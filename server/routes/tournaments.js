@@ -190,6 +190,122 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// @route   GET /api/tournaments/:id/eligible-teams
+// @desc    Get user's eligible teams for tournament registration
+// @access  Private
+router.get('/:id/eligible-teams', auth, async (req, res) => {
+  try {
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Only for BGMI tournaments
+    if (tournament.gameType !== 'bgmi') {
+      return res.json({
+        success: true,
+        data: { teams: [] },
+        message: 'Team registration not available for this game type',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const Team = require('../models/Team');
+    const User = require('../models/User');
+
+    // Get user's BGMI teams
+    const teams = await Team.find({
+      'members.userId': req.user.userId,
+      game: 'bgmi',
+      isActive: true
+    })
+      .populate('captain', 'username avatarUrl gameIds')
+      .populate('members.userId', 'username avatarUrl gameIds isActive');
+
+    // Filter and validate teams
+    const eligibleTeams = [];
+    
+    for (const team of teams) {
+      const teamInfo = {
+        _id: team._id,
+        name: team.name,
+        tag: team.tag,
+        logo: team.logo,
+        memberCount: team.members.length,
+        isEligible: true,
+        issues: []
+      };
+
+      // Check team size
+      if (team.members.length !== 4) {
+        teamInfo.isEligible = false;
+        teamInfo.issues.push(`Team needs exactly 4 members (currently has ${team.members.length})`);
+      }
+
+      // Check if all members have BGMI IDs and are active
+      const memberDetails = [];
+      for (const member of team.members) {
+        const user = member.userId;
+        const memberInfo = {
+          userId: user._id,
+          username: user.username,
+          avatarUrl: user.avatarUrl,
+          role: member.role,
+          hasGameId: !!user.gameIds?.bgmi,
+          isActive: user.isActive,
+          gameId: user.gameIds?.bgmi || null
+        };
+
+        if (!user.isActive) {
+          teamInfo.isEligible = false;
+          teamInfo.issues.push(`${user.username} is not active on platform`);
+        }
+
+        if (!user.gameIds?.bgmi) {
+          teamInfo.isEligible = false;
+          teamInfo.issues.push(`${user.username} doesn't have BGMI ID registered`);
+        }
+
+        memberDetails.push(memberInfo);
+      }
+
+      teamInfo.members = memberDetails;
+      eligibleTeams.push(teamInfo);
+    }
+
+    res.json({
+      success: true,
+      data: { 
+        teams: eligibleTeams,
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          gameType: tournament.gameType
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fetching eligible teams:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_TEAMS_FAILED',
+        message: 'Failed to fetch eligible teams',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/tournaments/:id
 // @desc    Get tournament by ID
 // @access  Public
@@ -514,6 +630,251 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/tournaments/:id/join-with-team
+// @desc    Join a tournament with team (BGMI only)
+// @access  Private
+router.post('/:id/join-with-team', auth, [
+  body('teamId')
+    .notEmpty()
+    .withMessage('Team ID is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Please check your input data',
+          details: errors.array(),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Only allow for BGMI tournaments
+    if (tournament.gameType !== 'bgmi') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_GAME_TYPE',
+          message: 'Team-based registration is only available for BGMI tournaments',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { teamId } = req.body;
+    const Team = require('../models/Team');
+    const TournamentRegistration = require('../models/TournamentRegistration');
+
+    // Get team details
+    const team = await Team.findById(teamId)
+      .populate('members.userId', 'username gameIds isActive');
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TEAM_NOT_FOUND',
+          message: 'Team not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user is member of this team
+    if (!team.isMember(req.user.userId)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'NOT_TEAM_MEMBER',
+          message: 'You are not a member of this team',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if team is for BGMI
+    if (team.game !== 'bgmi') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TEAM_GAME',
+          message: 'Team must be for BGMI',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if team has exactly 4 members
+    if (team.members.length !== 4) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TEAM_SIZE',
+          message: 'Team must have exactly 4 members for BGMI tournaments',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Validate all team members are registered on platform and have BGMI IDs
+    const User = require('../models/User');
+    const invalidMembers = [];
+    
+    for (const member of team.members) {
+      const user = await User.findById(member.userId);
+      if (!user || !user.isActive) {
+        invalidMembers.push(`User ${member.userId} not found or inactive`);
+        continue;
+      }
+      
+      if (!user.gameIds?.bgmi) {
+        invalidMembers.push(`${user.username} doesn't have BGMI ID registered`);
+      }
+    }
+
+    if (invalidMembers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TEAM_MEMBERS',
+          message: 'Some team members are not eligible',
+          details: invalidMembers,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if team is already registered for this tournament
+    const existingRegistration = await TournamentRegistration.findOne({
+      tournamentId: tournament._id,
+      userId: req.user.userId
+    });
+
+    if (existingRegistration) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'ALREADY_REGISTERED',
+          message: 'You are already registered for this tournament',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get team captain (for leader info)
+    const captain = await User.findById(team.captain);
+    
+    // Prepare team members data (excluding captain)
+    const teamMembersData = [];
+    for (const member of team.members) {
+      if (member.userId.toString() !== team.captain.toString()) {
+        const user = await User.findById(member.userId);
+        teamMembersData.push({
+          name: user.username,
+          bgmiId: user.gameIds.bgmi
+        });
+      }
+    }
+
+    // Ensure we have exactly 3 team members (excluding captain)
+    if (teamMembersData.length !== 3) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TEAM_STRUCTURE',
+          message: 'Team must have 1 captain + 3 members',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Create tournament registration
+    const registration = new TournamentRegistration({
+      tournamentId: tournament._id,
+      userId: req.user.userId,
+      teamName: team.name,
+      teamLeader: {
+        name: captain.username,
+        bgmiId: captain.gameIds.bgmi,
+        phone: captain.phone || '0000000000' // Default if not available
+      },
+      teamMembers: teamMembersData,
+      whatsappNumber: captain.phone || '0000000000', // Use captain's phone
+      status: 'pending'
+    });
+
+    await registration.save();
+
+    // Update tournament participant count
+    const registrationCount = await TournamentRegistration.countDocuments({
+      tournamentId: tournament._id,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    });
+    
+    tournament.currentParticipants = registrationCount;
+    await tournament.save();
+
+    // Also add to tournament participants array for consistency
+    await tournament.addParticipant(req.user.userId, captain.gameIds.bgmi, team.name);
+
+    res.json({
+      success: true,
+      data: { 
+        registration,
+        tournament,
+        team: {
+          id: team._id,
+          name: team.name,
+          memberCount: team.members.length
+        }
+      },
+      message: `🎮 Successfully registered team "${team.name}" for the tournament!`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Team tournament join error:', error);
+    
+    if (error.message.includes('already registered') || 
+        error.message.includes('full') || 
+        error.message.includes('not open')) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'JOIN_FAILED',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'TOURNAMENT_JOIN_FAILED',
+        message: error.message || 'Failed to join tournament with team',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   POST /api/tournaments/:id/join
 // @desc    Join a tournament
 // @access  Private
@@ -659,6 +1020,19 @@ router.post('/:id/join', auth, [
 
     // Add participant to tournament
     await tournament.addParticipant(req.user.userId, gameId, teamName);
+
+    // For BGMI tournaments, also update the currentParticipants count based on TournamentRegistration
+    if (tournament.gameType === 'bgmi') {
+      const TournamentRegistration = require('../models/TournamentRegistration');
+      const registrationCount = await TournamentRegistration.countDocuments({
+        tournamentId: tournament._id,
+        status: { $in: ['pending', 'images_uploaded', 'verified'] }
+      });
+      
+      // Update tournament participant count to match registrations
+      tournament.currentParticipants = registrationCount;
+      await tournament.save();
+    }
 
     // Populate tournament with creator info
     await tournament.populate('createdBy', 'username avatarUrl');
@@ -1126,6 +1500,51 @@ router.get('/debug-status/:id', auth, async (req, res) => {
       error: {
         code: 'DEBUG_FAILED',
         message: 'Failed to debug tournament status',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/tournaments/sync-counts
+// @desc    Manually sync tournament participant counts (Admin only)
+// @access  Private (Admin)
+router.post('/sync-counts', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId || req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ADMIN_ACCESS_REQUIRED',
+          message: 'Admin access required to sync tournament counts',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    const TournamentRegistration = require('../models/TournamentRegistration');
+    
+    // Sync tournament counts
+    const result = await TournamentRegistration.syncTournamentCounts();
+    
+    res.json({
+      success: true,
+      data: {
+        message: 'Tournament participant counts synced successfully',
+        updatedCount: result.updatedCount,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error syncing tournament counts:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SYNC_FAILED',
+        message: 'Failed to sync tournament counts',
         timestamp: new Date().toISOString()
       }
     });

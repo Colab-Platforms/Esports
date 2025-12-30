@@ -385,7 +385,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -443,6 +443,14 @@ router.put('/profile', auth, async (req, res) => {
         instagram: socialAccounts.instagram || user.socialAccounts?.instagram || '',
         github: socialAccounts.github || user.socialAccounts?.github || '',
         linkedin: socialAccounts.linkedin || user.socialAccounts?.linkedin || ''
+      };
+    }
+
+    // Update game IDs
+    if (gameIds !== undefined) {
+      user.gameIds = {
+        steam: gameIds.steam || user.gameIds?.steam || '',
+        bgmi: gameIds.bgmi || user.gameIds?.bgmi || ''
       };
     }
 

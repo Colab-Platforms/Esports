@@ -56,6 +56,11 @@ const ProfileSettingsPage = () => {
     bio: user?.bio || ''
   });
 
+  const [gameIds, setGameIds] = useState({
+    bgmi: user?.gameIds?.bgmi || '',
+    steam: user?.gameIds?.steam || ''
+  });
+
   const indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
     'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand',
@@ -93,6 +98,10 @@ const ProfileSettingsPage = () => {
         github: user.socialAccounts?.github || '',
         linkedin: user.socialAccounts?.linkedin || ''
       });
+      setGameIds({
+        bgmi: user.gameIds?.bgmi || '',
+        steam: user.gameIds?.steam || ''
+      });
     }
   }, [user]);
 
@@ -110,6 +119,10 @@ const ProfileSettingsPage = () => {
 
   const handleSocialChange = (platform, value) => {
     setSocialAccounts(prev => ({ ...prev, [platform]: value }));
+  };
+
+  const handleGameIdChange = (game, value) => {
+    setGameIds(prev => ({ ...prev, [game]: value }));
   };
 
   const handlePasswordChange = (field, value) => {
@@ -185,7 +198,8 @@ const ProfileSettingsPage = () => {
           favoriteGame: profileData.favoriteGame,
           profileVisibility: profileData.profileVisibility,
           bio: profileData.bio,
-          socialAccounts
+          socialAccounts,
+          gameIds
         },
         {
           headers: {
@@ -352,9 +366,18 @@ const ProfileSettingsPage = () => {
                   <p className="text-gaming-gold text-sm font-bold">{user?.level || 1}</p>
                 </div>
 
-                <div className="pb-3">
+                <div className="border-b border-gaming-border pb-3">
                   <p className="text-gray-400 text-xs mb-1">Rank</p>
                   <p className="text-gaming-neon text-sm font-bold">{user?.currentRank || 'Bronze'}</p>
+                </div>
+
+                <div className="pb-3">
+                  <p className="text-gray-400 text-xs mb-1">BGMI ID</p>
+                  <p className="text-white text-sm">
+                    {user?.gameIds?.bgmi || (
+                      <span className="text-gray-500 italic">Not set</span>
+                    )}
+                  </p>
                 </div>
               </div>
             </div>
@@ -388,6 +411,16 @@ const ProfileSettingsPage = () => {
                   }`}
                 >
                   Account Info
+                </button>
+                <button
+                  onClick={() => setActiveSection('gameids')}
+                  className={`pb-3 px-2 font-medium transition-colors ${
+                    activeSection === 'gameids'
+                      ? 'text-gaming-gold border-b-2 border-gaming-gold'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Game IDs
                 </button>
                 <button
                   onClick={() => setActiveSection('social')}
@@ -561,6 +594,71 @@ const ProfileSettingsPage = () => {
                       >
                         <FiSave className="w-4 h-4" />
                         <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Game IDs Section */}
+              {activeSection === 'gameids' && (
+                <div className="space-y-4">
+                  <p className="text-gray-400 text-sm mb-4">
+                    Add your game IDs to participate in tournaments and join teams
+                  </p>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center space-x-2">
+                      <span className="text-2xl">🎮</span>
+                      <span>BGMI ID</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gameIds.bgmi}
+                      onChange={(e) => handleGameIdChange('bgmi', e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                      placeholder="Enter your BGMI ID (e.g., BGMIWX7XLIFKE)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Required for BGMI tournament participation</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center space-x-2">
+                      <span className="text-2xl">🎯</span>
+                      <span>Steam ID</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={gameIds.steam}
+                      onChange={(e) => handleGameIdChange('steam', e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                      placeholder="Enter your Steam ID (e.g., 76561198123456789)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Required for CS2 tournament participation</p>
+                  </div>
+
+                  {isEditing && (
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        disabled={loading}
+                        className="px-6 py-2 bg-gaming-charcoal hover:bg-gaming-border text-white rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={loading}
+                        className="btn-gaming flex items-center space-x-2"
+                      >
+                        <FiSave className="w-4 h-4" />
+                        <span>{loading ? 'Saving...' : 'Save Game IDs'}</span>
                       </button>
                     </div>
                   )}

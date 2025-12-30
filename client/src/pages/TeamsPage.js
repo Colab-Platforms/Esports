@@ -71,6 +71,41 @@ const TeamsPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openChallengeMenu]);
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
+  // Friend Request Functions
+  const acceptFriendRequest = async (requestId) => {
+    try {
+      await axios.post(
+        `${API_URL}/api/users/friend-request/${requestId}/accept`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success('Friend request accepted!');
+      fetchFriendRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to accept request');
+    }
+  };
+
+  const rejectFriendRequest = async (requestId) => {
+    try {
+      await axios.post(
+        `${API_URL}/api/users/friend-request/${requestId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success('Friend request rejected');
+      fetchFriendRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to reject request');
+    }
+  };
+
   const fetchPlayers = async () => {
     try {
       setLoading(true);
@@ -497,6 +532,8 @@ const TeamsPage = () => {
                   <FriendRequestCard
                     key={request.id}
                     request={request}
+                    onAccept={acceptFriendRequest}
+                    onReject={rejectFriendRequest}
                   />
                 ))}
                 {friendRequests.length === 0 && (
@@ -545,15 +582,31 @@ const TeamsPage = () => {
 };
 
 // Friend Request Card Component
-const FriendRequestCard = ({ request }) => {
+const FriendRequestCard = ({ request, onAccept, onReject }) => {
+  const [loading, setLoading] = useState(false);
+
   const handleAccept = async () => {
-    // TODO: Implement accept friend request
-    alert('Friend request accepted!');
+    if (loading) return;
+    setLoading(true);
+    try {
+      await onAccept(request.id);
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReject = async () => {
-    // TODO: Implement reject friend request
-    alert('Friend request rejected!');
+    if (loading) return;
+    setLoading(true);
+    try {
+      await onReject(request.id);
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -574,16 +627,26 @@ const FriendRequestCard = ({ request }) => {
       <div className="flex space-x-2">
         <button
           onClick={handleAccept}
-          className="flex-1 flex items-center justify-center space-x-2 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          disabled={loading}
+          className="flex-1 flex items-center justify-center space-x-2 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
         >
-          <FiCheck className="w-4 h-4" />
+          {loading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          ) : (
+            <FiCheck className="w-4 h-4" />
+          )}
           <span className="text-sm font-medium">Accept</span>
         </button>
         <button
           onClick={handleReject}
-          className="flex-1 flex items-center justify-center space-x-2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          disabled={loading}
+          className="flex-1 flex items-center justify-center space-x-2 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
         >
-          <FiX className="w-4 h-4" />
+          {loading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          ) : (
+            <FiX className="w-4 h-4" />
+          )}
           <span className="text-sm font-medium">Reject</span>
         </button>
       </div>

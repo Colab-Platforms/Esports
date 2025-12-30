@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
@@ -9,6 +9,10 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [registrationMode, setRegistrationMode] = useState('manual'); // 'manual' or 'team'
+  const [userTeams, setUserTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
 
   const [formData, setFormData] = useState({
     teamName: '',
@@ -24,6 +28,75 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     ],
     // whatsappNumber will be same as teamLeader.phone
   });
+
+  // Fetch user's eligible teams when component mounts
+  useEffect(() => {
+    if (tournament?._id) {
+      fetchEligibleTeams();
+    }
+  }, [tournament]);
+
+  const fetchEligibleTeams = async () => {
+    setLoadingTeams(true);
+    try {
+      console.log('🔍 Fetching eligible teams for tournament:', tournament._id);
+      console.log('🔍 API URL:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/tournaments/${tournament._id}/eligible-teams`);
+      
+      const response = await api.get(`/api/tournaments/${tournament._id}/eligible-teams`);
+      console.log('📤 Teams API response:', response);
+      console.log('📤 Response status:', response.status);
+      console.log('📤 Response data:', response.data);
+      
+      const teams = response.data?.teams || response.data?.data?.teams || [];
+      console.log('👥 Found teams:', teams.length, teams);
+      
+      setUserTeams(teams);
+      
+      // Always show teams, regardless of eligibility
+      if (teams.length > 0) {
+        console.log('✅ Found teams, setting registration mode to team');
+        setRegistrationMode('team');
+      } else {
+        console.log('ℹ️ No teams found, keeping manual mode');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching eligible teams:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error message:', error.message);
+      // If error, keep manual mode as default
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
+
+  const handleTeamSelect = (team) => {
+    setSelectedTeam(team);
+    setError(''); // Clear any previous errors
+    
+    // Pre-fill form data with team information
+    if (team && team.members) {
+      const captain = team.members.find(member => member.role === 'captain');
+      const members = team.members.filter(member => member.role !== 'captain');
+      
+      // Pad members array to ensure we have 3 entries
+      const paddedMembers = [
+        { name: members[0]?.username || '', bgmiId: members[0]?.gameId || '' },
+        { name: members[1]?.username || '', bgmiId: members[1]?.gameId || '' },
+        { name: members[2]?.username || '', bgmiId: members[2]?.gameId || '' }
+      ];
+      
+      setFormData({
+        teamName: team.name,
+        teamLeader: {
+          name: captain?.username || '',
+          bgmiId: captain?.gameId || '',
+          phone: formData.teamLeader.phone // Keep existing phone number
+        },
+        teamMembers: paddedMembers
+      });
+    }
+  };
 
   const handleInputChange = (section, field, value, index = null) => {
     setFormData(prev => {
@@ -88,8 +161,6 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       }
     }
 
-    // WhatsApp number will be same as leader's phone (already validated above)
-
     // Check for duplicate BGMI IDs
     const allBgmiIds = [
       formData.teamLeader.bgmiId,
@@ -100,8 +171,6 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       setError('All team members must have unique BGMI IDs');
       return false;
     }
-
-    // No phone number validation for team members needed
 
     return true;
   };
@@ -117,29 +186,38 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
-      console.log('🎮 Submitting BGMI registration:', {
-        tournamentId: tournament._id,
-        teamName: formData.teamName
-      });
-
-      // Use leader's phone as WhatsApp number
-      const registrationData = {
-        ...formData,
-        whatsappNumber: formData.teamLeader.phone
-      };
+      let response;
       
-      const response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
+      if (registrationMode === 'team' && selectedTeam) {
+        // Use team-based registration
+        console.log('🎮 Submitting team-based BGMI registration:', {
+          tournamentId: tournament._id,
+          teamId: selectedTeam._id
+        });
+        
+        response = await api.post(`/api/tournaments/${tournament._id}/join-with-team`, {
+          teamId: selectedTeam._id
+        });
+      } else {
+        // Use manual registration
+        console.log('🎮 Submitting manual BGMI registration:', {
+          tournamentId: tournament._id,
+          teamName: formData.teamName
+        });
+
+        const registrationData = {
+          ...formData,
+          whatsappNumber: formData.teamLeader.phone
+        };
+        
+        response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
+      }
 
       console.log('📤 Registration API response:', response);
       
-      console.log('📤 Full response object:', response);
-      
-      // Check if response has data property (axios format) or is direct response
       const responseData = response.data || response;
-      
       console.log('📤 Response data:', responseData);
       
-      // Check for success in multiple ways
       const isSuccess = responseData?.success === true || 
                        (responseData?.registration && !responseData?.error);
       
@@ -147,7 +225,6 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
         setSuccess(true);
         console.log('✅ Registration successful:', responseData);
         
-        // Show success message for 2 seconds, then call onSuccess
         setTimeout(() => {
           const registrationData = responseData.data?.registration || 
                                  responseData.registration || 
@@ -241,8 +318,8 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Error Message */}
-          {error && (
+          {/* Error Message - Only show validation errors, not warnings */}
+          {error && !error.includes('⚠️') && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
               <div className="flex items-center space-x-2">
                 <span className="text-red-400">⚠️</span>
@@ -251,161 +328,259 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Team Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Team Name *
-            </label>
-            <input
-              type="text"
-              value={formData.teamName}
-              onChange={(e) => handleInputChange('', 'teamName', e.target.value)}
-              placeholder="Enter your team name"
-              className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-              required
-            />
-          </div>
-
-          {/* Team Leader */}
-          <div className="bg-gaming-charcoal rounded-lg p-6">
-            <h3 className="text-lg font-bold text-gaming-neon mb-4">👑 Team Leader</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  IGN Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.teamLeader.name}
-                  onChange={(e) => handleInputChange('teamLeader', 'name', e.target.value)}
-                  placeholder="Leader IGN name"
-                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  BGMI UID *
-                </label>
-                <input
-                  type="text"
-                  value={formData.teamLeader.bgmiId}
-                  onChange={(e) => handleInputChange('teamLeader', 'bgmiId', e.target.value)}
-                  placeholder="BGMI UID"
-                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.teamLeader.phone}
-                  onChange={(e) => handleInputChange('teamLeader', 'phone', e.target.value)}
-                  placeholder="10-digit phone number"
-                  className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                  required
-                />
-              </div>
+          {/* Registration Mode Toggle */}
+          <div className="bg-gaming-charcoal rounded-lg p-2">
+            <div className="flex bg-gaming-slate rounded-md p-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setRegistrationMode('team');
+                  setSelectedTeam(null);
+                  setError('');
+                }}
+                className={`flex-1 px-2 py-1.5 rounded text-sm font-medium transition-colors ${
+                  registrationMode === 'team'
+                    ? 'bg-gaming-neon text-gaming-dark'
+                    : 'text-gray-300 hover:text-white'
+                }`}
+                disabled={loadingTeams}
+              >
+                🏆 My Team
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegistrationMode('manual');
+                  setSelectedTeam(null);
+                  setError('');
+                }}
+                className={`flex-1 px-2 py-1.5 rounded text-sm font-medium transition-colors ${
+                  registrationMode === 'manual'
+                    ? 'bg-gaming-neon text-gaming-dark'
+                    : 'text-gray-300 hover:text-white'
+                }`}
+              >
+                ✏️ Manual
+              </button>
             </div>
           </div>
 
-          {/* Team Members */}
-          <div className="bg-gaming-charcoal rounded-lg p-6">
-            <h3 className="text-lg font-bold text-gaming-neon mb-4">👥 Team Members</h3>
-            {formData.teamMembers.map((member, index) => (
-              <div key={index} className="mb-6 last:mb-0">
-                <h4 className="text-md font-medium text-white mb-3">Member {index + 1}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Team Selection (only show if team mode is selected) */}
+          {registrationMode === 'team' && (
+            <div className="bg-gaming-charcoal rounded-lg p-3">
+              <h3 className="text-sm font-medium text-gaming-neon mb-2">Select Team</h3>
+              
+              {loadingTeams ? (
+                <div className="text-center py-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-neon mx-auto mb-1"></div>
+                  <p className="text-gray-300 text-xs">Loading...</p>
+                </div>
+              ) : userTeams.length === 0 ? (
+                <div className="text-center py-3">
+                  <p className="text-gray-300 text-xs mb-2">No teams found</p>
+                  <button
+                    type="button"
+                    onClick={() => setRegistrationMode('manual')}
+                    className="px-2 py-1 bg-gaming-neon text-gaming-dark rounded text-xs font-medium"
+                  >
+                    Use Manual
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {userTeams.map((team) => (
+                    <div
+                      key={team._id}
+                      onClick={() => handleTeamSelect(team)}
+                      className={`p-2 rounded border transition-all cursor-pointer ${
+                        selectedTeam?._id === team._id
+                          ? 'border-gaming-neon bg-gaming-neon/10'
+                          : 'border-gray-600 bg-gaming-slate hover:border-gaming-neon/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-gaming-neon/20 rounded flex items-center justify-center">
+                            <span className="text-gaming-neon font-bold text-xs">
+                              {team.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <h4 className="text-white font-medium text-xs">{team.name}</h4>
+                            <p className="text-gray-400 text-xs">
+                              {team.memberCount} players
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {team.isEligible ? (
+                            <div className="text-green-400 text-xs">✅</div>
+                          ) : (
+                            <div className="text-yellow-400 text-xs">⚠️</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual Registration Form (only show if manual mode or team selected) */}
+          {(registrationMode === 'manual' || (registrationMode === 'team' && selectedTeam)) && (
+            <>
+              {/* Team Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Team Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.teamName}
+                  onChange={(e) => handleInputChange('', 'teamName', e.target.value)}
+                  placeholder="Enter your team name"
+                  className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  required
+                />
+              </div>
+
+              {/* Team Leader */}
+              <div className="bg-gaming-charcoal rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gaming-neon mb-3">👑 Team Leader</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-xs font-medium text-gray-300 mb-1">
                       IGN Name *
                     </label>
                     <input
                       type="text"
-                      value={member.name}
-                      onChange={(e) => handleInputChange('teamMembers', 'name', e.target.value, index)}
-                      placeholder={`Member ${index + 1} IGN name`}
-                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                      value={formData.teamLeader.name}
+                      onChange={(e) => handleInputChange('teamLeader', 'name', e.target.value)}
+                      placeholder="Leader IGN name"
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-xs font-medium text-gray-300 mb-1">
                       BGMI UID *
                     </label>
                     <input
                       type="text"
-                      value={member.bgmiId}
-                      onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                      value={formData.teamLeader.bgmiId}
+                      onChange={(e) => handleInputChange('teamLeader', 'bgmiId', e.target.value)}
                       placeholder="BGMI UID"
-                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.teamLeader.phone}
+                      onChange={(e) => handleInputChange('teamLeader', 'phone', e.target.value)}
+                      placeholder="10-digit phone"
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
                       required
                     />
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
 
-          {/* WhatsApp Info */}
-          <div className="bg-gaming-slate rounded-lg p-4">
-            <h4 className="text-lg font-bold text-white mb-2">📱 WhatsApp Notifications</h4>
-            <p className="text-sm text-gray-300">
-              Registration confirmation and tournament updates will be sent to the team leader's phone number: 
-              <span className="text-gaming-neon font-bold ml-1">
-                {formData.teamLeader.phone || 'Enter leader phone number above'}
-              </span>
-            </p>
-          </div>
+              {/* Team Members */}
+              <div className="bg-gaming-charcoal rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gaming-neon mb-3">👥 Team Members</h3>
+                {formData.teamMembers.map((member, index) => (
+                  <div key={index} className="mb-3 last:mb-0">
+                    <h4 className="text-xs font-medium text-white mb-2">Member {index + 1}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <input
+                          type="text"
+                          value={member.name}
+                          onChange={(e) => handleInputChange('teamMembers', 'name', e.target.value, index)}
+                          placeholder={`Member ${index + 1} IGN name`}
+                          className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="text"
+                          value={member.bgmiId}
+                          onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                          placeholder="BGMI UID"
+                          className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-gaming-neon focus:outline-none"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-          {/* Tournament Info */}
-          <div className="bg-gaming-slate rounded-lg p-4">
-            <h4 className="text-lg font-bold text-white mb-2">Tournament Details</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-400">Entry Fee:</span>
-                <span className="text-gaming-neon font-bold ml-2">₹{tournament.entryFee}</span>
+              {/* WhatsApp Info */}
+              <div className="bg-gaming-slate rounded p-3">
+                <h4 className="text-sm font-medium text-white mb-1">📱 WhatsApp Notifications</h4>
+                <p className="text-xs text-gray-300">
+                  Updates sent to: 
+                  <span className="text-gaming-neon font-medium ml-1">
+                    {formData.teamLeader.phone || 'Enter phone number above'}
+                  </span>
+                </p>
               </div>
-              <div>
-                <span className="text-gray-400">Prize Pool:</span>
-                <span className="text-gaming-neon font-bold ml-2">₹{tournament.prizePool.toLocaleString()}</span>
+
+              {/* Tournament Info */}
+              <div className="bg-gaming-slate rounded p-3">
+                <h4 className="text-sm font-medium text-white mb-2">Tournament Details</h4>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-400">Entry Fee:</span>
+                    <span className="text-gaming-neon font-medium ml-1">₹{tournament.entryFee}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Prize Pool:</span>
+                    <span className="text-gaming-neon font-medium ml-1">₹{tournament.prizePool.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Mode:</span>
+                    <span className="text-white ml-1">{tournament.mode || 'Squad'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Max Teams:</span>
+                    <span className="text-white ml-1">{tournament.maxParticipants}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-gray-400">Mode:</span>
-                <span className="text-white ml-2">{tournament.mode || 'Squad'}</span>
-              </div>
-              <div>
-                <span className="text-gray-400">Max Teams:</span>
-                <span className="text-white ml-2">{tournament.maxParticipants}</span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* Submit Button */}
-          <div className="flex space-x-4">
+          <div className="flex space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+              className="px-4 py-2 bg-gaming-slate text-white rounded hover:bg-gaming-charcoal transition-colors text-sm"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-gaming-neon text-gaming-dark font-bold rounded-lg hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading}
+              className="px-6 py-2 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              disabled={loading || (registrationMode === 'team' && !selectedTeam)}
             >
               {loading ? (
                 <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gaming-dark"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-dark"></div>
                   <span>Registering...</span>
                 </div>
               ) : (
-                'Register Team 🎮'
+                'Register Team'
               )}
             </button>
           </div>

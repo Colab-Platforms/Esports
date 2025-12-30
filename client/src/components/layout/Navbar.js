@@ -150,7 +150,7 @@ const Navbar = () => {
                   <span className="text-xl font-gaming font-bold text-theme-accent">
                     Colab Esports
                   </span>
-                  <span className="text-xs text-theme-text-muted -mt-1">Gaming Platform</span>
+                  <span className="text-xs font-body text-theme-text-muted -mt-1">Gaming Platform</span>
                 </div>
               </div>
             </div>
@@ -162,7 +162,7 @@ const Navbar = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`font-semibold transition-colors duration-200 ${
+                className={`font-display font-semibold transition-colors duration-200 ${
                   isActiveLink(link.to)
                     ? 'text-theme-accent border-b-2 border-theme-accent pb-1'
                     : 'text-theme-text-secondary hover:text-theme-accent'
@@ -177,7 +177,7 @@ const Navbar = () => {
               <div className="relative controls-dropdown">
                 <button
                   onClick={() => setIsControlsMenuOpen(!isControlsMenuOpen)}
-                  className="font-semibold transition-colors duration-200 flex items-center space-x-1 text-gaming-gold hover:text-gaming-gold/80"
+                  className="font-display font-semibold transition-colors duration-200 flex items-center space-x-1 text-gaming-gold hover:text-gaming-gold/80"
                 >
                   <span>CONTROLS</span>
                   <svg className={`w-4 h-4 transition-transform ${isControlsMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +193,7 @@ const Navbar = () => {
                         key={link.to}
                         to={link.to}
                         onClick={() => setIsControlsMenuOpen(false)}
-                        className="block px-4 py-3 text-gaming-gold hover:bg-gaming-dark transition-colors font-semibold text-sm"
+                        className="block px-4 py-3 text-gaming-gold hover:bg-gaming-dark transition-colors font-display font-semibold text-sm"
                       >
                         {link.label.toUpperCase()}
                       </Link>
@@ -207,7 +207,7 @@ const Navbar = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`font-semibold transition-colors duration-200 ${
+                className={`font-display font-semibold transition-colors duration-200 ${
                   isActiveLink(link.to)
                     ? 'text-theme-accent border-b-2 border-theme-accent pb-1'
                     : 'text-theme-text-secondary hover:text-theme-accent'
@@ -243,8 +243,8 @@ const Navbar = () => {
                       showLevel={true}
                     />
                     <div className="text-left">
-                      <div className="text-sm font-medium text-theme-text-primary">{user?.username}</div>
-                      <div className="text-xs text-theme-text-muted">Level {user?.level || 1}</div>
+                      <div className="text-sm font-display font-medium text-theme-text-primary">{user?.username}</div>
+                      <div className="text-xs font-body text-theme-text-muted">Level {user?.level || 1}</div>
                     </div>
                   </button>
 
@@ -366,7 +366,7 @@ const Navbar = () => {
                   />
                   <span className="hidden text-yellow-400 font-bold text-sm">∞</span>
                 </div>
-                <span className="text-lg font-gaming font-bold text-theme-accent">Colab Esports</span>
+                <span className="hidden text-lg font-gaming font-bold text-theme-accent">Colab Esports</span>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -412,7 +412,7 @@ const Navbar = () => {
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <span className="font-medium">{link.label}</span>
+                    <span className="font-display font-semibold">{link.label}</span>
                   </Link>
                 ))}
 
@@ -456,7 +456,7 @@ const Navbar = () => {
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <link.icon className="w-5 h-5" />
-                        <span className="font-medium">{link.label}</span>
+                        <span className="font-display font-semibold">{link.label}</span>
                       </Link>
                     ))}
                     <Link
@@ -465,7 +465,7 @@ const Navbar = () => {
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <FiSettings className="w-5 h-5" />
-                      <span className="font-medium">Profile Settings</span>
+                      <span className="font-display font-semibold">Profile Settings</span>
                     </Link>
                     {/* Steam Integration link removed */}
                     <button
@@ -473,7 +473,7 @@ const Navbar = () => {
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-red-400 hover:bg-theme-bg-hover transition-colors duration-200 w-full text-left"
                     >
                       <FiLogOut className="w-5 h-5" />
-                      <span className="font-medium">Logout</span>
+                      <span className="font-display font-semibold">Logout</span>
                     </button>
                   </>
                 )}
@@ -494,14 +494,14 @@ const Navbar = () => {
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <span className="font-medium">Login</span>
+                      <span className="font-display font-semibold">Login</span>
                     </Link>
                     <Link
                       to="/register"
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg bg-theme-accent hover:bg-theme-accent-hover text-white font-semibold transition-all duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <span className="font-medium">Sign Up</span>
+                      <span className="font-display font-semibold">Sign Up</span>
                     </Link>
                   </>
                 )}
