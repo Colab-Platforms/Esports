@@ -89,7 +89,8 @@ const Navbar = () => {
       links.push(
         { to: '/admin/images', label: 'Banners' },
         { to: '/admin/games', label: 'Games' },
-        { to: '/admin/tournaments', label: 'Tournaments' }
+        { to: '/admin/tournaments', label: 'Tournaments' },
+        { to: '/admin/bgmi-registrations', label: 'BGMI Registrations' }
       );
     }
     

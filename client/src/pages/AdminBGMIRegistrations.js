@@ -634,7 +634,6 @@ const AdminBGMIRegistrations = () => {
         {/* Admin Registration Management */}
         <div className="card-gaming p-4 md:p-6 mb-6">
           <h3 className="text-lg xl:text-xl font-bold text-white mb-4 flex items-center space-x-2">
-            <span>👥</span>
             <span>Registration Management</span>
           </h3>
 
@@ -722,93 +721,256 @@ const AdminBGMIRegistrations = () => {
             </div>
           ) : registrations.length === 0 ? (
             <div className="text-center py-8">
-              <div className="text-gray-400 text-4xl mb-2">👥</div>
+              <div className="text-gray-400 text-4xl mb-2">No Data</div>
               <p className="text-gray-400">No registrations found</p>
               <p className="text-xs text-gray-500 mt-1">Try adjusting your filters</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {registrations.map((registration) => (
-                <div key={registration._id} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 hover:border-gaming-neon/50 transition-colors">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-lg font-bold text-white">{registration.teamName}</h4>
-                        {getStatusBadge(registration)}
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden lg:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full bg-gaming-slate/30 border border-gaming-slate rounded-lg min-w-[800px]">
+                  <thead className="bg-gaming-charcoal">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Team</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leader</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Images</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Registered</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gaming-slate">
+                    {registrations.map((registration) => (
+                      <tr key={registration._id} className="hover:bg-gaming-slate/20 transition-colors">
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-white">{registration.teamName}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.teamLeader.name}</div>
+                          <div className="text-xs text-gray-400">{registration.teamLeader.bgmiId}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.whatsappNumber}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.verificationImages?.length || 0}/8</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {getStatusBadge(registration)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{new Date(registration.registeredAt).toLocaleDateString()}</div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center space-x-1">
+                            {/* View Details */}
+                            <button
+                              onClick={() => handleViewImages(registration)}
+                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors group relative"
+                              title="View Details"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                View Details
+                              </div>
+                            </button>
+
+                            {/* Approve (only for images_uploaded status) */}
+                            {registration.status === 'images_uploaded' && (
+                              <button
+                                onClick={() => handleDirectApprove(registration)}
+                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors group relative"
+                                title="Approve"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                  Approve
+                                </div>
+                              </button>
+                            )}
+
+                            {/* Reject (only for images_uploaded status) */}
+                            {registration.status === 'images_uploaded' && (
+                              <button
+                                onClick={() => handleDirectReject(registration)}
+                                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors group relative"
+                                title="Reject"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                  Reject
+                                </div>
+                              </button>
+                            )}
+
+                            {/* Set Pending (only for verified status) */}
+                            {registration.status === 'verified' && (
+                              <button
+                                onClick={() => handleSetPending(registration)}
+                                className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors group relative"
+                                title="Set Pending"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                  Set Pending
+                                </div>
+                              </button>
+                            )}
+
+                            {/* Edit */}
+                            <button
+                              onClick={() => handleEditRegistration(registration)}
+                              className="p-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors group relative"
+                              title="Edit"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                Edit
+                              </div>
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleDeleteRegistration(registration)}
+                              className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors group relative"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                Delete
+                              </div>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {registrations.map((registration) => (
+                  <div key={registration._id} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-lg font-bold text-white">{registration.teamName}</h4>
+                      {getStatusBadge(registration)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                      <div>
+                        <span className="text-gray-400">Leader:</span>
+                        <div className="text-white">{registration.teamLeader.name}</div>
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                        <div>
-                          <span className="text-gray-400">Leader:</span>
-                          <span className="text-white ml-1">{registration.teamLeader.name}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">WhatsApp:</span>
-                          <span className="text-white ml-1">{registration.whatsappNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Images:</span>
-                          <span className="text-white ml-1">{registration.verificationImages?.length || 0}/8</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Registered:</span>
-                          <span className="text-white ml-1">{new Date(registration.registeredAt).toLocaleDateString()}</span>
-                        </div>
+                      <div>
+                        <span className="text-gray-400">WhatsApp:</span>
+                        <div className="text-white">{registration.whatsappNumber}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Images:</span>
+                        <div className="text-white">{registration.verificationImages?.length || 0}/8</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Registered:</span>
+                        <div className="text-white">{new Date(registration.registeredAt).toLocaleDateString()}</div>
                       </div>
                     </div>
                     
-                    <div className="mt-3 lg:mt-0 lg:ml-4 flex flex-wrap gap-2">
+                    <div className="flex items-center justify-center space-x-2 pt-2">
+                      {/* View Details */}
                       <button
                         onClick={() => handleViewImages(registration)}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                        className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        title="View Details"
                       >
-                        View Details
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                       </button>
-                      
+
+                      {/* Approve (only for images_uploaded status) */}
                       {registration.status === 'images_uploaded' && (
-                        <>
-                          <button
-                            onClick={() => handleDirectApprove(registration)}
-                            className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors"
-                          >
-                            ✅ Approve
-                          </button>
-                          <button
-                            onClick={() => handleDirectReject(registration)}
-                            className="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors"
-                          >
-                            ❌ Reject
-                          </button>
-                        </>
+                        <button
+                          onClick={() => handleDirectApprove(registration)}
+                          className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          title="Approve"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
                       )}
-                      
+
+                      {/* Reject (only for images_uploaded status) */}
+                      {registration.status === 'images_uploaded' && (
+                        <button
+                          onClick={() => handleDirectReject(registration)}
+                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          title="Reject"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+
+                      {/* Set Pending (only for verified status) */}
                       {registration.status === 'verified' && (
                         <button
                           onClick={() => handleSetPending(registration)}
-                          className="px-3 py-1 bg-yellow-600 text-white text-sm font-medium rounded hover:bg-yellow-700 transition-colors"
+                          className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                          title="Set Pending"
                         >
-                          ⏳ Pending
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
                         </button>
                       )}
-                      
+
+                      {/* Edit */}
                       <button
                         onClick={() => handleEditRegistration(registration)}
-                        className="px-3 py-1 bg-gaming-slate text-white text-sm font-medium rounded hover:bg-gaming-charcoal transition-colors"
+                        className="p-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors"
+                        title="Edit"
                       >
-                        ✏️ Edit
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
                       </button>
-                      
+
+                      {/* Delete */}
                       <button
                         onClick={() => handleDeleteRegistration(registration)}
-                        className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded hover:bg-red-600 transition-colors"
+                        className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                        title="Delete"
                       >
-                        🗑️ Delete
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Pagination */}
@@ -843,7 +1005,6 @@ const AdminBGMIRegistrations = () => {
         {/* Tournament Scoreboard Management */}
         <div className="card-gaming p-4 md:p-6 mb-4 md:mb-6">
           <h3 className="text-lg xl:text-xl font-bold text-white mb-4 flex items-center space-x-2">
-            <span>🏆</span>
             <span>Tournament Scoreboard Management</span>
           </h3>
           
@@ -1202,7 +1363,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
             {/* Images Section - Scrollable */}
             <div className="flex-1 p-2 md:p-3 overflow-y-auto">
               <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-2 md:p-3">
-                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between sticky top-0 bg-gaming-slate/20 z-10 pb-2">
+                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between sticky top-0 bg-gaming-slate/20 z-50 pointer-events-none pb-2">
                   <span>Images ({registration.verificationImages?.length || 0}/8)</span>
                   <span className="text-xs text-gray-400">📱 WhatsApp</span>
                 </h3>
@@ -1215,7 +1376,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                         <button
                           onClick={() => handleDeleteImage(image._id)}
                           disabled={deletingImage === image._id}
-                          className="absolute top-2 right-2 z-10 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          className="absolute top-2 right-2 z-50 pointer-events-none w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                           title="Delete Image"
                         >
                           {deletingImage === image._id ? (
@@ -1301,13 +1462,13 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                         onClick={handleApprove}
                         className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-green-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-green-700 transition-colors"
                       >
-                        ✅ Approve
+                        Approve
                       </button>
                       <button
                         onClick={() => setShowRejectForm(true)}
                         className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-red-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-red-700 transition-colors"
                       >
-                        ❌ Reject
+                        Reject
                       </button>
                     </div>
                     <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
@@ -1315,7 +1476,7 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                         onClick={() => onSetPending(registration)}
                         className="flex-1 px-3 md:px-4 py-2 bg-yellow-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                       >
-                        ⏳ Pending
+                        Pending
                       </button>
                       <button
                         onClick={() => onNotVerified(registration)}
