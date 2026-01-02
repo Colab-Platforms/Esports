@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
@@ -30,13 +30,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   });
 
   // Fetch user's eligible teams when component mounts
-  useEffect(() => {
-    if (tournament?._id) {
-      fetchEligibleTeams();
-    }
-  }, [tournament]);
-
-  const fetchEligibleTeams = async () => {
+  const fetchEligibleTeams = useCallback(async () => {
     setLoadingTeams(true);
     try {
       console.log('🔍 Fetching eligible teams for tournament:', tournament._id);
@@ -68,9 +62,17 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     } finally {
       setLoadingTeams(false);
     }
-  };
+  }, [tournament._id]);
 
-  const handleTeamSelect = (team) => {
+  useEffect(() => {
+    if (tournament?._id) {
+      fetchEligibleTeams();
+    }
+  }, [tournament._id, fetchEligibleTeams]);
+
+  const handleTeamSelect = useCallback((team) => {
+    if (selectedTeam?._id === team._id) return; // Prevent selecting the same team
+    
     setSelectedTeam(team);
     setError(''); // Clear any previous errors
     
@@ -86,19 +88,20 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
         { name: members[2]?.username || '', bgmiId: members[2]?.gameId || '' }
       ];
       
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         teamName: team.name,
         teamLeader: {
+          ...prev.teamLeader,
           name: captain?.username || '',
-          bgmiId: captain?.gameId || '',
-          phone: formData.teamLeader.phone // Keep existing phone number
+          bgmiId: captain?.gameId || ''
         },
         teamMembers: paddedMembers
-      });
+      }));
     }
-  };
+  }, [selectedTeam]);
 
-  const handleInputChange = (section, field, value, index = null) => {
+  const handleInputChange = useCallback((section, field, value, index = null) => {
     setFormData(prev => {
       if (section === 'teamLeader') {
         return {
@@ -125,7 +128,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
         };
       }
     });
-  };
+  }, []);
 
   const validateForm = () => {
     // Team name validation
@@ -334,9 +337,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
               <button
                 type="button"
                 onClick={() => {
-                  setRegistrationMode('team');
-                  setSelectedTeam(null);
-                  setError('');
+                  if (registrationMode !== 'team') {
+                    setRegistrationMode('team');
+                    setSelectedTeam(null);
+                    setError('');
+                  }
                 }}
                 className={`flex-1 px-2 py-1.5 rounded text-sm font-medium transition-colors ${
                   registrationMode === 'team'
@@ -350,9 +355,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
               <button
                 type="button"
                 onClick={() => {
-                  setRegistrationMode('manual');
-                  setSelectedTeam(null);
-                  setError('');
+                  if (registrationMode !== 'manual') {
+                    setRegistrationMode('manual');
+                    setSelectedTeam(null);
+                    setError('');
+                  }
                 }}
                 className={`flex-1 px-2 py-1.5 rounded text-sm font-medium transition-colors ${
                   registrationMode === 'manual'

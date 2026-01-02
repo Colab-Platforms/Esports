@@ -18,6 +18,8 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import OAuthSuccess from './pages/auth/OAuthSuccess';
+import OAuthError from './pages/auth/OAuthError';
 import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
@@ -236,6 +238,17 @@ function App() {
                   </motion.div>
                 )
               } 
+            />
+            
+            {/* OAuth Routes */}
+            <Route 
+              path="/auth/success" 
+              element={<OAuthSuccess />} 
+            />
+            
+            <Route 
+              path="/auth/error" 
+              element={<OAuthError />} 
             />
             
             {/* Games Route */}

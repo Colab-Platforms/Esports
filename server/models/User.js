@@ -19,14 +19,24 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
+    required: function() {
+      return !this.authProvider || this.authProvider === 'local';
+    },
     unique: true,
+    sparse: true, // Allow null values for OAuth users
     match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
   },
   passwordHash: {
     type: String,
-    required: [true, 'Password is required'],
+    required: function() {
+      return !this.authProvider || this.authProvider === 'local';
+    },
     minlength: [6, 'Password must be at least 6 characters']
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'steam'],
+    default: 'local'
   },
   avatarUrl: {
     type: String,
@@ -147,7 +157,15 @@ const userSchema = new mongoose.Schema({
     twitter: { type: String, default: '' },
     instagram: { type: String, default: '' },
     github: { type: String, default: '' },
-    linkedin: { type: String, default: '' }
+    linkedin: { type: String, default: '' },
+    google: {
+      id: { type: String, default: '' },
+      email: { type: String, default: '' },
+      name: { type: String, default: '' },
+      picture: { type: String, default: '' },
+      isConnected: { type: Boolean, default: false },
+      connectedAt: { type: Date }
+    }
   },
   friends: [{
     type: mongoose.Schema.Types.ObjectId,

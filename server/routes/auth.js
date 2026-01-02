@@ -3,13 +3,15 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const passport = require('../config/passport');
 
 const router = express.Router();
 
 // Generate JWT token
-const generateToken = (userId) => {
+const generateToken = (userId, rememberMe = false) => {
+  const expiresIn = rememberMe ? '30d' : (process.env.JWT_EXPIRE || '7d');
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
+    expiresIn
   });
 };
 
@@ -20,7 +22,16 @@ router.get('/test', (req, res) => {
   res.json({
     success: true,
     message: 'Auth routes working!',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    googleOAuth: {
+      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && 
+                     process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' && 
+                     process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'),
+      clientId: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set',
+      serverUrl: process.env.SERVER_URL || 'http://localhost:5001',
+      callbackUrl: `${process.env.SERVER_URL || 'http://localhost:5001'}/api/auth/google/callback`
+    }
   });
 });
 
@@ -232,7 +243,7 @@ router.post('/login', [
       });
     }
 
-    const { identifier, password } = req.body;
+    const { identifier, password, rememberMe } = req.body;
     console.log('🔍 Searching for user with identifier:', identifier);
 
     // Find user by email, username, or phone
@@ -293,7 +304,7 @@ router.post('/login', [
     await user.updateLoginStreak();
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, rememberMe);
 
     res.json({
       success: true,
@@ -503,5 +514,92 @@ router.put('/profile', auth, async (req, res) => {
     });
   }
 });
+
+// @route   GET /api/auth/google
+// @desc    Google OAuth login
+// @access  Public
+router.get('/google', (req, res, next) => {
+  // Check if Google OAuth is properly configured
+  if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your-google-client-id') {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'OAUTH_NOT_CONFIGURED',
+        message: 'Google OAuth is not properly configured. Please contact support.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+  
+  passport.authenticate('google', {
+    scope: ['profile', 'email']
+  })(req, res, next);
+});
+
+// @route   GET /api/auth/google/callback
+// @desc    Google OAuth callback
+// @access  Public
+router.get('/google/callback', (req, res, next) => {
+  // Check if Google OAuth is properly configured
+  if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your-google-client-id') {
+    const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+    return res.redirect(`${CLIENT_URL}/auth/error?message=Google OAuth not configured`);
+  }
+  
+  passport.authenticate('google', { session: false }, async (err, user, info) => {
+    try {
+      if (err) {
+        console.error('Google OAuth authentication error:', err);
+        const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+      }
+      
+      if (!user) {
+        console.error('Google OAuth: No user returned');
+        const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+      }
+      
+      // Generate JWT token
+      const token = generateToken(user._id, false);
+      
+      // Redirect to frontend with token
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+      res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=google`);
+      
+    } catch (error) {
+      console.error('Google OAuth callback error:', error);
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+    }
+  })(req, res, next);
+});
+
+// @route   GET /api/auth/steam
+// @desc    Steam OAuth login
+// @access  Public
+router.get('/steam', passport.authenticate('steam'));
+
+// @route   GET /api/auth/steam/return
+// @desc    Steam OAuth callback
+// @access  Public
+router.get('/steam/return',
+  passport.authenticate('steam', { session: false }),
+  async (req, res) => {
+    try {
+      // Generate JWT token
+      const token = generateToken(req.user._id, false);
+      
+      // Redirect to frontend with token
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+      res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=steam`);
+      
+    } catch (error) {
+      console.error('Steam OAuth callback error:', error);
+      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+    }
+  }
+);
 
 module.exports = router;

@@ -104,7 +104,30 @@ const limiter = rateLimit({
     return false;
   }
 });
+
+// More relaxed rate limiter for OAuth routes
+const oauthLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 50, // limit each IP to 50 OAuth requests per 5 minutes
+  message: {
+    success: false,
+    error: {
+      code: 'OAUTH_RATE_LIMIT_EXCEEDED',
+      message: 'Too many authentication attempts. Please try again in a few minutes.',
+      timestamp: new Date().toISOString()
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting in development for easier testing
+    return process.env.NODE_ENV === 'development';
+  }
+});
+
 app.use('/api/', limiter);
+app.use('/api/auth/google', oauthLimiter);
+app.use('/api/auth/steam', oauthLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

@@ -510,8 +510,15 @@ const SingleTournamentPage = () => {
     // Refresh tournament data and teams
     fetchRegisteredTeams();
     
-    // Reload page to fetch updated tournament data with room details
-    window.location.reload();
+    // Show success notification instead of reloading
+    notificationService.showCustomNotification(
+      'success',
+      'Registration Successful!',
+      'You have been successfully registered for the tournament.'
+    );
+    
+    // Optionally refresh tournament data without full page reload
+    // fetchTournament();
   }, [fetchRegisteredTeams]);
 
   // Early return AFTER all hooks
