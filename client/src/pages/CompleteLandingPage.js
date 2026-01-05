@@ -1311,6 +1311,22 @@ const CompleteLandingPage = () => {
               </h2>
             </div>
             <p className="text-gray-400 text-lg font-gaming">Active Tournaments • Real Prizes • Join Now</p>
+            
+            {/* Temporary Debug Button - Remove after testing */}
+            <div className="mt-4">
+              <button
+                onClick={async () => {
+                  console.log('🔄 Clearing CS2 server cache and refreshing...');
+                  clearCache(); // Clear all cache
+                  setServers([]); // Clear current servers
+                  await fetchServers(); // Fetch fresh data
+                  console.log('✅ CS2 servers refreshed');
+                }}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+              >
+                🔄 Refresh CS2 Servers
+              </button>
+            </div>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">

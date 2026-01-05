@@ -17,8 +17,8 @@ const tournamentSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Game type is required'],
     enum: {
-      values: ['bgmi', 'cs2'],
-      message: 'Game type must be one of: bgmi, cs2'
+      values: ['bgmi', 'cs2', 'valorant'],
+      message: 'Game type must be one of: bgmi, cs2, valorant'
     }
   },
   mode: {
@@ -37,7 +37,14 @@ const tournamentSchema = new mongoose.Schema({
   },
   prizePool: {
     type: Number,
-    required: [true, 'Prize pool is required'],
+    required: function() {
+      // Prize pool not required for CS2 tournaments (they're just server access)
+      return this.gameType !== 'cs2';
+    },
+    default: function() {
+      // CS2 tournaments have no prize pool (just server access)
+      return this.gameType === 'cs2' ? 0 : undefined;
+    },
     min: [0, 'Prize pool cannot be negative']
   },
   prizeDistribution: [{
@@ -94,7 +101,7 @@ const tournamentSchema = new mongoose.Schema({
   },
   rules: {
     type: String,
-    required: [true, 'Tournament rules are required'],
+    required: false, // Optional for CS2 tournaments
     maxlength: [5000, 'Rules cannot exceed 5000 characters']
   },
   format: {

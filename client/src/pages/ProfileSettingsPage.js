@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { 
   FiPhone, 
   FiSave,
-  FiLock,
   FiTwitter,
   FiInstagram,
   FiGithub,
@@ -232,8 +231,24 @@ const ProfileSettingsPage = () => {
 
   const handleChangePassword = async () => {
     try {
+      // Validation
+      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        setError('All password fields are required');
+        return;
+      }
+
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setError('Passwords do not match');
+        setError('New passwords do not match');
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        setError('New password must be at least 6 characters long');
+        return;
+      }
+
+      if (passwordData.currentPassword === passwordData.newPassword) {
+        setError('New password must be different from current password');
         return;
       }
       
@@ -241,14 +256,36 @@ const ProfileSettingsPage = () => {
       setError('');
       setSuccess('');
       
-      console.log('Changing password');
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
-      setSuccess('Password updated successfully!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setIsEditingPassword(false); // Exit edit mode after update
-      setTimeout(() => setSuccess(''), 3000);
+      const response = await axios.put(
+        `${API_URL}/api/auth/change-password`,
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setSuccess('Password updated successfully!');
+        toast.success('Password updated successfully!');
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsEditingPassword(false);
+        setTimeout(() => setSuccess(''), 3000);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to update password');
+      console.error('Password change error:', err);
+      const errorMessage = err.response?.data?.error?.message 
+        || err.response?.data?.message 
+        || err.message 
+        || 'Failed to update password';
+      setError(errorMessage);
+      toast.error(`Failed to update password: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -608,9 +645,8 @@ const ProfileSettingsPage = () => {
                   </p>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center space-x-2">
-                      <span className="text-2xl">🎮</span>
-                      <span>BGMI ID</span>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      BGMI ID
                     </label>
                     <input
                       type="text"
@@ -626,9 +662,8 @@ const ProfileSettingsPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center space-x-2">
-                      <span className="text-2xl">🎯</span>
-                      <span>Steam ID</span>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Steam ID
                     </label>
                     <input
                       type="text"

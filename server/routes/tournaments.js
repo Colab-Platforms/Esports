@@ -403,6 +403,7 @@ router.post('/', auth, [
     .isFloat({ min: 0, max: 10000 })
     .withMessage('Entry fee must be between 0 and 10000'),
   body('prizePool')
+    .if(body('gameType').not().equals('cs2'))
     .isNumeric()
     .isFloat({ min: 0 })
     .withMessage('Prize pool must be a positive number'),
@@ -433,20 +434,17 @@ router.post('/', auth, [
   // CS2 Server Details - Only validate if gameType is cs2
   body('roomDetails.cs2.serverName')
     .if(body('gameType').equals('cs2'))
-    .notEmpty()
-    .withMessage('Server name is required for CS2 tournaments')
+    .optional()
     .isLength({ min: 1, max: 100 })
     .withMessage('Server name must be 1-100 characters'),
   body('roomDetails.cs2.serverIp')
     .if(body('gameType').equals('cs2'))
-    .notEmpty()
-    .withMessage('Server IP is required for CS2 tournaments')
+    .optional()
     .isString()
     .withMessage('Server IP must be a valid string'),
   body('roomDetails.cs2.serverPort')
     .if(body('gameType').equals('cs2'))
-    .notEmpty()
-    .withMessage('Server port is required for CS2 tournaments')
+    .optional()
     .isString()
     .withMessage('Server port must be a valid string'),
   body('roomDetails.cs2.gameMode')
@@ -491,14 +489,65 @@ router.post('/', auth, [
     if (!tournamentData.status) {
       tournamentData.status = req.body.gameType === 'cs2' ? 'active' : 'upcoming';
     }
+    
+    // Set default values for CS2 tournaments
+    if (req.body.gameType === 'cs2') {
+      // Set default mode if not provided
+      if (!tournamentData.mode) {
+        tournamentData.mode = 'team';
+      }
+      
+      // Set default format if not provided
+      if (!tournamentData.format) {
+        tournamentData.format = 'elimination';
+      }
+      
+      // CS2 tournaments have no prize pool (just server access)
+      tournamentData.prizePool = 0;
+      
+      // Set default dates if not provided (CS2 tournaments are always active)
+      const now = new Date();
+      if (!tournamentData.startDate) {
+        tournamentData.startDate = now;
+      }
+      if (!tournamentData.endDate) {
+        tournamentData.endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+      }
+      if (!tournamentData.registrationDeadline) {
+        tournamentData.registrationDeadline = new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000); // 29 days from now
+      }
+      
+      // Set default room details if not provided
+      if (!tournamentData.roomDetails) {
+        tournamentData.roomDetails = {};
+      }
+      if (!tournamentData.roomDetails.cs2) {
+        tournamentData.roomDetails.cs2 = {
+          serverIp: '103.21.58.132',
+          serverPort: '27015',
+          serverName: tournamentData.name || 'CS2 Server',
+          password: '',
+          connectCommand: '',
+          mapPool: ['de_dust2']
+        };
+      }
+      
+      // Set default rules if not provided
+      if (!tournamentData.rules) {
+        tournamentData.rules = 'Free CS2 server access for competitive play. Server details will be provided after joining.';
+      }
+    }
 
-    // Set default prize distribution if not provided
-    if (!tournamentData.prizeDistribution || tournamentData.prizeDistribution.length === 0) {
+    // Set default prize distribution if not provided (skip for CS2)
+    if (tournamentData.gameType !== 'cs2' && (!tournamentData.prizeDistribution || tournamentData.prizeDistribution.length === 0)) {
       tournamentData.prizeDistribution = [
         { position: 1, amount: tournamentData.prizePool * 0.5, percentage: 50 },
         { position: 2, amount: tournamentData.prizePool * 0.3, percentage: 30 },
         { position: 3, amount: tournamentData.prizePool * 0.2, percentage: 20 }
       ];
+    } else if (tournamentData.gameType === 'cs2') {
+      // CS2 tournaments don't have prize distribution
+      tournamentData.prizeDistribution = [];
     }
 
     const tournament = new Tournament(tournamentData);
@@ -515,11 +564,47 @@ router.post('/', auth, [
 
   } catch (error) {
     console.error('Tournament creation error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Handle specific MongoDB validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message,
+        value: err.value
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Tournament validation failed',
+          details: validationErrors,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_TOURNAMENT',
+          message: 'A tournament with this name already exists',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: {
         code: 'TOURNAMENT_CREATION_FAILED',
         message: 'Failed to create tournament',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         timestamp: new Date().toISOString()
       }
     });
