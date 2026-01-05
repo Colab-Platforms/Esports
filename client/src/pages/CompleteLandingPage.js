@@ -1,8 +1,8 @@
 // Complete Premium Landing Page - Gaming Console Style
 // Enhanced with animations, real images, and esports theme
 
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../store/slices/authSlice';
@@ -19,6 +19,7 @@ import HeroImageSlider from '../components/common/HeroImageSlider';
 const CompleteLandingPage = () => {
   const { isAuthenticated } = useSelector(selectAuth);
   const navigate = useNavigate();
+  const location = useLocation();
   
   // All state declarations first
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
@@ -40,9 +41,144 @@ const CompleteLandingPage = () => {
   // Cache system for API data - Extended cache duration with localStorage persistence
   const [dataCache, setDataCache] = useState(new Map());
   const [cacheTimestamps, setCacheTimestamps] = useState(new Map());
-  const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache
+  const CACHE_DURATION = 10 * 60 * 1000; // Increased to 10 minutes for better persistence
   const CACHE_KEY_PREFIX = 'landing_page_cache_';
   const CACHE_TIMESTAMP_PREFIX = 'landing_page_timestamp_';
+
+  // Cache invalidation trigger - listen for tournament changes
+  useEffect(() => {
+    const handleTournamentChange = (event) => {
+      console.log('🔄 Tournament change detected, clearing cache...', event.detail);
+      clearCache();
+      // Only refetch if the component is currently visible and mounted
+      if (!document.hidden) {
+        setTimeout(() => {
+          fetchAllData(true); // Force refresh when tournament changes
+        }, 100);
+      }
+    };
+
+    // Listen for custom events that indicate tournament changes
+    window.addEventListener('tournamentJoined', handleTournamentChange);
+    window.addEventListener('tournamentLeft', handleTournamentChange);
+    window.addEventListener('tournamentUpdated', handleTournamentChange);
+
+    return () => {
+      window.removeEventListener('tournamentJoined', handleTournamentChange);
+      window.removeEventListener('tournamentLeft', handleTournamentChange);
+      window.removeEventListener('tournamentUpdated', handleTournamentChange);
+    };
+  }, []);
+
+  // Auto-refresh data when user comes back to page (visibility change)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page became visible, checking cache age...');
+        
+        // Check cache age directly using localStorage
+        const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+        const now = Date.now();
+        let isStale = false;
+        
+        for (const key of criticalKeys) {
+          const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
+          const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
+          
+          if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+            isStale = true;
+            break;
+          }
+        }
+        
+        if (isStale) {
+          console.log('🔄 Cache is stale, refreshing data...');
+          clearCache();
+          fetchAllData(true);
+        } else {
+          console.log('� Cacche is still fresh, using cached data');
+          // Just load from cache without clearing
+          loadFromCache();
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🔄 Window focused, checking cache age...');
+      
+      // Check cache age directly using localStorage
+      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+      const now = Date.now();
+      let isStale = false;
+      
+      for (const key of criticalKeys) {
+        const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
+        const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
+        
+        if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+          isStale = true;
+          break;
+        }
+      }
+      
+      if (isStale) {
+        console.log('🔄 Cache is stale, refreshing data...');
+        clearCache();
+        fetchAllData(true);
+      } else {
+        console.log('📦 Cache is still fresh, using cached data');
+        // Just load from cache without clearing
+        loadFromCache();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []); // Remove cacheTimestamps dependency to prevent infinite loop
+
+  // Refresh data when navigating back to homepage
+  useEffect(() => {
+    console.log('🔄 Location changed:', location.pathname);
+    
+    // Only refresh when user navigates to homepage
+    if (location.pathname === '/' || location.pathname === '') {
+      console.log('🔄 User navigated to homepage, checking cache age...');
+      
+      // Check cache age directly using localStorage
+      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+      const now = Date.now();
+      let isStale = false;
+      
+      for (const key of criticalKeys) {
+        const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
+        const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
+        
+        if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+          isStale = true;
+          break;
+        }
+      }
+      
+      if (isStale) {
+        console.log('🔄 Cache is stale, fetching fresh data...');
+        clearCache();
+        setTimeout(() => {
+          fetchAllData(true); // Force refresh on navigation
+        }, 100);
+      } else {
+        console.log('📦 Cache is still fresh, using cached data');
+        // Just load from cache without clearing
+        setTimeout(() => {
+          loadFromCache();
+        }, 100);
+      }
+    }
+  }, [location.pathname]); // Remove cacheTimestamps dependency to prevent infinite loop
 
   // Upcoming games data
   const upcomingGames = [
@@ -101,20 +237,26 @@ const CompleteLandingPage = () => {
 
   // Smart initialization that checks cache first
   const initializeData = async () => {
+    console.log('🔄 Initializing data...');
+    
     // Check if we have valid cached data for all critical sections
-    const criticalDataKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats'];
+    const criticalDataKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
     const cachedDataStatus = criticalDataKeys.map(key => ({
       key,
       hasCache: getCachedData(key) !== null
     }));
     
+    console.log('📊 Cache status:', cachedDataStatus);
+    
     const hasCachedData = cachedDataStatus.every(item => item.hasCache);
     
     if (hasCachedData) {
+      console.log('✅ All critical data cached, loading from cache');
       // Load all data from cache instantly - no loading state needed
       await loadFromCache();
       // Don't set loading to false here, let loadFromCache handle it
     } else {
+      console.log('❌ Missing cached data, fetching fresh data');
       // Only show loading if we need to fetch fresh data
       setLoading(true);
       await fetchAllData();
@@ -123,15 +265,19 @@ const CompleteLandingPage = () => {
 
   // Load data from cache for instant display
   const loadFromCache = async () => {
+    console.log('📦 Loading data from cache...');
+    
     // Load CS2 leaderboard from cache
     const cachedCs2Data = getCachedData('cs2-leaderboard');
     if (cachedCs2Data) {
+      console.log('📦 Loaded CS2 leaderboard from cache:', cachedCs2Data.length, 'players');
       setCs2Leaderboard(cachedCs2Data);
     }
 
     // Load BGMI scoreboards from cache
     const cachedBgmiData = getCachedData('bgmi-scoreboards');
     if (cachedBgmiData) {
+      console.log('📦 Loaded BGMI scoreboards from cache:', cachedBgmiData.scoreboards?.length || 0, 'scoreboards');
       setBgmiScoreboards(cachedBgmiData.scoreboards);
       if (cachedBgmiData.latestScoreboard) {
         setLatestBgmiScoreboard(cachedBgmiData.latestScoreboard);
@@ -141,27 +287,32 @@ const CompleteLandingPage = () => {
     // Load platform stats from cache
     const cachedStats = getCachedData('platform-stats');
     if (cachedStats) {
+      console.log('📦 Loaded platform stats from cache');
       setStats(cachedStats);
     }
 
     // Load other cached data
-    const cachedServers = getCachedData('servers');
+    const cachedServers = getCachedData('cs2-servers');
     if (cachedServers) {
+      console.log('📦 Loaded CS2 servers from cache:', cachedServers.length, 'servers');
       setServers(cachedServers);
     }
 
     const cachedTestimonials = getCachedData('testimonials');
     if (cachedTestimonials) {
+      console.log('📦 Loaded testimonials from cache:', cachedTestimonials.length, 'testimonials');
       setTestimonials(cachedTestimonials);
     }
 
     const cachedTournaments = getCachedData('tournaments');
     if (cachedTournaments) {
+      console.log('📦 Loaded tournaments from cache:', cachedTournaments.length, 'tournaments');
       setTournaments(cachedTournaments);
     }
 
     // Set loading to false after cache data is loaded
     setLoading(false);
+    console.log('✅ Cache loading completed');
   };
 
   // Auto-slide upcoming games - separate from data fetching
@@ -281,10 +432,12 @@ const CompleteLandingPage = () => {
     return duplicatedTestimonials.slice(0, 6); // Take first 6 items
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (forceRefresh = false) => {
     setLoading(true);
     
     try {
+      console.log('🔄 Fetching all data...', forceRefresh ? '(force refresh)' : '(with cache)');
+      
       // Sequential API calls with delays to prevent rate limiting
       await fetchLeaderboards();
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -295,7 +448,7 @@ const CompleteLandingPage = () => {
       await fetchBgmiScoreboards();
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      await fetchServers();
+      await fetchServers(forceRefresh);
       await new Promise(resolve => setTimeout(resolve, 500));
       
       await fetchTestimonials();
@@ -314,14 +467,17 @@ const CompleteLandingPage = () => {
     try {
       // Check cache first
       const cachedCs2Data = getCachedData('cs2-leaderboard');
+      
       if (cachedCs2Data) {
         setCs2Leaderboard(cachedCs2Data);
+        console.log('📦 Using cached CS2 leaderboard data');
         return;
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
       
       // Fetch CS2 leaderboard (limit 3, show only available)
+      console.log('🔍 Fetching CS2 leaderboard...');
       const cs2Res = await fetch(`${API_URL}/api/cs2-leaderboard/all-players?limit=3`);
       const cs2Data = await cs2Res.json();
       
@@ -336,13 +492,15 @@ const CompleteLandingPage = () => {
           kdr: player.stats.kdr
         }));
         
+        console.log('✅ CS2 leaderboard data:', mappedData.length, 'players');
         setCs2Leaderboard(mappedData);
         setCachedData('cs2-leaderboard', mappedData);
+      } else {
+        console.log('⚠️ No CS2 leaderboard data found');
       }
       
-      // BGMI scoreboards are now fetched separately in fetchBgmiScoreboards()
     } catch (error) {
-      console.error('Error fetching leaderboards:', error);
+      console.error('❌ Error fetching leaderboards:', error);
     }
   };
 
@@ -351,6 +509,7 @@ const CompleteLandingPage = () => {
       // Check cache first
       const cachedData = getCachedData('bgmi-scoreboards');
       if (cachedData) {
+        console.log('📦 Using cached BGMI scoreboards:', cachedData.scoreboards.length);
         setBgmiScoreboards(cachedData.scoreboards);
         if (cachedData.latestScoreboard) {
           setLatestBgmiScoreboard(cachedData.latestScoreboard);
@@ -359,9 +518,11 @@ const CompleteLandingPage = () => {
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
+      const url = `${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`;
+      console.log('🔍 Fetching BGMI scoreboards from:', url);
       
       // Direct fetch without API service to avoid rate limiting
-      const response = await fetch(`${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -369,13 +530,17 @@ const CompleteLandingPage = () => {
         }
       });
       
+      console.log('📥 BGMI scoreboards response status:', response.status);
+      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log('📊 BGMI scoreboards API response:', data);
       
       if (data.success && data.data.scoreboards) {
+        console.log('✅ Found BGMI scoreboards:', data.data.scoreboards.length);
         setBgmiScoreboards(data.data.scoreboards);
         
         // Set the latest one for backward compatibility
@@ -394,11 +559,14 @@ const CompleteLandingPage = () => {
           latestScoreboard
         });
       } else {
+        console.log('⚠️ No BGMI scoreboards found in response');
         setBgmiScoreboards([]);
+        setCachedData('bgmi-scoreboards', { scoreboards: [], latestScoreboard: null });
       }
     } catch (error) {
       console.error('❌ Error fetching BGMI scoreboards:', error);
       setBgmiScoreboards([]);
+      setCachedData('bgmi-scoreboards', { scoreboards: [], latestScoreboard: null });
     }
   };
 
@@ -407,6 +575,7 @@ const CompleteLandingPage = () => {
       // Check cache first
       const cachedData = getCachedData('platform-stats');
       if (cachedData) {
+        console.log('📦 Using cached platform stats');
         setStats(cachedData);
         return;
       }
@@ -429,28 +598,35 @@ const CompleteLandingPage = () => {
           totalMatches: statsData.data.totalTransactions || '0'
         };
         
+        console.log('✅ Platform stats fetched:', newStats);
         setStats(newStats);
         setCachedData('platform-stats', newStats);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ Error fetching stats:', error);
     }
   };
 
-  const fetchServers = async () => {
+  const fetchServers = async (forceRefresh = false) => {
     try {
-      // Check cache first
-      const cachedData = getCachedData('cs2-servers');
-      if (cachedData) {
-        setServers(cachedData);
-        return;
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedData = getCachedData('cs2-servers');
+        if (cachedData) {
+          console.log('📦 Using cached CS2 servers data');
+          setServers(cachedData);
+          return;
+        }
+      } else {
+        console.log('🔄 Force refreshing CS2 servers (bypassing cache)');
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
       console.log('🔍 Fetching CS2 tournaments from:', `${API_URL}/api/tournaments?gameType=cs2&status=active`);
       
-      // Fetch CS2 tournaments instead of separate servers
-      const response = await fetch(`${API_URL}/api/tournaments?gameType=cs2&status=active`);
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = Date.now();
+      const response = await fetch(`${API_URL}/api/tournaments?gameType=cs2&status=active&t=${timestamp}`);
       const data = await response.json();
       
       console.log('📊 CS2 tournaments API response:', data);
@@ -487,11 +663,13 @@ const CompleteLandingPage = () => {
         console.log('⚠️ No tournaments found or invalid response structure');
         // Fallback to empty array if no CS2 tournaments
         setServers([]);
+        setCachedData('cs2-servers', []);
       }
     } catch (error) {
       console.error('❌ Error fetching CS2 tournaments:', error);
       // Fallback to empty array
       setServers([]);
+      setCachedData('cs2-servers', []);
     }
   };
 
@@ -500,6 +678,7 @@ const CompleteLandingPage = () => {
       // Check cache first
       const cachedData = getCachedData('testimonials');
       if (cachedData) {
+        console.log('📦 Using cached testimonials');
         setTestimonials(cachedData);
         return;
       }
@@ -509,6 +688,7 @@ const CompleteLandingPage = () => {
       const data = await response.json();
       
       if (data.success && data.data) {
+        console.log('✅ Testimonials fetched:', data.data.length);
         setTestimonials(data.data);
         setCachedData('testimonials', data.data);
       } else {
@@ -518,11 +698,12 @@ const CompleteLandingPage = () => {
           { name: 'Priya S.', gameTitle: 'BGMI Player', gameType: 'bgmi', text: 'Love the free tournaments and smooth registration process. Highly recommended!', rating: 5 },
           { name: 'Arjun M.', gameTitle: 'Pro Gamer', gameType: 'valorant', text: 'Finally a platform that takes esports seriously. Great prizes and fair play.', rating: 5 }
         ];
+        console.log('📦 Using fallback testimonials');
         setTestimonials(fallbackTestimonials);
         setCachedData('testimonials', fallbackTestimonials);
       }
     } catch (error) {
-      console.error('Error fetching testimonials:', error);
+      console.error('❌ Error fetching testimonials:', error);
       // Fallback to hardcoded testimonials
       const fallbackTestimonials = [
         { name: 'Rahul K.', gameTitle: 'CS2 Player', gameType: 'cs2', text: 'Best platform for competitive CS2 in India. Auto stats tracking is amazing!', rating: 5 },
@@ -539,6 +720,7 @@ const CompleteLandingPage = () => {
       // Check cache first
       const cachedData = getCachedData('tournaments');
       if (cachedData) {
+        console.log('📦 Using cached tournaments');
         setTournaments(cachedData);
         return;
       }
@@ -549,11 +731,12 @@ const CompleteLandingPage = () => {
       
       if (data.success) {
         const tournamentsData = data.data || [];
+        console.log('✅ Tournaments fetched:', tournamentsData.length);
         setTournaments(tournamentsData);
         setCachedData('tournaments', tournamentsData);
       }
     } catch (error) {
-      console.error('Error fetching tournaments:', error);
+      console.error('❌ Error fetching tournaments:', error);
     }
   };
 
@@ -672,12 +855,12 @@ const CompleteLandingPage = () => {
                   </Link>
                 </div>
 
-                {/* Tournament Results Gallery - Replace Table Rows */}
+                {/* Tournament Results Gallery - Show Tournament Images */}
                 <div className="space-y-3">
                   {loading ? (
                     <div className="text-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold mx-auto mb-2"></div>
-                      <p className="text-gray-400 text-sm">Loading tournament results...</p>
+                      <p className="text-gray-400 text-sm">Loading tournaments...</p>
                     </div>
                   ) : bgmiScoreboards.length > 0 ? (
                     bgmiScoreboards.map((scoreboard, idx) => (
@@ -737,90 +920,6 @@ const CompleteLandingPage = () => {
                       <div className="text-gray-400 text-4xl mb-2">🏆</div>
                       <p className="text-gray-400 text-sm">No tournament results yet</p>
                       <p className="text-xs text-gray-500 mt-1">Results will appear here after tournaments</p>
-                      
-                      {/* Debug button - temporary */}
-                      <button
-                        onClick={async () => {
-                          console.log('🔄 Manual test of BGMI scoreboards API - clearing cache first');
-                          clearCache(); // Clear cache before testing
-                          try {
-                            const API_URL = process.env.REACT_APP_API_URL || '';
-                            const testUrl = `${API_URL}/api/tournaments/bgmi/scoreboards?limit=6`;
-                            console.log('📡 Testing URL:', testUrl);
-                            
-                            // Direct fetch to avoid rate limiting
-                            const response = await fetch(testUrl, {
-                              method: 'GET',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Cache-Control': 'no-cache'
-                              }
-                            });
-                            
-                            console.log('📥 Raw API Response Status:', response.status);
-                            
-                            if (!response.ok) {
-                              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                            }
-                            
-                            const data = await response.json();
-                            console.log('📥 Response Data:', data);
-                            
-                            if (data.success && data.data.scoreboards) {
-                              console.log('✅ Found scoreboards:', data.data.scoreboards.length);
-                              console.log('🖼️ Scoreboards:', data.data.scoreboards);
-                              setBgmiScoreboards(data.data.scoreboards);
-                              
-                              // Cache the fresh data
-                              setCachedData('bgmi-scoreboards', {
-                                scoreboards: data.data.scoreboards,
-                                latestScoreboard: data.data.scoreboards.length > 0 ? {
-                                  ...data.data.scoreboards[0],
-                                  tournamentName: data.data.scoreboards[0].tournament.name
-                                } : null
-                              });
-                              
-                              alert(`✅ API Working! Found ${data.data.scoreboards.length} scoreboards. Data cached for 5 minutes.`);
-                            } else {
-                              console.log('❌ No scoreboards found');
-                              alert('❌ API working but no scoreboards found');
-                            }
-                          } catch (error) {
-                            console.error('❌ API Test Error:', error);
-                            alert(`❌ API Error: ${error.message}`);
-                          }
-                        }}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                      >
-                        🧪 Test API (Fresh)
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          clearCache(); // Clear all cache
-                          fetchBgmiScoreboards();
-                        }}
-                        className="mt-2 px-4 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                      >
-                        🔄 Refresh Results
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          const cacheInfo = {
-                            'cs2-leaderboard': getCachedData('cs2-leaderboard') !== null,
-                            'bgmi-scoreboards': getCachedData('bgmi-scoreboards') !== null,
-                            'platform-stats': getCachedData('platform-stats') !== null,
-                            'servers': getCachedData('servers') !== null,
-                            'testimonials': getCachedData('testimonials') !== null,
-                            'tournaments': getCachedData('tournaments') !== null
-                          };
-                          alert(`Cache Status:\n${JSON.stringify(cacheInfo, null, 2)}`);
-                        }}
-                        className="mt-2 ml-2 px-4 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                      >
-                        🔍 Check Cache
-                      </button>
                     </div>
                   )}
                 </div>

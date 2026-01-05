@@ -495,6 +495,21 @@ const AdminBGMIRegistrations = () => {
     setShowEditModal(true);
   };
 
+  // Callback function to update registration from modal
+  const handleUpdateRegistration = (updatedRegistration) => {
+    // Update selectedRegistration state
+    setSelectedRegistration(updatedRegistration);
+    
+    // Update the main registrations list
+    setRegistrations(prevRegistrations => 
+      prevRegistrations.map(reg => 
+        reg._id === updatedRegistration._id 
+          ? updatedRegistration
+          : reg
+      )
+    );
+  };
+
   const handleDeleteRegistration = async (registration) => {
     console.log('🗑️ Attempting to delete registration:', registration._id);
     
@@ -1044,6 +1059,9 @@ const AdminBGMIRegistrations = () => {
             getStatusBadge={getStatusBadge}
             onSetPending={handleSetPending}
             onNotVerified={handleNotVerified}
+            onUpdateRegistration={handleUpdateRegistration}
+            setSuccess={setSuccess}
+            setError={setError}
           />
         )}
 
@@ -1068,7 +1086,18 @@ const AdminBGMIRegistrations = () => {
 };
 
 // Image Verification Modal Component with WhatsApp Chat
-const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStatusBadge, onSetPending, onNotVerified }) => {
+const ImageVerificationModal = ({ 
+  registration, 
+  onClose, 
+  onStatusUpdate, 
+  getStatusBadge, 
+  onSetPending, 
+  onNotVerified,
+  onDeleteImage,
+  onUpdateRegistration,
+  setSuccess,
+  setError
+}) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
@@ -1176,24 +1205,50 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
     try {
       setDeletingImage(imageId);
       console.log('🗑️ Deleting image:', imageId);
+      console.log('🗑️ From registration:', registration._id);
       
       const response = await api.delete(`/api/whatsapp/image/${registration._id}/${imageId}`);
       console.log('🗑️ Delete response:', response.data);
       
-      if (response.data.success) {
+      if (response.data && response.data.success) {
         // Update the registration data locally
         const updatedImages = registration.verificationImages.filter(img => img._id !== imageId);
-        registration.verificationImages = updatedImages;
+        
+        // Update registration through parent callback
+        const updatedRegistration = {
+          ...registration,
+          verificationImages: updatedImages
+        };
+        
+        // Call parent function to update registration
+        if (onUpdateRegistration) {
+          onUpdateRegistration(updatedRegistration);
+        }
         
         // Show success message
-        alert(`Image deleted successfully! Remaining images: ${updatedImages.length}/8`);
+        if (setSuccess) {
+          setSuccess(`Image deleted successfully! Remaining images: ${updatedImages.length}/8`);
+          
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            setSuccess('');
+          }, 3000);
+        }
         
-        // Refresh the parent component
-        window.location.reload(); // Simple refresh for now
+        console.log('✅ Image deleted and UI updated');
+      } else {
+        throw new Error('Delete response was not successful');
       }
     } catch (error) {
       console.error('❌ Failed to delete image:', error);
-      alert('Failed to delete image. Please try again.');
+      if (setError) {
+        setError('Failed to delete image. Please try again.');
+        
+        // Clear error message after 5 seconds
+        setTimeout(() => {
+          setError('');
+        }, 5000);
+      }
     } finally {
       setDeletingImage(null);
     }
@@ -1374,9 +1429,13 @@ const ImageVerificationModal = ({ registration, onClose, onStatusUpdate, getStat
                       <div key={image._id || index} className="border border-gaming-slate rounded-lg overflow-hidden hover:border-gaming-neon/50 transition-colors relative group">
                         {/* Delete Button */}
                         <button
-                          onClick={() => handleDeleteImage(image._id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteImage(image._id);
+                          }}
                           disabled={deletingImage === image._id}
-                          className="absolute top-2 right-2 z-50 pointer-events-none w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          className="absolute top-2 right-2 z-50 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                           title="Delete Image"
                         >
                           {deletingImage === image._id ? (

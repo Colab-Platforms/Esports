@@ -190,6 +190,14 @@ const SliderLandingPage = () => {
         throw new Error(data.error?.message || 'Failed to join tournament');
       }
 
+      // Trigger cache invalidation for homepage
+      window.dispatchEvent(new CustomEvent('tournamentJoined', { 
+        detail: { tournamentId: tournament.id, tournamentName: tournament.name }
+      }));
+      
+      // Update localStorage timestamp for cache invalidation
+      localStorage.setItem('last_tournament_update', Date.now().toString());
+
       // Success - Launch CS2
       const serverIp = tournament.roomDetails?.cs2?.serverIp || data.data?.tournament?.roomDetails?.cs2?.serverIp;
       const serverPort = tournament.roomDetails?.cs2?.serverPort || data.data?.tournament?.roomDetails?.cs2?.serverPort;

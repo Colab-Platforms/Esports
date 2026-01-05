@@ -304,6 +304,14 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
       
       // Success - redirect to tournament details
       
+      // Trigger cache invalidation for homepage
+      window.dispatchEvent(new CustomEvent('tournamentJoined', { 
+        detail: { tournamentId: tournament._id, tournamentName: tournament.name }
+      }));
+      
+      // Update localStorage timestamp for cache invalidation
+      localStorage.setItem('last_tournament_update', Date.now().toString());
+      
       // Show success notification
       notificationService.showRegistrationSuccess(tournament.name);
       

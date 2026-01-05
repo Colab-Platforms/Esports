@@ -30,12 +30,10 @@ router.get('/', [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 50 })
 ], async (req, res) => {
-  // Disable caching for tournament data
+  // Enable caching for tournament data (5 minutes for better performance)
   res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    'Surrogate-Control': 'no-store'
+    'Cache-Control': 'public, max-age=300', // 5 minutes cache
+    'ETag': `tournaments-${Date.now()}`
   });
   
   try {
@@ -84,7 +82,10 @@ router.get('/', [
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // Optimize query with lean() for better performance and select only needed fields
     const tournaments = await Tournament.getFilteredTournaments(filters)
+      .select('-participants -matches -moderators -scoreboards') // Exclude heavy fields
+      .lean() // Return plain objects for better performance
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -421,11 +422,9 @@ router.post('/', auth, [
     .optional()
     .isISO8601()
     .withMessage('Invalid registration deadline format'),
-  // Rules - Optional for all
+  // Rules - Completely optional (no validation)
   body('rules')
-    .optional()
-    .isLength({ min: 10, max: 5000 })
-    .withMessage('Rules must be 10-5000 characters'),
+    .optional({ checkFalsy: true }),
   // Format - Optional for CS2
   body('format')
     .optional()
@@ -695,8 +694,17 @@ router.post('/:id/join-with-team', auth, [
       });
     }
 
+    // Debug logging for team membership
+    console.log('🔍 Team membership check:');
+    console.log('🔍 User ID:', req.user.userId);
+    console.log('🔍 Team captain:', team.captain);
+    console.log('🔍 Team members:', team.members.map(m => ({ userId: m.userId, role: m.role })));
+    console.log('🔍 Is captain?', team.captain && team.captain.toString() === req.user.userId.toString());
+    console.log('🔍 Is member?', team.isMember(req.user.userId));
+
     // Check if user is member of this team
     if (!team.isMember(req.user.userId)) {
+      console.log('❌ User is not a member of this team');
       return res.status(403).json({
         success: false,
         error: {
@@ -706,6 +714,8 @@ router.post('/:id/join-with-team', auth, [
         }
       });
     }
+
+    console.log('✅ User is a member of this team');
 
     // Check if team is for BGMI
     if (team.game !== 'bgmi') {

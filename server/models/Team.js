@@ -102,6 +102,13 @@ teamSchema.methods.isCaptain = function(userId) {
 // Method to check if user is member
 teamSchema.methods.isMember = function(userId) {
   if (!userId) return false;
+  
+  // Check if user is the captain
+  if (this.captain && this.captain.toString() === userId.toString()) {
+    return true;
+  }
+  
+  // Check if user is in members array
   return this.members.some(member => {
     if (!member.userId) return false;
     return member.userId.toString() === userId.toString();

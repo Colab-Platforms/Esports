@@ -575,6 +575,91 @@ router.get('/google/callback', (req, res, next) => {
   })(req, res, next);
 });
 
+// @route   PUT /api/auth/change-password
+// @desc    Change user password
+// @access  Private
+router.put('/change-password', auth, async (req, res) => {
+  try {
+    console.log('🔐 Password change request for user:', req.user.userId);
+    
+    const { currentPassword, newPassword } = req.body;
+
+    // Validation
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_FIELDS',
+          message: 'Current password and new password are required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Password strength validation
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'WEAK_PASSWORD',
+          message: 'New password must be at least 6 characters long',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Find user
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_CURRENT_PASSWORD',
+          message: 'Current password is incorrect',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Update password
+    user.passwordHash = newPassword; // Will be hashed by pre-save middleware
+    await user.save();
+
+    console.log('✅ Password updated successfully for user:', user.username);
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Password change error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'PASSWORD_CHANGE_FAILED',
+        message: 'Failed to update password. Please try again.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/auth/steam
 // @desc    Steam OAuth login
 // @access  Public

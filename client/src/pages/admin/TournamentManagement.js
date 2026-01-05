@@ -136,6 +136,44 @@ const TournamentManagement = () => {
     try {
       console.log('📤 Submitting tournament data:', data);
       
+      // Parse manual date inputs for non-CS2 tournaments
+      if (data.gameType !== 'cs2') {
+        // Convert manual date strings to ISO format
+        if (data.startDate && typeof data.startDate === 'string') {
+          try {
+            // Try to parse various date formats
+            const parsedDate = new Date(data.startDate);
+            if (!isNaN(parsedDate.getTime())) {
+              data.startDate = parsedDate.toISOString();
+            }
+          } catch (e) {
+            console.warn('Could not parse start date:', data.startDate);
+          }
+        }
+        
+        if (data.endDate && typeof data.endDate === 'string') {
+          try {
+            const parsedDate = new Date(data.endDate);
+            if (!isNaN(parsedDate.getTime())) {
+              data.endDate = parsedDate.toISOString();
+            }
+          } catch (e) {
+            console.warn('Could not parse end date:', data.endDate);
+          }
+        }
+        
+        if (data.registrationDeadline && typeof data.registrationDeadline === 'string') {
+          try {
+            const parsedDate = new Date(data.registrationDeadline);
+            if (!isNaN(parsedDate.getTime())) {
+              data.registrationDeadline = parsedDate.toISOString();
+            }
+          } catch (e) {
+            console.warn('Could not parse registration deadline:', data.registrationDeadline);
+          }
+        }
+      }
+      
       // CS2 specific handling
       if (data.gameType === 'cs2') {
         // Set default values for CS2 tournaments
@@ -206,9 +244,9 @@ const TournamentManagement = () => {
       entryFee: tournament.entryFee || 0,
       prizePool: tournament.prizePool || 0,
       maxParticipants: tournament.maxParticipants || 100,
-      startDate: tournament.startDate ? new Date(tournament.startDate).toISOString().slice(0, 16) : '',
-      endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16) : '',
-      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toISOString().slice(0, 16) : '',
+      startDate: tournament.startDate ? new Date(tournament.startDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
+      endDate: tournament.endDate ? new Date(tournament.endDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
+      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toLocaleString('sv-SE').replace(' ', ' ') : '',
       rules: tournament.rules || '',
       status: tournament.status || 'upcoming',
       // CS2 server details
@@ -566,32 +604,36 @@ const TournamentManagement = () => {
 
                 {/* Dates - Hidden for CS2 */}
                 {selectedGameType !== 'cs2' && (
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
                         <FiCalendar className="mr-1" /> Start Date *
                       </label>
                       <input
-                        type="datetime-local"
+                        type="text"
                         {...register('startDate', { required: selectedGameType !== 'cs2' ? 'Start date is required' : false })}
                         className="input-gaming w-full"
+                        placeholder="e.g., 2025-01-15 18:00"
                       />
                       {errors.startDate && (
                         <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
                       )}
+                      <p className="text-xs text-blue-400 mt-1">Format: YYYY-MM-DD HH:MM</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
                         <FiCalendar className="mr-1" /> End Date *
                       </label>
                       <input
-                        type="datetime-local"
+                        type="text"
                         {...register('endDate', { required: selectedGameType !== 'cs2' ? 'End date is required' : false })}
                         className="input-gaming w-full"
+                        placeholder="e.g., 2025-01-16 20:00"
                       />
                       {errors.endDate && (
                         <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
                       )}
+                      <p className="text-xs text-blue-400 mt-1">Format: YYYY-MM-DD HH:MM</p>
                     </div>
                     {/* Registration Deadline */}
                     <div>
@@ -599,15 +641,16 @@ const TournamentManagement = () => {
                         <FiClock className="mr-1" /> Registration Deadline *
                       </label>
                       <input
-                        type="datetime-local"
+                        type="text"
                         {...register('registrationDeadline', { required: selectedGameType !== 'cs2' ? 'Registration deadline is required' : false })}
                         className="input-gaming w-full"
+                        placeholder="e.g., 2025-01-15 12:00"
                       />
                       {errors.registrationDeadline && (
                         <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
                       )}
                       <p className="text-xs text-blue-400 mt-1">
-                        ⚠️ Must be before or equal to start date
+                        Format: YYYY-MM-DD HH:MM
                       </p>
                     </div>
                   </div>
@@ -800,16 +843,14 @@ const TournamentManagement = () => {
                     Rules (Optional)
                   </label>
                   <textarea
-                    {...register('rules', { 
-                      maxLength: { value: 5000, message: 'Rules cannot exceed 5000 characters' }
-                    })}
+                    {...register('rules')}
                     rows="4"
                     className="input-gaming w-full"
-                    placeholder="Tournament rules and regulations (10-5000 characters)"
+                    placeholder="Tournament rules and regulations (completely optional)"
                   />
-                  {errors.rules && (
-                    <p className="text-red-400 text-xs mt-1">{errors.rules.message}</p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty to use default rules, or add custom rules
+                  </p>
                 </div>
 
                 {/* Submit Buttons */}
