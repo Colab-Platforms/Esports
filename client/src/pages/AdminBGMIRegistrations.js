@@ -1105,6 +1105,34 @@ const ImageVerificationModal = ({
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingChat, setLoadingChat] = useState(true);
   const [deletingImage, setDeletingImage] = useState(null);
+  const [loadingImages, setLoadingImages] = useState(false);
+
+  // Function to refresh registration data
+  const refreshRegistrationData = async () => {
+    try {
+      setLoadingImages(true);
+      console.log('🔄 Refreshing registration data...');
+      
+      // Fetch updated registration data
+      const response = await api.get(`/api/bgmi-registration/admin/registrations/${registration._id}`);
+      
+      if (response.success && response.data) {
+        const updatedRegistration = response.data.registration || response.data;
+        console.log('✅ Registration data refreshed');
+        
+        // Update the registration through parent callback
+        if (onUpdateRegistration) {
+          onUpdateRegistration(updatedRegistration);
+        }
+      } else {
+        console.error('❌ Failed to refresh registration data');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing registration data:', error);
+    } finally {
+      setLoadingImages(false);
+    }
+  };
 
   // Debug logging
   console.log('🔍 Modal rendered with registration:', registration);
@@ -1381,47 +1409,61 @@ const ImageVerificationModal = ({
         <div className="flex flex-col xl:flex-row flex-1 overflow-hidden">
           {/* Left Side - Images & Team Info */}
           <div className="w-full xl:w-1/2 xl:border-r border-gaming-slate flex flex-col overflow-hidden">
-            {/* Team Info Header - Scrollable */}
-            <div className="bg-gaming-dark border-b border-gaming-slate p-2 md:p-3">
-              <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-2 md:p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm md:text-base font-bold text-white truncate">Team: {registration.teamName}</h3>
+            {/* Team Info Header - Compact */}
+            <div className="bg-gaming-dark border-b border-gaming-slate p-2">
+              <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-sm font-bold text-white truncate">Team: {registration.teamName}</h3>
                   <div className="ml-2">{getStatusBadge(registration)}</div>
                 </div>
                 
-                {/* Team Members - iPad Optimized Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 md:gap-2">
+                {/* Team Members - Compact Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
                   {/* Team Leader */}
-                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-1.5 md:p-2">
+                  <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-1">
                     <div className="text-gaming-neon font-medium text-xs">👑 Leader</div>
-                    <div className="text-white text-xs md:text-sm font-medium truncate">{registration.teamLeader.name}</div>
+                    <div className="text-white text-xs font-medium truncate">{registration.teamLeader.name}</div>
                     <div className="text-xs text-gray-400 truncate">{registration.teamLeader.bgmiId}</div>
                   </div>
                   
                   {/* Team Members */}
                   {registration.teamMembers.map((member, index) => (
-                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-1.5 md:p-2">
+                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-1">
                       <div className="text-gray-300 font-medium text-xs">👤 M{index + 1}</div>
-                      <div className="text-white text-xs md:text-sm font-medium truncate">{member.name}</div>
+                      <div className="text-white text-xs font-medium truncate">{member.name}</div>
                       <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
                     </div>
                   ))}
                 </div>
                 
-                <div className="mt-2 text-xs text-gray-400 flex items-center justify-between">
+                <div className="mt-1 text-xs text-gray-400 flex items-center justify-between">
                   <span>📱 {registration.whatsappNumber}</span>
                   <span>📅 {new Date(registration.registeredAt).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
 
-            {/* Images Section - Scrollable */}
+            {/* Images Section - Scrollable with Refresh */}
             <div className="flex-1 p-2 md:p-3 overflow-y-auto">
               <div className="bg-gaming-slate/20 border border-gaming-slate rounded-lg p-2 md:p-3">
-                <h3 className="text-sm md:text-base font-bold text-white mb-2 md:mb-3 flex items-center justify-between sticky top-0 bg-gaming-slate/20 z-50 pointer-events-none pb-2">
-                  <span>Images ({registration.verificationImages?.length || 0}/8)</span>
-                  <span className="text-xs text-gray-400">📱 WhatsApp</span>
-                </h3>
+                <div className="flex items-center justify-between mb-2 md:mb-3 sticky top-0 bg-gaming-slate/20 z-50 pb-2">
+                  <h3 className="text-sm md:text-base font-bold text-white flex items-center">
+                    <span>Images ({registration.verificationImages?.length || 0}/8)</span>
+                    <span className="text-xs text-gray-400 ml-2">📱 WhatsApp</span>
+                  </h3>
+                  
+                  {/* Refresh Images Button */}
+                  <button
+                    onClick={refreshRegistrationData}
+                    disabled={loadingImages}
+                    className="p-2 bg-gaming-slate hover:bg-gaming-charcoal rounded-lg transition-colors disabled:opacity-50"
+                    title="Refresh Images"
+                  >
+                    <svg className={`w-4 h-4 text-white ${loadingImages ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
                 
                 {registration.verificationImages && registration.verificationImages.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 md:gap-3">
@@ -1488,25 +1530,25 @@ const ImageVerificationModal = ({
               </div>
             </div>
 
-            {/* Action Buttons Footer - Scrollable */}
-            <div className="bg-gaming-dark border-t border-gaming-slate p-2 md:p-3">
-              <div className="space-y-2 md:space-y-3">
+            {/* Action Buttons Footer - Compact */}
+            <div className="bg-gaming-dark border-t border-gaming-slate p-2">
+              <div className="space-y-2">
                 {registration.status === 'pending' && (
                   <>
-                    <div className="text-center p-2 md:p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                      <div className="text-yellow-400 font-medium text-sm md:text-base">⏳ Waiting for images</div>
-                      <div className="text-xs md:text-sm text-gray-400 mt-1">User will send verification images via WhatsApp</div>
+                    <div className="text-center p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                      <div className="text-yellow-400 font-medium text-sm">⏳ Waiting for images</div>
+                      <div className="text-xs text-gray-400 mt-1">User will send verification images via WhatsApp</div>
                     </div>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={handleApprove}
-                        className="flex-1 px-3 md:px-4 py-2 bg-green-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-green-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                       >
                         ✅ Verify Now
                       </button>
                       <button
                         onClick={() => onNotVerified(registration)}
-                        className="flex-1 px-3 md:px-4 py-2 bg-red-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-red-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
                       >
                         ❌ Not Verified
                       </button>
@@ -1516,30 +1558,30 @@ const ImageVerificationModal = ({
                 
                 {registration.status === 'images_uploaded' && (
                   <>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={handleApprove}
-                        className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-green-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-green-700 transition-colors"
+                        className="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Approve
                       </button>
                       <button
                         onClick={() => setShowRejectForm(true)}
-                        className="flex-1 px-3 md:px-6 py-2 md:py-3 bg-red-600 text-white text-sm md:text-base font-bold rounded-lg hover:bg-red-700 transition-colors"
+                        className="flex-1 px-3 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Reject
                       </button>
                     </div>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 md:space-x-3">
+                    <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                       <button
                         onClick={() => onSetPending(registration)}
-                        className="flex-1 px-3 md:px-4 py-2 bg-yellow-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                       >
                         Pending
                       </button>
                       <button
                         onClick={() => onNotVerified(registration)}
-                        className="flex-1 px-3 md:px-4 py-2 bg-orange-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors"
                       >
                         ❌ Not Verified
                       </button>
@@ -1549,20 +1591,20 @@ const ImageVerificationModal = ({
                 
                 {registration.status === 'verified' && (
                   <>
-                    <div className="text-center p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <div className="text-green-400 font-medium">✅ Registration Approved</div>
-                      <div className="text-sm text-gray-400 mt-1">WhatsApp verification message sent</div>
+                    <div className="text-center p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <div className="text-green-400 font-medium text-sm">✅ Registration Approved</div>
+                      <div className="text-xs text-gray-400 mt-1">WhatsApp verification message sent</div>
                     </div>
-                    <div className="flex space-x-3">
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => onSetPending(registration)}
-                        className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                       >
                         ⏳ Set Pending
                       </button>
                       <button
                         onClick={() => onNotVerified(registration)}
-                        className="flex-1 px-4 py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors"
                       >
                         ❌ Not Verified
                       </button>
@@ -1572,22 +1614,22 @@ const ImageVerificationModal = ({
                 
                 {registration.status === 'rejected' && (
                   <>
-                    <div className="text-center p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                      <div className="text-red-400 font-medium">
+                    <div className="text-center p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <div className="text-red-400 font-medium text-sm">
                         {registration.rejectionReason?.startsWith('Not Verified') ? '❌ Not Verified' : '❌ Registration Rejected'}
                       </div>
-                      <div className="text-sm text-gray-400 mt-1">Reason: {registration.rejectionReason}</div>
+                      <div className="text-xs text-gray-400 mt-1">Reason: {registration.rejectionReason}</div>
                     </div>
-                    <div className="flex space-x-3">
+                    <div className="flex space-x-2">
                       <button
                         onClick={handleApprove}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                       >
                         ✅ Verify Now
                       </button>
                       <button
                         onClick={() => onSetPending(registration)}
-                        className="flex-1 px-4 py-2 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                        className="flex-1 px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
                       >
                         ⏳ Set Pending
                       </button>

@@ -18,6 +18,8 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import OAuthSuccess from './pages/auth/OAuthSuccess';
 import OAuthError from './pages/auth/OAuthError';
 import DashboardPage from './pages/DashboardPage';
@@ -235,6 +237,43 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <RegisterPage />
+                  </motion.div>
+                )
+              } 
+            />
+            
+            {/* Forgot Password Routes */}
+            <Route 
+              path="/forgot-password" 
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/profile" replace />
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ForgotPasswordPage />
+                  </motion.div>
+                )
+              } 
+            />
+            
+            <Route 
+              path="/reset-password/:token" 
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/profile" replace />
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ResetPasswordPage />
                   </motion.div>
                 )
               } 

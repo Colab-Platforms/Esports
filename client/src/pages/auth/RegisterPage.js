@@ -61,8 +61,8 @@ const RegisterPage = () => {
       return false;
     }
 
-    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      toast.error('Username can only contain letters, numbers, and underscores');
+    if (!/^[a-zA-Z0-9_ ]+$/.test(formData.username)) {
+      toast.error('Username can only contain letters, numbers, spaces, and underscores');
       return false;
     }
 
@@ -349,7 +349,7 @@ const RegisterPage = () => {
           </div>
 
           {/* OAuth Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -388,6 +388,8 @@ const RegisterPage = () => {
               <span className="ml-2">Google</span>
             </motion.button>
 
+            {/* Steam login hidden for now */}
+            {/* 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -400,6 +402,7 @@ const RegisterPage = () => {
               </svg>
               <span className="ml-2">Steam</span>
             </motion.button>
+            */}
           </div>
 
           {/* Sign In Link */}

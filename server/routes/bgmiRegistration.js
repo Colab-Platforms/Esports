@@ -548,6 +548,65 @@ router.get('/admin/registrations', auth, [
   }
 });
 
+// @route   GET /api/bgmi-registration/admin/registrations/:registrationId
+// @desc    Get single BGMI registration for admin dashboard
+// @access  Private (Admin)
+router.get('/admin/registrations/:registrationId', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { registrationId } = req.params;
+
+    // Get single registration
+    const registration = await TournamentRegistration.findById(registrationId)
+      .populate('tournamentId', 'name gameType mode')
+      .populate('userId', 'username email')
+      .populate('verifiedBy', 'username');
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REGISTRATION_NOT_FOUND',
+          message: 'Registration not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        registration
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Get single registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_REGISTRATION_FAILED',
+        message: 'Failed to fetch registration',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   PUT /api/bgmi-registration/admin/:registrationId/status
 // @desc    Update registration status (Admin only)
 // @access  Private (Admin)

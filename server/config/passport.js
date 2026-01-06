@@ -70,6 +70,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
         },
         isEmailVerified: true, // Google emails are verified
         authProvider: 'google'
+        // Don't set phone field for OAuth users - let it be undefined
       });
       
       await newUser.save();
@@ -121,6 +122,7 @@ passport.use(new SteamStrategy({
         realName: profile._json.realname
       },
       authProvider: 'steam'
+      // Don't set phone field for OAuth users - let it be undefined
     });
     
     await newUser.save();

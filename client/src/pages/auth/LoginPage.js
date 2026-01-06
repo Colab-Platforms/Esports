@@ -249,7 +249,7 @@ const LoginPage = () => {
           </div>
 
           {/* OAuth Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -288,6 +288,8 @@ const LoginPage = () => {
               <span className="ml-2">Google</span>
             </motion.button>
 
+            {/* Steam login hidden for now */}
+            {/* 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -300,6 +302,7 @@ const LoginPage = () => {
               </svg>
               <span className="ml-2">Steam</span>
             </motion.button>
+            */}
           </div>
 
           {/* Sign Up Link */}
