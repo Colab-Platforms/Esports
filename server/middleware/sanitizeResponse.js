@@ -6,14 +6,9 @@ const sanitizeResponse = (req, res, next) => {
   
   // Override json method to sanitize response
   res.json = function(data) {
-    // Don't sanitize in development for debugging
-    if (process.env.NODE_ENV === 'development') {
-      return originalJson.call(this, data);
-    }
-    
-    // Sanitize response data
-    const sanitizedData = sanitizeData(data);
-    return originalJson.call(this, sanitizedData);
+    // Disable sanitization for now to fix production issues
+    // TODO: Re-enable after fixing all edge cases
+    return originalJson.call(this, data);
   };
   
   next();
@@ -40,36 +35,56 @@ const sanitizeData = (data) => {
   
   // Recursively sanitize object
   const sanitizeObject = (obj, path = '') => {
-    if (!obj || typeof obj !== 'object') {
-      return obj;
-    }
-    
-    const result = Array.isArray(obj) ? [] : {};
-    
-    for (const [key, value] of Object.entries(obj)) {
-      const currentPath = path ? `${path}.${key}` : key;
-      
-      // Check if current path matches sensitive field
-      if (sensitiveFields.some(field => currentPath.includes(field))) {
-        if (key === 'email' && typeof value === 'string') {
-          // Partially hide email: test@example.com -> t***@e***.com
-          const [username, domain] = value.split('@');
-          result[key] = `${username[0]}***@${domain[0]}***.${domain.split('.').pop()}`;
-        } else if (key === 'phone' && typeof value === 'string') {
-          // Partially hide phone: 9876543210 -> 98***43210
-          result[key] = `${value.slice(0, 2)}***${value.slice(-5)}`;
-        } else {
-          // Remove completely sensitive fields
-          result[key] = '[HIDDEN]';
-        }
-      } else if (typeof value === 'object' && value !== null) {
-        result[key] = sanitizeObject(value, currentPath);
-      } else {
-        result[key] = value;
+    try {
+      if (!obj || typeof obj !== 'object') {
+        return obj;
       }
+      
+      const result = Array.isArray(obj) ? [] : {};
+      
+      for (const [key, value] of Object.entries(obj)) {
+        const currentPath = path ? `${path}.${key}` : key;
+        
+        // Check if current path matches sensitive field
+        if (sensitiveFields.some(field => currentPath.includes(field))) {
+          if (key === 'email' && typeof value === 'string' && value) {
+            // Partially hide email: test@example.com -> t***@e***.com
+            try {
+              const parts = value.split('@');
+              if (parts.length === 2) {
+                const [username, domain] = parts;
+                result[key] = `${username[0]}***@${domain[0]}***.${domain.split('.').pop()}`;
+              } else {
+                result[key] = value; // Return as-is if not a valid email
+              }
+            } catch (err) {
+              console.error('Error sanitizing email:', err);
+              result[key] = value;
+            }
+          } else if (key === 'phone' && typeof value === 'string' && value) {
+            // Partially hide phone: 9876543210 -> 98***43210
+            try {
+              result[key] = `${value.slice(0, 2)}***${value.slice(-5)}`;
+            } catch (err) {
+              console.error('Error sanitizing phone:', err);
+              result[key] = value;
+            }
+          } else {
+            // Remove completely sensitive fields
+            result[key] = '[HIDDEN]';
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          result[key] = sanitizeObject(value, currentPath);
+        } else {
+          result[key] = value;
+        }
+      }
+      
+      return result;
+    } catch (err) {
+      console.error('Error in sanitizeObject:', err, 'obj:', obj);
+      return obj; // Return original if sanitization fails
     }
-    
-    return result;
   };
   
   return sanitizeObject(sanitized);
