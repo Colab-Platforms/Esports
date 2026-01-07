@@ -10,36 +10,6 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-// Disable console logs in production - must be done BEFORE any other requires
-const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
-if (!isDebugMode) {
-  // Override console methods globally
-  const noop = () => {};
-  global.console = {
-    log: noop,
-    error: noop,
-    warn: noop,
-    info: noop,
-    debug: noop,
-    trace: noop,
-    assert: noop,
-    clear: noop,
-    count: noop,
-    dir: noop,
-    dirxml: noop,
-    group: noop,
-    groupCollapsed: noop,
-    groupEnd: noop,
-    profile: noop,
-    profileEnd: noop,
-    table: noop,
-    time: noop,
-    timeEnd: noop,
-    timeLog: noop,
-    timeStamp: noop
-  };
-}
-
 // Seed data utility removed - use admin panel to create tournaments and games
 
 // Debug environment variables
