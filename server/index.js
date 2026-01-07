@@ -10,8 +10,9 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-// Disable console logs in production
-if (process.env.NODE_ENV === 'production') {
+// Disable console logs by default (enable only if DEBUG=true)
+const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
+if (!isDebugMode) {
   console.log = () => {};
   console.error = () => {};
   console.warn = () => {};
