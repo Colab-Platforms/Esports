@@ -90,18 +90,27 @@ const SingleTournamentPage = () => {
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-      const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}/participants`, { headers });
+      // For BGMI tournaments, use the BGMI-specific endpoint
+      let endpoint = `${API_BASE_URL}/api/tournaments/${id}/participants`;
+      
+      if (tournament?.gameType === 'bgmi') {
+        endpoint = `${API_BASE_URL}/api/bgmi-registration/tournament/${id}/teams`;
+      }
+
+      const response = await fetch(endpoint, { headers });
       const data = await response.json();
 
       if (data.success) {
-        setRegisteredTeams(data.data.participants || []);
+        // Handle both response formats
+        const teams = data.data?.teams || data.data?.participants || [];
+        setRegisteredTeams(teams);
       }
     } catch (error) {
       console.error('Error fetching teams:', error);
     } finally {
       setLoadingTeams(false);
     }
-  }, [id]);
+  }, [id, tournament?.gameType]);
 
   // Check for Steam connection success and refresh user data
   useEffect(() => {
@@ -591,7 +600,8 @@ const SingleTournamentPage = () => {
   const tabs = [
     { id: 'general', label: 'GENERAL', icon: FiInfo },
     { id: 'teams', label: 'TEAMS', icon: FiUsers },
-    { id: 'chat', label: 'CHAT', icon: FiMessageCircle },
+    // Chat tab commented out for future implementation
+    // { id: 'chat', label: 'CHAT', icon: FiMessageCircle },
     // Show results tab for completed tournaments, regardless of scoreboards loaded yet
     ...(tournament?.status === 'completed' 
       ? [{ id: 'results', label: 'RESULTS', icon: FiAward }] 
@@ -1063,60 +1073,54 @@ const SingleTournamentPage = () => {
                 ))}
               </div>
             ) : registeredTeams.length > 0 ? (
-              /* BGMI/Other: Show registered teams */
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {registeredTeams.map((team, index) => (
-                  <div key={team._id || index} className="bg-gaming-card border border-gaming-border rounded-lg p-4 hover:border-gaming-gold transition-colors">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-gaming-neon to-gaming-neon-blue rounded-full flex items-center justify-center text-white font-bold">
-                        {team.teamName ? team.teamName.charAt(0).toUpperCase() : team.playerName?.charAt(0).toUpperCase() || 'T'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-white font-semibold">
-                          {team.teamName || `Team ${index + 1}`}
-                        </div>
-                        <div className="text-gray-400 text-sm">
-                          {tournament?.mode === 'solo' ? 'Solo Player' : 'Team'}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gaming-gold font-semibold">
-                        #{index + 1}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">Player:</span>
-                        <span className="text-white font-medium">{team.playerName}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">Game ID:</span>
-                        <span className="text-gaming-neon font-mono text-xs">
-                          {team.gameId || 'Hidden'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-400">{tournament?.gameType === 'cs2' ? 'Joined:' : 'Registered:'}</span>
-                        <span className="text-gray-300 text-xs">
+              /* BGMI/Other: Show registered teams in table format */
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gaming-charcoal/50 border-b border-gaming-border">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Team Name</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Leader</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Members</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Group</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Status</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Registered</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gaming-border">
+                    {registeredTeams.map((team, index) => (
+                      <tr key={team._id || index} className="hover:bg-gaming-slate/20 transition-colors">
+                        <td className="px-4 py-3 text-sm text-white font-medium">{team.teamName || `Team ${index + 1}`}</td>
+                        <td className="px-4 py-3 text-sm text-white">{team.teamLeader?.name || team.playerName || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          <div className="flex flex-col space-y-1">
+                            <span>Leader: {team.teamLeader?.bgmiId || team.gameId || 'N/A'}</span>
+                            {team.teamMembers?.map((member, idx) => (
+                              <span key={idx}>P{idx + 1}: {member.bgmiId || 'N/A'}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="px-2 py-1 bg-gaming-neon/20 text-gaming-neon rounded text-xs font-medium">
+                            {team.group || 'Not Assigned'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            team.status === 'verified' ? 'bg-green-500/20 text-green-400' :
+                            team.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                            team.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {team.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-400">
                           {team.registeredAt ? new Date(team.registeredAt).toLocaleDateString() : 'Recently'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Team Status */}
-                    <div className="mt-3 pt-3 border-t border-gaming-border">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-green-400 flex items-center">
-                          <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-                          Confirmed
-                        </span>
-                        {team.userId === user?.id && (
-                          <span className="text-xs text-gaming-gold">Your Team</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="text-center py-12">

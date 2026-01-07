@@ -1475,5 +1475,43 @@ router.get('/check-user/:phone', async (req, res) => {
   }
 });
 
+// @route   GET /api/bgmi-registration/tournament/:tournamentId/teams
+// @desc    Get all registered teams for a tournament (public view)
+// @access  Public
+router.get('/tournament/:tournamentId/teams', async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+
+    // Fetch all verified registrations for the tournament
+    const teams = await TournamentRegistration.find({
+      tournamentId,
+      status: 'verified'
+    })
+      .populate('tournamentId', 'name gameType mode')
+      .populate('userId', 'username email')
+      .sort({ registeredAt: -1 });
+
+    res.json({
+      success: true,
+      data: {
+        teams,
+        total: teams.length
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Get tournament teams error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_TEAMS_FAILED',
+        message: 'Failed to fetch tournament teams',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 console.log('✅ BGMI Registration routes loaded successfully');
 module.exports = router;
