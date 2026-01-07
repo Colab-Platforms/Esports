@@ -10,6 +10,15 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
+// Disable console logs in production
+if (process.env.NODE_ENV === 'production') {
+  console.log = () => {};
+  console.error = () => {};
+  console.warn = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+}
+
 // Seed data utility removed - use admin panel to create tournaments and games
 
 // Debug environment variables
