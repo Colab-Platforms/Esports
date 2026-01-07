@@ -25,6 +25,10 @@ const TournamentManagement = () => {
       entryFee: 0,
       prizePool: 0,
       maxParticipants: 100,
+      grouping: {
+        enabled: false,
+        groupSize: 20
+      },
       startDate: '',
       endDate: '',
       registrationDeadline: '',
@@ -244,6 +248,10 @@ const TournamentManagement = () => {
       entryFee: tournament.entryFee || 0,
       prizePool: tournament.prizePool || 0,
       maxParticipants: tournament.maxParticipants || 100,
+      grouping: {
+        enabled: tournament.grouping?.enabled || false,
+        groupSize: tournament.grouping?.groupSize || 20
+      },
       startDate: tournament.startDate ? new Date(tournament.startDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
       endDate: tournament.endDate ? new Date(tournament.endDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
       registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toLocaleString('sv-SE').replace(' ', ' ') : '',
@@ -601,6 +609,45 @@ const TournamentManagement = () => {
                     <p className="text-red-400 text-xs mt-1">{errors.maxParticipants.message}</p>
                   )}
                 </div>
+
+                {/* Grouping Configuration - Only for BGMI */}
+                {selectedGameType === 'bgmi' && (
+                  <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('grouping.enabled')}
+                        id="grouping-enabled"
+                        className="w-4 h-4 rounded border-gray-600 text-gaming-neon focus:ring-gaming-neon"
+                      />
+                      <label htmlFor="grouping-enabled" className="text-sm font-medium text-gray-300">
+                        Enable Grouping
+                      </label>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-2">
+                        Group Size (Teams per Group)
+                      </label>
+                      <input
+                        type="number"
+                        {...register('grouping.groupSize', {
+                          valueAsNumber: true,
+                          min: { value: 5, message: 'Group size must be at least 5' },
+                          max: { value: 100, message: 'Group size cannot exceed 100' }
+                        })}
+                        className="input-gaming w-full"
+                        placeholder="20"
+                      />
+                      {errors.grouping?.groupSize && (
+                        <p className="text-red-400 text-xs mt-1">{errors.grouping.groupSize.message}</p>
+                      )}
+                      <p className="text-xs text-blue-400 mt-1">
+                        Teams will be automatically divided into groups (G1, G2, G3, etc.) based on registration order
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Dates - Hidden for CS2 */}
                 {selectedGameType !== 'cs2' && (

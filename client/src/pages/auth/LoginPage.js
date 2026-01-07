@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import secureRequest from '../../utils/secureRequest';
 
 import { 
   loginStart, 
@@ -59,19 +60,11 @@ const LoginPage = () => {
     dispatch(loginStart());
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          rememberMe
-        }),
+      // Use secure request utility to hide sensitive data
+      const data = await secureRequest.post('/api/auth/login', {
+        ...formData,
+        rememberMe
       });
-
-      const data = await response.json();
 
       if (data.success) {
         dispatch(loginSuccess(data.data));
@@ -115,9 +108,22 @@ const LoginPage = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="mx-auto w-16 h-16 bg-gradient-neon rounded-2xl flex items-center justify-center mb-6"
+            className="mx-auto flex flex-col items-center space-y-3 mb-6"
           >
-            <span className="text-gaming-dark font-bold text-2xl">C</span>
+            {/* Logo */}
+            <div className="w-16 h-16 flex items-center justify-center">
+              <img 
+                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                alt="Infinity Logo"
+                className="w-full h-full object-contain"
+                style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+              <span className="hidden text-yellow-400 font-bold text-2xl">∞</span>
+            </div>
           </motion.div>
           <h2 className="text-3xl font-gaming font-bold text-white mb-2">
             Welcome Back
@@ -238,7 +244,8 @@ const LoginPage = () => {
             </motion.button>
           </div>
 
-          {/* OAuth Divider */}
+          {/* OAuth Divider - Temporarily commented out */}
+          {/* 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gaming-slate"></div>
@@ -247,8 +254,10 @@ const LoginPage = () => {
               <span className="px-2 bg-gaming-dark text-gray-400">Or continue with</span>
             </div>
           </div>
+          */}
 
-          {/* OAuth Buttons */}
+          {/* OAuth Buttons - Temporarily commented out for proper integration tomorrow */}
+          {/* 
           <div className="grid grid-cols-1 gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -288,8 +297,6 @@ const LoginPage = () => {
               <span className="ml-2">Google</span>
             </motion.button>
 
-            {/* Steam login hidden for now */}
-            {/* 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -302,8 +309,8 @@ const LoginPage = () => {
               </svg>
               <span className="ml-2">Steam</span>
             </motion.button>
-            */}
           </div>
+          */}
 
           {/* Sign Up Link */}
           <div className="text-center">
@@ -313,7 +320,7 @@ const LoginPage = () => {
                 to="/register"
                 className="text-gaming-neon hover:text-gaming-neon-blue font-medium transition-colors duration-200"
               >
-                Sign up now
+                Sign up
               </Link>
             </p>
           </div>

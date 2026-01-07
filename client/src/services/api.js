@@ -43,7 +43,17 @@ class ApiService {
 
       try {
         const response = await fetch(url, config);
-        const data = await response.json();
+        
+        // Try to parse as JSON
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          // If JSON parsing fails, it might be HTML (404 page)
+          const text = await response.text();
+          console.error('❌ Failed to parse response as JSON:', text.substring(0, 200));
+          throw new Error(`Invalid response format. Status: ${response.status}`);
+        }
         
         // Handle token expiry
         if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {

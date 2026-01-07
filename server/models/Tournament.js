@@ -76,6 +76,19 @@ const tournamentSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  // Grouping configuration for BGMI tournaments
+  grouping: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    groupSize: {
+      type: Number,
+      default: 20,
+      min: [5, 'Group size must be at least 5'],
+      max: [100, 'Group size cannot exceed 100']
+    }
+  },
   startDate: {
     type: Date,
     required: false // Optional for CS2

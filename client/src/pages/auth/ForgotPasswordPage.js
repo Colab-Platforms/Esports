@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiMail, FiArrowLeft } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import secureRequest from '../../utils/secureRequest';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
@@ -25,16 +26,8 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
+      // Use secure request utility
+      const data = await secureRequest.post('/api/auth/forgot-password', { email });
 
       if (data.success) {
         setEmailSent(true);

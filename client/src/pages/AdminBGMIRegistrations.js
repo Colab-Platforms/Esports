@@ -16,13 +16,16 @@ const AdminBGMIRegistrations = () => {
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
     status: 'all',
     tournamentId: '',
     teamName: '',
-    playerName: ''
+    playerName: '',
+    group: ''
   });
 
   const [tournaments, setTournaments] = useState([]);
@@ -58,9 +61,127 @@ const AdminBGMIRegistrations = () => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName]); // Only specific filter values
+  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName, filters.group]); // Only specific filter values
 
 
+
+  // CSV Download function
+  const downloadCSV = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all registrations with current filters (use multiple requests if needed)
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', '1');
+      queryParams.append('limit', '100'); // Use max allowed limit
+      
+      if (filters.status !== 'all') {
+        queryParams.append('status', filters.status);
+      }
+      if (filters.tournamentId) {
+        queryParams.append('tournamentId', filters.tournamentId);
+      }
+      if (filters.teamName) {
+        queryParams.append('teamName', filters.teamName);
+      }
+      if (filters.playerName) {
+        queryParams.append('playerName', filters.playerName);
+      }
+      if (filters.group) {
+        queryParams.append('group', filters.group);
+      }
+
+      // Fetch all pages to get complete data
+      let allRegistrations = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      while (hasMorePages) {
+        const pageParams = new URLSearchParams(queryParams);
+        pageParams.set('page', currentPage.toString());
+        
+        const response = await api.get(`/api/bgmi-registration/admin/registrations?${pageParams}`);
+        
+        let pageRegistrations = [];
+        if (response && response.success) {
+          pageRegistrations = response.data?.registrations || [];
+        } else if (response && response.registrations) {
+          pageRegistrations = response.registrations || [];
+        }
+
+        if (pageRegistrations.length === 0) {
+          hasMorePages = false;
+        } else {
+          allRegistrations = [...allRegistrations, ...pageRegistrations];
+          currentPage++;
+          
+          // If we got less than the limit, we're on the last page
+          if (pageRegistrations.length < 100) {
+            hasMorePages = false;
+          }
+        }
+      }
+
+      if (allRegistrations.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      // Create CSV content with only required columns
+      const headers = [
+        'Team Name',
+        'Leader Name', 
+        'Leader Email',
+        'Leader Phone',
+        'Player 1 IGN',
+        'Player 2 IGN', 
+        'Player 3 IGN',
+        'Status'
+      ];
+
+      const csvContent = [
+        headers.join(','),
+        ...allRegistrations.map(reg => [
+          `"${reg.teamName || ''}"`,
+          `"${reg.teamLeader?.name || ''}"`,
+          `"${reg.userId?.email || ''}"`,
+          `"${reg.teamLeader?.phone || ''}"`,
+          `"${reg.teamMembers?.[0]?.name || ''}"`,
+          `"${reg.teamMembers?.[1]?.name || ''}"`,
+          `"${reg.teamMembers?.[2]?.name || ''}"`,
+          `"${reg.status || ''}"`
+        ].join(','))
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      // Generate filename with current date and filters
+      const date = new Date().toISOString().split('T')[0];
+      const statusFilter = filters.status !== 'all' ? `_${filters.status}` : '';
+      const tournamentFilter = filters.tournamentId ? `_${tournaments.find(t => t._id === filters.tournamentId)?.name || 'tournament'}` : '';
+      const filename = `bgmi_registrations_${date}${statusFilter}${tournamentFilter}.csv`;
+      
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setSuccess(`✅ CSV exported successfully! Downloaded ${allRegistrations.length} registrations.`);
+      setTimeout(() => setSuccess(''), 3000);
+      
+    } catch (error) {
+      console.error('❌ CSV export error:', error);
+      setError('Failed to export CSV. Please try again.');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchTournaments = async () => {
     try {
@@ -125,6 +246,9 @@ const AdminBGMIRegistrations = () => {
       }
       if (filters.playerName) {
         queryParams.append('playerName', filters.playerName);
+      }
+      if (filters.group) {
+        queryParams.append('group', filters.group);
       }
 
       const apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
@@ -431,6 +555,49 @@ const AdminBGMIRegistrations = () => {
     }
   };
 
+  // Function to assign groups to existing registrations
+  const handleAssignGroups = async () => {
+    if (!filters.tournamentId) {
+      setError('Please select a tournament first');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'This will assign groups to all registrations in this tournament based on registration order.\n\n' +
+      'Teams will be divided into groups (G1, G2, G3, etc.) according to the group size setting.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      const response = await api.post(`/api/bgmi-registration/admin/assign-groups/${filters.tournamentId}`);
+      
+      if (response && response.success) {
+        setSuccess(`✅ ${response.message}`);
+        // Clear cache and refresh data
+        setCache(new Map());
+        setLastFetch(null);
+        await fetchRegistrations(pagination.page, false);
+        setTimeout(() => setSuccess(''), 5000);
+      } else {
+        setError('Failed to assign groups');
+      }
+    } catch (error) {
+      console.error('❌ Assign groups error:', error);
+      setError(error.response?.data?.error?.message || 'Failed to assign groups');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to open image preview modal
+  const handleImagePreview = (images, index) => {
+    setCurrentImageIndex(index);
+    setShowImagePreview(true);
+  };
+
   // Direct approve function (for table buttons) - now works for all statuses
   const handleDirectApprove = async (registration) => {
     const statusText = registration.status === 'verified' ? 're-verify' : 'verify';
@@ -459,17 +626,23 @@ const AdminBGMIRegistrations = () => {
 
   // Set registration to pending (for incomplete images or follow-up needed)
   const handleSetPending = async (registration) => {
-    const reason = window.prompt(`Set "${registration.teamName}" to pending status?\n\nEnter reason (optional):`);
+    const isAlreadyPending = registration.status === 'pending';
+    const actionText = isAlreadyPending ? 'update pending status' : 'set to pending';
+    const promptText = isAlreadyPending 
+      ? `Update pending status for "${registration.teamName}"?\n\nThis will remind the user to send images and update the timestamp.\n\nEnter reason (optional):`
+      : `Set "${registration.teamName}" to pending status?\n\nEnter reason (optional):`;
+    
+    const reason = window.prompt(promptText);
     if (reason !== null) { // User didn't cancel
       try {
-        console.log('🔄 Setting registration to pending...');
-        const pendingReason = reason.trim() || 'Set to pending status by admin';
+        console.log(`🔄 ${isAlreadyPending ? 'Updating' : 'Setting'} registration to pending...`);
+        const pendingReason = reason.trim() || (isAlreadyPending ? 'Pending status updated by admin' : 'Set to pending status by admin');
         console.log('📝 Pending reason:', pendingReason, 'Length:', pendingReason.length);
         await handleStatusUpdate(registration._id, 'pending', pendingReason);
-        console.log('✅ Set to pending completed');
+        console.log(`✅ ${isAlreadyPending ? 'Update' : 'Set to'} pending completed`);
       } catch (error) {
-        console.error('❌ Set pending failed:', error);
-        setError('Failed to set registration to pending. Please try again.');
+        console.error(`❌ ${isAlreadyPending ? 'Update' : 'Set'} pending failed:`, error);
+        setError(`Failed to ${actionText}. Please try again.`);
       }
     }
   };
@@ -605,21 +778,39 @@ const AdminBGMIRegistrations = () => {
               <p className="text-gray-400 text-sm md:text-base">Manage BGMI tournament registrations and scoreboards</p>
             </div>
             <div>
-              {/* Simple refresh button */}
-              <button
-                onClick={() => {
-                  setCache(new Map());
-                  setLastFetch(null);
-                  fetchRegistrations(pagination.page, false);
-                }}
-                className="px-3 md:px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors flex items-center space-x-2 text-sm md:text-base"
-                disabled={loading}
-              >
-                <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
+              {/* Buttons */}
+              <div className="flex space-x-2">
+                {/* Assign Groups Button */}
+                {filters.tournamentId && (
+                  <button
+                    onClick={handleAssignGroups}
+                    className="px-3 md:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 text-sm md:text-base"
+                    disabled={loading}
+                    title="Assign groups to all registrations"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM6 20a9 9 0 0118 0v2h2v-2a11 11 0 00-22 0v2h2v-2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Assign Groups</span>
+                  </button>
+                )}
+                
+                {/* Simple refresh button */}
+                <button
+                  onClick={() => {
+                    setCache(new Map());
+                    setLastFetch(null);
+                    fetchRegistrations(pagination.page, false);
+                  }}
+                  className="px-3 md:px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors flex items-center space-x-2 text-sm md:text-base"
+                  disabled={loading}
+                >
+                  <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -676,8 +867,62 @@ const AdminBGMIRegistrations = () => {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Quick Filter Stats */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
+              className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                filters.status === 'all' 
+                  ? 'bg-gaming-neon text-black font-medium' 
+                  : 'bg-gaming-slate text-white hover:bg-gaming-charcoal'
+              }`}
+            >
+              All ({stats.total})
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'pending' }))}
+              className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                filters.status === 'pending' 
+                  ? 'bg-yellow-500 text-black font-medium' 
+                  : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+              }`}
+            >
+              Pending ({stats.pending})
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'images_uploaded' }))}
+              className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                filters.status === 'images_uploaded' 
+                  ? 'bg-blue-500 text-white font-medium' 
+                  : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+              }`}
+            >
+              Images ({stats.imagesUploaded})
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'verified' }))}
+              className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                filters.status === 'verified' 
+                  ? 'bg-green-500 text-white font-medium' 
+                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              }`}
+            >
+              Verified ({stats.verified})
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'rejected' }))}
+              className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                filters.status === 'rejected' 
+                  ? 'bg-red-500 text-white font-medium' 
+                  : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+              }`}
+            >
+              Rejected ({stats.rejected})
+            </button>
+          </div>
+
+          {/* Filters and Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
               <select
@@ -708,6 +953,20 @@ const AdminBGMIRegistrations = () => {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Group</label>
+              <select
+                value={filters.group}
+                onChange={(e) => setFilters(prev => ({ ...prev, group: e.target.value }))}
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              >
+                <option value="">All Groups</option>
+                {/* Generate group options dynamically based on registrations */}
+                {registrations.length > 0 && [...new Set(registrations.map(r => r.group).filter(Boolean))].sort().map(group => (
+                  <option key={group} value={group}>{group}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Team Name</label>
               <input
                 type="text"
@@ -727,12 +986,85 @@ const AdminBGMIRegistrations = () => {
                 className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Actions</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setFilters({
+                      status: 'all',
+                      tournamentId: '',
+                      teamName: '',
+                      playerName: '',
+                      group: ''
+                    });
+                  }}
+                  className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+                  title="Clear all filters"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={downloadCSV}
+                  disabled={loading || registrations.length === 0}
+                  className="flex-1 px-3 py-2 bg-gaming-neon text-black text-sm font-medium rounded-lg hover:bg-gaming-neon/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-1"
+                  title="Download filtered data as CSV"
+                >
+                  {loading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span>CSV</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Registration Cards */}
           {loading && registrations.length === 0 ? (
-            <div className="text-center py-8">
-              <LoadingSpinner size="lg" text="Loading registrations..." />
+            <div className="space-y-4">
+              {/* Desktop Skeleton */}
+              <div className="hidden lg:block">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 mb-3 animate-pulse">
+                    <div className="grid grid-cols-12 gap-3">
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                      <div className="col-span-1 h-4 bg-gaming-charcoal rounded"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Mobile Skeleton */}
+              <div className="lg:hidden space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 animate-pulse">
+                    <div className="h-6 bg-gaming-charcoal rounded mb-3 w-3/4"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gaming-charcoal rounded w-full"></div>
+                      <div className="h-4 bg-gaming-charcoal rounded w-5/6"></div>
+                      <div className="h-4 bg-gaming-charcoal rounded w-4/6"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : registrations.length === 0 ? (
             <div className="text-center py-8">
@@ -748,38 +1080,62 @@ const AdminBGMIRegistrations = () => {
                   <table className="w-full bg-gaming-slate/30 border border-gaming-slate rounded-lg min-w-[800px]">
                   <thead className="bg-gaming-charcoal">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Team</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leader</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Images</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Registered</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Team</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leader</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 1 IGN</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 2 IGN</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 3 IGN</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tournament</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Images</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Registered</th>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gaming-slate">
                     {registrations.map((registration) => (
                       <tr key={registration._id} className="hover:bg-gaming-slate/20 transition-colors">
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm font-medium text-white">{registration.teamName}</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{registration.teamLeader.name}</div>
                           <div className="text-xs text-gray-400">{registration.teamLeader.bgmiId}</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.userId?.email || 'N/A'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.teamMembers?.[0]?.name || 'N/A'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.teamMembers?.[1]?.name || 'N/A'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.teamMembers?.[2]?.name || 'N/A'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gaming-neon">{registration.group || 'Not Assigned'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">{registration.tournamentId?.name || 'N/A'}</div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{registration.whatsappNumber}</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{registration.verificationImages?.length || 0}/8</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           {getStatusBadge(registration)}
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{new Date(registration.registeredAt).toLocaleDateString()}</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                        <td className="px-3 py-2 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center space-x-1">
                             {/* View Details */}
                             <button
@@ -828,21 +1184,19 @@ const AdminBGMIRegistrations = () => {
                               </button>
                             )}
 
-                            {/* Set Pending (only for verified status) */}
-                            {registration.status === 'verified' && (
-                              <button
-                                onClick={() => handleSetPending(registration)}
-                                className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors group relative"
-                                title="Set Pending"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                                  Set Pending
-                                </div>
-                              </button>
-                            )}
+                            {/* Set Pending - Always show for all statuses */}
+                            <button
+                              onClick={() => handleSetPending(registration)}
+                              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors group relative"
+                              title={registration.status === 'pending' ? 'Already Pending - Click to Update' : 'Set Pending'}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                {registration.status === 'pending' ? 'Update Pending' : 'Set Pending'}
+                              </div>
+                            </button>
 
                             {/* Edit */}
                             <button
@@ -893,6 +1247,30 @@ const AdminBGMIRegistrations = () => {
                       <div>
                         <span className="text-gray-400">Leader:</span>
                         <div className="text-white">{registration.teamLeader.name}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Email:</span>
+                        <div className="text-white">{registration.userId?.email || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Player 1 IGN:</span>
+                        <div className="text-white">{registration.teamMembers?.[0]?.name || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Player 2 IGN:</span>
+                        <div className="text-white">{registration.teamMembers?.[1]?.name || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Player 3 IGN:</span>
+                        <div className="text-white">{registration.teamMembers?.[2]?.name || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Group:</span>
+                        <div className="text-gaming-neon font-medium">{registration.group || 'Not Assigned'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Tournament:</span>
+                        <div className="text-white">{registration.tournamentId?.name || 'N/A'}</div>
                       </div>
                       <div>
                         <span className="text-gray-400">WhatsApp:</span>
@@ -947,18 +1325,16 @@ const AdminBGMIRegistrations = () => {
                         </button>
                       )}
 
-                      {/* Set Pending (only for verified status) */}
-                      {registration.status === 'verified' && (
-                        <button
-                          onClick={() => handleSetPending(registration)}
-                          className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                          title="Set Pending"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </button>
-                      )}
+                      {/* Set Pending - Always show for all statuses */}
+                      <button
+                        onClick={() => handleSetPending(registration)}
+                        className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                        title={registration.status === 'pending' ? 'Already Pending - Click to Update' : 'Set Pending'}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
 
                       {/* Edit */}
                       <button
@@ -1060,8 +1436,19 @@ const AdminBGMIRegistrations = () => {
             onSetPending={handleSetPending}
             onNotVerified={handleNotVerified}
             onUpdateRegistration={handleUpdateRegistration}
+            onImagePreview={handleImagePreview}
             setSuccess={setSuccess}
             setError={setError}
+          />
+        )}
+
+        {/* Image Preview Modal */}
+        {showImagePreview && selectedRegistration && selectedRegistration.verificationImages && (
+          <ImagePreviewModal
+            images={selectedRegistration.verificationImages.map(img => ({ url: img.cloudinaryUrl }))}
+            currentIndex={currentImageIndex}
+            onClose={() => setShowImagePreview(false)}
+            onNavigate={(index) => setCurrentImageIndex(index)}
           />
         )}
 
@@ -1095,6 +1482,7 @@ const ImageVerificationModal = ({
   onNotVerified,
   onDeleteImage,
   onUpdateRegistration,
+  onImagePreview,
   setSuccess,
   setError
 }) => {
@@ -1495,7 +1883,7 @@ const ImageVerificationModal = ({
                           src={image.cloudinaryUrl}
                           alt={`${image.playerId} - Image ${image.imageNumber}`}
                           className="w-full h-32 md:h-36 object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => window.open(image.cloudinaryUrl, '_blank')}
+                          onClick={() => onImagePreview && onImagePreview(registration.verificationImages, index)}
                         />
                         <div className="p-2 bg-gaming-charcoal">
                           <div className="flex items-center justify-between">
@@ -2505,6 +2893,134 @@ const TournamentScoreboardCard = ({ tournament, onScoreboardUploaded }) => {
         document.body
       )}
     </div>
+  );
+};
+
+// Image Preview Modal Component with Navigation
+const ImagePreviewModal = ({ images, currentIndex, onClose, onNavigate }) => {
+  const [imageIndex, setImageIndex] = useState(currentIndex);
+
+  useEffect(() => {
+    setImageIndex(currentIndex);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrevious();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [imageIndex, images.length]);
+
+  const handlePrevious = () => {
+    const newIndex = imageIndex > 0 ? imageIndex - 1 : images.length - 1;
+    setImageIndex(newIndex);
+    onNavigate(newIndex);
+  };
+
+  const handleNext = () => {
+    const newIndex = imageIndex < images.length - 1 ? imageIndex + 1 : 0;
+    setImageIndex(newIndex);
+    onNavigate(newIndex);
+  };
+
+  if (!images || images.length === 0) {
+    return null;
+  }
+
+  const currentImage = images[imageIndex];
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+      <div className="relative max-w-4xl max-h-full p-4">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Image */}
+        <div className="flex items-center justify-center">
+          <img
+            src={currentImage.url}
+            alt={`Verification ${imageIndex + 1}`}
+            className="max-w-full max-h-[80vh] object-contain rounded-lg"
+            onError={(e) => {
+              e.target.src = '/placeholder-image.png';
+            }}
+          />
+        </div>
+
+        {/* Navigation Buttons */}
+        {images.length > 1 && (
+          <>
+            {/* Previous Button */}
+            <button
+              onClick={handlePrevious}
+              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Next Button */}
+            <button
+              onClick={handleNext}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        )}
+
+        {/* Image Counter */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+          {imageIndex + 1} / {images.length}
+        </div>
+
+        {/* Thumbnail Navigation */}
+        {images.length > 1 && (
+          <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex space-x-2 max-w-full overflow-x-auto">
+            {images.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  setImageIndex(index);
+                  onNavigate(index);
+                }}
+                className={`w-12 h-12 rounded border-2 overflow-hidden flex-shrink-0 ${
+                  index === imageIndex ? 'border-gaming-neon' : 'border-gray-500'
+                }`}
+              >
+                <img
+                  src={image.url}
+                  alt={`Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = '/placeholder-image.png';
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
   );
 };
 

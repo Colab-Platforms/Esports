@@ -426,6 +426,87 @@ router.get('/admin/last-update', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/bgmi-registration/admin/assign-groups/:tournamentId
+// @desc    Assign groups to all registrations for a tournament
+// @access  Private (Admin)
+router.post('/admin/assign-groups/:tournamentId', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { tournamentId } = req.params;
+
+    // Get tournament to check if it's BGMI
+    const Tournament = require('../models/Tournament');
+    const tournament = await Tournament.findById(tournamentId);
+
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Only allow grouping for BGMI tournaments
+    if (tournament.gameType !== 'bgmi') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_GAME_TYPE',
+          message: 'Grouping is only available for BGMI tournaments',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // If grouping is not enabled, enable it with default settings
+    if (!tournament.grouping || !tournament.grouping.enabled) {
+      tournament.grouping = {
+        enabled: true,
+        groupSize: 20 // Default group size
+      };
+      await tournament.save();
+      console.log(`✅ Enabled grouping for tournament ${tournament.name} with default group size 20`);
+    }
+
+    // Assign groups using the static method
+    const result = await TournamentRegistration.assignGroups(tournamentId);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Groups assigned successfully! ${result.updatedCount} registrations updated across ${result.totalGroups} groups.`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Assign groups error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'ASSIGN_GROUPS_FAILED',
+        message: 'Failed to assign groups',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/bgmi-registration/admin/registrations
 // @desc    Get all BGMI registrations for admin dashboard
 // @access  Private (Admin)
@@ -434,6 +515,7 @@ router.get('/admin/registrations', auth, [
   query('tournamentId').optional().isMongoId(),
   query('teamName').optional().isLength({ min: 1, max: 50 }),
   query('playerName').optional().isLength({ min: 1, max: 50 }),
+  query('group').optional().isLength({ min: 1, max: 10 }),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
@@ -464,13 +546,14 @@ router.get('/admin/registrations', auth, [
       });
     }
 
-    const { status, tournamentId, teamName, playerName, page = 1, limit = 20 } = req.query;
+    const { status, tournamentId, teamName, playerName, group, page = 1, limit = 20 } = req.query;
 
     // Build MongoDB query directly
     const query = {};
     if (status) query.status = status;
     if (tournamentId) query.tournamentId = tournamentId;
     if (teamName) query.teamName = new RegExp(teamName, 'i');
+    if (group) query.group = group;
     if (playerName) {
       query.$or = [
         { 'teamLeader.name': new RegExp(playerName, 'i') },

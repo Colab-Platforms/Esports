@@ -20,7 +20,7 @@ const TournamentsPage = () => {
   const error = useSelector(selectTournamentError);
   
   const [currentBanner, setCurrentBanner] = useState(0);
-  const [activeStatusTab, setActiveStatusTab] = useState('upcoming');
+  const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);

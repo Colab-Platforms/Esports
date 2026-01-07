@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import secureRequest from '../../utils/secureRequest';
 
 const ResetPasswordPage = () => {
   const { token } = useParams();
@@ -25,9 +26,8 @@ const ResetPasswordPage = () => {
 
   const verifyToken = async () => {
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${API_URL}/api/auth/verify-reset-token/${token}`);
-      const data = await response.json();
+      // Use secure request utility
+      const data = await secureRequest.get(`/api/auth/verify-reset-token/${token}`);
       
       setTokenValid(data.success);
       if (!data.success) {
@@ -74,19 +74,11 @@ const ResetPasswordPage = () => {
     setLoading(true);
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${API_URL}/api/auth/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          password: formData.password
-        }),
+      // Use secure request utility
+      const data = await secureRequest.post('/api/auth/reset-password', {
+        token,
+        password: formData.password
       });
-
-      const data = await response.json();
 
       if (data.success) {
         setResetSuccess(true);

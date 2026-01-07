@@ -9,6 +9,26 @@ const emailService = require('../services/emailService');
 
 const router = express.Router();
 
+// Middleware to decode sensitive data from client
+const decodeSensitiveData = (req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    const sensitiveFields = ['password', 'confirmPassword', 'currentPassword', 'newPassword'];
+    
+    sensitiveFields.forEach(field => {
+      if (req.body[field] && req.body[`${field}_encoded`]) {
+        try {
+          // Decode base64 encoded sensitive field
+          req.body[field] = Buffer.from(req.body[field], 'base64').toString('utf-8');
+          delete req.body[`${field}_encoded`];
+        } catch (error) {
+          console.error(`Failed to decode ${field}:`, error);
+        }
+      }
+    });
+  }
+  next();
+};
+
 // Generate JWT token
 const generateToken = (userId, rememberMe = false) => {
   const expiresIn = rememberMe ? '30d' : (process.env.JWT_EXPIRE || '7d');
@@ -268,7 +288,7 @@ router.post('/reset-password', async (req, res) => {
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
@@ -446,7 +466,7 @@ router.post('/register', async (req, res) => {
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', [
+router.post('/login', decodeSensitiveData, [
   body('identifier')
     .notEmpty()
     .withMessage('Email, username, or phone is required'),
@@ -808,7 +828,7 @@ router.get('/google/callback', (req, res, next) => {
 // @route   PUT /api/auth/change-password
 // @desc    Change user password
 // @access  Private
-router.put('/change-password', auth, async (req, res) => {
+router.put('/change-password', auth, decodeSensitiveData, async (req, res) => {
   try {
     console.log('🔐 Password change request for user:', req.user.userId);
     

@@ -61,6 +61,12 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     default: 'pending'
   },
   
+  // Group Assignment (for tournaments with grouping enabled)
+  group: {
+    type: String,
+    default: null // Will be assigned automatically when grouping is enabled
+  },
+  
   // WhatsApp Contact (for notifications)
   whatsappNumber: {
     type: String,
@@ -183,7 +189,7 @@ tournamentRegistrationSchema.pre('save', function(next) {
   next();
 });
 
-// Post-save middleware to sync tournament participant count
+// Post-save middleware to sync tournament participant count and assign groups
 tournamentRegistrationSchema.post('save', async function(doc) {
   try {
     const Tournament = require('./Tournament');
@@ -201,6 +207,11 @@ tournamentRegistrationSchema.post('save', async function(doc) {
       await tournament.save();
       
       console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount}`);
+      
+      // Auto-assign groups if grouping is enabled and this registration doesn't have a group
+      if (tournament.grouping && tournament.grouping.enabled && !doc.group) {
+        await this.constructor.assignGroups(doc.tournamentId);
+      }
     }
   } catch (error) {
     console.error('❌ Error syncing tournament participant count:', error);
@@ -286,6 +297,49 @@ tournamentRegistrationSchema.methods.reject = function(adminUserId, reason) {
   this.rejectionReason = reason;
   
   return this.save();
+};
+
+// Static method to assign groups automatically
+tournamentRegistrationSchema.statics.assignGroups = async function(tournamentId) {
+  try {
+    const Tournament = require('./Tournament');
+    const tournament = await Tournament.findById(tournamentId);
+    
+    if (!tournament || !tournament.grouping || !tournament.grouping.enabled) {
+      return { success: false, message: 'Grouping not enabled for this tournament' };
+    }
+    
+    const groupSize = tournament.grouping.groupSize;
+    
+    // Get all registrations for this tournament ordered by registration time
+    const registrations = await this.find({
+      tournamentId: tournamentId,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    }).sort({ registeredAt: 1 });
+    
+    let updatedCount = 0;
+    
+    // Assign groups based on registration order
+    for (let i = 0; i < registrations.length; i++) {
+      const registration = registrations[i];
+      const groupNumber = Math.floor(i / groupSize) + 1;
+      const groupName = `G${groupNumber}`;
+      
+      // Only update if group assignment has changed
+      if (registration.group !== groupName) {
+        await this.findByIdAndUpdate(registration._id, { group: groupName });
+        updatedCount++;
+        console.log(`📊 Assigned ${registration.teamName} to ${groupName}`);
+      }
+    }
+    
+    console.log(`✅ Group assignment complete for tournament ${tournament.name}. Updated ${updatedCount} registrations.`);
+    return { success: true, updatedCount, totalGroups: Math.ceil(registrations.length / groupSize) };
+    
+  } catch (error) {
+    console.error('❌ Error assigning groups:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 // Static method to sync all tournament participant counts
