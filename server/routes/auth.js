@@ -57,6 +57,47 @@ router.get('/test', (req, res) => {
   });
 });
 
+// @route   GET /api/auth/test-email
+// @desc    Test email configuration
+// @access  Public
+router.get('/test-email', async (req, res) => {
+  try {
+    console.log('\n🧪 EMAIL SERVICE TEST');
+    console.log('📧 Configuration:');
+    console.log('  - EMAIL_USER:', process.env.EMAIL_USER || 'Not set');
+    console.log('  - EMAIL_PASS:', process.env.EMAIL_PASS ? `Set (${process.env.EMAIL_PASS.length} chars)` : 'Not set');
+    console.log('  - EMAIL_HOST:', process.env.EMAIL_HOST || 'Not set');
+    console.log('  - EMAIL_PORT:', process.env.EMAIL_PORT || 'Not set');
+    
+    // Test sending email
+    const testResult = await emailService.sendPasswordResetEmail(
+      'test@example.com',
+      'test-token-12345',
+      'TestUser'
+    );
+    
+    console.log('📧 Test Result:', testResult);
+    
+    res.json({
+      success: true,
+      message: 'Email test completed',
+      config: {
+        emailUser: process.env.EMAIL_USER || 'Not set',
+        emailPass: process.env.EMAIL_PASS ? `Set (${process.env.EMAIL_PASS.length} chars)` : 'Not set',
+        emailHost: process.env.EMAIL_HOST || 'Not set',
+        emailPort: process.env.EMAIL_PORT || 'Not set'
+      },
+      testResult
+    });
+  } catch (error) {
+    console.error('❌ Email test error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email
 // @access  Public

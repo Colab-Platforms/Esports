@@ -362,18 +362,32 @@ const TeamCard = ({ team, onLeave, onDelete, onInvite }) => {
       <div className="mb-4">
         <h4 className="text-white text-sm font-medium mb-2">Members:</h4>
         <div className="flex flex-wrap gap-2">
-          {team.members.map((member) => (
-            <div
-              key={member.userId._id}
-              className="flex items-center space-x-2 px-3 py-1 bg-gaming-charcoal rounded-lg"
-            >
-              <UserAvatar user={member.userId} size="xs" />
-              <span className="text-white text-sm">{member.userId.username}</span>
-              {member.role === 'captain' && (
-                <FiAward className="w-3 h-3 text-gaming-gold" title="Captain" />
-              )}
-            </div>
-          ))}
+          {team.members.map((member) => {
+            // Handle null userId
+            if (!member.userId) {
+              return (
+                <div
+                  key={member._id || Math.random()}
+                  className="flex items-center space-x-2 px-3 py-1 bg-gaming-charcoal rounded-lg"
+                >
+                  <span className="text-gray-400 text-sm italic">User removed</span>
+                </div>
+              );
+            }
+            
+            return (
+              <div
+                key={member.userId._id}
+                className="flex items-center space-x-2 px-3 py-1 bg-gaming-charcoal rounded-lg"
+              >
+                <UserAvatar user={member.userId} size="xs" />
+                <span className="text-white text-sm">{member.userId.username}</span>
+                {member.role === 'captain' && (
+                  <FiAward className="w-3 h-3 text-gaming-gold" title="Captain" />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

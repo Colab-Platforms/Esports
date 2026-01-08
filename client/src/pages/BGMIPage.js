@@ -6,6 +6,7 @@ import PageBannerSlider from '../components/common/PageBannerSlider';
 import BGMIRegistrationForm from '../components/bgmi/BGMIRegistrationForm';
 import GameIcon from '../components/common/GameIcon';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import CountdownTimer from '../components/common/CountdownTimer';
 import { getCdnIcon } from '../assets/gameAssets';
 import { selectUser } from '../store/slices/authSlice';
 import {
@@ -64,13 +65,13 @@ const BGMIPage = () => {
   const getStatusFromTab = (tab) => {
     switch (tab) {
       case 'upcoming':
-        return 'upcoming,registration_open';
+        return 'upcoming,registration_open,registration_closed';
       case 'live':
         return 'active';
       case 'completed':
         return 'completed';
       default:
-        return 'upcoming,registration_open';
+        return 'upcoming,registration_open,registration_closed';
     }
   };
 
@@ -122,13 +123,13 @@ const BGMIPage = () => {
   const getModeIcon = (mode) => {
     switch (mode) {
       case 'solo':
-        return '👤';
+        return '';
       case 'duo':
-        return '👥';
+        return '';
       case 'squad':
-        return '👨‍👩‍👧‍👦';
+        return '';
       default:
-        return '🎮';
+        return '';
     }
   };
 
@@ -146,9 +147,6 @@ const BGMIPage = () => {
   const handleRegistrationSuccess = (registration) => {
     setShowRegistrationForm(false);
     setSelectedTournament(null);
-    
-    // Show success message - no need to redirect since images are sent via WhatsApp
-    console.log('✅ Registration successful:', registration);
     
     // Optional: Show a success notification or stay on the same page
     // Users will receive WhatsApp message with instructions to send images
@@ -189,18 +187,21 @@ const BGMIPage = () => {
         <div className="card-gaming p-6 mb-6">
           <div className="flex flex-wrap gap-2 mb-4">
             {[
-              { key: 'upcoming', label: 'Upcoming', icon: '🔜' },
-              { key: 'live', label: 'Live', icon: '🔴' },
-              { key: 'completed', label: 'Completed', icon: '✅' }
+              { key: 'upcoming', label: 'Upcoming', icon: '' },
+              { key: 'live', label: 'Live', icon: '' },
+              { key: 'completed', label: 'Completed', icon: '' }
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                className={`flex items-center space-x-2 px-4 py-2 font-display font-medium transition-all duration-200 border ${
                   activeTab === tab.key
-                    ? 'bg-gaming-neon text-gaming-dark'
-                    : 'bg-gaming-charcoal text-gray-300 hover:bg-gaming-slate'
+                    ? 'bg-gaming-gold/20 border-gaming-gold text-gaming-gold'
+                    : 'bg-white/5 border-white/20 text-gray-300 hover:border-gaming-gold/60 hover:bg-white/10'
                 }`}
+                // style={{
+                //   clipPath: 'polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px)'
+                // }}
               >
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -255,7 +256,10 @@ const BGMIPage = () => {
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
-                className="w-full px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors duration-200 font-gaming"
+                className="w-full px-4 py-2 bg-white/5 border border-white/20 text-white rounded-none hover:border-gaming-gold/60 hover:bg-white/10 transition-colors duration-200 font-display font-bold"
+                style={{
+                  clipPath: 'polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px)'
+                }}
               >
                 Clear Filters
               </button>
@@ -267,7 +271,7 @@ const BGMIPage = () => {
         {error && (
           <div className="card-gaming p-6 mb-6">
             <div className="text-center">
-              <div className="text-red-400 text-6xl mb-4">⚠️</div>
+              <div className="text-red-400 text-6xl mb-4"></div>
               <h3 className="text-xl font-bold text-white mb-2">Error Loading Tournaments</h3>
               <p className="text-gray-300 mb-4">{error.message}</p>
               <button
@@ -279,7 +283,10 @@ const BGMIPage = () => {
                     ...filters
                   }));
                 }}
-                className="btn-primary"
+                className="px-6 py-2 bg-white/5 border border-white/20 text-white font-display font-bold hover:border-gaming-gold/60 hover:bg-white/10 transition-all duration-300"
+                style={{
+                  clipPath: 'polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px)'
+                }}
               >
                 Try Again
               </button>
@@ -306,15 +313,16 @@ const BGMIPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tournaments?.map((tournament) => (
-              <TournamentCard 
-                key={tournament._id} 
-                tournament={tournament}
-                navigate={navigate}
-                getModeIcon={getModeIcon}
-                getStatusColor={getStatusColor}
-                formatDate={formatDate}
-                onRegisterClick={handleRegisterClick}
-              />
+              <div key={tournament._id} className="w-11/12 mx-auto">
+                <TournamentCard 
+                  tournament={tournament}
+                  navigate={navigate}
+                  getModeIcon={getModeIcon}
+                  getStatusColor={getStatusColor}
+                  formatDate={formatDate}
+                  onRegisterClick={handleRegisterClick}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -347,12 +355,19 @@ const BGMIPage = () => {
                     page: pagination.page - 1
                   }))}
                   disabled={pagination.page <= 1}
-                  className="px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon"
+                  className="px-3 py-1 bg-white/5 border border-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-gold/60 hover:bg-white/10 font-display font-bold transition-all duration-300"
+                  style={{
+                    clipPath: 'polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px)'
+                  }}
                 >
                   Previous
                 </button>
                 
-                <span className="px-3 py-1 bg-gaming-neon text-black rounded font-medium">
+                <span className="px-3 py-1 bg-gaming-gold/20 border border-gaming-gold text-gaming-gold font-display font-bold"
+                  style={{
+                    clipPath: 'polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px)'
+                  }}
+                >
                   {pagination.page}
                 </span>
                 
@@ -364,7 +379,10 @@ const BGMIPage = () => {
                     page: pagination.page + 1
                   }))}
                   disabled={pagination.page >= pagination.pages}
-                  className="px-3 py-1 bg-gaming-charcoal border border-gray-600 rounded text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-neon"
+                  className="px-3 py-1 bg-white/5 border border-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:border-gaming-gold/60 hover:bg-white/10 font-display font-bold transition-all duration-300"
+                  style={{
+                    clipPath: 'polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px)'
+                  }}
                 >
                   Next
                 </button>
@@ -410,106 +428,133 @@ const BGMIPage = () => {
 
 // Memoized Tournament Card Component
 const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatusColor, formatDate, onRegisterClick }) => {
+  const isRegistrationClosed = tournament.status === 'registration_closed';
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="card-gaming p-6 hover:border-gaming-neon/50 transition-all duration-300 group"
+      className="relative w-full aspect-[4/5] overflow-hidden border border-gaming-gold/70 hover:border-gaming-gold transition-all duration-300 group bg-gradient-to-br from-gaming-charcoal via-gaming-dark to-gaming-darker shadow-xl hover:shadow-gaming-gold/40"
+      style={{
+        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)'
+      }}
     >
-      {/* Tournament Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">{getModeIcon(tournament.mode)}</span>
-          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
-            {tournament.status === 'completed' ? 'FINISHED' : tournament.status.replace('_', ' ').toUpperCase()}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-400">Entry Fee</div>
-          <div className="text-lg font-bold text-gaming-neon">₹{tournament.entryFee}</div>
-        </div>
-      </div>
-
-      {/* Tournament Info */}
-      <div className="mb-4">
-        <h3 className="text-lg font-bold text-white mb-2 group-hover:text-gaming-neon transition-colors">
-          {tournament.name}
-        </h3>
-        <p className="text-gray-400 text-sm line-clamp-2">
-          {tournament.description}
-        </p>
-      </div>
-
-      {/* Tournament Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="text-center">
-          <div className="text-xl font-bold text-gaming-neon">₹{tournament.prizePool.toLocaleString()}</div>
-          <div className="text-xs text-gray-400">Prize Pool</div>
-        </div>
-        <div className="text-center">
-          <div className="text-xl font-bold text-white">
-            {tournament.currentParticipants}/{tournament.maxParticipants}
-          </div>
-          <div className="text-xs text-gray-400">Players</div>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-4">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>Registration</span>
-          <span>{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
-        </div>
-        <div className="w-full bg-gaming-charcoal rounded-full h-2">
-          <div
-            className="bg-gaming-neon h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(tournament.currentParticipants / tournament.maxParticipants) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Tournament Dates */}
-      <div className="space-y-2 mb-4 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-400">Registration:</span>
-          <span className="text-white">{formatDate(tournament.registrationDeadline)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Starts:</span>
-          <span className="text-white">{formatDate(tournament.startDate)}</span>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex space-x-2">
-        <button
-          onClick={() => navigate(`/tournaments/${tournament._id}`)}
-          className="flex-1 btn-primary text-sm"
-        >
-          View Details
-        </button>
-        {tournament.status === 'registration_open' && (
-          <button
-            onClick={() => onRegisterClick(tournament)}
-            className="flex-1 btn-gaming text-sm"
-          >
-            Register Now
-          </button>
+      {/* Background Image */}
+      <div className="absolute inset-0">
+        {tournament.bannerImage ? (
+          <img 
+            src={tournament.bannerImage} 
+            alt={tournament.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <img 
+            src="https://wp-socialnation-assets.s3.ap-south-1.amazonaws.com/wp-content/uploads/2023/07/31145718/Battlegrounds.png"
+            alt={tournament.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         )}
-        {tournament.status === 'active' && (
-          <button
-            onClick={() => navigate(`/tournaments/${tournament._id}/live`)}
-            className="flex-1 btn-gaming text-sm bg-red-600 hover:bg-red-700"
-          >
-            🔴 Live
-          </button>
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/85" />
+      </div>
+
+      {/* Top Left - Registration Closed Chip & Timer */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
+        {isRegistrationClosed && (
+          <div className="px-3 py-1.5 border border-gaming-gold/60 rounded-full text-xs font-display font-bold text-gaming-gold">
+            REGISTRATION CLOSED
+          </div>
         )}
+        
+        {/* Timer - Show if tournament hasn't started yet */}
+        {tournament?.startDate && new Date(tournament.startDate) > new Date() && (
+          <div className="px-3 py-1.5 backdrop-blur-md border border-blue-200/50 rounded-full text-xs font-display font-bold text-white">
+            <CountdownTimer 
+              targetDate={tournament.startDate}
+              format="compact"
+              size="sm"
+              showLabels={false}
+              className="text-white"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Content Container */}
+      <div className="absolute inset-0 flex flex-col justify-between p-5">
+        {/* Top Section - Status Badge */}
+        {!isRegistrationClosed && (
+          <div className="flex justify-end">
+            <div className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}>
+              {tournament.status === 'completed' ? 'FINISHED' : tournament.status.replace('_', ' ').toUpperCase()}
+            </div>
+          </div>
+        )}
+
+        {/* Middle Section - Tournament Name */}
+        <div className="flex flex-col items-center justify-center text-center mt-8">
+          {/* <h3 className="text-white font-display text-xl font-bold mb-2 line-clamp-2 drop-shadow-lg tracking-wide">
+            {tournament.name}
+          </h3>
+          <div className="text-gaming-gold font-display text-xs font-bold tracking-widest opacity-80">
+            {tournament.mode?.toUpperCase() || 'SQUAD'}
+          </div> */}
+        </div>
+
+        {/* Bottom Section - Info Bar */}
+        <div className="space-y-2.5">
+          {/* Prize Pool & Entry Fee Row */}
+          <div className="flex justify-between items-center text-xs">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-gaming-gold font-display font-bold">PRIZE:</span>
+              <span className="text-white font-display font-bold">₹{(tournament.prizePool / 1000).toFixed(0)}K</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-gaming-gold font-display font-bold">ENTRY:</span>
+              <span className="text-white font-display font-bold">₹{tournament.entryFee}</span>
+            </div>
+          </div>
+
+          {/* Players & Registration Row */}
+          <div className="flex justify-between items-center text-xs">
+            <div className="flex items-center space-x-1.5">
+              <span className="text-gaming-gold font-display font-bold">PLAYERS:</span>
+              <span className="text-white font-display font-bold">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <span className="text-gaming-gold font-display font-bold">REG:</span>
+              <span className="text-gaming-neon font-display font-bold">{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
+            </div>
+          </div>
+
+          {/* Divider Line */}
+          <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />
+
+          {/* Dates Row */}
+          <div className="flex justify-between items-center text-xs">
+            <div>
+              <div className="text-gaming-gold font-display font-bold text-xs">REG DEADLINE</div>
+              <div className="text-white font-display text-xs">{formatDate(tournament.registrationDeadline).split(',')[0]}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-gaming-gold font-display font-bold text-xs">STARTS</div>
+              <div className="text-white font-display text-xs">{formatDate(tournament.startDate).split(',')[0]}</div>
+            </div>
+          </div>
+
+          {/* View Details Button - Glassy Effect */}
+          <button
+            onClick={() => navigate(`/tournaments/${tournament._id}`)}
+            className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+          >
+            VIEW DETAILS →
+          </button>
+        </div>
       </div>
     </motion.div>
   );
 }, (prevProps, nextProps) => {
-  // Only re-render if tournament data actually changed
   return prevProps.tournament._id === nextProps.tournament._id &&
          prevProps.tournament.currentParticipants === nextProps.tournament.currentParticipants &&
          prevProps.tournament.status === nextProps.tournament.status;

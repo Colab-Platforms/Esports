@@ -3,6 +3,9 @@ import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Console configuration - must be imported first
+import './config/console';
+
 // Context
 import { ThemeProvider } from './contexts/ThemeContextSimple';
 

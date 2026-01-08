@@ -27,17 +27,41 @@ class EmailService {
         }
       });
       
-      console.log('📧 Email Service: SMTP configured with', process.env.EMAIL_USER);
+      console.log('📧 Email Service: SMTP configured');
+      console.log('  - Host:', process.env.EMAIL_HOST);
+      console.log('  - Port:', process.env.EMAIL_PORT);
+      console.log('  - User:', process.env.EMAIL_USER);
+      console.log('  - Password length:', process.env.EMAIL_PASS?.length || 0, 'characters');
+      
+      // Test connection
+      this.transporter.verify((error, success) => {
+        if (error) {
+          console.error('❌ SMTP Connection Error:', error.message);
+          console.error('  - Code:', error.code);
+          console.error('  - Command:', error.command);
+        } else {
+          console.log('✅ SMTP Connection verified successfully');
+        }
+      });
     } else {
       // Development mode - log emails to console
       console.log('📧 Email Service: Development mode - emails will be logged to console');
       console.log('📧 To enable actual emails, set EMAIL_USER and EMAIL_PASS in .env');
+      console.log('📧 Current EMAIL_USER:', process.env.EMAIL_USER || 'Not set');
+      console.log('📧 Current EMAIL_PASS:', process.env.EMAIL_PASS ? 'Set' : 'Not set');
       this.transporter = null;
     }
   }
 
   async sendPasswordResetEmail(email, resetToken, username = 'User') {
     try {
+      console.log('📧 Starting password reset email send...');
+      console.log('📧 Email config check:');
+      console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
+      console.log('  - EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set' : '❌ Not set');
+      console.log('  - EMAIL_HOST:', process.env.EMAIL_HOST || 'Not set');
+      console.log('  - EMAIL_PORT:', process.env.EMAIL_PORT || 'Not set');
+      
       // Auto-detect client URL based on environment
       const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
       const clientUrl = isDevelopment ? 'http://localhost:3000' : 'https://colabesports.in';
@@ -124,6 +148,7 @@ The Colab Esports Team
       if (this.transporter) {
         // SMTP configured: Try to send actual email
         try {
+          console.log('📧 Attempting to send via SMTP...');
           const info = await this.transporter.sendMail(emailContent);
           console.log('✅ Password reset email sent via SMTP:', info.messageId);
           console.log('📧 Email sent to:', email);
@@ -133,7 +158,11 @@ The Colab Esports Team
             resetUrl: null // Don't return URL when email is actually sent
           };
         } catch (smtpError) {
-          console.error('❌ SMTP Error:', smtpError.message);
+          console.error('❌ SMTP Error Details:');
+          console.error('  - Error Code:', smtpError.code);
+          console.error('  - Error Message:', smtpError.message);
+          console.error('  - Response:', smtpError.response);
+          console.error('  - Command:', smtpError.command);
           console.log('📧 Falling back to console logging...');
           
           // Fall back to console logging if SMTP fails

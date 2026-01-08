@@ -543,7 +543,13 @@ const SingleTournamentPage = () => {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gaming-neon mx-auto mb-4"></div>
+          <div className="flex justify-center items-center space-x-1 mb-4">
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+          </div>
           <p className="text-gray-300">Loading tournament...</p>
         </div>
       </div>
@@ -1024,7 +1030,13 @@ const SingleTournamentPage = () => {
 
             {loadingTeams ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold"></div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                </div>
                 <span className="ml-3 text-gray-300">Loading teams...</span>
               </div>
             ) : (tournament?.gameType === 'cs2' && serverPlayers.length > 0) ? (
@@ -1135,7 +1147,7 @@ const SingleTournamentPage = () => {
                 </p>
                 
                 {/* Registration CTA */}
-                {!isUserRegistered && (
+                {!isUserRegistered && tournament?.status === 'registration_open' && (
                   <button
                     onClick={handleJoinTournament}
                     className="btn-gaming inline-flex items-center space-x-2"
@@ -1403,54 +1415,61 @@ const SingleTournamentPage = () => {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={handleJoinTournament}
-                  className="btn-gaming px-8 py-3 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 flex items-center space-x-2"
+                  disabled={!isAuthenticated || tournament?.status !== 'registration_open'}
+                  className={`btn-gaming px-8 py-3 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 flex items-center space-x-2 ${
+                    !isAuthenticated || tournament?.status !== 'registration_open' 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : ''
+                  }`}
                 >
                   <span>🚀</span>
-                  <span>{isAuthenticated ? 'LAUNCH CS2' : 'LOGIN TO LAUNCH'}</span>
+                  <span>
+                    {!isAuthenticated ? 'LOGIN TO LAUNCH' : tournament?.status !== 'registration_open' ? 'REGISTRATION CLOSED' : 'LAUNCH CS2'}
+                  </span>
                 </button>
               </div>
             </>
           ) : (
             /* BGMI/Other Games: Original Layout */
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               
               {/* Prize Pool */}
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiAward className="h-6 w-6 text-black" />
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiAward className="h-5 md:h-6 w-5 md:w-6 text-black" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-gray-400 text-xs uppercase tracking-wide">Prize Pool</div>
-                  <div className="text-white font-bold text-xl">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
+                  <div className="text-white font-bold text-lg md:text-xl truncate">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
                 </div>
               </div>
 
               {/* Participants */}
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiUsers className="h-6 w-6 text-white" />
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiUsers className="h-5 md:h-6 w-5 md:w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-gray-400 text-xs uppercase tracking-wide">Participants</div>
-                  <div className="text-white font-bold text-xl">
+                  <div className="text-white font-bold text-lg md:text-xl">
                     {tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}
                   </div>
                 </div>
               </div>
 
               {/* Timeline - Registration & Tournament Start */}
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiCalendar className="h-6 w-6 text-white" />
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <FiCalendar className="h-5 md:h-6 w-5 md:w-6 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-gray-400 text-xs uppercase tracking-wide">Timeline</div>
                   <div className="space-y-0.5">
-                    <div className="text-gaming-neon font-bold text-sm">
+                    <div className="text-gaming-neon font-bold text-xs md:text-sm truncate">
                       Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}
                     </div>
                     {tournament?.startDate && (
-                      <div className="text-white font-semibold text-xs">
+                      <div className="text-white font-semibold text-xs truncate">
                         Start: {new Date(tournament.startDate) > new Date() 
                           ? new Date(tournament.startDate).toLocaleString('en-US', { 
                               month: 'short', 
@@ -1466,10 +1485,10 @@ const SingleTournamentPage = () => {
               </div>
 
               {/* Status & Join Button */}
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-center sm:justify-end">
                 {isUserRegistered ? (
-                  <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-6 py-3 text-center">
-                    <div className="text-green-400 font-bold text-lg flex items-center space-x-2">
+                  <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center w-full sm:w-auto">
+                    <div className="text-green-400 font-bold text-sm md:text-lg flex items-center justify-center space-x-2">
                       <span>✅</span>
                       <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
                     </div>
@@ -1480,12 +1499,21 @@ const SingleTournamentPage = () => {
                 ) : (
                   <button
                     onClick={handleJoinTournament}
-                    className="btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300"
+                    disabled={!isAuthenticated || tournament?.status !== 'registration_open'}
+                    className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 ${
+                      !isAuthenticated || tournament?.status !== 'registration_open' 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : ''
+                    }`}
                   >
-                    {tournament?.gameType === 'cs2' ? (
-                      isAuthenticated ? '🚀 JOIN SERVER' : 'LOGIN TO JOIN'
+                    {!isAuthenticated ? (
+                      'LOGIN TO JOIN'
+                    ) : tournament?.status !== 'registration_open' ? (
+                      'REGISTRATION CLOSED'
+                    ) : tournament?.gameType === 'cs2' ? (
+                      '🚀 JOIN SERVER'
                     ) : (
-                      isAuthenticated ? 'JOIN NOW' : 'LOGIN TO JOIN'
+                      'JOIN NOW'
                     )}
                   </button>
                 )}

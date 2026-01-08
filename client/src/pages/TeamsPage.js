@@ -326,32 +326,32 @@ const TeamsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gaming-dark py-4 md:py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-gaming font-bold text-white mb-2">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-gaming font-bold text-white mb-1 md:mb-2">
             Teams & Players
           </h1>
-          <p className="text-gray-400">
+          <p className="text-xs md:text-sm text-gray-400">
             Find players, send friend requests, and challenge opponents
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-4 mb-6 border-b border-gaming-border">
+        <div className="flex overflow-x-auto space-x-2 md:space-x-4 mb-6 border-b border-gaming-border pb-3 md:pb-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 px-2 font-medium transition-colors flex items-center space-x-2 ${
+              className={`pb-3 px-2 md:px-4 font-medium transition-colors flex items-center space-x-1 md:space-x-2 whitespace-nowrap text-xs md:text-sm ${
                 activeTab === tab.id
                   ? 'text-gaming-gold border-b-2 border-gaming-gold'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              <span>{tab.label}</span>
+              <tab.icon className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -360,8 +360,8 @@ const TeamsPage = () => {
         {activeTab === 'players' && (
           <div className="space-y-6">
             {/* Search and Filters */}
-            <div className="card-gaming p-6">
-              <div className="flex items-center gap-4">
+            <div className="card-gaming p-4 md:p-6">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                   {/* Search */}
                   <div className="relative">
@@ -371,7 +371,7 @@ const TeamsPage = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search players by username..."
-                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none text-sm md:text-base"
                     />
                   </div>
 
@@ -381,7 +381,7 @@ const TeamsPage = () => {
                     <select
                       value={selectedGame}
                       onChange={(e) => setSelectedGame(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none text-sm md:text-base"
                     >
                       {games.map((game) => (
                         <option key={game.id} value={game.id}>
@@ -396,7 +396,7 @@ const TeamsPage = () => {
                 <button
                   onClick={fetchPlayers}
                   disabled={loading}
-                  className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center justify-center md:justify-start space-x-2 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                   title="Refresh players list"
                 >
                   <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -409,32 +409,32 @@ const TeamsPage = () => {
             {loading ? (
               <div className="text-center py-12 text-gray-400">Loading players...</div>
             ) : (
-              <div className="bg-gaming-card rounded-lg overflow-hidden">
+              <div className="bg-gaming-card rounded-lg overflow-hidden border border-gaming-border">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-sm md:text-base">
                     <thead className="bg-gaming-charcoal">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Player</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Level</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Rank</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Wins</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-400">Games</th>
-                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-400">Actions</th>
+                        <th className="px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Player</th>
+                        <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Level</th>
+                        <th className="hidden md:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Rank</th>
+                        <th className="hidden lg:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Wins</th>
+                        <th className="hidden lg:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Games</th>
+                        <th className="px-2 md:px-4 py-3 text-right text-xs md:text-sm font-medium text-gray-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gaming-border">
                       {players.map((player) => (
                         <tr key={player._id} className="hover:bg-gaming-charcoal/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center space-x-3">
+                          <td className="px-2 md:px-4 py-3">
+                            <div className="flex items-center space-x-2 md:space-x-3">
                               <UserAvatar user={player} size="sm" />
-                              <span className="text-white font-medium">{player.username}</span>
+                              <span className="text-white font-medium text-xs md:text-base truncate">{player.username}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-300">{player.level || 1}</td>
-                          <td className="px-4 py-3 text-gaming-neon">{player.rank || 'Unranked'}</td>
-                          <td className="px-4 py-3 text-gray-300">{player.wins || 0}</td>
-                          <td className="px-4 py-3">
+                          <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.level || 1}</td>
+                          <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gaming-neon text-xs md:text-base">{player.rank || 'Unranked'}</td>
+                          <td className="hidden lg:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.wins || 0}</td>
+                          <td className="hidden lg:table-cell px-2 md:px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               {(player.games || []).slice(0, 3).map(game => (
                                 <span key={game} className="px-2 py-0.5 bg-gaming-neon/20 text-gaming-neon text-xs rounded">
@@ -443,19 +443,19 @@ const TeamsPage = () => {
                               ))}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end space-x-2">
+                          <td className="px-2 md:px-4 py-3">
+                            <div className="flex justify-end space-x-1 md:space-x-2">
                               <button
                                 onClick={() => navigate(`/player/${player.username}`)}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+                                className="px-2 md:px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm rounded transition-colors"
                                 title="View Profile"
                               >
-                                <FiEye className="w-4 h-4" />
+                                <FiEye className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
                               <button
                                 onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
                                 disabled={player.friendRequestSent || player.isFriend}
-                                className={`px-3 py-1 text-sm rounded transition-colors ${
+                                className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded transition-colors ${
                                   player.isFriend
                                     ? 'bg-green-600/30 text-green-400 cursor-not-allowed border border-green-500/50'
                                     : player.friendRequestSent
@@ -464,17 +464,17 @@ const TeamsPage = () => {
                                 }`}
                                 title={player.isFriend ? 'Friends' : player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
                               >
-                                {player.isFriend ? <FiCheckCircle className="w-4 h-4" /> : player.friendRequestSent ? <FiCheck className="w-4 h-4" /> : <FiUserPlus className="w-4 h-4" />}
+                                {player.isFriend ? <FiCheckCircle className="w-3 h-3 md:w-4 md:h-4" /> : player.friendRequestSent ? <FiCheck className="w-3 h-3 md:w-4 md:h-4" /> : <FiUserPlus className="w-3 h-3 md:w-4 md:h-4" />}
                               </button>
                               
                               {/* Challenge Button with Dropdown */}
                               <div className="relative challenge-menu-container">
                                 <button
                                   onClick={() => setOpenChallengeMenu(openChallengeMenu === player._id ? null : player._id)}
-                                  className="px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-sm rounded transition-colors"
+                                  className="px-2 md:px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-xs md:text-sm rounded transition-colors"
                                   title="Challenge"
                                 >
-                                  <FiTarget className="w-4 h-4" />
+                                  <FiTarget className="w-3 h-3 md:w-4 md:h-4" />
                                 </button>
                                 
                                 {/* Dropdown Menu */}

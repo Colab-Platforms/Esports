@@ -13,6 +13,7 @@ const GamesPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [siteImages, setSiteImages] = useState({});
+    const [selectedGameFilter, setSelectedGameFilter] = useState('all');
 
     // Fetch games from database
     useEffect(() => {
@@ -23,9 +24,6 @@ const GamesPage = () => {
                     api.getGames(),
                     api.getFeaturedGames()
                 ]);
-
-                console.log('Games response:', gamesResponse);
-                console.log('Featured response:', featuredData);
 
                 // Extract games from response structure
                 const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
@@ -52,8 +50,6 @@ const GamesPage = () => {
             setSiteImages(result.data);
         }
     };
-
-    // handleImageUpdate removed - banners managed via Controls/Banners page
 
     // Create banners from ImageManagement (games-slide-1, games-slide-2, games-slide-3)
     const banners = [
@@ -133,6 +129,14 @@ const GamesPage = () => {
         // Default fallback
         return 'bgmi';
     };
+
+    // Filter games based on selected filter
+    const filteredGames = selectedGameFilter === 'all' 
+        ? games 
+        : games.filter(game => getGameType(game) === selectedGameFilter);
+
+    // Get unique game types from database
+    const gameTypes = ['all', ...new Set(games.map(game => getGameType(game)))];
 
     const GameCard = ({ game }) => (
         <Link to={`/game/${game.id}`}>
@@ -314,9 +318,28 @@ const GamesPage = () => {
                         </p>
                     </motion.div>
 
-                    {games.length > 0 ? (
+                    {/* Game Filter Buttons - Only show if multiple games */}
+                    {games.length > 1 && (
+                        <div className="mb-8 flex flex-wrap gap-2 justify-center">
+                            {gameTypes.map((gameType) => (
+                                <button
+                                    key={gameType}
+                                    onClick={() => setSelectedGameFilter(gameType)}
+                                    className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${
+                                        selectedGameFilter === gameType
+                                            ? 'bg-gaming-gold text-black'
+                                            : 'bg-gaming-charcoal text-white hover:bg-gaming-slate border border-gaming-border'
+                                    }`}
+                                >
+                                    {gameType === 'all' ? 'All Games' : gameType.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {filteredGames.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {games.map((game, index) => (
+                            {filteredGames.map((game, index) => (
                                 <motion.div
                                     key={game.id}
                                     initial={{ opacity: 0, y: 20 }}

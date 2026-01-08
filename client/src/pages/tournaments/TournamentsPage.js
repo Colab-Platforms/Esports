@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import GameIcon from '../../components/common/GameIcon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import TournamentCardProfessional from '../../components/tournaments/TournamentCardProfessional';
 import imageService from '../../services/imageService';
 import { 
   fetchTournaments, 
@@ -111,6 +112,36 @@ const TournamentsPage = () => {
     });
   };
 
+  // Get status color
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'upcoming':
+        return 'text-blue-400 bg-blue-400/10';
+      case 'registration_open':
+        return 'text-green-400 bg-green-400/10';
+      case 'active':
+        return 'text-yellow-400 bg-yellow-400/10';
+      case 'completed':
+        return 'text-gray-400 bg-gray-400/10';
+      default:
+        return 'text-gray-400 bg-gray-400/10';
+    }
+  };
+
+  // Get mode icon
+  const getModeIcon = (mode) => {
+    switch (mode) {
+      case 'solo':
+        return '👤';
+      case 'duo':
+        return '👥';
+      case 'squad':
+        return '👨‍👩‍👧‍👦';
+      default:
+        return '🎮';
+    }
+  };
+
   // Filter tournaments based on search and active tabs
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -160,76 +191,14 @@ const TournamentsPage = () => {
   // This is already defined above, so we can remove this duplicate
 
   const TournamentCard = ({ tournament }) => (
-    <Link to={`/tournament/${tournament._id}`}>
-      <motion.div
-        whileHover={{ y: -5, scale: 1.02 }}
-        className="relative overflow-hidden rounded-xl border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"
-        style={{ background: getBackgroundGradient(tournament.gameType) }}
-      >
-        <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-all duration-300" />
-        
-        <div className="relative p-4 h-48 flex flex-col justify-between">
-          {/* Game Icon & Status */}
-          <div className="flex justify-between items-start">
-            <div className="text-4xl">{getGameIcon(tournament.gameType)}</div>
-            <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-              tournament.status === 'active' 
-                ? 'bg-red-500 text-white animate-pulse' 
-                : tournament.status === 'registration_open'
-                ? 'bg-green-500 text-white'
-                : tournament.status === 'upcoming'
-                ? 'bg-gaming-gold text-black'
-                : 'bg-gray-600 text-white'
-            }`}>
-              {(() => {
-                // CS2 tournaments don't use registration terminology
-                const isCS2 = tournament.gameType === 'cs2';
-                const statusText = tournament.status.toUpperCase().replace('_', ' ');
-                
-                if (isCS2) {
-                  if (tournament.status === 'registration_open') return 'OPEN';
-                  if (tournament.status === 'registration_closed') return 'CLOSED';
-                  if (tournament.status === 'completed') return 'FINISHED';
-                }
-                
-                if (tournament.status === 'completed') return 'FINISHED';
-                
-                return statusText;
-              })()}
-            </span>
-          </div>
-
-          {/* Tournament Info */}
-          <div>
-            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-gaming-gold transition-colors duration-300 line-clamp-2">
-              {tournament.name}
-            </h3>
-            
-            <div className="text-xs text-gray-300 mb-2">
-              {formatDate(tournament.startDate)} • {tournament.gameType.toUpperCase()}
-            </div>
-
-            {/* Stats */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-4 text-xs">
-                <div className="flex items-center space-x-1">
-                  <FiAward className="h-3 w-3 text-gaming-gold" />
-                  <span className="text-gaming-gold font-bold">₹{tournament.prizePool.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <FiUsers className="h-3 w-3 text-white" />
-                  <span className="text-white">{tournament.currentParticipants || 0}/{tournament.maxParticipants}</span>
-                </div>
-              </div>
-              
-              <button className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded hover:bg-gaming-accent transition-colors duration-200">
-                {tournament.status === 'registration_open' ? 'JOIN NOW' : 'VIEW'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </Link>
+    <TournamentCardProfessional 
+      tournament={tournament}
+      getModeIcon={getModeIcon}
+      getStatusColor={getStatusColor}
+      formatDate={formatDate}
+      showTimer={true}
+      gameType={tournament.gameType}
+    />
   );
 
   return (
@@ -499,14 +468,15 @@ const TournamentsPage = () => {
           ) : filteredTournaments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTournaments.map((tournament, index) => (
-                <motion.div
-                  key={tournament._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <TournamentCard tournament={tournament} />
-                </motion.div>
+                <div key={tournament._id} className="w-11/12 mx-auto">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <TournamentCard tournament={tournament} />
+                  </motion.div>
+                </div>
               ))}
             </div>
           ) : (

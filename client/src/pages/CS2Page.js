@@ -5,6 +5,7 @@ import { FiSettings } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import GameIcon from '../components/common/GameIcon';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import TournamentCardProfessional from '../components/tournaments/TournamentCardProfessional';
 import {
   fetchTournaments,
   selectTournaments,
@@ -108,6 +109,48 @@ const CS2Page = () => {
       region: ''
     });
   };
+
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Get status color
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'upcoming':
+        return 'text-blue-400 bg-blue-400/10';
+      case 'registration_open':
+        return 'text-green-400 bg-green-400/10';
+      case 'active':
+        return 'text-yellow-400 bg-yellow-400/10';
+      case 'completed':
+        return 'text-gray-400 bg-gray-400/10';
+      default:
+        return 'text-gray-400 bg-gray-400/10';
+    }
+  };
+
+  // Get mode icon
+  const getModeIcon = (mode) => {
+    switch (mode) {
+      case 'solo':
+        return '👤';
+      case 'duo':
+        return '👥';
+      case 'squad':
+        return '👨‍👩‍👧‍👦';
+      default:
+        return '🎮';
+    }
+  };
+
+  // Set CS2 image URL
+  const cs2ImageUrl = 'https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp';
 
   const checkSteamIntegration = async () => {
     if (!isAuthenticated) {
@@ -220,44 +263,6 @@ const CS2Page = () => {
     // If there was a tournament they were trying to join, redirect to it
     if (steamCheckResult?.tournament && steamData.eligible) {
       navigate(`/tournaments/${steamCheckResult.tournament._id}`);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusColor = (status, gameType) => {
-    // CS2 servers use different color scheme
-    if (gameType === 'cs2') {
-      switch (status) {
-        case 'active':
-          return 'text-green-400 bg-green-400/10'; // Green for active servers
-        case 'inactive':
-          return 'text-red-400 bg-red-400/10'; // Red for inactive servers
-        default:
-          return 'text-gray-400 bg-gray-400/10';
-      }
-    }
-    
-    // Regular tournament colors
-    switch (status) {
-      case 'upcoming':
-        return 'text-blue-400 bg-blue-400/10';
-      case 'registration_open':
-        return 'text-green-400 bg-green-400/10';
-      case 'active':
-        return 'text-yellow-400 bg-yellow-400/10';
-      case 'completed':
-        return 'text-gray-400 bg-gray-400/10';
-      default:
-        return 'text-gray-400 bg-gray-400/10';
     }
   };
 
@@ -512,135 +517,24 @@ const CS2Page = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tournaments?.map((tournament, index) => (
-              <motion.div
-                key={tournament._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="card-gaming p-6 hover:border-gaming-neon/50 transition-all duration-300 group"
-              >
-                {/* Tournament Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <GameIcon gameType="cs2" size="md" />
-                    {(() => {
-                      const serverStatus = serverStatuses[tournament._id];
-                      const badge = serverStatus?.badge || {
-                        text: 'Loading...',
-                        icon: '⚪',
-                        color: 'text-gray-400 bg-gray-400/10',
-                        pulse: false
-                      };
-                      return (
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color} ${badge.pulse ? 'animate-pulse' : ''}`}>
-                          {badge.icon} {badge.text}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-400">Entry Fee</div>
-                    <div className="text-lg font-bold text-green-400">FREE</div>
-                  </div>
-                </div>
-
-                {/* Tournament Info */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-white mb-2 group-hover:text-gaming-neon transition-colors">
-                    {tournament.name}
-                  </h3>
-                  <p className="text-gray-400 text-sm line-clamp-2">
-                    {tournament.description}
-                  </p>
-                </div>
-
-                {/* Tournament Stats */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gaming-neon">₹{tournament.prizePool?.toLocaleString()}</div>
-                    <div className="text-xs text-gray-400">Prize Pool</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-white">
-                      {tournament.currentParticipants}/{tournament.maxParticipants}
-                    </div>
-                    <div className="text-xs text-gray-400">Teams</div>
-                  </div>
-                </div>
-
-                {/* Steam Requirement Notice */}
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <GameIcon gameType="cs2" size="sm" />
-                    <span className="text-blue-400 text-sm font-medium">Steam Required</span>
-                  </div>
-                  <div className="text-gray-300 text-xs mt-1">
-                    Valid Steam account with CS2 needed
-                  </div>
-                </div>
-
-                {/* Tournament Dates */}
-                <div className="space-y-2 mb-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Join Before:</span>
-                    <span className="text-white">{formatDate(tournament.registrationDeadline)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Starts:</span>
-                    <span className="text-white">{formatDate(tournament.startDate)}</span>
-                  </div>
-                </div>
-
-                {/* Server Stats */}
-                {(() => {
-                  const serverStatus = serverStatuses[tournament._id];
-                  const stats = serverStatus?.stats || [];
-                  if (stats.length === 0) return null;
-                  
-                  return (
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      {stats.slice(0, 3).map((stat, index) => (
-                        <div key={index} className="bg-gaming-dark/50 rounded-lg p-2 text-center">
-                          <div className="text-lg mb-1">{stat.icon}</div>
-                          <div className={`text-xs font-bold ${stat.color}`}>{stat.value}</div>
-                          <div className="text-[10px] text-gray-500">{stat.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Tournament Start Countdown */}
-                {tournament.status === 'upcoming' && tournament.startDate && (
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                    <div className="text-blue-400 font-semibold text-xs mb-2">TOURNAMENT STARTS IN</div>
-                    <CountdownTimer 
-                      targetDate={tournament.startDate}
-                      format="compact"
-                      size="sm"
-                      showLabels={false}
-                    />
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => navigate(`/tournaments/${tournament._id}`)}
-                    className="flex-1 btn-primary text-sm"
-                  >
-                    View Details
-                  </button>
-                  {tournament.status === 'registration_open' && (
-                    <button
-                      onClick={() => handleJoinTournament(tournament)}
-                      className="flex-1 btn-gaming text-sm"
-                    >
-                      Join Tournament
-                    </button>
-                  )}
-                </div>
-              </motion.div>
+              <div key={tournament._id} className="w-11/12 mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <TournamentCardProfessional 
+                    tournament={tournament}
+                    getModeIcon={getModeIcon}
+                    getStatusColor={getStatusColor}
+                    formatDate={formatDate}
+                    showTimer={false}
+                    gameType="cs2"
+                    cs2ImageUrl={cs2ImageUrl}
+                    hideBottomInfo={true}
+                  />
+                </motion.div>
+              </div>
             ))}
           </div>
         )}

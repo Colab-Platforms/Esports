@@ -214,6 +214,8 @@ const LoginPage = () => {
               </label>
             </div>
 
+            {/* Forgot Password - Temporarily disabled until email service is configured */}
+            {/* 
             <div className="text-sm">
               <Link
                 to="/forgot-password"
@@ -222,6 +224,7 @@ const LoginPage = () => {
                 Forgot password?
               </Link>
             </div>
+            */}
           </div>
 
           {/* Submit Button */}

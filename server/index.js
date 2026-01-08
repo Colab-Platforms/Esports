@@ -8,17 +8,13 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+
+// Disable all console output globally
+require('./config/console');
+
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Seed data utility removed - use admin panel to create tournaments and games
-
-// Debug environment variables
-console.log('🔧 Environment Debug:');
-console.log('📍 PORT:', process.env.PORT);
-console.log('📍 MONGODB_URI:', process.env.MONGODB_URI ? 'Found' : 'Missing');
-console.log('📍 JWT_SECRET:', process.env.JWT_SECRET ? 'Found' : 'Missing');
-console.log('📍 CLIENT_URL:', process.env.CLIENT_URL);
-console.log('📍 SERVER_URL:', process.env.SERVER_URL);
 
 const app = express();
 const server = createServer(app);
@@ -160,22 +156,13 @@ app.use(passport.session());
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// MongoDB connection
-console.log('🔗 Connecting to MongoDB...');
-console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'URI found' : 'URI missing');
-
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esports', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
   .then(async () => {
     console.log('🎮 MongoDB connected successfully');
-    console.log('📊 Database name:', mongoose.connection.name);
-    
-    // CS2 log processing is handled by SSH cron jobs on the server
-    // Manual log processing available via /api/cs2-logs/process/:serverId endpoint
-    
-    console.log('🎮 Server ready! Use admin panel to create tournaments and games.');
+  
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err);
@@ -235,7 +222,6 @@ try {
   
   const bgmiRoutes = require('./routes/bgmiRegistration');
   app.use('/api/bgmi-registration', bgmiRoutes);
-  console.log('✅ BGMI Registration routes registered at /api/bgmi-registration');
 } catch (error) {
   console.error('❌ Failed to load BGMI Registration routes:', error);
   console.error('❌ Error details:', error.message);
@@ -253,7 +239,6 @@ try {
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
     const uploadRoute = require('./routes/upload');
     app.use('/api/upload', uploadRoute);
-    console.log('✅ Upload route with Cloudinary mounted');
   } else {
     console.error('❌ Cloudinary not configured - Image uploads will fail!');
     console.error('📝 Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env');
@@ -336,7 +321,6 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
     const result = await whatsappService.sendTextMessage(phoneNumber, message);
 
     if (result.success) {
-      console.log('✅ Admin WhatsApp message sent successfully');
       
       // Optionally save message to database for chat history
       if (registrationId) {
@@ -352,7 +336,6 @@ app.post('/api/whatsapp/send-message', async (req, res) => {
             messageId: result.messageId,
             sentAt: new Date()
           });
-          console.log('💾 Admin message saved to database');
         } catch (dbError) {
           console.error('❌ Failed to save admin message to database:', dbError);
           // Don't fail the API call if database save fails
