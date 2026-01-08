@@ -6,8 +6,12 @@ const sanitizeResponse = (req, res, next) => {
   
   // Override json method to sanitize response
   res.json = function(data) {
-    // Disable sanitization for now to fix production issues
-    // TODO: Re-enable after fixing all edge cases
+    // Only sanitize in production
+    if (process.env.NODE_ENV === 'production') {
+      const sanitized = sanitizeData(data);
+      return originalJson.call(this, sanitized);
+    }
+    // In development, return data as-is for debugging
     return originalJson.call(this, data);
   };
   
@@ -58,7 +62,6 @@ const sanitizeData = (data) => {
                 result[key] = value; // Return as-is if not a valid email
               }
             } catch (err) {
-              console.error('Error sanitizing email:', err);
               result[key] = value;
             }
           } else if (key === 'phone' && typeof value === 'string' && value) {
@@ -66,7 +69,6 @@ const sanitizeData = (data) => {
             try {
               result[key] = `${value.slice(0, 2)}***${value.slice(-5)}`;
             } catch (err) {
-              console.error('Error sanitizing phone:', err);
               result[key] = value;
             }
           } else {
@@ -82,7 +84,6 @@ const sanitizeData = (data) => {
       
       return result;
     } catch (err) {
-      console.error('Error in sanitizeObject:', err, 'obj:', obj);
       return obj; // Return original if sanitization fails
     }
   };
