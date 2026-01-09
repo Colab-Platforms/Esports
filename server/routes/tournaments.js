@@ -95,6 +95,10 @@ router.get('/', [
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    console.log('🔍 Tournaments API Query:');
+    console.log('  Filters:', JSON.stringify(filters));
+    console.log('  Page:', page, 'Limit:', limit, 'Skip:', skip);
+
     // Optimize query with lean() for better performance and select only needed fields
     const tournaments = await Tournament.getFilteredTournaments(filters)
       .select('-participants -matches -moderators -scoreboards') // Exclude heavy fields
@@ -105,6 +109,9 @@ router.get('/', [
     const total = await Tournament.countDocuments(
       Tournament.getFilteredTournaments(filters).getQuery()
     );
+
+    console.log(`✅ Tournaments found: ${tournaments.length} out of ${total} total`);
+    console.log('📝 Tournament IDs:', tournaments.map(t => ({ id: t._id, name: t.name })));
 
     res.json({
       success: true,

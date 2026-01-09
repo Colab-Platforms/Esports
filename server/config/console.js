@@ -3,8 +3,12 @@
 
 const noop = () => {};
 
-// Only disable console in production
-if (process.env.NODE_ENV === 'production') {
+// TEMPORARILY ENABLE CONSOLE FOR DEBUGGING
+// TODO: Disable this after debugging is complete
+const ENABLE_DEBUG_LOGGING = true;
+
+// Only disable console in production (unless debug logging is enabled)
+if (process.env.NODE_ENV === 'production' && !ENABLE_DEBUG_LOGGING) {
   // Override all console methods in production
   global.console = {
     log: noop,
@@ -30,7 +34,7 @@ if (process.env.NODE_ENV === 'production') {
     timeStamp: noop
   };
 } else {
-  // Keep console enabled in development
-  // This allows us to see logs for debugging
+  // Keep console enabled in development and for debugging
+  console.log('🔍 DEBUG LOGGING ENABLED - Console output is active');
 }
 

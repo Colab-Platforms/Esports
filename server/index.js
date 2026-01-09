@@ -167,12 +167,27 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
   useUnifiedTopology: true,
 })
   .then(async () => {
-    console.log('🎮 MongoDB connected successfully');
-  
+    console.log('✅ MongoDB connected successfully');
+    console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Using env variable' : 'Using default localhost');
+    
+    // Test database connection by checking collections
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    console.log('📊 Available collections:', collections.map(c => c.name).join(', '));
+    
+    // Check games collection
+    const gamesCount = await mongoose.connection.collection('games').countDocuments();
+    console.log(`🎮 Games in database: ${gamesCount}`);
+    
+    // Check tournaments collection
+    const tournamentsCount = await mongoose.connection.collection('tournaments').countDocuments();
+    console.log(`🏆 Tournaments in database: ${tournamentsCount}`);
   })
   .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
+    console.error('❌ MongoDB connection error:', err.message);
+    console.error('🔍 MongoDB URI:', process.env.MONGODB_URI || 'Using default localhost');
     console.error('🔍 Check your MongoDB URI and network connection');
+    console.error('🔍 Full error:', err);
   });
 
 // Socket.io connection handling
