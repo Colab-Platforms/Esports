@@ -16,7 +16,10 @@ const HeroImageSlider = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchSiteImages();
+      // Defer loading to after initial render
+      setTimeout(() => {
+        fetchSiteImages();
+      }, 100);
     };
     loadData();
   }, []);
@@ -154,11 +157,14 @@ const HeroImageSlider = () => {
 
   if (loading) {
     return (
-      <div className="relative h-screen flex items-center justify-center bg-gaming-dark">
-        <div className="absolute inset-0 bg-gradient-to-br from-gaming-neon/20 to-gaming-neon-blue/20" />
-        <div className="relative z-10">
-          <LoadingSpinner size="xl" text="Loading amazing content..." />
-        </div>
+      <div className="relative h-screen flex items-center justify-center bg-gaming-dark overflow-hidden">
+        {/* Placeholder image - loads instantly */}
+        <img 
+          src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806"
+          alt="Loading..."
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
     );
   }
@@ -198,6 +204,8 @@ const HeroImageSlider = () => {
                   responsiveUrls={currentSlideData.responsiveUrls}
                   alt={currentSlideData.title}
                   className="w-full h-full object-cover object-center"
+                  fetchpriority="high"
+                  loading="eager"
                 />
               ) : (
                 <OptimizedImage
@@ -205,6 +213,7 @@ const HeroImageSlider = () => {
                   alt={currentSlideData.title}
                   className="w-full h-full object-cover object-center"
                   lazy={false}
+                  fetchpriority="high"
                 />
               );
             })()}

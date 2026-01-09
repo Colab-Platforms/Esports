@@ -30,8 +30,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('🔍 Google OAuth Profile:', profile);
+      console.log('📧 Email:', profile.emails[0].value);
       
       // Check if user already exists with this Google ID
+      console.log('🔎 Checking for existing Google ID...');
       let user = await User.findOne({ 'socialAccounts.google.id': profile.id });
       
       if (user) {
@@ -39,10 +41,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
         return done(null, user);
       }
       
+      console.log('🔎 Checking for existing email...');
       // Check if user exists with same email
       user = await User.findOne({ email: profile.emails[0].value });
       
       if (user) {
+        console.log('🔗 User with email exists, linking Google account...');
         // Link Google account to existing user
         user.socialAccounts.google = {
           id: profile.id,
@@ -51,13 +55,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
           picture: profile.photos[0].value
         };
         await user.save();
-        console.log('🔗 Google account linked to existing user:', user.username);
+        console.log('✅ Google account linked to existing user:', user.username);
         return done(null, user);
       }
       
+      console.log('👤 Creating new user...');
       // Create new user
+      const username = profile.displayName.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 1000);
+      console.log('📝 New username:', username);
+      
       const newUser = new User({
-        username: profile.displayName.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 1000),
+        username: username,
         email: profile.emails[0].value,
         avatarUrl: profile.photos[0].value,
         socialAccounts: {
@@ -73,12 +81,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
         // Don't set phone field for OAuth users - let it be undefined
       });
       
+      console.log('💾 Saving new user to database...');
       await newUser.save();
-      console.log('🎉 New Google user created:', newUser.username);
+      console.log('🎉 New Google user created:', newUser.username, 'ID:', newUser._id);
       done(null, newUser);
       
     } catch (error) {
       console.error('❌ Google OAuth error:', error);
+      console.error('❌ Error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
       done(error, null);
     }
   }));

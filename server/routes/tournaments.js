@@ -30,11 +30,24 @@ router.get('/', [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 50 })
 ], async (req, res) => {
-  // Enable caching for tournament data (5 minutes for better performance)
-  res.set({
-    'Cache-Control': 'public, max-age=300', // 5 minutes cache
-    'ETag': `tournaments-${Date.now()}`
-  });
+  // Disable caching for admin requests (check for admin query param or authorization)
+  // For public requests, use 5 minute cache
+  const isAdminRequest = req.query.admin === 'true' || req.headers.authorization;
+  
+  if (isAdminRequest) {
+    // No cache for admin requests - always get fresh data
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+  } else {
+    // Cache for 5 minutes for public requests
+    res.set({
+      'Cache-Control': 'public, max-age=300',
+      'ETag': `tournaments-${Date.now()}`
+    });
+  }
   
   try {
     const errors = validationResult(req);
@@ -652,7 +665,7 @@ router.put('/:id', auth, async (req, res) => {
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
       'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
       'endDate', 'registrationDeadline', 'status', 'rules',
-      'region', 'featured', 'bannerImage', 'tags'
+      'region', 'featured', 'bannerImage', 'tags', 'youtubeVideoId', 'isLiveStreamEnabled'
     ];
 
     allowedUpdates.forEach(field => {

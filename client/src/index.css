@@ -437,3 +437,23 @@ ne clamp utilities */
     -webkit-line-clamp: 3;
   }
 }
+
+/* Vendor prefixes for CSS compatibility */
+@layer utilities {
+  .text-size-adjust {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  .backdrop-filter {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  
+  .print-color-adjust {
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

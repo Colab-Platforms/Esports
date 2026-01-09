@@ -49,7 +49,13 @@ const io = new Server(server, {
 app.set('trust proxy', 1);
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginOpenerPolicy: false, // Disable COOP for OAuth compatibility
+}));
+
+// Custom headers middleware for cache control and security
+const headersMiddleware = require('./middleware/headers');
+app.use(headersMiddleware);
 
 // Dynamic CORS configuration - allows access from any IP on port 3000 and Vercel
 app.use(cors({

@@ -65,6 +65,16 @@ const tournamentSchema = new mongoose.Schema({
       max: 100
     }
   }],
+  youtubeVideoId: {
+    type: String,
+    default: null,
+    trim: true,
+    maxlength: [50, 'YouTube video ID cannot exceed 50 characters']
+  },
+  isLiveStreamEnabled: {
+    type: Boolean,
+    default: false
+  },
   maxParticipants: {
     type: Number,
     required: [true, 'Maximum participants is required'],

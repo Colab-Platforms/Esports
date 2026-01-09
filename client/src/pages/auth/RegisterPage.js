@@ -123,7 +123,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gaming-dark flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen bg-gaming-dark flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -259,6 +259,7 @@ const RegisterPage = () => {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gaming-neon transition-colors duration-200" />
@@ -292,6 +293,7 @@ const RegisterPage = () => {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
                 >
                   {showConfirmPassword ? (
                     <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gaming-neon transition-colors duration-200" />
@@ -310,15 +312,16 @@ const RegisterPage = () => {
               name="terms"
               type="checkbox"
               required
+              title="Accept terms and conditions"
               className="h-4 w-4 text-gaming-neon focus:ring-gaming-neon border-gaming-slate rounded bg-gaming-charcoal"
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-gray-400">
               I agree to the{' '}
-              <Link to="/terms" className="text-gaming-neon hover:text-gaming-neon-blue">
+              <Link to="/terms" title="Read terms of service" className="text-gaming-neon hover:text-gaming-neon-blue">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link to="/privacy" className="text-gaming-neon hover:text-gaming-neon-blue">
+              <Link to="/privacy" title="Read privacy policy" className="text-gaming-neon hover:text-gaming-neon-blue">
                 Privacy Policy
               </Link>
             </label>
@@ -331,6 +334,7 @@ const RegisterPage = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
+              title="Create your account"
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-gaming-dark bg-gradient-neon hover:shadow-gaming focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gaming-neon disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isLoading ? (
@@ -344,8 +348,7 @@ const RegisterPage = () => {
             </motion.button>
           </div>
 
-          {/* OAuth Divider - Temporarily commented out */}
-          {/* 
+          {/* OAuth Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gaming-slate"></div>
@@ -354,10 +357,8 @@ const RegisterPage = () => {
               <span className="px-2 bg-gaming-dark text-gray-400">Or sign up with</span>
             </div>
           </div>
-          */}
 
-          {/* OAuth Buttons - Temporarily commented out for proper integration tomorrow */}
-          {/* 
+          {/* OAuth Buttons */}
           <div className="grid grid-cols-1 gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -387,6 +388,7 @@ const RegisterPage = () => {
                 }
               }}
               className="w-full inline-flex justify-center py-2 px-4 border border-gaming-slate rounded-lg shadow-sm bg-gaming-charcoal text-sm font-medium text-white hover:bg-gaming-slate transition-all duration-200"
+              title="Sign up with Google"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -396,21 +398,7 @@ const RegisterPage = () => {
               </svg>
               <span className="ml-2">Google</span>
             </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={() => window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/steam`}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gaming-slate rounded-lg shadow-sm bg-gaming-charcoal text-sm font-medium text-white hover:bg-gaming-slate transition-all duration-200"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1.5 15.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zm6-6c-1.38 0-2.5-1.12-2.5-2.5S15.12 6.5 16.5 6.5 19 7.62 19 9s-1.12 2.5-2.5 2.5z"/>
-              </svg>
-              <span className="ml-2">Steam</span>
-            </motion.button>
           </div>
-          */}
 
           {/* Sign In Link */}
           <div className="text-center">
@@ -418,6 +406,7 @@ const RegisterPage = () => {
               Already have an account?{' '}
               <Link
                 to="/login"
+                title="Sign in to your account"
                 className="text-gaming-neon hover:text-gaming-neon-blue font-medium transition-colors duration-200"
               >
                 Sign in

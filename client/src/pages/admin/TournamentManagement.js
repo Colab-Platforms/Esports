@@ -25,6 +25,7 @@ const TournamentManagement = () => {
       entryFee: 0,
       prizePool: 0,
       maxParticipants: 100,
+      youtubeVideoId: '',
       grouping: {
         enabled: false,
         groupSize: 20
@@ -81,8 +82,30 @@ const TournamentManagement = () => {
 
   const fetchTournaments = async () => {
     try {
-      const response = await api.get('/api/tournaments');
-      setTournaments(response.data?.tournaments || []);
+      // Add admin flag to bypass cache on live server
+      const response = await api.get('/api/tournaments?admin=true');
+      console.log('📦 Tournaments API Response:', response);
+      console.log('📦 Response data:', response.data);
+      console.log('📦 Response data.data:', response.data?.data);
+      
+      // Handle different response formats
+      let tournamentsData = [];
+      
+      // Wrapped response with data.data.tournaments (current backend)
+      if (response.data?.data?.tournaments) {
+        tournamentsData = response.data.data.tournaments;
+      }
+      // Wrapped response with data.tournaments
+      else if (response.data?.tournaments) {
+        tournamentsData = response.data.tournaments;
+      }
+      // Direct array response
+      else if (Array.isArray(response.data)) {
+        tournamentsData = response.data;
+      }
+      
+      console.log('✅ Tournaments loaded:', tournamentsData.length);
+      setTournaments(tournamentsData);
     } catch (error) {
       console.error('Failed to fetch tournaments:', error);
       toast.error('Failed to load tournaments');
@@ -248,6 +271,7 @@ const TournamentManagement = () => {
       entryFee: tournament.entryFee || 0,
       prizePool: tournament.prizePool || 0,
       maxParticipants: tournament.maxParticipants || 100,
+      youtubeVideoId: tournament.youtubeVideoId || '',
       grouping: {
         enabled: tournament.grouping?.enabled || false,
         groupSize: tournament.grouping?.groupSize || 20
@@ -883,6 +907,22 @@ const TournamentManagement = () => {
                     </div>
                   </>
                 )}
+
+                {/* YouTube Video ID - Optional */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    YouTube Video ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    {...register('youtubeVideoId')}
+                    className="input-gaming w-full"
+                    placeholder="e.g., dQw4w9WgXcQ"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Get from YouTube URL: youtube.com/watch?v=<span className="text-gaming-neon">VIDEO_ID</span>
+                  </p>
+                </div>
 
                 {/* Rules - Optional */}
                 <div>

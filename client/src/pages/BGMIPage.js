@@ -294,40 +294,40 @@ const BGMIPage = () => {
           </div>
         )}
 
-        {/* Tournaments Grid */}
-        {!tournaments || tournaments.length === 0 ? (
-          <div className="card-gaming p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">
-              <img src={getCdnIcon('features', 'tournaments')} alt="No tournaments" className="w-16 h-16 mx-auto opacity-50" />
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">No BGMI Tournaments Found</h2>
-            <p className="text-gray-300 mb-4">
-              {activeTab === 'upcoming' 
-                ? 'No upcoming tournaments at the moment. Check back soon!'
-                : activeTab === 'live'
-                ? 'No live tournaments right now.'
-                : 'No completed tournaments to show.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tournaments?.map((tournament) => (
-              <div key={tournament._id} className="w-11/12 mx-auto">
-                <TournamentCard 
-                  tournament={tournament}
-                  navigate={navigate}
-                  getModeIcon={getModeIcon}
-                  getStatusColor={getStatusColor}
-                  formatDate={formatDate}
-                  onRegisterClick={handleRegisterClick}
-                />
+        {/* Main Content Grid - Tournaments */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {!tournaments || tournaments.length === 0 ? (
+            <div className="card-gaming p-8 text-center">
+              <div className="text-gray-400 text-6xl mb-4">
+                <img src={getCdnIcon('features', 'tournaments')} alt="No tournaments" className="w-16 h-16 mx-auto opacity-50" />
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Registration Form Modal */}
+              <h2 className="text-xl font-bold text-white mb-2">No BGMI Tournaments Found</h2>
+              <p className="text-gray-300 mb-4">
+                {activeTab === 'upcoming' 
+                  ? 'No upcoming tournaments at the moment. Check back soon!'
+                  : activeTab === 'live'
+                  ? 'No live tournaments right now.'
+                  : 'No completed tournaments to show.'
+                }
+              </p>
+            </div>
+          ) : (
+            <>
+              {tournaments?.map((tournament) => (
+                <div key={tournament._id} className="w-full">
+                  <TournamentCard 
+                    tournament={tournament}
+                    navigate={navigate}
+                    getModeIcon={getModeIcon}
+                    getStatusColor={getStatusColor}
+                    formatDate={formatDate}
+                    onRegisterClick={handleRegisterClick}
+                  />
+                </div>
+              ))}
+            </>
+          )}
+        </div>
         {showRegistrationForm && selectedTournament && (
           <BGMIRegistrationForm
             tournament={selectedTournament}

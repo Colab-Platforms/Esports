@@ -5,6 +5,8 @@ const ResponsiveImage = ({
   responsiveUrls = {}, 
   alt, 
   className = '',
+  fetchpriority = 'auto',
+  loading = 'lazy',
   ...props 
 }) => {
   const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
@@ -60,6 +62,9 @@ const ResponsiveImage = ({
       src={currentImageUrl} 
       alt={alt} 
       className={className}
+      fetchpriority={fetchpriority}
+      loading={loading}
+      decoding="async"
       {...props}
     />
   );

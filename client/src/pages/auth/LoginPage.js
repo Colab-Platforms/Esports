@@ -95,7 +95,7 @@ const LoginPage = () => {
   const IdentifierIcon = getIdentifierIcon();
 
   return (
-    <div className="min-h-screen bg-gaming-dark flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="h-screen bg-gaming-dark flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -187,6 +187,7 @@ const LoginPage = () => {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gaming-neon transition-colors duration-200" />
@@ -219,6 +220,7 @@ const LoginPage = () => {
             <div className="text-sm">
               <Link
                 to="/forgot-password"
+                title="Reset your password"
                 className="text-gaming-neon hover:text-gaming-neon-blue transition-colors duration-200"
               >
                 Forgot password?
@@ -234,6 +236,7 @@ const LoginPage = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
+              title="Sign in to your account"
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-gaming-dark bg-gradient-neon hover:shadow-gaming focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gaming-neon disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isLoading ? (
@@ -247,8 +250,7 @@ const LoginPage = () => {
             </motion.button>
           </div>
 
-          {/* OAuth Divider - Temporarily commented out */}
-          {/* 
+          {/* OAuth Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gaming-slate"></div>
@@ -257,10 +259,8 @@ const LoginPage = () => {
               <span className="px-2 bg-gaming-dark text-gray-400">Or continue with</span>
             </div>
           </div>
-          */}
 
-          {/* OAuth Buttons - Temporarily commented out for proper integration tomorrow */}
-          {/* 
+          {/* OAuth Buttons */}
           <div className="grid grid-cols-1 gap-3">
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -299,21 +299,7 @@ const LoginPage = () => {
               </svg>
               <span className="ml-2">Google</span>
             </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={() => window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/steam`}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gaming-slate rounded-lg shadow-sm bg-gaming-charcoal text-sm font-medium text-white hover:bg-gaming-slate transition-all duration-200"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1.5 15.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zm6-6c-1.38 0-2.5-1.12-2.5-2.5S15.12 6.5 16.5 6.5 19 7.62 19 9s-1.12 2.5-2.5 2.5z"/>
-              </svg>
-              <span className="ml-2">Steam</span>
-            </motion.button>
           </div>
-          */}
 
           {/* Sign Up Link */}
           <div className="text-center">
@@ -321,6 +307,7 @@ const LoginPage = () => {
               Don't have an account?{' '}
               <Link
                 to="/register"
+                title="Create a new account"
                 className="text-gaming-neon hover:text-gaming-neon-blue font-medium transition-colors duration-200"
               >
                 Sign up

@@ -8,6 +8,7 @@ const OptimizedImage = ({
   fallbackSrc = null,
   placeholder = null,
   lazy = true,
+  fetchpriority = 'auto',
   ...props 
 }) => {
   const [imageSrc, setImageSrc] = useState(lazy ? placeholder : src);
@@ -101,6 +102,7 @@ const OptimizedImage = ({
           onLoad={() => setIsLoading(false)}
           onError={handleImageError}
           loading={lazy ? 'lazy' : 'eager'}
+          fetchpriority={fetchpriority}
           decoding="async"
           initial={{ opacity: 0 }}
           animate={{ opacity: isLoading ? 0 : 1 }}

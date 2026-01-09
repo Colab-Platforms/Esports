@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -41,6 +41,7 @@ import TournamentManagement from './pages/admin/TournamentManagement';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
+import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -138,12 +139,62 @@ const ResultSubmissionWrapper = () => {
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
+  const location = useLocation();
   
   // Check if splash has been shown before (only show once per session)
   const [showSplash, setShowSplash] = React.useState(() => {
     const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
-    return !hasSeenSplash; // Show splash only if not seen before
+    return !hasSeenSplash; // Show splash only if not seen before in this session
   });
+
+  // Check if current page is an auth page (hide footer on these pages)
+  const isAuthPage = location.pathname.startsWith('/login') || 
+                     location.pathname.startsWith('/register') || 
+                     location.pathname.startsWith('/forgot-password') || 
+                     location.pathname.startsWith('/reset-password');
+
+  useEffect(() => {
+    // Monitor Web Vitals for performance tracking
+    if ('PerformanceObserver' in window) {
+      try {
+        // Monitor LCP (Largest Contentful Paint)
+        new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          const lastEntry = entries[entries.length - 1];
+          const lcp = lastEntry.renderTime || lastEntry.loadTime;
+          console.log('📊 LCP:', Math.round(lcp), 'ms');
+        }).observe({ entryTypes: ['largest-contentful-paint'] });
+
+        // Monitor CLS (Cumulative Layout Shift)
+        let clsValue = 0;
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (!entry.hadRecentInput) {
+              clsValue += entry.value;
+            }
+          }
+          console.log('📊 CLS:', clsValue.toFixed(3));
+        }).observe({ entryTypes: ['layout-shift'] });
+
+        // Monitor FCP (First Contentful Paint)
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.name === 'first-contentful-paint') {
+              console.log('📊 FCP:', Math.round(entry.startTime), 'ms');
+            }
+          }
+        }).observe({ entryTypes: ['paint'] });
+      } catch (error) {
+        console.error('Error monitoring Web Vitals:', error);
+      }
+    }
+
+    // Expose function to clear splash cache for testing
+    window.clearSplashCache = () => {
+      localStorage.removeItem('lastSplashTime');
+      console.log('✅ Splash cache cleared. Reload page to see splash screen.');
+    };
+  }, []);
 
   useEffect(() => {
     // Initialize socket connection if authenticated
@@ -171,7 +222,8 @@ function App() {
   if (showSplash) {
     return <SplashScreen onComplete={() => {
       setShowSplash(false);
-      sessionStorage.setItem('hasSeenSplash', 'true'); // Mark as seen
+      // Mark as seen in this session
+      sessionStorage.setItem('hasSeenSplash', 'true');
     }} />;
   }
 
@@ -650,6 +702,22 @@ function App() {
                 </AdminRoute>
               } 
             />
+
+            <Route 
+              path="/admin/live-stream" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AdminLiveStreamManager />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
             
             <Route 
               path="/matches/:id/submit-result" 
@@ -685,8 +753,8 @@ function App() {
         </AnimatePresence>
       </main>
       
-      {/* Footer */}
-      <Footer />
+      {/* Footer - Hidden on auth pages */}
+      {!isAuthPage && <Footer />}
       </div>
     </ThemeProvider>
   );

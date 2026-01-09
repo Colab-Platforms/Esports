@@ -15,6 +15,8 @@ import { getGameAsset, getCdnIcon, getMedalIcon } from '../assets/gameAssets';
 import GameIcon from '../components/common/GameIcon';
 import OptimizedImage from '../components/common/OptimizedImage';
 import HeroImageSlider from '../components/common/HeroImageSlider';
+import BGMILiveStreamSection from '../components/bgmi/BGMILiveStreamSection';
+import { getOptimizedImageUrl } from '../utils/lcpOptimization';
 
 const CompleteLandingPage = () => {
   const { isAuthenticated } = useSelector(selectAuth);
@@ -198,8 +200,8 @@ const CompleteLandingPage = () => {
     const hasAnyCache = dataCache.size > 0;
     
     if (!hasAnyCache) {
-      // First time visit - show loading and fetch data
-      setLoading(true);
+      // First time visit - DON'T show loading, just fetch data
+      // setLoading(true); // DISABLED - don't block render
     }
     
     initializeData();
@@ -257,8 +259,8 @@ const CompleteLandingPage = () => {
       // Don't set loading to false here, let loadFromCache handle it
     } else {
       console.log('❌ Missing cached data, fetching fresh data');
-      // Only show loading if we need to fetch fresh data
-      setLoading(true);
+      // Don't show loading - let page render immediately
+      // setLoading(true); // DISABLED - don't block render
       await fetchAllData();
     }
   };
@@ -432,29 +434,60 @@ const CompleteLandingPage = () => {
     return duplicatedTestimonials.slice(0, 6); // Take first 6 items
   };
 
+  // LCP Optimization: Split data fetching into critical and non-critical
+  const fetchCriticalData = async () => {
+    console.log('⚡ Fetching critical data for LCP...');
+    
+    try {
+      // Only fetch critical data (small, fast)
+      await fetchPlatformStats();
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      await fetchTournaments();
+      
+      console.log('✅ Critical data loaded');
+      return true;
+    } catch (error) {
+      console.error('❌ Error fetching critical data:', error);
+      return false;
+    }
+  };
+
+  const fetchNonCriticalData = async () => {
+    console.log('📦 Fetching non-critical data...');
+    
+    try {
+      // Fetch non-critical data in parallel (large, slow)
+      await Promise.all([
+        fetchLeaderboards(),
+        fetchBgmiScoreboards(),
+        fetchTestimonials(),
+        fetchServers()
+      ]);
+      
+      console.log('✅ Non-critical data loaded');
+      return true;
+    } catch (error) {
+      console.error('❌ Error fetching non-critical data:', error);
+      return false;
+    }
+  };
+
   const fetchAllData = async (forceRefresh = false) => {
-    setLoading(true);
+    // Don't set loading to true - let page render immediately
+    // setLoading(true); // DISABLED - don't block render
     
     try {
       console.log('🔄 Fetching all data...', forceRefresh ? '(force refresh)' : '(with cache)');
       
-      // Sequential API calls with delays to prevent rate limiting
-      await fetchLeaderboards();
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Phase 1: Load critical data immediately
+      await fetchCriticalData();
       
-      await fetchPlatformStats();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await fetchBgmiScoreboards();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await fetchServers(forceRefresh);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await fetchTestimonials();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      await fetchTournaments();
+      // Phase 2: Load non-critical data after 2 seconds (after LCP)
+      // This prevents large API calls from blocking the initial render
+      setTimeout(() => {
+        fetchNonCriticalData();
+      }, 2000);
       
     } catch (error) {
       console.error('❌ Error fetching data:', error);
@@ -784,6 +817,21 @@ const CompleteLandingPage = () => {
         </div>
       </section>
 
+      {/* LIVE STREAM SECTION - DISABLED FOR NOW */}
+      {/* 
+      <section className="py-12 bg-gaming-dark/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <h2 className="text-3xl md:text-4xl font-gaming font-bold text-white mb-2">
+              🔴 LIVE NOW
+            </h2>
+            <p className="text-gray-400 font-gaming">Watch live tournament streams</p>
+          </div>
+          <BGMILiveStreamSection />
+        </div>
+      </section>
+      */}
+
       {/* Live Leaderboard Section - Gaming Console Style */}
       <section className="py-20 bg-gaming-charcoal/30 relative overflow-hidden">
         {/* Animated Background Grid */}
@@ -879,7 +927,8 @@ const CompleteLandingPage = () => {
                             {/* Image Section */}
                             <div className="w-24 h-16 flex-shrink-0">
                               <img
-                                src={scoreboard.imageUrl}
+                                src={getOptimizedImageUrl(scoreboard.imageUrl, 200, 80)}
+                                loading="lazy"
                                 alt={scoreboard.description}
                                 className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                               />

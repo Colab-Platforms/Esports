@@ -147,7 +147,7 @@ const GamesPage = () => {
             >
                 <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-all duration-300" />
 
-                <div className="relative p-6 h-64 flex flex-col justify-between">
+                <div className="relative p-6 h-64 flex flex-col justify-between bg-gradient-to-br from-gaming-charcoal to-gaming-slate border border-gaming-gold/20 hover:border-gaming-gold/50 transition-all duration-300">
                     {/* Game Icon & Category */}
                     <div className="flex justify-between items-start">
                         <div className="flex items-center justify-center">
@@ -197,12 +197,13 @@ const GamesPage = () => {
         return (
             <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
                 <div className="text-center">
-                    <div className="flex justify-center items-center space-x-1 mb-4">
-                        <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
-                        <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                        <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                        <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
-                        <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                    {/* Infinity Dots Loader */}
+                    <div className="flex justify-center items-center space-x-2 mb-4">
+                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
+                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.6s'}}></div>
+                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.8s'}}></div>
                     </div>
                     <p className="text-gray-300">Loading games...</p>
                 </div>

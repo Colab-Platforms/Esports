@@ -840,26 +840,31 @@ router.get('/google/callback', (req, res, next) => {
   passport.authenticate('google', { session: false }, async (err, user, info) => {
     try {
       if (err) {
-        console.error('Google OAuth authentication error:', err);
+        console.error('❌ Google OAuth authentication error:', err);
         const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
         return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
       }
       
       if (!user) {
-        console.error('Google OAuth: No user returned');
+        console.error('❌ Google OAuth: No user returned');
         const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
         return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
       }
       
+      console.log('✅ Google OAuth user authenticated:', user.username);
+      
       // Generate JWT token
       const token = generateToken(user._id, false);
+      console.log('🔑 JWT token generated for user:', user._id);
       
       // Redirect to frontend with token
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-      res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=google`);
+      const redirectUrl = `${CLIENT_URL}/auth/success?token=${token}&provider=google`;
+      console.log('🔄 Redirecting to:', redirectUrl);
+      res.redirect(redirectUrl);
       
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      console.error('❌ Google OAuth callback error:', error);
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
     }

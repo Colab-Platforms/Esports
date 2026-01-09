@@ -6,13 +6,13 @@ const PremiumSplashScreen = ({ onComplete }) => {
   const [phase, setPhase] = useState('glitch'); // glitch -> grid -> reveal -> complete
 
   useEffect(() => {
-    const glitchTimer = setTimeout(() => setPhase('grid'), 1500); // Increased from 800
-    const gridTimer = setTimeout(() => setPhase('reveal'), 3000); // Increased from 1800
-    const completeTimer = setTimeout(() => setPhase('complete'), 5500); // Increased from 3500
+    const glitchTimer = setTimeout(() => setPhase('grid'), 500); // Reduced from 1500
+    const gridTimer = setTimeout(() => setPhase('reveal'), 1000); // Reduced from 3000
+    const completeTimer = setTimeout(() => setPhase('complete'), 1500); // Reduced from 5500
     const hideTimer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(() => onComplete?.(), 500);
-    }, 6000); // Increased from 4000
+      setTimeout(() => onComplete?.(), 200);
+    }, 2000); // Reduced from 6000 - NOW ONLY 2 SECONDS
 
     return () => {
       clearTimeout(glitchTimer);
