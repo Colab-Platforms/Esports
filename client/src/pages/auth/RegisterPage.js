@@ -360,6 +360,8 @@ const RegisterPage = () => {
 
           {/* OAuth Buttons */}
           <div className="grid grid-cols-1 gap-3">
+            {/* Google button disabled for now */}
+            {/* 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -398,6 +400,7 @@ const RegisterPage = () => {
               </svg>
               <span className="ml-2">Google</span>
             </motion.button>
+            */}
           </div>
 
           {/* Sign In Link */}
