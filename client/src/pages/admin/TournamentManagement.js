@@ -261,6 +261,9 @@ const TournamentManagement = () => {
   const handleEdit = (tournament) => {
     setEditingTournament(tournament);
     
+    // Ensure _id is a string
+    const tournamentId = tournament._id?.toString ? tournament._id.toString() : String(tournament._id);
+    
     // Set form values using react-hook-form
     reset({
       name: tournament.name,
@@ -290,6 +293,12 @@ const TournamentManagement = () => {
           rconPassword: tournament.roomDetails?.cs2?.rconPassword || ''
         }
       }
+    });
+    
+    // Store the string ID in editingTournament
+    setEditingTournament({
+      ...tournament,
+      _id: tournamentId
     });
     
     setShowModal(true);
@@ -372,8 +381,45 @@ const TournamentManagement = () => {
           </div>
           <button
             onClick={() => {
-              reset();
               setEditingTournament(null);
+              reset({
+                name: '',
+                gameType: '',
+                description: '',
+                mode: 'squad',
+                format: 'elimination',
+                entryFee: 0,
+                prizePool: 0,
+                maxParticipants: 100,
+                youtubeVideoId: '',
+                grouping: {
+                  enabled: false,
+                  groupSize: 20
+                },
+                startDate: '',
+                endDate: '',
+                registrationDeadline: '',
+                rules: '',
+                status: 'upcoming',
+                roomDetails: {
+                  cs2: {
+                    serverName: '',
+                    serverIp: '',
+                    serverPort: '',
+                    password: '',
+                    gameMode: 'casual',
+                    mapName: '',
+                    rconPassword: ''
+                  },
+                  bgmi: {
+                    roomId: '',
+                    password: '',
+                    map: 'Erangel',
+                    perspective: 'TPP',
+                    mode: 'Squad'
+                  }
+                }
+              });
               setShowModal(true);
             }}
             className="btn-gaming flex items-center space-x-2"
@@ -393,8 +439,45 @@ const TournamentManagement = () => {
             <p className="text-gray-400 mb-6">Create your first tournament to get started</p>
             <button
               onClick={() => {
-                reset();
                 setEditingTournament(null);
+                reset({
+                  name: '',
+                  gameType: '',
+                  description: '',
+                  mode: 'squad',
+                  format: 'elimination',
+                  entryFee: 0,
+                  prizePool: 0,
+                  maxParticipants: 100,
+                  youtubeVideoId: '',
+                  grouping: {
+                    enabled: false,
+                    groupSize: 20
+                  },
+                  startDate: '',
+                  endDate: '',
+                  registrationDeadline: '',
+                  rules: '',
+                  status: 'upcoming',
+                  roomDetails: {
+                    cs2: {
+                      serverName: '',
+                      serverIp: '',
+                      serverPort: '',
+                      password: '',
+                      gameMode: 'casual',
+                      mapName: '',
+                      rconPassword: ''
+                    },
+                    bgmi: {
+                      roomId: '',
+                      password: '',
+                      map: 'Erangel',
+                      perspective: 'TPP',
+                      mode: 'Squad'
+                    }
+                  }
+                });
                 setShowModal(true);
               }}
               className="btn-gaming"
