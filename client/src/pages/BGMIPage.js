@@ -450,7 +450,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
           />
         ) : (
           <img 
-            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Post.jpg?v=1767875878"
+            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

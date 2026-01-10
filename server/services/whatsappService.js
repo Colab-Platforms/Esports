@@ -300,7 +300,7 @@ class WhatsAppService {
           this.templates.registration_success,
           [], // No body parameters for game_greeting
           {
-            headerImage: 'https://res.cloudinary.com/dlmcpmdpn/image/upload/v1767786126/Artboard_1_gy2or5.jpg'
+            headerImage: 'https://res.cloudinary.com/dlmcpmdpn/image/upload/v1768031537/Special_01_usxfku.jpg'
           }
         );
         
