@@ -136,8 +136,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Response sanitization middleware (hide sensitive data in production)
-const sanitizeResponse = require('./middleware/sanitizeResponse');
-app.use(sanitizeResponse);
+// DISABLED FOR NOW - causing performance issues
+// const sanitizeResponse = require('./middleware/sanitizeResponse');
+// app.use(sanitizeResponse);
 
 // No-cache middleware for API routes to prevent stale data
 const noCache = require('./middleware/noCache');

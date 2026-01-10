@@ -106,13 +106,13 @@ router.get('/', [
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Use JSON stringify/parse to ensure proper serialization
+    // Simple conversion without JSON stringify to avoid circular references
     const tournamentsWithStringIds = tournaments.map(t => {
-      const serialized = JSON.parse(JSON.stringify(t));
-      if (serialized._id) {
-        serialized._id = serialized._id.toString ? serialized._id.toString() : String(serialized._id);
+      // Ensure _id is a string
+      if (t._id) {
+        t._id = t._id.toString ? t._id.toString() : String(t._id);
       }
-      return serialized;
+      return t;
     });
 
     const total = await Tournament.countDocuments(
@@ -399,17 +399,15 @@ router.get('/:id', async (req, res) => {
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
     
-    // Use JSON stringify/parse to ensure proper serialization
-    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (serializedTournament._id) {
-      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
     }
 
     res.json({
       success: true,
       data: { 
-        tournament: serializedTournament,
+        tournament: plainTournament,
         isUserRegistered,
         roomDetails
       },
@@ -609,16 +607,14 @@ router.post('/', auth, [
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
     
-    // Use JSON stringify/parse to ensure proper serialization
-    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (serializedTournament._id) {
-      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
     }
 
     res.status(201).json({
       success: true,
-      data: { tournament: serializedTournament },
+      data: { tournament: plainTournament },
       message: '🏆 Tournament created successfully!',
       timestamp: new Date().toISOString()
     });
@@ -789,16 +785,14 @@ router.put('/:id', auth, async (req, res) => {
     // Convert to plain object for proper JSON serialization
     const plainTournament = savedTournament.toObject();
     
-    // Use JSON stringify/parse to ensure proper serialization
-    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (serializedTournament._id) {
-      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
     }
     
     res.json({
       success: true,
-      data: { tournament: serializedTournament },
+      data: { tournament: plainTournament },
       message: '✅ Tournament updated successfully!',
       updatedFields: updatedFields,
       timestamp: new Date().toISOString()
