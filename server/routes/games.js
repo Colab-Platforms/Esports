@@ -93,14 +93,21 @@ router.post('/', async (req, res) => {
 // Update game (admin only)
 router.put('/:id', async (req, res) => {
   try {
+    console.log('🎮 Updating game:', req.params.id);
+    console.log('📝 Update data:', req.body);
+    
     const game = await Game.findOneAndUpdate(
       { id: req.params.id },
       req.body,
       { new: true, runValidators: true }
     );
+    
     if (!game) {
+      console.log('❌ Game not found with id:', req.params.id);
       return res.status(404).json({ message: 'Game not found' });
     }
+    
+    console.log('✅ Game updated:', game);
     res.json(game);
   } catch (error) {
     console.error('Error updating game:', error);
@@ -149,6 +156,31 @@ router.patch('/:id/stats', async (req, res) => {
   } catch (error) {
     console.error('Error updating game stats:', error);
     res.status(500).json({ message: 'Error updating game stats', error: error.message });
+  }
+});
+
+// Activate all games (admin only - for production fix)
+router.post('/admin/activate-all', async (req, res) => {
+  try {
+    const result = await Game.updateMany(
+      {},
+      { isActive: true }
+    );
+    
+    console.log('✅ All games activated:', result.modifiedCount);
+    
+    res.json({
+      success: true,
+      message: 'All games activated',
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error activating games:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error activating games', 
+      error: error.message 
+    });
   }
 });
 

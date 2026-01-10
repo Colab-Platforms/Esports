@@ -74,7 +74,16 @@ const GamesManagement = () => {
 
   const handleEdit = (game) => {
     setEditingGame(game);
-    setFormData(game);
+    setFormData({
+      id: game.id,
+      name: game.name,
+      fullName: game.fullName || '',
+      description: game.description || '',
+      icon: game.icon,
+      isActive: game.isActive,
+      featured: game.featured,
+      order: game.order
+    });
     setShowForm(true);
   };
 
