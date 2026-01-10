@@ -184,4 +184,32 @@ router.post('/admin/activate-all', async (req, res) => {
   }
 });
 
+// Debug endpoint - check all games in database
+router.get('/debug/all-games', async (req, res) => {
+  try {
+    const allGames = await Game.find({});
+    const activeGames = await Game.find({ isActive: true });
+    
+    console.log('🔍 DEBUG - All games in database:');
+    console.log(JSON.stringify(allGames, null, 2));
+    console.log('🔍 DEBUG - Active games only:');
+    console.log(JSON.stringify(activeGames, null, 2));
+    
+    res.json({
+      success: true,
+      allGames: allGames,
+      activeGames: activeGames,
+      totalCount: allGames.length,
+      activeCount: activeGames.length
+    });
+  } catch (error) {
+    console.error('Error fetching debug games:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching games', 
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router;
