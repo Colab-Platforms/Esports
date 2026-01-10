@@ -106,14 +106,23 @@ router.get('/', [
       .skip(skip)
       .limit(parseInt(limit));
 
+    // Use JSON stringify/parse to ensure proper serialization
+    const tournamentsWithStringIds = tournaments.map(t => {
+      const serialized = JSON.parse(JSON.stringify(t));
+      if (serialized._id) {
+        serialized._id = serialized._id.toString ? serialized._id.toString() : String(serialized._id);
+      }
+      return serialized;
+    });
+
     const total = await Tournament.countDocuments(
       Tournament.getFilteredTournaments(filters).getQuery()
     );
 
-    console.log(`✅ Tournaments found: ${tournaments.length} out of ${total} total`);
-    console.log('📝 Tournament IDs:', tournaments.map(t => ({ id: t._id, name: t.name })));
+    console.log(`✅ Tournaments found: ${tournamentsWithStringIds.length} out of ${total} total`);
+    console.log('📝 Tournament IDs:', tournamentsWithStringIds.map(t => ({ id: t._id, name: t.name })));
     console.log('📊 Response will include:', {
-      tournamentsCount: tournaments.length,
+      tournamentsCount: tournamentsWithStringIds.length,
       totalCount: total,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -123,7 +132,7 @@ router.get('/', [
     res.json({
       success: true,
       data: {
-        tournaments,
+        tournaments: tournamentsWithStringIds,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -339,8 +348,13 @@ router.get('/:id/eligible-teams', auth, async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
+    // Ensure id is a string
+    const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
+    
+    console.log('🔍 Fetching tournament:', tournamentId, 'Type:', typeof tournamentId);
+    
     // First fetch tournament without populate to check registration
-    const tournament = await Tournament.findById(req.params.id);
+    const tournament = await Tournament.findById(tournamentId);
 
     if (!tournament) {
       return res.status(404).json({
@@ -384,15 +398,18 @@ router.get('/:id', async (req, res) => {
 
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
+    
+    // Use JSON stringify/parse to ensure proper serialization
+    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (plainTournament._id) {
-      plainTournament._id = plainTournament._id.toString();
+    if (serializedTournament._id) {
+      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
     }
 
     res.json({
       success: true,
       data: { 
-        tournament: plainTournament,
+        tournament: serializedTournament,
         isUserRegistered,
         roomDetails
       },
@@ -591,14 +608,17 @@ router.post('/', auth, [
 
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
+    
+    // Use JSON stringify/parse to ensure proper serialization
+    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (plainTournament._id) {
-      plainTournament._id = plainTournament._id.toString();
+    if (serializedTournament._id) {
+      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
     }
 
     res.status(201).json({
       success: true,
-      data: { tournament: plainTournament },
+      data: { tournament: serializedTournament },
       message: '🏆 Tournament created successfully!',
       timestamp: new Date().toISOString()
     });
@@ -768,14 +788,17 @@ router.put('/:id', auth, async (req, res) => {
     
     // Convert to plain object for proper JSON serialization
     const plainTournament = savedTournament.toObject();
+    
+    // Use JSON stringify/parse to ensure proper serialization
+    const serializedTournament = JSON.parse(JSON.stringify(plainTournament));
     // Ensure _id is a string for client-side usage
-    if (plainTournament._id) {
-      plainTournament._id = plainTournament._id.toString();
+    if (serializedTournament._id) {
+      serializedTournament._id = serializedTournament._id.toString ? serializedTournament._id.toString() : String(serializedTournament._id);
     }
     
     res.json({
       success: true,
-      data: { tournament: plainTournament },
+      data: { tournament: serializedTournament },
       message: '✅ Tournament updated successfully!',
       updatedFields: updatedFields,
       timestamp: new Date().toISOString()
@@ -1430,7 +1453,10 @@ router.delete('/:id', auth, async (req, res) => {
 // @access  Public
 router.get('/:id/participants', async (req, res) => {
   try {
-    const tournament = await Tournament.findById(req.params.id)
+    // Ensure id is a string
+    const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
+    
+    const tournament = await Tournament.findById(tournamentId)
       .populate('participants.userId', 'username avatarUrl level currentRank totalEarnings');
 
     if (!tournament) {
@@ -1942,7 +1968,10 @@ router.get('/user/scoreboards', auth, async (req, res) => {
 // @access  Public
 router.get('/:id/scoreboards', async (req, res) => {
   try {
-    const tournament = await Tournament.findById(req.params.id)
+    // Ensure id is a string
+    const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
+    
+    const tournament = await Tournament.findById(tournamentId)
       .populate('scoreboards.uploadedBy', 'username')
       .select('name gameType status scoreboards');
       

@@ -279,9 +279,30 @@ const TournamentManagement = () => {
         enabled: tournament.grouping?.enabled || false,
         groupSize: tournament.grouping?.groupSize || 20
       },
-      startDate: tournament.startDate ? new Date(tournament.startDate).toISOString().slice(0, 16).replace('T', ' ') : '',
-      endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16).replace('T', ' ') : '',
-      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toISOString().slice(0, 16).replace('T', ' ') : '',
+      startDate: tournament.startDate ? (() => {
+        try {
+          const date = new Date(tournament.startDate);
+          return isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 16).replace('T', ' ');
+        } catch (e) {
+          return '';
+        }
+      })() : '',
+      endDate: tournament.endDate ? (() => {
+        try {
+          const date = new Date(tournament.endDate);
+          return isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 16).replace('T', ' ');
+        } catch (e) {
+          return '';
+        }
+      })() : '',
+      registrationDeadline: tournament.registrationDeadline ? (() => {
+        try {
+          const date = new Date(tournament.registrationDeadline);
+          return isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 16).replace('T', ' ');
+        } catch (e) {
+          return '';
+        }
+      })() : '',
       rules: tournament.rules || '',
       status: tournament.status || 'upcoming',
       // CS2 server details
