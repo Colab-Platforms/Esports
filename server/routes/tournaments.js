@@ -582,9 +582,12 @@ router.post('/', auth, [
 
     await tournament.populate('createdBy', 'username avatarUrl');
 
+    // Convert to plain object for proper JSON serialization
+    const plainTournament = tournament.toObject();
+
     res.status(201).json({
       success: true,
-      data: { tournament },
+      data: { tournament: plainTournament },
       message: '🏆 Tournament created successfully!',
       timestamp: new Date().toISOString()
     });
@@ -752,9 +755,12 @@ router.put('/:id', auth, async (req, res) => {
       isLiveStreamEnabled: savedTournament.isLiveStreamEnabled
     });
     
+    // Convert to plain object for proper JSON serialization
+    const plainTournament = savedTournament.toObject();
+    
     res.json({
       success: true,
-      data: { tournament: savedTournament },
+      data: { tournament: plainTournament },
       message: '✅ Tournament updated successfully!',
       updatedFields: updatedFields,
       timestamp: new Date().toISOString()
