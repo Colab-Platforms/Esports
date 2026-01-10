@@ -382,10 +382,17 @@ router.get('/:id', async (req, res) => {
     await tournament.populate('createdBy', 'username avatarUrl level');
     await tournament.populate('participants.userId', 'username avatarUrl level currentRank');
 
+    // Convert to plain object for proper JSON serialization
+    const plainTournament = tournament.toObject();
+    // Ensure _id is a string for client-side usage
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString();
+    }
+
     res.json({
       success: true,
       data: { 
-        tournament,
+        tournament: plainTournament,
         isUserRegistered,
         roomDetails
       },

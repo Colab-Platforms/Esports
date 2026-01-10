@@ -279,9 +279,9 @@ const TournamentManagement = () => {
         enabled: tournament.grouping?.enabled || false,
         groupSize: tournament.grouping?.groupSize || 20
       },
-      startDate: tournament.startDate ? new Date(tournament.startDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
-      endDate: tournament.endDate ? new Date(tournament.endDate).toLocaleString('sv-SE').replace(' ', ' ') : '',
-      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toLocaleString('sv-SE').replace(' ', ' ') : '',
+      startDate: tournament.startDate ? new Date(tournament.startDate).toISOString().slice(0, 16).replace('T', ' ') : '',
+      endDate: tournament.endDate ? new Date(tournament.endDate).toISOString().slice(0, 16).replace('T', ' ') : '',
+      registrationDeadline: tournament.registrationDeadline ? new Date(tournament.registrationDeadline).toISOString().slice(0, 16).replace('T', ' ') : '',
       rules: tournament.rules || '',
       status: tournament.status || 'upcoming',
       // CS2 server details
