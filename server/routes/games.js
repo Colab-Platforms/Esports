@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
   });
   
   try {
-    const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
+    const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 }).lean();
     
     console.log('🎮 Games API - Found games:', games.length);
     games.forEach((game, idx) => {
@@ -56,7 +56,7 @@ router.get('/featured', async (req, res) => {
     const featuredGames = await Game.find({ 
       isActive: true, 
       featured: true 
-    }).sort({ order: 1, createdAt: 1 });
+    }).sort({ order: 1, createdAt: 1 }).lean();
     res.json(featuredGames);
   } catch (error) {
     console.error('Error fetching featured games:', error);
@@ -67,7 +67,7 @@ router.get('/featured', async (req, res) => {
 // Get single game by ID
 router.get('/:id', async (req, res) => {
   try {
-    const game = await Game.findOne({ id: req.params.id, isActive: true });
+    const game = await Game.findOne({ id: req.params.id, isActive: true }).lean();
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
     }
@@ -187,8 +187,8 @@ router.post('/admin/activate-all', async (req, res) => {
 // Debug endpoint - check all games in database
 router.get('/debug/all-games', async (req, res) => {
   try {
-    const allGames = await Game.find({});
-    const activeGames = await Game.find({ isActive: true });
+    const allGames = await Game.find({}).lean();
+    const activeGames = await Game.find({ isActive: true }).lean();
     
     console.log('🔍 DEBUG - All games in database:');
     console.log(JSON.stringify(allGames, null, 2));
