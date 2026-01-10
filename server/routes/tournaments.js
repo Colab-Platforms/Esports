@@ -584,6 +584,10 @@ router.post('/', auth, [
 
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
+    // Ensure _id is a string for client-side usage
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString();
+    }
 
     res.status(201).json({
       success: true,
@@ -757,6 +761,10 @@ router.put('/:id', auth, async (req, res) => {
     
     // Convert to plain object for proper JSON serialization
     const plainTournament = savedTournament.toObject();
+    // Ensure _id is a string for client-side usage
+    if (plainTournament._id) {
+      plainTournament._id = plainTournament._id.toString();
+    }
     
     res.json({
       success: true,

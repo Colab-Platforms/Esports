@@ -85,6 +85,11 @@ router.post('/', async (req, res) => {
     const savedGame = await game.save();
     const plainGame = savedGame.toObject();
     
+    // Ensure _id is a string for client-side usage
+    if (plainGame._id) {
+      plainGame._id = plainGame._id.toString();
+    }
+    
     res.status(201).json({
       success: true,
       message: 'Game created successfully',
