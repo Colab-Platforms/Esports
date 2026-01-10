@@ -82,11 +82,21 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const game = new Game(req.body);
-    await game.save();
-    res.status(201).json(game);
+    const savedGame = await game.save();
+    const plainGame = savedGame.toObject();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Game created successfully',
+      game: plainGame
+    });
   } catch (error) {
     console.error('Error creating game:', error);
-    res.status(500).json({ message: 'Error creating game', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error creating game', 
+      error: error.message 
+    });
   }
 });
 
@@ -100,7 +110,7 @@ router.put('/:id', async (req, res) => {
       { id: req.params.id },
       req.body,
       { new: true, runValidators: true }
-    );
+    ).lean();
     
     if (!game) {
       console.log('❌ Game not found with id:', req.params.id);
@@ -108,24 +118,40 @@ router.put('/:id', async (req, res) => {
     }
     
     console.log('✅ Game updated:', game);
-    res.json(game);
+    res.json({
+      success: true,
+      message: 'Game updated successfully',
+      game: game
+    });
   } catch (error) {
     console.error('Error updating game:', error);
-    res.status(500).json({ message: 'Error updating game', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error updating game', 
+      error: error.message 
+    });
   }
 });
 
 // Delete game (admin only)  
 router.delete('/:id', async (req, res) => {
   try {
-    const game = await Game.findOneAndDelete({ id: req.params.id });
+    const game = await Game.findOneAndDelete({ id: req.params.id }).lean();
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
     }
-    res.json({ message: 'Game deleted successfully', game });
+    res.json({ 
+      success: true,
+      message: 'Game deleted successfully', 
+      game: game 
+    });
   } catch (error) {
     console.error('Error deleting game:', error);
-    res.status(500).json({ message: 'Error deleting game', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error deleting game', 
+      error: error.message 
+    });
   }
 });
 
@@ -142,7 +168,7 @@ router.patch('/:id/stats', async (req, res) => {
         ...(totalPrize !== undefined && { totalPrize })
       },
       { new: true, runValidators: true }
-    );
+    ).lean();
     
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
@@ -151,11 +177,15 @@ router.patch('/:id/stats', async (req, res) => {
     res.json({ 
       success: true,
       message: 'Game stats updated',
-      game 
+      game: game
     });
   } catch (error) {
     console.error('Error updating game stats:', error);
-    res.status(500).json({ message: 'Error updating game stats', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error updating game stats', 
+      error: error.message 
+    });
   }
 });
 
