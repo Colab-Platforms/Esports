@@ -112,6 +112,13 @@ router.get('/', [
 
     console.log(`✅ Tournaments found: ${tournaments.length} out of ${total} total`);
     console.log('📝 Tournament IDs:', tournaments.map(t => ({ id: t._id, name: t.name })));
+    console.log('📊 Response will include:', {
+      tournamentsCount: tournaments.length,
+      totalCount: total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages: Math.ceil(total / parseInt(limit))
+    });
 
     res.json({
       success: true,
@@ -638,10 +645,12 @@ router.put('/:id', auth, async (req, res) => {
   try {
     console.log('🔍 Updating tournament ID:', req.params.id);
     console.log('📝 Request body keys:', Object.keys(req.body));
+    console.log('📝 Full request body:', JSON.stringify(req.body, null, 2));
     
     // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      console.log('❌ User is not admin/moderator. Role:', user?.role);
       return res.status(403).json({
         success: false,
         error: {
@@ -667,6 +676,14 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
+    console.log('📊 Current tournament data:', {
+      name: tournament.name,
+      gameType: tournament.gameType,
+      status: tournament.status,
+      youtubeVideoId: tournament.youtubeVideoId,
+      isLiveStreamEnabled: tournament.isLiveStreamEnabled
+    });
+
     // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
@@ -675,30 +692,42 @@ router.put('/:id', auth, async (req, res) => {
       'region', 'featured', 'bannerImage', 'tags', 'youtubeVideoId', 'isLiveStreamEnabled'
     ];
 
+    const updatedFields = [];
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
-        console.log(`  - Updating ${field}`);
+        const oldValue = tournament[field];
         tournament[field] = req.body[field];
+        updatedFields.push({
+          field,
+          oldValue,
+          newValue: req.body[field]
+        });
+        console.log(`  ✏️ Updating ${field}: ${oldValue} → ${req.body[field]}`);
       }
     });
+
+    console.log('📝 Updated fields:', updatedFields);
 
     // Handle roomDetails separately to preserve nested structure
     if (req.body.roomDetails) {
       console.log('  - Updating roomDetails');
       // Merge roomDetails instead of replacing
       if (req.body.roomDetails.cs2) {
+        console.log('    - Updating CS2 details:', req.body.roomDetails.cs2);
         tournament.roomDetails.cs2 = {
           ...tournament.roomDetails.cs2.toObject(),
           ...req.body.roomDetails.cs2
         };
       }
       if (req.body.roomDetails.bgmi) {
+        console.log('    - Updating BGMI details:', req.body.roomDetails.bgmi);
         tournament.roomDetails.bgmi = {
           ...tournament.roomDetails.bgmi.toObject(),
           ...req.body.roomDetails.bgmi
         };
       }
       if (req.body.roomDetails.valorant) {
+        console.log('    - Updating Valorant details:', req.body.roomDetails.valorant);
         tournament.roomDetails.valorant = {
           ...tournament.roomDetails.valorant.toObject(),
           ...req.body.roomDetails.valorant
@@ -707,27 +736,77 @@ router.put('/:id', auth, async (req, res) => {
       tournament.markModified('roomDetails');
     }
 
+    console.log('💾 Saving tournament to database...');
     // Save with validation disabled for participants (to avoid enum errors from seed data)
-    await tournament.save({ validateModifiedOnly: true });
-    await tournament.populate('createdBy', 'username avatarUrl');
+    const savedTournament = await tournament.save({ validateModifiedOnly: true });
+    console.log('✅ Tournament saved successfully!');
+    
+    await savedTournament.populate('createdBy', 'username avatarUrl');
 
     console.log('✅ Tournament updated successfully!');
+    console.log('📝 Updated tournament:', { 
+      id: savedTournament._id, 
+      name: savedTournament.name, 
+      status: savedTournament.status,
+      youtubeVideoId: savedTournament.youtubeVideoId,
+      isLiveStreamEnabled: savedTournament.isLiveStreamEnabled
+    });
+    
     res.json({
       success: true,
-      data: { tournament },
+      data: { tournament: savedTournament },
       message: '✅ Tournament updated successfully!',
+      updatedFields: updatedFields,
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('❌ Tournament update error:', error);
-    console.error('Error stack:', error.stack);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Handle specific MongoDB errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message,
+        value: err.value
+      }));
+      console.error('❌ Validation errors:', validationErrors);
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Tournament validation failed',
+          details: validationErrors,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
+    if (error.code === 11000) {
+      console.error('❌ Duplicate key error');
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_TOURNAMENT',
+          message: 'A tournament with this name already exists',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: {
         code: 'TOURNAMENT_UPDATE_FAILED',
         message: 'Failed to update tournament',
         details: error.message,
+        errorName: error.name,
+        errorCode: error.code,
         timestamp: new Date().toISOString()
       }
     });

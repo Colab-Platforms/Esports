@@ -646,7 +646,7 @@ const CompleteLandingPage = () => {
       if (!forceRefresh) {
         const cachedData = getCachedData('cs2-servers');
         if (cachedData) {
-          console.log('📦 Using cached CS2 servers data');
+          console.log('📦 Using cached CS2 servers data:', cachedData.length, 'servers');
           setServers(cachedData);
           return;
         }
@@ -655,21 +655,28 @@ const CompleteLandingPage = () => {
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
-      console.log('🔍 Fetching CS2 tournaments from:', `${API_URL}/api/tournaments?gameType=cs2&status=active`);
+      const fetchUrl = `${API_URL}/api/tournaments?gameType=cs2&status=active&t=${Date.now()}`;
+      console.log('🔍 Fetching CS2 tournaments from:', fetchUrl);
       
-      // Add cache-busting parameter to ensure fresh data
-      const timestamp = Date.now();
-      const response = await fetch(`${API_URL}/api/tournaments?gameType=cs2&status=active&t=${timestamp}`);
+      const response = await fetch(fetchUrl);
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', {
+        'content-type': response.headers.get('content-type'),
+        'cache-control': response.headers.get('cache-control')
+      });
+      
       const data = await response.json();
       
       console.log('📊 CS2 tournaments API response:', data);
+      console.log('📊 Response.data:', data.data);
+      console.log('📊 Response.data.tournaments:', data.data?.tournaments);
       
       if (data.success && data.data && data.data.tournaments) {
-        console.log('✅ Found tournaments:', data.data.tournaments.length);
+        console.log('✅ Found CS2 tournaments:', data.data.tournaments.length);
         
         // Map CS2 tournaments to server display format
         const mappedServers = data.data.tournaments.map((tournament, index) => {
-          console.log('🎮 Processing tournament:', tournament.name);
+          console.log('🎮 Processing tournament:', tournament.name, 'Status:', tournament.status);
           
           const serverData = {
             id: tournament._id,
@@ -677,7 +684,7 @@ const CompleteLandingPage = () => {
             players: `${tournament.currentParticipants}/${tournament.maxParticipants}`,
             status: tournament.status === 'active' ? 'active' : 'inactive',
             map: tournament.roomDetails?.cs2?.mapPool?.[0] || 'de_dust2',
-            ping: '12ms', // Default ping for now
+            ping: '12ms',
             region: tournament.region || 'mumbai',
             ip: tournament.roomDetails?.cs2?.serverIp || '',
             port: tournament.roomDetails?.cs2?.serverPort || '27015',
@@ -689,18 +696,19 @@ const CompleteLandingPage = () => {
           return serverData;
         });
         
-        console.log('🎯 Setting servers:', mappedServers);
+        console.log('✅ Setting servers:', mappedServers.length, 'servers');
         setServers(mappedServers);
         setCachedData('cs2-servers', mappedServers);
       } else {
-        console.log('⚠️ No tournaments found or invalid response structure');
-        // Fallback to empty array if no CS2 tournaments
+        console.log('⚠️ No CS2 tournaments found');
+        console.log('⚠️ Response structure:', { success: data.success, hasData: !!data.data, hasTournaments: !!data.data?.tournaments });
         setServers([]);
         setCachedData('cs2-servers', []);
       }
     } catch (error) {
       console.error('❌ Error fetching CS2 tournaments:', error);
-      // Fallback to empty array
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       setServers([]);
       setCachedData('cs2-servers', []);
     }

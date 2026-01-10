@@ -15,6 +15,18 @@ router.get('/', async (req, res) => {
   
   try {
     const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
+    
+    console.log('🎮 Games API - Found games:', games.length);
+    games.forEach((game, idx) => {
+      console.log(`Game ${idx + 1}:`, {
+        id: game.id,
+        name: game.name,
+        tournaments: game.tournaments,
+        activePlayers: game.activePlayers,
+        totalPrize: game.totalPrize
+      });
+    });
+    
     res.json({
       success: true,
       data: {
@@ -107,6 +119,36 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting game:', error);
     res.status(500).json({ message: 'Error deleting game', error: error.message });
+  }
+});
+
+// Update game stats (admin only)
+router.patch('/:id/stats', async (req, res) => {
+  try {
+    const { tournaments, activePlayers, totalPrize } = req.body;
+    
+    const game = await Game.findOneAndUpdate(
+      { id: req.params.id },
+      {
+        ...(tournaments !== undefined && { tournaments }),
+        ...(activePlayers !== undefined && { activePlayers }),
+        ...(totalPrize !== undefined && { totalPrize })
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!game) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'Game stats updated',
+      game 
+    });
+  } catch (error) {
+    console.error('Error updating game stats:', error);
+    res.status(500).json({ message: 'Error updating game stats', error: error.message });
   }
 });
 
