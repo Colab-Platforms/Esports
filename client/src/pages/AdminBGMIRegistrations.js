@@ -130,9 +130,10 @@ const AdminBGMIRegistrations = () => {
       // Create CSV content with only required columns
       const headers = [
         'Team Name',
-        'Leader Name', 
         'Leader Email',
         'Leader Phone',
+        'Leader IGN', 
+        'Leader UID',
         'Player 1 IGN',
         'Player 1 UID',
         'Player 2 IGN', 
@@ -146,9 +147,10 @@ const AdminBGMIRegistrations = () => {
         headers.join(','),
         ...allRegistrations.map(reg => [
           `"${reg.teamName || ''}"`,
-          `"${reg.teamLeader?.name || ''}"`,
           `"${reg.userId?.email || ''}"`,
           `"${reg.teamLeader?.phone || ''}"`,
+          `"${reg.teamLeader?.name || ''}"`,
+          `"${reg.teamLeader?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[0]?.name || ''}"`,
           `"${reg.teamMembers?.[0]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[1]?.name || ''}"`,
@@ -159,8 +161,12 @@ const AdminBGMIRegistrations = () => {
         ].join(','))
       ].join('\n');
 
+      // Add UTF-8 BOM for proper encoding in Excel
+      const BOM = '\uFEFF';
+      const csvWithBOM = BOM + csvContent;
+
       // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
