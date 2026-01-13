@@ -135,11 +135,11 @@ const AdminBGMIRegistrations = () => {
         'Leader IGN', 
         'Leader UID',
         'Player 1 IGN',
-        'Player 1 UID',
+        // 'Player 1 UID',
         'Player 2 IGN', 
-        'Player 2 UID',
+        // 'Player 2 UID',
         'Player 3 IGN',
-        'Player 3 UID',
+        // 'Player 3 UID',
         'Status'
       ];
 
@@ -152,11 +152,11 @@ const AdminBGMIRegistrations = () => {
           `"${reg.teamLeader?.name || ''}"`,
           `"${reg.teamLeader?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[0]?.name || ''}"`,
-          `"${reg.teamMembers?.[0]?.bgmiId || ''}"`,
+          // `"${reg.teamMembers?.[0]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[1]?.name || ''}"`,
-          `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
+          // `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[2]?.name || ''}"`,
-          `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
+          // `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
           `"${reg.status || ''}"`
         ].join(','))
       ].join('\n');
