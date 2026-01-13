@@ -4,11 +4,28 @@ import axios from 'axios';
 // Get API base URL from environment
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
+// Create axios instance with timeout
+const axiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000 // 10 second timeout
+});
+
+// Store for cancel tokens
+let cancelTokenSource = null;
+
 // Async thunks for tournament operations
 export const fetchTournaments = createAsyncThunk(
   'tournaments/fetchTournaments',
   async (filters = {}, { rejectWithValue }) => {
     try {
+      // Cancel previous request if exists
+      if (cancelTokenSource) {
+        cancelTokenSource.cancel('New request initiated');
+      }
+      
+      // Create new cancel token for this request
+      cancelTokenSource = axios.CancelToken.source();
+
       const params = new URLSearchParams();
       if (filters.gameType && filters.gameType !== 'all') params.append('gameType', filters.gameType);
       if (filters.status && filters.status !== 'all') params.append('status', filters.status);
@@ -19,11 +36,45 @@ export const fetchTournaments = createAsyncThunk(
       if (filters.page) params.append('page', filters.page);
       if (filters.limit) params.append('limit', filters.limit);
 
-      const response = await axios.get(`${API_BASE_URL}/api/tournaments?${params}`);
+      console.log('🔄 Fetching tournaments with timeout: 10s, cancelToken enabled');
       
+      const response = await axiosInstance.get(`/api/tournaments?${params}`, {
+        cancelToken: cancelTokenSource.token
+      });
+      
+      console.log('✅ Tournaments fetched successfully');
       return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || { message: 'Failed to fetch tournaments' });
+      // Handle different error types
+      if (axios.isCancel(error)) {
+        console.log('⚠️ Tournament request cancelled');
+        return rejectWithValue({ 
+          code: 'CANCELLED',
+          message: 'Request was cancelled' 
+        });
+      }
+      
+      if (error.code === 'ECONNABORTED') {
+        console.error('❌ Tournament request timeout (10s exceeded)');
+        return rejectWithValue({ 
+          code: 'TIMEOUT',
+          message: 'Request took too long. Please check your internet connection and try again.' 
+        });
+      }
+      
+      if (error.response?.status === 503) {
+        console.error('❌ Server temporarily unavailable');
+        return rejectWithValue({ 
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Server is temporarily unavailable. Please try again in a moment.' 
+        });
+      }
+      
+      console.error('❌ Tournament fetch error:', error.message);
+      return rejectWithValue(error.response?.data?.error || { 
+        code: 'FETCH_FAILED',
+        message: 'Failed to fetch tournaments. Please check your internet connection.' 
+      });
     }
   }
 );

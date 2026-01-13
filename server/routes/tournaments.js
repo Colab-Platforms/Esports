@@ -673,7 +673,10 @@ router.post('/', auth, [
 // @access  Private (Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
-    console.log('🔍 Updating tournament ID:', req.params.id);
+    // Ensure ID is a string
+    const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
+    
+    console.log('🔍 Updating tournament ID:', tournamentId, 'Type:', typeof tournamentId);
     console.log('📝 Request body keys:', Object.keys(req.body));
     console.log('📝 Full request body:', JSON.stringify(req.body, null, 2));
     
@@ -691,7 +694,7 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    const tournament = await Tournament.findById(req.params.id);
+    const tournament = await Tournament.findById(tournamentId);
     console.log('📊 Tournament found:', tournament ? 'Yes' : 'No');
     
     if (!tournament) {
@@ -1374,6 +1377,9 @@ router.delete('/:id/leave', auth, async (req, res) => {
 // @access  Private (Admin)
 router.delete('/:id', auth, async (req, res) => {
   try {
+    // Ensure ID is a string
+    const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
+    
     // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || user.role !== 'admin') {
@@ -1387,7 +1393,7 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
 
-    const tournament = await Tournament.findById(req.params.id);
+    const tournament = await Tournament.findById(tournamentId);
     
     if (!tournament) {
       return res.status(404).json({

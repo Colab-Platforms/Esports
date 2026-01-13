@@ -227,7 +227,11 @@ const TournamentManagement = () => {
       }
       
       if (editingTournament) {
-        const response = await api.put(`/api/tournaments/${editingTournament._id}`, data);
+        // Ensure _id is a string before making the API call
+        const tournamentId = editingTournament._id?.toString ? editingTournament._id.toString() : String(editingTournament._id);
+        console.log('🔍 Updating tournament with ID:', tournamentId, 'Type:', typeof tournamentId);
+        
+        const response = await api.put(`/api/tournaments/${tournamentId}`, data);
         console.log('✅ Update response:', response);
         toast.success('Tournament updated successfully!');
       } else {

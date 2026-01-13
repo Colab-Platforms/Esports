@@ -451,19 +451,37 @@ const TournamentsPage = () => {
               className="flex flex-col items-center justify-center py-16"
             >
               <div className="text-6xl text-red-500 mb-4">⚠️</div>
-              <h3 className="text-xl font-bold text-white mb-2">Error Loading Tournaments</h3>
+              <h3 className="text-xl font-bold text-white mb-2">
+                {error.code === 'TIMEOUT' 
+                  ? '⏱️ Connection Timeout' 
+                  : error.code === 'SERVICE_UNAVAILABLE'
+                  ? '🔧 Server Temporarily Unavailable'
+                  : 'Error Loading Tournaments'}
+              </h3>
               <p className="text-gray-400 text-center max-w-md mb-4">
-                {error.message || 'Failed to load tournaments. Please try again.'}
+                {error.message || 'Failed to load tournaments. Please check your internet connection and try again.'}
               </p>
-              <button
-                onClick={() => dispatch(fetchTournaments({
-                  status: activeStatusTab === 'all' ? undefined : activeStatusTab,
-                  gameType: activeCategoryTab === 'all' ? undefined : activeCategoryTab
-                }))}
-                className="btn-gaming"
-              >
-                Try Again
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => dispatch(fetchTournaments({
+                    status: activeStatusTab === 'all' ? undefined : activeStatusTab,
+                    gameType: activeCategoryTab === 'all' ? undefined : activeCategoryTab
+                  }))}
+                  className="btn-gaming"
+                >
+                  🔄 Try Again
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors font-gaming"
+                >
+                  🔃 Refresh Page
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-4">
+                {error.code === 'TIMEOUT' && 'Tip: Check your internet connection. If problem persists, try refreshing the page.'}
+                {error.code === 'SERVICE_UNAVAILABLE' && 'Tip: The server is temporarily busy. Please wait a moment and try again.'}
+              </p>
             </motion.div>
           ) : filteredTournaments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
