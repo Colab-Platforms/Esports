@@ -122,7 +122,7 @@ const TournamentsPage = () => {
       case 'active':
         return 'text-yellow-400 bg-yellow-400/10';
       case 'completed':
-        return 'text-gray-400 bg-gray-400/10';
+        return 'text-red-400 bg-red-800/10';
       default:
         return 'text-gray-400 bg-gray-400/10';
     }
@@ -450,12 +450,12 @@ const TournamentsPage = () => {
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center py-16"
             >
-              <div className="text-6xl text-red-500 mb-4">⚠️</div>
+              <div className="text-6xl text-red-500 mb-4"></div>
               <h3 className="text-xl font-bold text-white mb-2">
                 {error.code === 'TIMEOUT' 
-                  ? '⏱️ Connection Timeout' 
+                  ? 'Connection Timeout' 
                   : error.code === 'SERVICE_UNAVAILABLE'
-                  ? '🔧 Server Temporarily Unavailable'
+                  ? 'Server Temporarily Unavailable'
                   : 'Error Loading Tournaments'}
               </h3>
               <p className="text-gray-400 text-center max-w-md mb-4">
@@ -469,13 +469,13 @@ const TournamentsPage = () => {
                   }))}
                   className="btn-gaming"
                 >
-                  🔄 Try Again
+                  Try Again
                 </button>
                 <button
                   onClick={() => window.location.reload()}
                   className="px-6 py-3 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors font-gaming"
                 >
-                  🔃 Refresh Page
+                  Refresh Page
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-4">

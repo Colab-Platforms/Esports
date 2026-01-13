@@ -6,11 +6,11 @@ const adminAuth = require('../middleware/adminAuth');
 
 // Get all games
 router.get('/', async (req, res) => {
-  // Disable caching for games data
+  // Enable 5-minute caching for games data (same as tournaments)
   res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
+    'Cache-Control': 'public, max-age=300',
+    'Pragma': 'cache',
+    'Expires': new Date(Date.now() + 300000).toUTCString()
   });
   
   try {
@@ -45,11 +45,11 @@ router.get('/', async (req, res) => {
 
 // Get featured games for banner
 router.get('/featured', async (req, res) => {
-  // Disable caching for featured games
+  // Enable 5-minute caching for featured games
   res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
+    'Cache-Control': 'public, max-age=300',
+    'Pragma': 'cache',
+    'Expires': new Date(Date.now() + 300000).toUTCString()
   });
   
   try {

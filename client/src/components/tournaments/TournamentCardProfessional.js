@@ -60,7 +60,7 @@ const TournamentCardProfessional = ({
         
         {/* Timer - Show if tournament hasn't started yet and showTimer is true */}
         {showTimer && tournament?.startDate && new Date(tournament.startDate) > new Date() && (
-          <div className="px-3 py-1.5 backdrop-blur-md border border-blue-400/50 rounded-full text-xs font-display font-bold text-white">
+          <div className="px-3 py-1.5 backdrop-blur-md border border-gaming-gold/70 rounded-full text-xs font-display font-bold text-white">
             <CountdownTimer 
               targetDate={tournament.startDate}
               format="compact"

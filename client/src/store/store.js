@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import authSlice from './slices/authSlice';
 import tournamentSlice from './slices/tournamentSlice';
+import gameSlice from './slices/gameSlice';
 import matchSlice from './slices/matchSlice';
 import leaderboardSlice from './slices/leaderboardSlice';
 import walletSlice from './slices/walletSlice';
@@ -16,6 +17,7 @@ export const store = configureStore({
     // Feature slices
     auth: authSlice,
     tournaments: tournamentSlice,
+    games: gameSlice,
     matches: matchSlice,
     leaderboard: leaderboardSlice,
     wallet: walletSlice,

@@ -104,11 +104,11 @@ const CountdownTimer = ({
           </>
         )}
         <span className="text-gaming-gold font-mono">{formatNumber(timeLeft.hours)}</span>
-        <span className="text-theme-text-muted text-xs">h</span>
+        <span className="text-gaming-gold text-xs">h</span>
         <span className="text-gaming-gold font-mono">{formatNumber(timeLeft.minutes)}</span>
-        <span className="text-theme-text-muted text-xs">m</span>
+        <span className="text-gaming-gold text-xs">m</span>
         <span className="text-gaming-gold font-mono">{formatNumber(timeLeft.seconds)}</span>
-        <span className="text-theme-text-muted text-xs">s</span>
+        <span className="text-gaming-gold text-xs">s</span>
       </div>
     );
   }

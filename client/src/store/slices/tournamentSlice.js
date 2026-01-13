@@ -10,21 +10,30 @@ const axiosInstance = axios.create({
   timeout: 10000 // 10 second timeout
 });
 
-// Store for cancel tokens
-let cancelTokenSource = null;
+// Store for cancel tokens - use Map to track per-thunk requests
+const cancelTokens = new Map();
+let lastRequestTime = 0;
 
 // Async thunks for tournament operations
 export const fetchTournaments = createAsyncThunk(
   'tournaments/fetchTournaments',
   async (filters = {}, { rejectWithValue }) => {
     try {
-      // Cancel previous request if exists
-      if (cancelTokenSource) {
-        cancelTokenSource.cancel('New request initiated');
+      const thunkName = 'tournaments/fetchTournaments';
+      const now = Date.now();
+      
+      // Only cancel previous request if it was initiated more than 100ms ago
+      // This prevents cancelling on React strict mode double renders
+      if (cancelTokens.has(thunkName) && (now - lastRequestTime) > 100) {
+        const previousToken = cancelTokens.get(thunkName);
+        previousToken.cancel('New request initiated');
       }
       
+      lastRequestTime = now;
+      
       // Create new cancel token for this request
-      cancelTokenSource = axios.CancelToken.source();
+      const newCancelToken = axios.CancelToken.source();
+      cancelTokens.set(thunkName, newCancelToken);
 
       const params = new URLSearchParams();
       if (filters.gameType && filters.gameType !== 'all') params.append('gameType', filters.gameType);
@@ -39,15 +48,19 @@ export const fetchTournaments = createAsyncThunk(
       console.log('🔄 Fetching tournaments with timeout: 10s, cancelToken enabled');
       
       const response = await axiosInstance.get(`/api/tournaments?${params}`, {
-        cancelToken: cancelTokenSource.token
+        cancelToken: newCancelToken.token
       });
       
       console.log('✅ Tournaments fetched successfully');
+      // Clean up cancel token after successful request
+      cancelTokens.delete('tournaments/fetchTournaments');
       return response.data.data;
     } catch (error) {
       // Handle different error types
       if (axios.isCancel(error)) {
         console.log('⚠️ Tournament request cancelled');
+        // Clean up cancel token
+        cancelTokens.delete('tournaments/fetchTournaments');
         return rejectWithValue({ 
           code: 'CANCELLED',
           message: 'Request was cancelled' 

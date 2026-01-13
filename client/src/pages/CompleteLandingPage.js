@@ -655,7 +655,8 @@ const CompleteLandingPage = () => {
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
-      const fetchUrl = `${API_URL}/api/tournaments?gameType=cs2&status=active&t=${Date.now()}`;
+      // Fetch CS2 tournaments - try all statuses if no active ones found
+      const fetchUrl = `${API_URL}/api/tournaments?gameType=cs2&t=${Date.now()}`;
       console.log('🔍 Fetching CS2 tournaments from:', fetchUrl);
       
       const response = await fetch(fetchUrl);
@@ -674,8 +675,16 @@ const CompleteLandingPage = () => {
       if (data.success && data.data && data.data.tournaments) {
         console.log('✅ Found CS2 tournaments:', data.data.tournaments.length);
         
+        // Filter for active tournaments, but show all if none are active
+        let tournamentsToShow = data.data.tournaments.filter(t => t.status === 'active');
+        
+        if (tournamentsToShow.length === 0) {
+          console.log('⚠️ No active CS2 tournaments, showing all CS2 tournaments');
+          tournamentsToShow = data.data.tournaments;
+        }
+        
         // Map CS2 tournaments to server display format
-        const mappedServers = data.data.tournaments.map((tournament, index) => {
+        const mappedServers = tournamentsToShow.map((tournament, index) => {
           console.log('🎮 Processing tournament:', tournament.name, 'Status:', tournament.status);
           
           const serverData = {
@@ -767,12 +776,29 @@ const CompleteLandingPage = () => {
       }
 
       const API_URL = process.env.REACT_APP_API_URL || '';
+      
+      // First try to fetch tournaments with registration_open status
+      console.log('🔍 Fetching tournaments with registration_open status...');
       const response = await fetch(`${API_URL}/api/tournaments?status=registration_open&limit=3`);
       const data = await response.json();
       
       if (data.success) {
-        const tournamentsData = data.data || [];
-        console.log('✅ Tournaments fetched:', tournamentsData.length);
+        let tournamentsData = data.data?.tournaments || [];
+        
+        // If no registration_open tournaments, fetch all tournaments and show any available
+        if (tournamentsData.length === 0) {
+          console.log('⚠️ No registration_open tournaments, fetching all tournaments...');
+          const allResponse = await fetch(`${API_URL}/api/tournaments?limit=3`);
+          const allData = await allResponse.json();
+          
+          if (allData.success) {
+            tournamentsData = allData.data?.tournaments || [];
+            console.log('✅ Tournaments fetched (fallback):', tournamentsData.length);
+          }
+        } else {
+          console.log('✅ Tournaments fetched:', tournamentsData.length);
+        }
+        
         setTournaments(tournamentsData);
         setCachedData('tournaments', tournamentsData);
       }
