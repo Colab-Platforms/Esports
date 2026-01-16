@@ -2,7 +2,28 @@
 
 class SecureRequest {
   constructor() {
-    this.API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+    // Auto-detect API URL based on current domain
+    if (process.env.REACT_APP_API_URL) {
+      this.API_URL = process.env.REACT_APP_API_URL;
+    } else if (typeof window !== 'undefined') {
+      // Use current domain for API calls
+      const protocol = window.location.protocol; // http: or https:
+      const hostname = window.location.hostname; // localhost, colabesports.in, etc
+      const port = window.location.port; // 3000, 5001, etc
+      
+      // For production (colabesports.in), use same domain with /api
+      // For development (localhost:3000), use localhost:5001
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        this.API_URL = 'http://localhost:5001';
+      } else {
+        // Production: use same domain
+        this.API_URL = `${protocol}//${hostname}`;
+      }
+    } else {
+      this.API_URL = 'http://localhost:5001';
+    }
+    
+    console.log('🔗 API URL configured:', this.API_URL);
   }
 
   // Encode sensitive data to make it less readable in network tab
