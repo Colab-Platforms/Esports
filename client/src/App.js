@@ -319,18 +319,14 @@ function App() {
             <Route 
               path="/reset-password/:token" 
               element={
-                isAuthenticated ? (
-                  <Navigate to="/profile" replace />
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ResetPasswordPage />
-                  </motion.div>
-                )
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ResetPasswordPage />
+                </motion.div>
               } 
             />
             

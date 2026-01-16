@@ -70,11 +70,11 @@ const ForgotPasswordPage = () => {
             </p>
             <div className="bg-gaming-charcoal/50 border border-gaming-slate rounded-lg p-4 mb-6">
               <p className="text-gray-300 text-sm">
-                📧 Check your email inbox (and spam folder) for the reset link.
+                Check your email inbox (and spam folder) for the reset link.
                 <br />
-                🔗 Click the link in the email to reset your password.
+                Click the link in the email to reset your password.
                 <br />
-                ⏰ The link will expire in 1 hour.
+                The link will expire in 1 hour.
               </p>
             </div>
             <div className="space-y-4">
