@@ -215,8 +215,8 @@ const LoginPage = () => {
               </label>
             </div>
 
-            {/* Forgot Password */}
-            <div className="text-sm">
+            {/* Forgot Password - Temporarily disabled until SendGrid is configured */}
+            {/* <div className="text-sm">
               <Link
                 to="/forgot-password"
                 title="Reset your password"
@@ -224,7 +224,7 @@ const LoginPage = () => {
               >
                 Forgot password?
               </Link>
-            </div>
+            </div> */}
           </div>
 
           {/* Submit Button */}
