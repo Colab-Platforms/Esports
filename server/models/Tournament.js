@@ -606,7 +606,7 @@ tournamentSchema.statics.getFilteredTournaments = function(filters = {}) {
   
   return this.find(query)
     .populate('createdBy', 'username avatarUrl')
-    .sort({ featured: -1, startDate: 1 });
+    .sort({ createdAt: -1 });
 };
 
 module.exports = mongoose.model('Tournament', tournamentSchema);
