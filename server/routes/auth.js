@@ -253,7 +253,7 @@ router.get('/verify-reset-token/:token', async (req, res) => {
 // @route   POST /api/auth/reset-password
 // @desc    Reset user password with token
 // @access  Public
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', decodeSensitiveData, async (req, res) => {
   try {
     console.log('🔐 Password reset request');
     

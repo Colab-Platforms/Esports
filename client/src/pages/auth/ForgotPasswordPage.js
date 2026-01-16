@@ -26,18 +26,30 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
+      console.log('📧 Sending forgot password request...');
+      console.log('📧 API URL:', secureRequest.API_URL);
+      console.log('📧 Email:', email);
+      
       // Use secure request utility
       const data = await secureRequest.post('/api/auth/forgot-password', { email });
+
+      console.log('📧 Response:', data);
 
       if (data.success) {
         setEmailSent(true);
         toast.success('Password reset email sent! Check your inbox.');
       } else {
+        console.error('❌ Error response:', data);
         toast.error(data.error?.message || 'Failed to send reset email');
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
-      toast.error('Network error. Please check your connection.');
+      console.error('❌ Forgot password error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response
+      });
+      toast.error('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }

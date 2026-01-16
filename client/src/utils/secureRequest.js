@@ -52,6 +52,12 @@ class SecureRequest {
       // Encode sensitive data
       const encodedData = this.encodeSensitiveData(data);
 
+      console.log(`🔗 POST ${this.API_URL}${endpoint}`);
+      console.log(`🔗 Full URL: ${this.API_URL}${endpoint}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${this.API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -60,12 +66,31 @@ class SecureRequest {
           ...options.headers
         },
         body: JSON.stringify(encodedData),
+        signal: controller.signal,
         ...options
       });
 
-      return await response.json();
+      clearTimeout(timeoutId);
+      console.log(`📊 Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        console.error('❌ Error response:', errorData);
+        return errorData;
+      }
+
+      const result = await response.json();
+      console.log('✅ Response data:', result);
+      return result;
     } catch (error) {
-      console.error('Secure request error:', error);
+      if (error.name === 'AbortError') {
+        console.error('❌ Request timeout - took longer than 30 seconds');
+        throw new Error('Request timeout. Server is not responding.');
+      }
+      console.error('❌ Secure request error:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   }
