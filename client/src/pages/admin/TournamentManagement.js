@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const TournamentManagement = () => {
   const [tournaments, setTournaments] = useState([]);
@@ -15,7 +18,7 @@ const TournamentManagement = () => {
   const [selectedGame, setSelectedGame] = useState(null);
 
   // React Hook Form
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, control, formState: { errors, isSubmitting } } = useForm({
     defaultValues: {
       name: '',
       gameType: '',
@@ -165,10 +168,11 @@ const TournamentManagement = () => {
       
       // Parse manual date inputs for non-CS2 tournaments
       if (data.gameType !== 'cs2') {
-        // Convert manual date strings to ISO format
-        if (data.startDate && typeof data.startDate === 'string') {
+        // Convert date objects to ISO format if they're Date objects
+        if (data.startDate instanceof Date) {
+          data.startDate = data.startDate.toISOString();
+        } else if (data.startDate && typeof data.startDate === 'string') {
           try {
-            // Try to parse various date formats
             const parsedDate = new Date(data.startDate);
             if (!isNaN(parsedDate.getTime())) {
               data.startDate = parsedDate.toISOString();
@@ -178,7 +182,9 @@ const TournamentManagement = () => {
           }
         }
         
-        if (data.endDate && typeof data.endDate === 'string') {
+        if (data.endDate instanceof Date) {
+          data.endDate = data.endDate.toISOString();
+        } else if (data.endDate && typeof data.endDate === 'string') {
           try {
             const parsedDate = new Date(data.endDate);
             if (!isNaN(parsedDate.getTime())) {
@@ -189,7 +195,9 @@ const TournamentManagement = () => {
           }
         }
         
-        if (data.registrationDeadline && typeof data.registrationDeadline === 'string') {
+        if (data.registrationDeadline instanceof Date) {
+          data.registrationDeadline = data.registrationDeadline.toISOString();
+        } else if (data.registrationDeadline && typeof data.registrationDeadline === 'string') {
           try {
             const parsedDate = new Date(data.registrationDeadline);
             if (!isNaN(parsedDate.getTime())) {
@@ -783,56 +791,279 @@ const TournamentManagement = () => {
 
                 {/* Dates - Hidden for CS2 */}
                 {selectedGameType !== 'cs2' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                        <FiCalendar className="mr-1" /> Start Date *
-                      </label>
-                      <input
-                        type="text"
-                        {...register('startDate', { required: selectedGameType !== 'cs2' ? 'Start date is required' : false })}
-                        className="input-gaming w-full"
-                        placeholder="e.g., 2025-01-15 18:00"
-                      />
-                      {errors.startDate && (
-                        <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
-                      )}
-                      <p className="text-xs text-blue-400 mt-1">Format: YYYY-MM-DD HH:MM</p>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Start Date */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                          <FiCalendar className="mr-1" /> Start Date & Time *
+                        </label>
+                        <Controller
+                          name="startDate"
+                          control={control}
+                          rules={{ required: 'Start date is required' }}
+                          render={({ field }) => (
+                            <DateTimePicker
+                              {...field}
+                              value={field.value ? new Date(field.value) : null}
+                              onChange={(newValue) => {
+                                field.onChange(newValue ? newValue.toISOString() : '');
+                              }}
+                              slotProps={{
+                                textField: {
+                                  fullWidth: true,
+                                  size: 'small',
+                                  sx: {
+                                    '& .MuiOutlinedInput-root': {
+                                      color: '#000 !important',
+                                      backgroundColor: '#f5f5f5 !important',
+                                      borderColor: '#ddd',
+                                      '& fieldset': {
+                                        borderColor: '#ddd',
+                                      },
+                                      '&:hover fieldset': {
+                                        borderColor: '#bbb',
+                                      },
+                                      '&.Mui-focused fieldset': {
+                                        borderColor: '#00d4ff',
+                                      },
+                                    },
+                                    '& .MuiOutlinedInput-input': {
+                                      color: '#000 !important',
+                                      padding: '12px',
+                                    },
+                                    '& .MuiOutlinedInput-input::placeholder': {
+                                      color: '#999 !important',
+                                      opacity: '1 !important',
+                                    },
+                                    '& input': {
+                                      color: '#000 !important',
+                                    },
+                                    '& input::placeholder': {
+                                      color: '#999 !important',
+                                    },
+                                  },
+                                },
+                                popper: {
+                                  sx: {
+                                    '& .MuiPaper-root': {
+                                      backgroundColor: '#fff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root.Mui-selected': {
+                                      backgroundColor: '#00d4ff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root:hover': {
+                                      backgroundColor: '#e0e0e0',
+                                    },
+                                    '& .MuiPickersCalendarHeader-label': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiIconButton-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiClockPointer-root': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                    '& .MuiClock-pin': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                  },
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                        {errors.startDate && (
+                          <p className="text-red-400 text-xs mt-1">{errors.startDate.message}</p>
+                        )}
+                      </div>
+
+                      {/* End Date */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                          <FiCalendar className="mr-1" /> End Date & Time *
+                        </label>
+                        <Controller
+                          name="endDate"
+                          control={control}
+                          rules={{ required: 'End date is required' }}
+                          render={({ field }) => (
+                            <DateTimePicker
+                              {...field}
+                              value={field.value ? new Date(field.value) : null}
+                              onChange={(newValue) => {
+                                field.onChange(newValue ? newValue.toISOString() : '');
+                              }}
+                              slotProps={{
+                                textField: {
+                                  fullWidth: true,
+                                  size: 'small',
+                                  sx: {
+                                    '& .MuiOutlinedInput-root': {
+                                      color: '#000 !important',
+                                      backgroundColor: '#f5f5f5 !important',
+                                      borderColor: '#ddd',
+                                      '& fieldset': {
+                                        borderColor: '#ddd',
+                                      },
+                                      '&:hover fieldset': {
+                                        borderColor: '#bbb',
+                                      },
+                                      '&.Mui-focused fieldset': {
+                                        borderColor: '#00d4ff',
+                                      },
+                                    },
+                                    '& .MuiOutlinedInput-input': {
+                                      color: '#000 !important',
+                                      padding: '12px',
+                                    },
+                                    '& .MuiOutlinedInput-input::placeholder': {
+                                      color: '#999 !important',
+                                      opacity: '1 !important',
+                                    },
+                                    '& input': {
+                                      color: '#000 !important',
+                                    },
+                                    '& input::placeholder': {
+                                      color: '#999 !important',
+                                    },
+                                  },
+                                },
+                                popper: {
+                                  sx: {
+                                    '& .MuiPaper-root': {
+                                      backgroundColor: '#fff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root.Mui-selected': {
+                                      backgroundColor: '#00d4ff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root:hover': {
+                                      backgroundColor: '#e0e0e0',
+                                    },
+                                    '& .MuiPickersCalendarHeader-label': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiIconButton-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiClockPointer-root': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                    '& .MuiClock-pin': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                  },
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                        {errors.endDate && (
+                          <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
+                        )}
+                      </div>
+
+                      {/* Registration Deadline */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
+                          <FiClock className="mr-1" /> Registration Deadline *
+                        </label>
+                        <Controller
+                          name="registrationDeadline"
+                          control={control}
+                          rules={{ required: 'Registration deadline is required' }}
+                          render={({ field }) => (
+                            <DateTimePicker
+                              {...field}
+                              value={field.value ? new Date(field.value) : null}
+                              onChange={(newValue) => {
+                                field.onChange(newValue ? newValue.toISOString() : '');
+                              }}
+                              slotProps={{
+                                textField: {
+                                  fullWidth: true,
+                                  size: 'small',
+                                  sx: {
+                                    '& .MuiOutlinedInput-root': {
+                                      color: '#000 !important',
+                                      backgroundColor: '#f5f5f5 !important',
+                                      borderColor: '#ddd',
+                                      '& fieldset': {
+                                        borderColor: '#ddd',
+                                      },
+                                      '&:hover fieldset': {
+                                        borderColor: '#bbb',
+                                      },
+                                      '&.Mui-focused fieldset': {
+                                        borderColor: '#00d4ff',
+                                      },
+                                    },
+                                    '& .MuiOutlinedInput-input': {
+                                      color: '#000 !important',
+                                      padding: '12px',
+                                    },
+                                    '& .MuiOutlinedInput-input::placeholder': {
+                                      color: '#999 !important',
+                                      opacity: '1 !important',
+                                    },
+                                    '& input': {
+                                      color: '#000 !important',
+                                    },
+                                    '& input::placeholder': {
+                                      color: '#999 !important',
+                                    },
+                                  },
+                                },
+                                popper: {
+                                  sx: {
+                                    '& .MuiPaper-root': {
+                                      backgroundColor: '#fff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root.Mui-selected': {
+                                      backgroundColor: '#00d4ff',
+                                      color: '#000',
+                                    },
+                                    '& .MuiPickersDay-root:hover': {
+                                      backgroundColor: '#e0e0e0',
+                                    },
+                                    '& .MuiPickersCalendarHeader-label': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiIconButton-root': {
+                                      color: '#000',
+                                    },
+                                    '& .MuiClockPointer-root': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                    '& .MuiClock-pin': {
+                                      backgroundColor: '#00d4ff',
+                                    },
+                                  },
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                        {errors.registrationDeadline && (
+                          <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                        <FiCalendar className="mr-1" /> End Date *
-                      </label>
-                      <input
-                        type="text"
-                        {...register('endDate', { required: selectedGameType !== 'cs2' ? 'End date is required' : false })}
-                        className="input-gaming w-full"
-                        placeholder="e.g., 2025-01-16 20:00"
-                      />
-                      {errors.endDate && (
-                        <p className="text-red-400 text-xs mt-1">{errors.endDate.message}</p>
-                      )}
-                      <p className="text-xs text-blue-400 mt-1">Format: YYYY-MM-DD HH:MM</p>
-                    </div>
-                    {/* Registration Deadline */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center">
-                        <FiClock className="mr-1" /> Registration Deadline *
-                      </label>
-                      <input
-                        type="text"
-                        {...register('registrationDeadline', { required: selectedGameType !== 'cs2' ? 'Registration deadline is required' : false })}
-                        className="input-gaming w-full"
-                        placeholder="e.g., 2025-01-15 12:00"
-                      />
-                      {errors.registrationDeadline && (
-                        <p className="text-red-400 text-xs mt-1">{errors.registrationDeadline.message}</p>
-                      )}
-                      <p className="text-xs text-blue-400 mt-1">
-                        Format: YYYY-MM-DD HH:MM
-                      </p>
-                    </div>
-                  </div>
+                  </LocalizationProvider>
                 )}
 
                 {/* Format */}
