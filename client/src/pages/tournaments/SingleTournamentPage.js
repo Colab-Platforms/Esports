@@ -10,7 +10,6 @@ import {
   FiMapPin,
   FiAward,
   FiInfo,
-  FiMessageCircle,
   FiKey,
   FiCopy
 } from 'react-icons/fi';
@@ -19,11 +18,9 @@ import TournamentRegistration from '../../components/tournaments/TournamentRegis
 import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
 import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
 import GameIcon from '../../components/common/GameIcon';
-import { getGameImage } from '../../assets/images';
 import { getRandomBanner } from '../../assets/tournamentBanners';
-import { getCdnIcon, getGameAsset } from '../../assets/gameAssets';
+import { getGameAsset } from '../../assets/gameAssets';
 import OptimizedImage from '../../components/common/OptimizedImage';
-import axios from 'axios';
 import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
 import { getServerStats, getServerPlayers, getPlayerStats } from '../../utils/cs2ServerStatus';
@@ -44,17 +41,15 @@ const SingleTournamentPage = () => {
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [siteImages, setSiteImages] = useState({});
   const [serverStats, setServerStats] = useState([]);
   const [serverPlayers, setServerPlayers] = useState([]);
-  const [playerStats, setPlayerStats] = useState(null);
   const [scoreboards, setScoreboards] = useState([]);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
     const tournamentUrl = window.location.href;
     const shareText = `Check out this tournament: ${tournament?.name}\nPrize Pool: ₹${tournament?.prizePool?.toLocaleString()}\nJoin now!`;
-    
+
     // Check if Web Share API is available
     if (navigator.share) {
       navigator.share({
@@ -92,7 +87,7 @@ const SingleTournamentPage = () => {
 
       // For BGMI tournaments, use the BGMI-specific endpoint
       let endpoint = `${API_BASE_URL}/api/tournaments/${id}/participants`;
-      
+
       if (tournament?.gameType === 'bgmi') {
         endpoint = `${API_BASE_URL}/api/bgmi-registration/tournament/${id}/teams`;
       }
@@ -141,35 +136,20 @@ const SingleTournamentPage = () => {
           console.error('Failed to refresh user data:', error);
         }
       };
-      
+
       refreshUserData();
-      
+
       // Clean URL
       navigate(location.pathname, { replace: true });
     }
   }, [location, navigate, dispatch]);
 
   useEffect(() => {
-    // Fetch site images
-    const loadSiteImages = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-        const response = await axios.get(`${API_URL}/api/site-images`);
-        if (response.data.success) {
-          setSiteImages(response.data.data.images);
-        }
-      } catch (error) {
-        console.error('Error fetching site images:', error);
-      }
-    };
-    
-    loadSiteImages();
-    
     // Fetch real tournament data
     const fetchTournamentData = async () => {
       setLoadingTournament(true);
       setFetchError(null);
-      
+
       try {
         console.log('🔍 Fetching tournament:', id);
         const token = localStorage.getItem('token');
@@ -180,17 +160,17 @@ const SingleTournamentPage = () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}`, { 
+        const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}`, {
           headers,
-          signal: controller.signal 
+          signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         console.log('✅ Tournament data received:', data);
 
@@ -236,45 +216,45 @@ const SingleTournamentPage = () => {
           }
 
           setTournament(enhancedTournament);
-          
+
           console.log('👤 User registration status:', data.data.isUserRegistered);
-          
+
           // Fetch server stats and players for CS2 tournaments
           if (enhancedTournament.gameType === 'cs2' && enhancedTournament.roomDetails?.cs2) {
             try {
-              const [stats, players, pStats] = await Promise.all([
+              const [stats, players] = await Promise.all([
                 getServerStats(enhancedTournament),
                 getServerPlayers(enhancedTournament),
                 getPlayerStats(enhancedTournament)
               ]);
               setServerStats(stats);
               setServerPlayers(players);
-              setPlayerStats(pStats);
               console.log('📊 Server stats loaded:', stats);
               console.log('👥 Server players loaded:', players);
-              console.log('🎮 Player stats loaded:', pStats);
             } catch (error) {
               console.error('Failed to fetch server data:', error);
             }
           }
           console.log('🎮 Room details available:', !!data.data.roomDetails);
-          
+
           setIsUserRegistered(data.data.isUserRegistered || false);
           setLoadingTournament(false);
         }
       } catch (error) {
         console.error('Failed to fetch tournament:', error);
         setFetchError(error.message);
-        
+
         // Show error message instead of mock data
         if (error.name === 'AbortError') {
           console.error('Request timeout - server not responding');
           setFetchError('Server is not responding. Please check if the backend is running.');
         }
-        
+
         setLoadingTournament(false);
-        
-        // Fallback to mock data for development
+
+        // ❌ MOCK DATA DISABLED - Use real API only
+        // Uncomment below for development fallback
+        /*
         const mockTournament = {
           id: 1,
           name: 'COLAB ASIA DIVAS',
@@ -344,26 +324,35 @@ const SingleTournamentPage = () => {
           userRegistered: isAuthenticated && user?.tournaments?.includes(id)
         };
 
-        setTournament(mockTournament);
-        setIsUserRegistered(mockTournament.userRegistered);
+        // setTournament(mockTournament);
+        // setIsUserRegistered(mockTournament.userRegistered);
         setLoadingTournament(false);
+        */
       }
     };
 
     fetchTournamentData();
-    fetchRegisteredTeams();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Only re-fetch when tournament id changes
+  }, [id]);
+
+  // Fetch registered teams when tournament data is loaded
+  useEffect(() => {
+    if (tournament && tournament._id) {
+      const timer = setTimeout(() => {
+        fetchRegisteredTeams();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [tournament?._id, tournament?.gameType, fetchRegisteredTeams]);
 
   // Fetch scoreboards for completed tournaments
   const fetchScoreboards = React.useCallback(async () => {
     if (!tournament?._id || tournament.status !== 'completed') return;
-    
+
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/scoreboards`);
       const data = await response.json();
-      
+
       if (data.success) {
         const scoreboardsData = data.data.scoreboards || [];
         setScoreboards(scoreboardsData);
@@ -394,14 +383,13 @@ const SingleTournamentPage = () => {
     const refreshServerData = async () => {
       try {
         // These calls will use smart cache with background refresh
-        const [stats, players, pStats] = await Promise.all([
+        const [stats, players] = await Promise.all([
           getServerStats(tournament),
           getServerPlayers(tournament),
           getPlayerStats(tournament)
         ]);
         setServerStats(stats);
         setServerPlayers(players);
-        setPlayerStats(pStats);
         console.log('⚡ Server data loaded from smart cache');
       } catch (error) {
         console.error('Failed to refresh server data:', error);
@@ -420,7 +408,7 @@ const SingleTournamentPage = () => {
   // Memoize handler functions BEFORE any conditional returns
   const handleSteamLink = React.useCallback(() => {
     const userId = user?.id || user?._id;
-    
+
     if (!userId) {
       alert('Authentication error. Please login again.');
       navigate('/login');
@@ -428,7 +416,7 @@ const SingleTournamentPage = () => {
     }
 
     setShowSteamModal(false);
-    
+
     // Direct redirect to Steam OAuth - uses dynamic URL
     window.location.href = getSteamAuthUrl(userId, `/tournaments/${id}`);
   }, [user, navigate, id]);
@@ -461,10 +449,10 @@ const SingleTournamentPage = () => {
 
         // Steam connected - directly join tournament
         console.log('✅ Steam connected - joining tournament directly');
-        
+
         const token = localStorage.getItem('token');
         const API_BASE_URL = process.env.REACT_APP_API_URL || '';
-        
+
         const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
           method: 'POST',
           headers: {
@@ -486,10 +474,10 @@ const SingleTournamentPage = () => {
         console.log('✅ Successfully joined CS2 tournament:', data);
 
         // Trigger cache invalidation for homepage
-        window.dispatchEvent(new CustomEvent('tournamentJoined', { 
+        window.dispatchEvent(new CustomEvent('tournamentJoined', {
           detail: { tournamentId: tournament._id, tournamentName: tournament.name }
         }));
-        
+
         // Update localStorage timestamp for cache invalidation
         localStorage.setItem('last_tournament_update', Date.now().toString());
 
@@ -523,17 +511,17 @@ const SingleTournamentPage = () => {
   const handleRegistrationSuccess = React.useCallback(() => {
     setShowRegistration(false);
     setIsUserRegistered(true);
-    
+
     // Refresh tournament data and teams
     fetchRegisteredTeams();
-    
+
     // Show success notification instead of reloading
     notificationService.showCustomNotification(
       'success',
       'Registration Successful!',
       'You have been successfully registered for the tournament.'
     );
-    
+
     // Optionally refresh tournament data without full page reload
     // fetchTournament();
   }, [fetchRegisteredTeams]);
@@ -544,11 +532,11 @@ const SingleTournamentPage = () => {
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <div className="text-center">
           <div className="flex justify-center items-center space-x-1 mb-4">
-            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
-            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
-            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+            <div className="w-2 h-2 bg-gaming-neon rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
           </div>
           <p className="text-gray-300">Loading tournament...</p>
         </div>
@@ -605,13 +593,7 @@ const SingleTournamentPage = () => {
 
   const tabs = [
     { id: 'general', label: 'GENERAL', icon: FiInfo },
-    { id: 'teams', label: 'TEAMS', icon: FiUsers },
-    // Chat tab commented out for future implementation
-    // { id: 'chat', label: 'CHAT', icon: FiMessageCircle },
-    // Show results tab for completed tournaments, regardless of scoreboards loaded yet
-    ...(tournament?.status === 'completed' 
-      ? [{ id: 'results', label: 'RESULTS', icon: FiAward }] 
-      : [])
+    { id: 'teams', label: 'TEAMS', icon: FiUsers }
   ];
 
   const renderTabContent = () => {
@@ -625,19 +607,19 @@ const SingleTournamentPage = () => {
               <div className="relative bg-gaming-card rounded-lg border border-gaming-border overflow-hidden">
                 {/* Background Image */}
                 <div className="absolute inset-0 opacity-10">
-                  <OptimizedImage 
-                    src={getGameAsset(tournament?.gameType, 'thumbnail')} 
+                  <OptimizedImage
+                    src={getGameAsset(tournament?.gameType, 'thumbnail')}
                     alt="Game Background"
                     className="w-full h-full"
                     fallbackSrc={getRandomBanner(tournament?.gameType)}
                   />
                 </div>
-                
+
                 <div className="relative z-10 p-4">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 rounded-lg overflow-hidden border border-gaming-gold">
-                      <OptimizedImage 
-                        src={getGameAsset(tournament?.gameType, 'logo')} 
+                      <OptimizedImage
+                        src={getGameAsset(tournament?.gameType, 'logo')}
                         alt={tournament?.gameType}
                         className="w-full h-full"
                         fallbackSrc="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=32&h=32&fit=crop&crop=center"
@@ -700,7 +682,7 @@ const SingleTournamentPage = () => {
                   {tournament?.gameType !== 'cs2' && tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() && (
                     <div className="mb-4 p-3 bg-gaming-neon/10 border border-gaming-neon/30 rounded-lg">
                       <div className="text-gaming-neon font-semibold text-sm mb-2">REGISTRATION CLOSES IN</div>
-                      <CountdownTimer 
+                      <CountdownTimer
                         targetDate={tournament.registrationDeadline}
                         format="compact"
                         size="sm"
@@ -713,7 +695,7 @@ const SingleTournamentPage = () => {
                   {tournament?.gameType !== 'cs2' && tournament?.startDate && new Date(tournament.startDate) > new Date() && (
                     <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                       <div className="text-blue-400 font-semibold text-sm mb-2">TOURNAMENT STARTS IN</div>
-                      <CountdownTimer 
+                      <CountdownTimer
                         targetDate={tournament.startDate}
                         format="compact"
                         size="sm"
@@ -896,7 +878,7 @@ const SingleTournamentPage = () => {
                             <button
                               onClick={() => {
                                 const command = tournament.roomDetails.cs2.connectCommand;
-                                
+
                                 if (navigator.clipboard && navigator.clipboard.writeText) {
                                   navigator.clipboard.writeText(command).then(() => {
                                     notificationService.showCustomNotification(
@@ -1031,11 +1013,11 @@ const SingleTournamentPage = () => {
             {loadingTeams ? (
               <div className="flex items-center justify-center py-12">
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
-                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.3s'}}></div>
-                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+                  <div className="w-2 h-2 bg-gaming-gold rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                 </div>
                 <span className="ml-3 text-gray-300">Loading teams...</span>
               </div>
@@ -1117,12 +1099,11 @@ const SingleTournamentPage = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            team.status === 'verified' ? 'bg-green-500/20 text-green-400' :
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${team.status === 'verified' ? 'bg-green-500/20 text-green-400' :
                             team.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            team.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                            'bg-blue-500/20 text-blue-400'
-                          }`}>
+                              team.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                'bg-blue-500/20 text-blue-400'
+                            }`}>
                             {team.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
                           </span>
                         </td>
@@ -1145,7 +1126,7 @@ const SingleTournamentPage = () => {
                 <p className="text-gray-400 mb-6">
                   {tournament?.gameType === 'cs2' ? 'Be the first to join this server!' : 'Be the first to register for this tournament!'}
                 </p>
-                
+
                 {/* Registration CTA */}
                 {!isUserRegistered && tournament?.status === 'registration_open' && (
                   <button
@@ -1168,10 +1149,10 @@ const SingleTournamentPage = () => {
                 </span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2">
-                <div 
+                <div
                   className="bg-gradient-to-r from-gaming-neon to-gaming-gold h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min((registeredTeams.length / (tournament?.maxParticipants || 100)) * 100, 100)}%` 
+                  style={{
+                    width: `${Math.min((registeredTeams.length / (tournament?.maxParticipants || 100)) * 100, 100)}%`
                   }}
                 ></div>
               </div>
@@ -1183,118 +1164,6 @@ const SingleTournamentPage = () => {
           </div>
         );
 
-      case 'chat':
-        return (
-          <div className="relative">
-            {/* Background Image */}
-            <div className="absolute inset-0 opacity-5">
-              <OptimizedImage 
-                src="https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&h=600&fit=crop&crop=center"
-                alt="Chat Background"
-                className="w-full h-full"
-              />
-            </div>
-            
-            <div className="relative z-10 text-center py-12">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                <FiMessageCircle className="h-10 w-10 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">Tournament Chat</h3>
-              <p className="text-gray-400">Chat will be available during the tournament</p>
-              
-              {/* Chat Preview */}
-              <div className="mt-8 max-w-md mx-auto">
-                <div className="bg-gaming-card border border-gaming-border rounded-lg p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-gaming-gold rounded-full flex items-center justify-center">
-                        <span className="text-xs">🎮</span>
-                      </div>
-                      <span className="text-gray-400 text-sm">Tournament updates will appear here</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-xs">💬</span>
-                      </div>
-                      <span className="text-gray-400 text-sm">Player discussions and strategies</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <span className="text-xs">🏆</span>
-                      </div>
-                      <span className="text-gray-400 text-sm">Live match results and scores</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'results':
-        return (
-          <div className="space-y-6">
-            {/* Results Header */}
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4">🏆</div>
-              <h3 className="text-2xl font-bold text-white mb-2">Tournament Results</h3>
-              <p className="text-gray-400">Final standings and scoreboard</p>
-            </div>
-
-            {/* Scoreboard Gallery */}
-            {scoreboards.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {scoreboards.map((scoreboard, index) => (
-                  <div key={scoreboard._id || index} className="bg-gaming-card border border-gaming-border rounded-lg overflow-hidden">
-                    <img
-                      src={scoreboard.imageUrl}
-                      alt={scoreboard.description}
-                      className="w-full h-64 md:h-80 object-contain bg-gaming-charcoal cursor-pointer hover:scale-105 transition-transform"
-                      onClick={() => window.open(scoreboard.imageUrl, '_blank')}
-                    />
-                    <div className="p-4">
-                      <h4 className="font-bold text-white mb-1">{scoreboard.description}</h4>
-                      <p className="text-xs text-gray-400">
-                        Uploaded on {new Date(scoreboard.uploadedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-4 text-gray-400">📊</div>
-                <h3 className="text-xl font-bold text-white mb-2">Results Coming Soon</h3>
-                <p className="text-gray-400">Tournament results will be posted here once available</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Admin is preparing the final scoreboard images
-                </p>
-              </div>
-            )}
-
-            {/* Download All Button */}
-            {scoreboards.length > 1 && (
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    scoreboards.forEach((scoreboard, index) => {
-                      setTimeout(() => {
-                        const link = document.createElement('a');
-                        link.href = scoreboard.imageUrl;
-                        link.download = `${tournament.name}_Result_${index + 1}.jpg`;
-                        link.click();
-                      }, index * 500);
-                    });
-                  }}
-                  className="px-6 py-3 bg-gaming-neon text-black font-bold rounded-lg hover:bg-gaming-neon/80 transition-colors"
-                >
-                  Download All Results
-                </button>
-              </div>
-            )}
-          </div>
-        );
-
       default:
         return null;
     }
@@ -1302,257 +1171,206 @@ const SingleTournamentPage = () => {
 
   return (
     <div className="min-h-screen bg-gaming-dark">
-      {/* Header */}
-      <div className="bg-gaming-card border-b border-gaming-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link
-                to="/games"
-                className="p-2 hover:bg-gaming-slate rounded-lg transition-colors duration-200"
-              >
-                <FiArrowLeft className="h-5 w-5 text-white" />
-              </Link>
-              <span className="text-gray-400 text-sm">Banner image</span>
-            </div>
+      {/* Header - Glassy Yellow Card Design */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Top Navigation Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            to="/games"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 backdrop-blur-sm"
+          >
+            <FiArrowLeft className="h-5 w-5 text-white" />
+          </Link>
 
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={handleShareTournament}
-                className="flex items-center space-x-2 px-4 py-2 bg-gaming-slate hover:bg-gaming-gold hover:text-black rounded-lg transition-all duration-200"
-              >
-                <FiShare2 className="h-4 w-4" />
-                <span className="text-sm font-semibold">SHARE</span>
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleShareTournament}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 backdrop-blur-sm border border-white/20"
+          >
+            <FiShare2 className="h-4 w-4" />
+            <span className="text-sm font-semibold">SHARE</span>
+          </button>
         </div>
-      </div>
 
-      {/* Tournament Title Section - Clean Layout */}
-      <div className="bg-gaming-card border-b border-gaming-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-gaming-neon to-gaming-neon-blue rounded-xl flex items-center justify-center text-3xl">
-                <GameIcon gameType={tournament?.gameType} size="xl" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-3 mb-2">
-                  <h1 className="text-3xl font-gaming font-bold text-white">
-                    {tournament?.name || 'Tournament'}
-                  </h1>
-                  <span className="px-3 py-1 bg-gaming-gold text-black font-bold rounded-lg text-sm">
-                    {tournament?.gameType?.toUpperCase() || 'BGMI'}
-                  </span>
+        {/* Glassy Yellow Card */}
+        <div className="relative overflow-hidden rounded-2xl backdrop-blur-xl bg-gradient-to-br from-yellow-400/20 via-yellow-300/10 to-yellow-400/5 border border-yellow-400/30 shadow-2xl p-6 md:p-8">
+          {/* Animated Background Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-transparent to-yellow-500/5 opacity-50" />
+
+          {/* Content */}
+          <div className="relative z-10">
+            {/* Main Header with Logo and Text */}
+            <div className="flex flex-col md:flex-row gap-6 mb-6">
+              {/* Left: Large Logo */}
+              <div className="flex-shrink-0">
+                <div className="w-24 h-24 md:w-28 md:h-28 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl flex items-center justify-center text-5xl md:text-6xl shadow-lg border-2 border-yellow-300/50">
+                  <GameIcon gameType={tournament?.gameType} size="xl" />
                 </div>
-                <p className="text-gray-400">
+              </div>
+
+              {/* Middle: Tournament Info in Outline Box */}
+              <div className="flex-1 border-2 border-yellow-400/40 rounded-xl p-4 md:p-6 bg-white/5 backdrop-blur-sm">
+                <h1 className="text-2xl md:text-3xl font-display font-bold text-white mb-2">
+                  {tournament?.name || 'Tournament'}
+                </h1>
+                <p className="text-yellow-100/80 text-sm md:text-base font-body mb-3 leading-relaxed">
                   {tournament?.description || 'Join the ultimate gaming competition'}
                 </p>
+
+                {/* Quick Info Tags */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/40 rounded-lg text-yellow-200 text-xs font-semibold font-body">
+                    {tournament?.gameType?.toUpperCase() || 'BGMI'}
+                  </span>
+                  <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/40 rounded-lg text-yellow-200 text-xs font-semibold font-body">
+                    {tournament?.mode?.toUpperCase() || 'SQUAD'}
+                  </span>
+                  {/* <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/40 rounded-lg text-yellow-200 text-xs font-semibold font-body">
+                    👥 {tournament?.currentParticipants || 0}/{tournament?.maxParticipants || 100}
+                  </span> */}
+                  {/* <span className="px-3 py-1 bg-yellow-400/20 border border-yellow-400/40 rounded-lg text-yellow-200 text-xs font-semibold font-body">
+                    🌍 {tournament?.region || 'India'}
+                  </span> */}
+                </div>
+              </div>
+
+              {/* Right: Prize Pool & Status */}
+              <div className="flex-shrink-0 flex flex-col gap-3">
+                <div className="bg-gradient-to-br from-yellow-400/30 to-yellow-500/20 backdrop-blur-sm rounded-xl p-4 border border-yellow-400/40 text-center md:text-right">
+                  <div className="text-yellow-200 text-xs font-bold uppercase tracking-wider font-display">Prize Pool</div>
+                  <div className="text-white text-3xl md:text-4xl font-display font-bold mt-2">
+                    ₹{tournament?.prizePool?.toLocaleString() || '0'}
+                  </div>
+                  <div className="text-yellow-100/60 text-xs mt-1 font-body">Total Rewards</div>
+                </div>
+
+                {/* Status Badge with Countdown */}
+                <div className={`px-4 py-2 rounded-lg font-semibold text-sm text-center backdrop-blur-sm border font-display ${tournament?.status === 'active'
+                  ? 'bg-green-500/20 text-green-300 border-green-400/40'
+                  : tournament?.status === 'registration_open'
+                    ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
+                    : 'bg-gray-500/20 text-gray-300 border-gray-400/40'
+                  }`}>
+                  {tournament?.status === 'active' ? (
+                    <div className="flex flex-col gap-2 items-center">
+                      <span>ACTIVE</span>
+                      {tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() && (
+                        <div className="text-xs font-body whitespace-nowrap">
+                          <CountdownTimer
+                            targetDate={tournament.registrationDeadline}
+                            format="compact"
+                            size="sm"
+                            showLabels={false}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : tournament?.status === 'registration_open' && tournament?.registrationDeadline && new Date(tournament.registrationDeadline) > new Date() ? (
+                    <div className="flex flex-col gap-2 items-center">
+                      <span>🔵 REGISTRATION OPEN</span>
+                      <div className="text-xs font-body whitespace-nowrap">
+                        <CountdownTimer
+                          targetDate={tournament.registrationDeadline}
+                          format="compact"
+                          size="sm"
+                          showLabels={false}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <span>🟢 {tournament?.status?.toUpperCase().replace('_', ' ') || 'ACTIVE'}</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-gaming-gold text-sm font-medium">PRIZE POOL</div>
-              <div className="text-white text-2xl font-bold">
-                ₹{tournament?.prizePool?.toLocaleString() || '25,000'}
+
+            {/* Tournament Info Grid - Prize Pool, Participants, Timeline, Status & Join */}
+            <div className="mt-6 pt-6 border-t border-yellow-400/20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {/* Prize Pool */}
+                {/* <div className="flex items-center space-x-3 md:space-x-4">
+                  <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FiAward className="h-5 md:h-6 w-5 md:w-6 text-black" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-gray-400 text-xs uppercase tracking-wide font-body">Prize Pool</div>
+                    <div className="text-white font-bold text-lg md:text-xl truncate font-display">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
+                  </div>
+                </div> */}
+
+                {/* Participants */}
+                <div className="flex items-center space-x-3 md:space-x-4">
+                  <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FiUsers className="h-5 md:h-6 w-5 md:w-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-gray-400 text-xs uppercase tracking-wide font-body">Participants</div>
+                    <div className="text-white font-bold text-lg md:text-xl font-display">{tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}</div>
+                  </div>
+                </div>
+
+                {/* Timeline - Registration & Tournament Start */}
+                <div className="flex items-center space-x-3 md:space-x-4">
+                  {/* <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FiCalendar className="h-5 md:h-6 w-5 md:w-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-gray-400 text-xs uppercase tracking-wide font-body">Timeline</div>
+                    <div className="space-y-0.5">
+                      <div className="text-gaming-neon font-bold text-xs md:text-sm truncate font-display">Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}</div>
+                      {tournament?.startDate && (
+                        <div className="text-white font-semibold text-xs truncate font-body">Start: {new Date(tournament.startDate) > new Date() ? new Date(tournament.startDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Live Now!'}</div>
+                      )}
+                    </div>
+                  </div> */}
+                </div>
+
+                {/* Timeline - Registration & Tournament Start */}
+                <div className="flex items-center space-x-3 md:space-x-4">
+                  {/* <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FiCalendar className="h-5 md:h-6 w-5 md:w-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-gray-400 text-xs uppercase tracking-wide font-body">Timeline</div>
+                    <div className="space-y-0.5">
+                      <div className="text-gaming-neon font-bold text-xs md:text-sm truncate font-display">Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}</div>
+                      {tournament?.startDate && (
+                        <div className="text-white font-semibold text-xs truncate font-body">Start: {new Date(tournament.startDate) > new Date() ? new Date(tournament.startDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Live Now!'}</div>
+                      )}
+                    </div>
+                  </div> */}
+                </div>
+
+                {/* Status & Join Button */}
+                <div className="flex items-center justify-center sm:justify-end">
+                  {isUserRegistered ? (
+                    <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center w-full sm:w-auto">
+                      <div className="text-green-400 font-bold text-sm md:text-lg flex items-center justify-center space-x-2 font-display">
+                        <span>✅</span>
+                        <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
+                      </div>
+                      <div className="text-gray-300 text-xs mt-1 font-body">{tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}</div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleJoinTournament}
+                      disabled={!isAuthenticated || tournament?.status !== 'registration_open'}
+                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${!isAuthenticated || tournament?.status !== 'registration_open' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {!isAuthenticated ? ('LOGIN TO JOIN') : tournament?.status !== 'registration_open' ? ('REGISTRATION CLOSED') : tournament?.gameType === 'cs2' ? ('🚀 JOIN SERVER') : ('🚀 JOIN NOW')}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Glassy Border Glow Effect */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-400/0 via-yellow-300/5 to-yellow-400/0 pointer-events-none" />
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Top Info Bar - Horizontal Layout */}
-        <div className="bg-gradient-to-r from-gaming-card via-gaming-slate to-gaming-card border border-gaming-border rounded-xl p-6 mb-8 shadow-xl">
-          {/* CS2: Server Stats Grid (No Prize Pool - it's a server, not a tournament) */}
-          {tournament?.gameType === 'cs2' ? (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {/* All Server Stats */}
-                {serverStats.map((stat, index) => (
-                  <div key={index} className="flex items-center space-x-3 bg-gaming-card border border-gaming-border rounded-lg p-4">
-                    <div className="text-3xl">{stat.icon}</div>
-                    <div>
-                      <div className="text-gray-400 text-xs uppercase tracking-wide">{stat.label}</div>
-                      <div className={`font-bold text-lg ${stat.color}`}>{stat.value}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Player Breakdown - Real vs Bots */}
-              {playerStats && playerStats.total > 0 && (
-                <div className="mt-4 bg-gaming-card/50 border border-gaming-border rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">👥</span>
-                      <div>
-                        <div className="text-gray-400 text-xs uppercase tracking-wide">Player Breakdown</div>
-                        <div className="text-white font-bold">{playerStats.total}/{playerStats.max} Players</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-6">
-                      <div className="text-center">
-                        <div className="text-green-400 font-bold text-2xl">{playerStats.real}</div>
-                        <div className="text-gray-400 text-xs">Real Players</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-orange-400 font-bold text-2xl">{playerStats.bots}</div>
-                        <div className="text-gray-400 text-xs">Bots</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-blue-400 font-bold text-2xl">{playerStats.percentage}%</div>
-                        <div className="text-gray-400 text-xs">Capacity</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* CS2 Launch Button - Always show, no join needed */}
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={handleJoinTournament}
-                  disabled={!isAuthenticated || tournament?.status !== 'registration_open'}
-                  className={`btn-gaming px-8 py-3 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 flex items-center space-x-2 ${
-                    !isAuthenticated || tournament?.status !== 'registration_open' 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : ''
-                  }`}
-                >
-                  <span>🚀</span>
-                  <span>
-                    {!isAuthenticated ? 'LOGIN TO LAUNCH' : tournament?.status !== 'registration_open' ? 'REGISTRATION CLOSED' : 'LAUNCH CS2'}
-                  </span>
-                </button>
-              </div>
-            </>
-          ) : (
-            /* BGMI/Other Games: Original Layout */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              
-              {/* Prize Pool */}
-              <div className="flex items-center space-x-3 md:space-x-4">
-                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiAward className="h-5 md:h-6 w-5 md:w-6 text-black" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-gray-400 text-xs uppercase tracking-wide">Prize Pool</div>
-                  <div className="text-white font-bold text-lg md:text-xl truncate">₹{tournament?.prizePool?.toLocaleString() || '0'}</div>
-                </div>
-              </div>
-
-              {/* Participants */}
-              <div className="flex items-center space-x-3 md:space-x-4">
-                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiUsers className="h-5 md:h-6 w-5 md:w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-gray-400 text-xs uppercase tracking-wide">Participants</div>
-                  <div className="text-white font-bold text-lg md:text-xl">
-                    {tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeline - Registration & Tournament Start */}
-              <div className="flex items-center space-x-3 md:space-x-4">
-                <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-gaming-neon to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <FiCalendar className="h-5 md:h-6 w-5 md:w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-gray-400 text-xs uppercase tracking-wide">Timeline</div>
-                  <div className="space-y-0.5">
-                    <div className="text-gaming-neon font-bold text-xs md:text-sm truncate">
-                      Reg: {tournament?.registration?.closesIn || tournament?.closesIn || '2 hours'}
-                    </div>
-                    {tournament?.startDate && (
-                      <div className="text-white font-semibold text-xs truncate">
-                        Start: {new Date(tournament.startDate) > new Date() 
-                          ? new Date(tournament.startDate).toLocaleString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric', 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })
-                          : 'Live Now!'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status & Join Button */}
-              <div className="flex items-center justify-center sm:justify-end">
-                {isUserRegistered ? (
-                  <div className="bg-green-500/10 border-2 border-green-500/50 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center w-full sm:w-auto">
-                    <div className="text-green-400 font-bold text-sm md:text-lg flex items-center justify-center space-x-2">
-                      <span>✅</span>
-                      <span>{tournament?.gameType === 'cs2' ? 'Joined' : 'Registered'}</span>
-                    </div>
-                    <div className="text-gray-300 text-xs mt-1">
-                      {tournament?.gameType === 'bgmi' ? 'Room details below' : 'Server details below'}
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleJoinTournament}
-                    disabled={!isAuthenticated || tournament?.status !== 'registration_open'}
-                    className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 ${
-                      !isAuthenticated || tournament?.status !== 'registration_open' 
-                        ? 'opacity-50 cursor-not-allowed' 
-                        : ''
-                    }`}
-                  >
-                    {!isAuthenticated ? (
-                      'LOGIN TO JOIN'
-                    ) : tournament?.status !== 'registration_open' ? (
-                      'REGISTRATION CLOSED'
-                    ) : tournament?.gameType === 'cs2' ? (
-                      '🚀 JOIN SERVER'
-                    ) : (
-                      'JOIN NOW'
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Status Badges */}
-          <div className="flex items-center space-x-3 mt-6 pt-6 border-t border-gaming-border/50">
-            <span className="px-4 py-1.5 bg-gaming-gold text-black text-xs font-bold rounded-full uppercase">
-              {tournament?.status?.replace('_', ' ') || 'Upcoming'}
-            </span>
-            <span className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-full uppercase">
-              {tournament?.gameType || 'BGMI'}
-            </span>
-            <span className="px-4 py-1.5 bg-gray-700 text-white text-xs font-bold rounded-full uppercase">
-              {tournament?.mode || 'Squad'}
-            </span>
-            
-            {/* See Results Button for Completed Tournaments */}
-            {tournament?.status === 'completed' && tournament?.scoreboards?.length > 0 && (
-              <button
-                onClick={() => setActiveTab('results')}
-                className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-full uppercase transition-colors flex items-center space-x-1"
-              >
-                <span>🏆</span>
-                <span>See Results</span>
-              </button>
-            )}
-            
-            <div className="flex-1"></div>
-            <div className="flex items-center space-x-2 text-gray-400 text-sm">
-              <div className="w-6 h-6 bg-gaming-gold rounded-full flex items-center justify-center">
-                <span className="text-black text-xs font-bold">C</span>
-              </div>
-              <span className="text-white font-semibold">Colab Esports</span>
-            </div>
-          </div>
-        </div>
 
         {/* Modern Tab Pills */}
         <div className="flex items-center justify-center space-x-3 mb-8">
@@ -1560,11 +1378,10 @@ const SingleTournamentPage = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wide transition-all duration-300 ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-gaming-gold to-yellow-500 text-black shadow-lg shadow-gaming-gold/50'
-                  : 'bg-gaming-card border border-gaming-border text-gray-400 hover:text-white hover:border-gaming-gold'
-              }`}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wide transition-all duration-300 ${activeTab === tab.id
+                ? 'bg-gradient-to-r from-gaming-gold to-yellow-500 text-black shadow-lg shadow-gaming-gold/50'
+                : 'bg-gaming-card border border-gaming-border text-gray-400 hover:text-white hover:border-gaming-gold'
+                }`}
             >
               <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? 'text-black' : ''}`} />
               <span>{tab.label}</span>

@@ -4,12 +4,16 @@ import { FiUsers, FiPlus, FiSettings, FiLogOut, FiAward, FiX, FiUserPlus, FiTras
 import UserAvatar from '../common/UserAvatar';
 import CreateTeamModal from './CreateTeamModal';
 import InviteMemberModal from './InviteMemberModal';
+import TeamManageModal from './TeamManageModal';
+import AddMemberModal from './AddMemberModal';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
 
   const handleCreateTeam = async (teamData) => {
@@ -107,6 +111,42 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
     } catch (error) {
       console.error('Error deleting team:', error);
       toast.error(error.response?.data?.error?.message || 'Failed to delete team', {
+        duration: 3000,
+        position: 'top-center'
+      });
+    }
+  };
+
+  const handleRemoveMember = async (teamId, memberId) => {
+    if (!window.confirm('Are you sure you want to remove this member from the team?')) return;
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.post(
+        `${API_URL}/api/teams/${teamId}/remove-member`,
+        { memberId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Member removed successfully', {
+          duration: 3000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #FFD700'
+          }
+        });
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to remove member', {
         duration: 3000,
         position: 'top-center'
       });
@@ -253,6 +293,16 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
                 setSelectedTeam(team);
                 setShowInviteModal(true);
               }}
+              onManage={(team) => {
+                setSelectedTeam(team);
+                setShowManageModal(true);
+              }}
+              onAddMember={(team) => {
+                setSelectedTeam(team);
+                setShowAddMemberModal(true);
+              }}
+              onRemoveMember={handleRemoveMember}
+              token={token}
             />
           ))}
         </div>
@@ -295,12 +345,42 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           }}
         />
       )}
+
+      {/* Manage Team Modal */}
+      {showManageModal && selectedTeam && (
+        <TeamManageModal
+          team={selectedTeam}
+          token={token}
+          onClose={() => {
+            setShowManageModal(false);
+            setSelectedTeam(null);
+          }}
+          onSuccess={() => {
+            onRefresh();
+          }}
+        />
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && selectedTeam && (
+        <AddMemberModal
+          team={selectedTeam}
+          token={token}
+          onClose={() => {
+            setShowAddMemberModal(false);
+            setSelectedTeam(null);
+          }}
+          onSuccess={() => {
+            onRefresh();
+          }}
+        />
+      )}
     </div>
   );
 };
 
 // Team Card Component
-const TeamCard = ({ team, onLeave, onDelete, onInvite }) => {
+const TeamCard = ({ team, onLeave, onDelete, onInvite, onManage, onAddMember, onRemoveMember }) => {
   const currentUserId = localStorage.getItem('userId');
   
   // Handle different captain data structures
@@ -378,12 +458,21 @@ const TeamCard = ({ team, onLeave, onDelete, onInvite }) => {
             return (
               <div
                 key={member.userId._id}
-                className="flex items-center space-x-2 px-3 py-1 bg-gaming-charcoal rounded-lg"
+                className="flex items-center space-x-2 px-3 py-1 bg-gaming-charcoal rounded-lg group hover:bg-red-900/30 transition-colors"
               >
                 <UserAvatar user={member.userId} size="xs" />
                 <span className="text-white text-sm">{member.userId.username}</span>
                 {member.role === 'captain' && (
                   <FiAward className="w-3 h-3 text-gaming-gold" title="Captain" />
+                )}
+                {isCaptain && member.role !== 'captain' && (
+                  <button
+                    onClick={() => onRemoveMember(team._id, member.userId._id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                    title="Remove member"
+                  >
+                    <FiX className="w-3 h-3 text-red-400 hover:text-red-600" />
+                  </button>
                 )}
               </div>
             );
@@ -426,7 +515,17 @@ const TeamCard = ({ team, onLeave, onDelete, onInvite }) => {
                 <FiUserPlus className="w-4 h-4" />
                 <span>Invite</span>
               </button>
-              <button className="flex-1 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2">
+              <button 
+                onClick={() => onAddMember(team)}
+                className="flex-1 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+              >
+                <FiPlus className="w-4 h-4" />
+                <span>Add</span>
+              </button>
+              <button 
+                onClick={() => onManage(team)}
+                className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+              >
                 <FiSettings className="w-4 h-4" />
                 <span>Manage</span>
               </button>

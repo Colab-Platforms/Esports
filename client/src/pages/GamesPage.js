@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiPlay, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../services/api';
 import imageService from '../services/imageService';
 import GameIcon from '../components/common/GameIcon';
@@ -9,7 +9,6 @@ import GameIcon from '../components/common/GameIcon';
 const GamesPage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
     const [games, setGames] = useState([]);
-    const [featuredGames, setFeaturedGames] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [siteImages, setSiteImages] = useState({});
@@ -20,17 +19,18 @@ const GamesPage = () => {
         const fetchGames = async () => {
             try {
                 setLoading(true);
-                const [gamesResponse, featuredData] = await Promise.all([
-                    api.getGames(),
-                    api.getFeaturedGames()
-                ]);
-
-                // Extract games from response structure
+                
+                // Fetch games first
+                const gamesResponse = await api.getGames();
                 const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
-                const featuredArray = featuredData?.data?.games || featuredData || [];
-
                 setGames(gamesArray);
-                setFeaturedGames(featuredArray);
+                
+                // Add delay before fetching featured games to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const featuredData = await api.getFeaturedGames();
+                const featuredArray = featuredData?.data?.games || featuredData || [];
+                
                 setError(null);
             } catch (err) {
                 console.error('Error fetching games:', err);
@@ -41,7 +41,13 @@ const GamesPage = () => {
         };
 
         fetchGames();
-        fetchSiteImages();
+        
+        // Add delay before fetching site images to avoid rate limiting
+        const timer = setTimeout(() => {
+            fetchSiteImages();
+        }, 1000);
+        
+        return () => clearTimeout(timer);
     }, []);
 
     const fetchSiteImages = async () => {

@@ -460,15 +460,40 @@ const Navbar = () => {
                         <span className="font-display font-semibold">{link.label}</span>
                       </Link>
                     ))}
+                    
+                    {/* My Profile Link */}
                     <Link
                       to="/profile"
+                      className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <FiUser className="w-5 h-5" />
+                      <span className="font-display font-semibold">My Profile</span>
+                    </Link>
+                    
+                    {/* Profile Settings Link */}
+                    <Link
+                      to="/profile/settings"
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <FiSettings className="w-5 h-5" />
                       <span className="font-display font-semibold">Profile Settings</span>
                     </Link>
-                    {/* Steam Integration link removed */}
+                    
+                    {/* Admin Panel Link - Only for admin users */}
+                    {user?.role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        className="flex items-center space-x-3 px-3 py-3 rounded-lg text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <FiGrid className="w-5 h-5" />
+                        <span className="font-display font-semibold">Admin Panel</span>
+                      </Link>
+                    )}
+                    
+                    {/* Logout Button */}
                     <button
                       onClick={handleLogout}
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-red-400 hover:bg-theme-bg-hover transition-colors duration-200 w-full text-left"

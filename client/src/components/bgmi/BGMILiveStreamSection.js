@@ -11,6 +11,9 @@ const BGMILiveStreamSection = () => {
         setLoading(true);
         console.log('🔍 BGMILiveStreamSection: Fetching BGMI tournaments...');
         
+        // Add delay to avoid rate limiting when multiple components mount
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // COMMENTED OUT FOR TESTING - Will uncomment later to only fetch active tournaments
         // const response = await api.get('/api/tournaments?status=active&gameType=bgmi&limit=1');
         
@@ -44,8 +47,8 @@ const BGMILiveStreamSection = () => {
 
     fetchActiveTournament();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchActiveTournament, 30000);
+    // Refresh every 60 seconds (reduced from 30s to avoid rate limiting)
+    const interval = setInterval(fetchActiveTournament, 60000);
 
     return () => clearInterval(interval);
   }, []);

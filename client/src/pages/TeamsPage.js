@@ -415,6 +415,7 @@ const TeamsPage = () => {
                     <thead className="bg-gaming-charcoal">
                       <tr>
                         <th className="px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Player</th>
+                        <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Email</th>
                         <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Level</th>
                         <th className="hidden md:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Rank</th>
                         <th className="hidden lg:table-cell px-2 md:px-4 py-3 text-left text-xs md:text-sm font-medium text-gray-400">Wins</th>
@@ -431,6 +432,7 @@ const TeamsPage = () => {
                               <span className="text-white font-medium text-xs md:text-base truncate">{player.username}</span>
                             </div>
                           </td>
+                          <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base truncate">{player.email || 'N/A'}</td>
                           <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.level || 1}</td>
                           <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gaming-neon text-xs md:text-base">{player.rank || 'Unranked'}</td>
                           <td className="hidden lg:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.wins || 0}</td>

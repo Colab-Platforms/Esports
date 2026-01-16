@@ -15,6 +15,8 @@ const PublicProfile = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showChallengeMenu, setShowChallengeMenu] = useState(false);
   const [friendStatus, setFriendStatus] = useState(null); // 'friends', 'pending', 'received', or null
+  const [tournamentHistory, setTournamentHistory] = useState([]);
+  const [loadingTournaments, setLoadingTournaments] = useState(false);
 
   useEffect(() => {
     // Reset state when username changes
@@ -57,11 +59,33 @@ const PublicProfile = () => {
       setPlayer(response.data);
       setFriendStatus(response.data.friendStatus); // Set friend status from backend
       setError(null);
+      
+      // Fetch tournament history
+      fetchTournamentHistory();
     } catch (err) {
       console.error('Error fetching player profile:', err);
       setError(err.response?.data?.message || 'Player not found');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTournamentHistory = async () => {
+    try {
+      setLoadingTournaments(true);
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      
+      const response = await axios.get(`${API_URL}/api/users/tournament-history/${username}`);
+      console.log('🏆 Tournament history:', response.data);
+      
+      if (response.data.success) {
+        setTournamentHistory(response.data.data.tournaments || []);
+      }
+    } catch (err) {
+      console.error('Error fetching tournament history:', err);
+      setTournamentHistory([]);
+    } finally {
+      setLoadingTournaments(false);
     }
   };
 
@@ -315,6 +339,62 @@ const PublicProfile = () => {
             color="text-purple-400"
           />
         </div>
+
+        {/* Tournament History Section */}
+        {tournamentHistory.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="card-gaming p-6 mb-6"
+          >
+            <h2 className="text-white text-xl font-bold mb-4 flex items-center space-x-2">
+              <span>🏆</span>
+              <span>Tournament History</span>
+            </h2>
+            
+            {loadingTournaments ? (
+              <div className="text-center py-8 text-gray-400">Loading tournaments...</div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {tournamentHistory.map((tournament, index) => (
+                  <div
+                    key={index}
+                    className="bg-gaming-dark p-4 rounded-lg border border-gaming-border hover:border-gaming-neon transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-white font-semibold">{tournament.tournamentName}</p>
+                        <p className="text-gray-400 text-sm">Team: {tournament.teamName}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gaming-gold font-bold text-lg">
+                          {tournament.rank === 'N/A' ? 'N/A' : `#${tournament.rank}`}
+                        </p>
+                        <p className="text-gray-400 text-xs">Rank</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Points: </span>
+                        <span className="text-gaming-neon font-semibold">{tournament.points}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Wins: </span>
+                        <span className="text-gaming-neon font-semibold">{tournament.matchesWon}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Game: </span>
+                        <span className="text-gaming-neon font-semibold">{tournament.gameType.toUpperCase()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Games Section */}
         <motion.div

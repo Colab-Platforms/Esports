@@ -9,7 +9,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['friend_request', 'friend_accepted', 'challenge', 'tournament', 'match', 'achievement', 'system'],
+    enum: ['friend_request', 'friend_accepted', 'team_invitation', 'challenge', 'tournament', 'match', 'achievement', 'system'],
     required: true
   },
   title: {

@@ -19,21 +19,56 @@ const AdminDashboard = () => {
 
   const fetchDashboardStats = async () => {
     try {
+      console.log('🔍 Starting dashboard stats fetch...');
+      
       // Fetch stats from different endpoints
       const [gamesRes, adminRes] = await Promise.all([
         api.get('/api/games'),
         api.get('/api/admin/dashboard')
       ]);
 
-      setStats({
-        totalUsers: adminRes.data?.totalUsers || 0,
-        activeTournaments: adminRes.data?.activeTournaments || 0,
-        totalGames: gamesRes.data?.games?.length || 0,
-        totalMatches: adminRes.data?.totalMatches || 0,
+      console.log('📊 Games Response:', gamesRes);
+      console.log('📊 Admin Response:', adminRes);
+
+      // Check if responses are valid
+      if (!adminRes || !gamesRes) {
+        console.error('❌ One or both API responses are null/undefined');
+        setStats(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
+      // Extract data from nested structure - handle both response formats
+      const adminData = adminRes.data?.data || adminRes.data || {};
+      const gamesData = gamesRes.data?.data || gamesRes.data || {};
+
+      console.log('📋 Extracted Admin Data:', adminData);
+      console.log('📋 Extracted Games Data:', gamesData);
+
+      // Handle games data - could be array or object with games property
+      let totalGames = 0;
+      if (Array.isArray(gamesData)) {
+        totalGames = gamesData.length;
+      } else if (gamesData.games && Array.isArray(gamesData.games)) {
+        totalGames = gamesData.games.length;
+      } else if (gamesData.data && Array.isArray(gamesData.data)) {
+        totalGames = gamesData.data.length;
+      }
+
+      const newStats = {
+        totalUsers: adminData.users?.total || 0,
+        activeTournaments: adminData.tournaments?.active || 0,
+        totalGames: totalGames,
+        totalMatches: adminData.transactions?.total || 0,
         loading: false
-      });
+      };
+
+      console.log('✅ Final Stats:', newStats);
+      setStats(newStats);
     } catch (error) {
-      console.error('Failed to fetch dashboard stats:', error);
+      console.error('❌ Failed to fetch dashboard stats:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error stack:', error.stack);
       setStats(prev => ({ ...prev, loading: false }));
     }
   };

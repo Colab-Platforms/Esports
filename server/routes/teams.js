@@ -469,6 +469,30 @@ router.post('/:id/invite', auth, async (req, res) => {
     await invitation.populate('teamId', 'name tag game logo');
     await invitation.populate('invitedBy', 'username avatarUrl');
 
+    // Create notification for invited user
+    const Notification = require('../models/Notification');
+    const invitedUserData = await User.findById(userId).select('username');
+    const invitingUserData = await User.findById(req.user.userId).select('username');
+    
+    const notification = new Notification({
+      user: userId,
+      type: 'team_invitation',
+      title: 'Team Invitation',
+      message: `${invitingUserData.username} invited you to join ${team.name}`,
+      actionUrl: `/profile?tab=teams&subtab=invitations`,
+      isRead: false,
+      metadata: {
+        teamId: team._id,
+        teamName: team.name,
+        invitedBy: req.user.userId,
+        invitationId: invitation._id
+      }
+    });
+
+    await notification.save();
+
+    console.log(`📬 Notification created for user ${userId} about team invitation`);
+
     res.status(201).json({
       success: true,
       data: { invitation },
@@ -658,6 +682,197 @@ router.post('/invitations/:id/reject', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to reject invitation',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/teams/:id/remove-member
+// @desc    Remove a member from team (captain only)
+// @access  Private
+router.post('/:id/remove-member', auth, async (req, res) => {
+  try {
+    const { memberId } = req.body;
+    const captainId = req.user.userId;
+
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_MEMBER_ID',
+          message: 'Member ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const team = await Team.findById(req.params.id);
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TEAM_NOT_FOUND',
+          message: 'Team not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user is captain
+    if (team.captain.toString() !== captainId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'NOT_CAPTAIN',
+          message: 'Only team captain can remove members',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Cannot remove captain
+    if (memberId === captainId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'CANNOT_REMOVE_CAPTAIN',
+          message: 'Cannot remove team captain',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Remove member
+    team.removeMember(memberId);
+    await team.save();
+
+    console.log(`✅ Member ${memberId} removed from team ${team.name}`);
+
+    res.json({
+      success: true,
+      message: 'Member removed successfully',
+      data: { team },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error removing member:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to remove member',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/teams/:id/add-member
+// @desc    Add a member to team directly (captain only)
+// @access  Private
+router.post('/:id/add-member', auth, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const captainId = req.user.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_USER_ID',
+          message: 'User ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const team = await Team.findById(req.params.id);
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TEAM_NOT_FOUND',
+          message: 'Team not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user is captain
+    if (team.captain.toString() !== captainId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'NOT_CAPTAIN',
+          message: 'Only team captain can add members',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if team is full
+    if (team.members.length >= team.maxMembers) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'TEAM_FULL',
+          message: 'Team is full',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user is already a member
+    if (team.isMember(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'ALREADY_MEMBER',
+          message: 'User is already a team member',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user exists
+    const userToAdd = await User.findById(userId);
+    if (!userToAdd) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Add member
+    team.addMember(userId);
+    await team.save();
+    await team.populate('captain', 'username avatarUrl');
+    await team.populate('members.userId', 'username avatarUrl');
+
+    console.log(`✅ Member ${userId} added to team ${team.name}`);
+
+    res.json({
+      success: true,
+      message: 'Member added successfully',
+      data: { team },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error adding member:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to add member',
         timestamp: new Date().toISOString()
       }
     });
