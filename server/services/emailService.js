@@ -14,10 +14,13 @@ class EmailService {
     
     if (hasEmailConfig) {
       // Use actual SMTP (works in both development and production)
+      const port = parseInt(process.env.EMAIL_PORT) || 587;
+      const secure = port === 465; // Use secure connection for port 465
+      
       this.transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT) || 587,
-        secure: false, // true for 465, false for other ports
+        port: port,
+        secure: secure, // true for 465, false for 587
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
@@ -29,7 +32,8 @@ class EmailService {
       
       console.log('📧 Email Service: SMTP configured');
       console.log('  - Host:', process.env.EMAIL_HOST);
-      console.log('  - Port:', process.env.EMAIL_PORT);
+      console.log('  - Port:', port);
+      console.log('  - Secure:', secure);
       console.log('  - User:', process.env.EMAIL_USER);
       console.log('  - Password length:', process.env.EMAIL_PASS?.length || 0, 'characters');
       
