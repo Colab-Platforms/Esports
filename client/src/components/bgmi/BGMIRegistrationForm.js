@@ -221,23 +221,23 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
       const response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
 
-      console.log('📤 Registration API response:', response);
+      console.log('Registration API response:', response);
 
       const responseData = response.data || response;
-      console.log('� Response data:', responseData);
+      console.log('Response data:', responseData);
 
       const isSuccess = responseData?.success === true ||
         (responseData?.registration && !responseData?.error);
 
       if (isSuccess) {
         setSuccess(true);
-        console.log('✅ Registration successful:', responseData);
+        console.log('Registration successful:', responseData);
 
         setTimeout(() => {
           const registrationData = responseData.data?.registration ||
             responseData.registration ||
             responseData;
-          console.log('🔄 Passing registration data to onSuccess:', registrationData);
+          console.log('Passing registration data to onSuccess:', registrationData);
           onSuccess && onSuccess(registrationData);
         }, 2000);
       } else {
