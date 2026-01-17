@@ -241,11 +241,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
           onSuccess && onSuccess(registrationData);
         }, 2000);
       } else {
-        console.error('❌ Registration API failed:', responseData);
+        console.error('Registration API failed:', responseData);
         setError(responseData?.error?.message || responseData?.message || 'Registration failed');
       }
     } catch (error) {
-      console.error('❌ Registration error:', error);
+      console.error('Registration error:', error);
       setError(
         error.response?.data?.error?.message ||
         error.message ||
