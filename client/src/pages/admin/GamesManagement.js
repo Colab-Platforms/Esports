@@ -273,8 +273,8 @@ const GamesManagement = () => {
                       value={formData.icon}
                       onChange={(e) => setFormData({...formData, icon: e.target.value})}
                       className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white text-2xl"
-                      placeholder="🎮"
-                      required
+                      placeholder=""
+                      // required
                     />
                   </div>
                   <div>

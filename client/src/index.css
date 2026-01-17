@@ -457,3 +457,89 @@ ne clamp utilities */
     print-color-adjust: exact;
   }
 }
+
+/* MUI Date Picker Light Theme Override */
+.MuiOutlinedInput-root {
+  color: #000 !important;
+  background-color: #f5f5f5 !important;
+}
+
+.MuiOutlinedInput-root input {
+  color: #000 !important;
+  background-color: #f5f5f5 !important;
+}
+
+.MuiOutlinedInput-root input::placeholder {
+  color: #999 !important;
+  opacity: 1 !important;
+}
+
+.MuiOutlinedInput-input {
+  color: #000 !important;
+}
+
+.MuiOutlinedInput-input::placeholder {
+  color: #999 !important;
+  opacity: 1 !important;
+}
+
+/* MUI Calendar Popup Light Theme */
+.MuiPaper-root {
+  background-color: #fff !important;
+  color: #000 !important;
+}
+
+.MuiPickersDay-root {
+  color: #000 !important;
+}
+
+.MuiPickersDay-root.Mui-selected {
+  background-color: #00d4ff !important;
+  color: #000 !important;
+}
+
+.MuiPickersDay-root:hover {
+  background-color: #e0e0e0 !important;
+}
+
+.MuiPickersCalendarHeader-label {
+  color: #000 !important;
+}
+
+.MuiIconButton-root {
+  color: #000 !important;
+}
+
+.MuiClockPointer-root {
+  background-color: #00d4ff !important;
+}
+
+.MuiClock-pin {
+  background-color: #00d4ff !important;
+}
+
+/* Additional MUI overrides for date picker */
+.MuiPickersToolbar-root {
+  background-color: #f5f5f5 !important;
+  color: #000 !important;
+}
+
+.MuiPickersToolbarText-root {
+  color: #000 !important;
+}
+
+.MuiPickersYear-yearButton {
+  color: #000 !important;
+}
+
+.MuiPickersYear-yearButton.Mui-selected {
+  color: #00d4ff !important;
+}
+
+.MuiPickersMonth-monthButton {
+  color: #000 !important;
+}
+
+.MuiPickersMonth-monthButton.Mui-selected {
+  color: #00d4ff !important;
+}

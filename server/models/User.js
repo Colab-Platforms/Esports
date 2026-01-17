@@ -58,6 +58,11 @@ const userSchema = new mongoose.Schema({
     bgmi: { type: String, default: '' },
     valorant: { type: String, default: '' }
   },
+  bgmiUid: {
+    type: String,
+    default: '',
+    sparse: true // Allow multiple users without bgmiUid
+  },
   steamProfile: {
     steamId: { type: String, default: '' },
     profileUrl: { type: String, default: '' },

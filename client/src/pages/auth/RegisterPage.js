@@ -72,8 +72,8 @@ const RegisterPage = () => {
       return false;
     }
 
-    if (!/^[6-9]\d{9}$/.test(formData.phone)) {
-      toast.error('Please enter a valid Indian phone number');
+    if (!/^(\+91)?[6-9]\d{9}$/.test(formData.phone)) {
+      toast.error('Please enter a valid Indian phone number (10 digits or +91 format)');
       return false;
     }
 
@@ -229,7 +229,7 @@ const RegisterPage = () => {
                   type="tel"
                   required
                   className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
-                  placeholder="Phone number (10 digits)"
+                  placeholder="Phone number (10 digits or +91XXXXXXXXXX)"
                   value={formData.phone}
                   onChange={handleChange}
                 />
@@ -361,7 +361,7 @@ const RegisterPage = () => {
           {/* OAuth Buttons */}
           <div className="grid grid-cols-1 gap-3">
             {/* Google button disabled for now */}
-            {/* 
+            
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -400,7 +400,7 @@ const RegisterPage = () => {
               </svg>
               <span className="ml-2">Google</span>
             </motion.button>
-            */}
+           
           </div>
 
           {/* Sign In Link */}

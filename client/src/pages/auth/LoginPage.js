@@ -216,7 +216,7 @@ const LoginPage = () => {
             </div>
 
             {/* Forgot Password - Temporarily disabled until SendGrid is configured */}
-            {/* <div className="text-sm">
+            <div className="text-sm">
               <Link
                 to="/forgot-password"
                 title="Reset your password"
@@ -224,7 +224,7 @@ const LoginPage = () => {
               >
                 Forgot password?
               </Link>
-            </div> */}
+            </div>
           </div>
 
           {/* Submit Button */}
@@ -261,7 +261,7 @@ const LoginPage = () => {
           {/* OAuth Buttons */}
           <div className="grid grid-cols-1 gap-3">
             {/* Google button disabled for now */}
-            {/* 
+            
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -299,7 +299,7 @@ const LoginPage = () => {
               </svg>
               <span className="ml-2">Google</span>
             </motion.button>
-            */}
+           
           </div>
 
           {/* Sign Up Link */}

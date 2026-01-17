@@ -37,7 +37,7 @@ const TournamentManagement = () => {
       endDate: '',
       registrationDeadline: '',
       rules: '',
-      status: 'upcoming',
+      status: 'registration_open',
       roomDetails: {
         cs2: {
           serverName: '',
@@ -316,7 +316,7 @@ const TournamentManagement = () => {
         }
       })() : '',
       rules: tournament.rules || '',
-      status: tournament.status || 'upcoming',
+      status: tournament.status || 'registration_open',
       // CS2 server details
       roomDetails: {
         cs2: {
@@ -433,7 +433,7 @@ const TournamentManagement = () => {
                 endDate: '',
                 registrationDeadline: '',
                 rules: '',
-                status: 'upcoming',
+                status: 'registration_open',
                 roomDetails: {
                   cs2: {
                     serverName: '',
@@ -491,7 +491,7 @@ const TournamentManagement = () => {
                   endDate: '',
                   registrationDeadline: '',
                   rules: '',
-                  status: 'upcoming',
+                  status: 'registration_open',
                   roomDetails: {
                     cs2: {
                       serverName: '',

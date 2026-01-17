@@ -12,11 +12,11 @@ const gameSchema = new mongoose.Schema({
   },
   icon: {
     type: String,
-    required: true
+    required: false
   },
   category: {
     type: String,
-    required: true,
+    required: false,
     enum: ['PC', 'Mobile', 'Console']
   },
   description: {
@@ -25,15 +25,15 @@ const gameSchema = new mongoose.Schema({
   },
   background: {
     type: String,
-    required: true
+    required: false
   },
   backgroundImage: {
     type: String,
-    required: true
+    required: false
   },
   logo: {
     type: String,
-    required: true
+    required: false
   },
   tournaments: {
     type: Number,

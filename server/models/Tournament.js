@@ -119,7 +119,7 @@ const tournamentSchema = new mongoose.Schema({
     },
     default: function() {
       // CS2 tournaments default to 'active', others to 'upcoming'
-      return this.gameType === 'cs2' ? 'active' : 'upcoming';
+      return this.gameType === 'cs2' ? 'active' : 'registration_open';
     }
   },
   rules: {

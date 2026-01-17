@@ -303,13 +303,15 @@ router.post('/challenge', auth, async (req, res) => {
 
 // @route   GET /api/users/friends
 // @desc    Get user's friends list
+// @route   GET /api/users/friends
+// @desc    Get user's friends list with BGMI UID
 // @access  Private
 router.get('/friends', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { search } = req.query;
 
-    const user = await User.findById(userId).populate('friends', 'username email avatarUrl level currentRank tournamentsWon favoriteGame bio country');
+    const user = await User.findById(userId).populate('friends', 'username email avatarUrl bgmiUid profilePicture level currentRank tournamentsWon favoriteGame bio country gameIds');
 
     if (!user) {
       return res.status(404).json({
@@ -324,28 +326,49 @@ router.get('/friends', auth, async (req, res) => {
 
     let friends = user.friends || [];
 
+    console.log(`📋 Friends list for user ${userId}:`, friends.length, 'friends');
+    friends.forEach((f, idx) => {
+      const bgmiUid = f.bgmiUid || f.gameIds?.bgmi || '';
+      console.log(`  Friend ${idx + 1}:`, {
+        _id: f._id,
+        username: f.username,
+        email: f.email,
+        bgmiUid: bgmiUid,
+        source: f.bgmiUid ? 'bgmiUid field' : (f.gameIds?.bgmi ? 'gameIds.bgmi' : 'none')
+      });
+    });
+
     // Filter by search if provided
     if (search) {
       friends = friends.filter(friend => 
-        friend.username.toLowerCase().includes(search.toLowerCase())
+        friend.username && friend.username.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    const formattedFriends = friends.map(friend => ({
-      _id: friend._id, // Use _id for consistency
-      id: friend._id, // Keep id for backward compatibility
-      username: friend.username,
-      email: friend.email,
-      avatarUrl: friend.avatarUrl,
-      level: friend.level,
-      currentRank: friend.currentRank,
-      tournamentsWon: friend.tournamentsWon,
-      favoriteGame: friend.favoriteGame,
-      bio: friend.bio,
-      country: friend.country,
-      winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
-      isFriend: true
-    }));
+    const formattedFriends = friends
+      .filter(friend => friend.username) // Only include friends with username
+      .map(friend => {
+        // Check both bgmiUid and gameIds.bgmi for BGMI UID
+        const bgmiUid = friend.bgmiUid || friend.gameIds?.bgmi || '';
+        return {
+          _id: friend._id,
+          id: friend._id,
+          username: friend.username,
+          email: friend.email,
+          profilePicture: friend.avatarUrl || friend.profilePicture,
+          bgmiUid: bgmiUid,
+          level: friend.level,
+          currentRank: friend.currentRank,
+          tournamentsWon: friend.tournamentsWon,
+          favoriteGame: friend.favoriteGame,
+          bio: friend.bio,
+          country: friend.country,
+          winRate: Math.floor(Math.random() * 40) + 30,
+          isFriend: true
+        };
+      });
+
+    console.log(`✅ Returning ${formattedFriends.length} formatted friends`);
 
     res.json({
       success: true,
@@ -1142,6 +1165,50 @@ router.get('/tournament-history/:username', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch tournament history'
+    });
+  }
+});
+
+// @route   GET /api/users/:userId/profile
+// @desc    Get user profile with BGMI UID (for friend selection)
+// @access  Private
+router.get('/:userId/profile', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select('username email avatarUrl bgmiUid profilePicture');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        username: user.username,
+        email: user.email,
+        profilePicture: user.avatarUrl || user.profilePicture,
+        bgmiUid: user.bgmiUid || ''
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch user profile',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });

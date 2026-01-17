@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import secureRequest from '../../utils/secureRequest';
+import { logout } from '../../store/slices/authSlice';
 
 const ResetPasswordPage = () => {
   const { token } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   
   const [formData, setFormData] = useState({
     password: '',
@@ -83,6 +86,14 @@ const ResetPasswordPage = () => {
       if (data.success) {
         setResetSuccess(true);
         toast.success('Password reset successful!');
+        
+        // Logout user to clear old session
+        dispatch(logout());
+        
+        // Clear localStorage tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
         setTimeout(() => {
           navigate('/login');
         }, 3000);
