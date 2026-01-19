@@ -127,6 +127,8 @@ const AdminBGMIRegistrations = () => {
         return;
       }
 
+      console.log("allRegistrations: ", allRegistrations)
+
       // Create CSV content with only required columns
       const headers = [
         'Team Name',
@@ -140,6 +142,7 @@ const AdminBGMIRegistrations = () => {
         // 'Player 2 UID',
         'Player 3 IGN',
         // 'Player 3 UID',
+        'Group',
         'Status'
       ];
 
@@ -157,6 +160,7 @@ const AdminBGMIRegistrations = () => {
           // `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[2]?.name || ''}"`,
           // `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
+          `"${reg.group || ''}`
           `"${reg.status || ''}"`
         ].join(','))
       ].join('\n');
