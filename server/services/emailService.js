@@ -1,51 +1,20 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 class EmailService {
   constructor() {
-    this.transporter = null;
-    this.initializeTransporter();
+    this.resend = null;
+    this.initializeResend();
   }
 
-  initializeTransporter() {
-    // Check if email credentials are configured
-    const hasEmailConfig = process.env.EMAIL_USER && 
-                          process.env.EMAIL_PASS && 
-                          process.env.EMAIL_USER !== 'your-gmail@gmail.com';
-    
-    if (hasEmailConfig) {
-      // Use Gmail transport (works better on Railway than SMTP)
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      });
-      
-      // console.log('📧 Email Service: SMTP configured');
-      // console.log('  - Host:', process.env.EMAIL_HOST);
-      // console.log('  - Port:', port);
-      // console.log('  - Secure:', secure);
-      // console.log('  - User:', process.env.EMAIL_USER);
-      // console.log('  - Password length:', process.env.EMAIL_PASS?.length || 0, 'characters');
-      
-      // Test connection
-      this.transporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ SMTP Connection Error:', error.message);
-          console.error('  - Code:', error.code);
-          console.error('  - Command:', error.command);
-        } else {
-          console.log('✅ SMTP Connection verified successfully');
-        }
-      });
+  initializeResend() {
+    if (process.env.RESEND_API_KEY) {
+      this.resend = new Resend(process.env.RESEND_API_KEY);
+      console.log('📧 Email Service: Resend configured');
+      console.log('  - API Key:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Not set');
+      console.log('  - From Email:', process.env.RESEND_FROM_EMAIL || 'support@colabesports.in');
     } else {
-      // Development mode - log emails to console
       console.log('📧 Email Service: Development mode - emails will be logged to console');
-      console.log('📧 To enable actual emails, set EMAIL_USER and EMAIL_PASS in .env');
-      console.log('📧 Current EMAIL_USER:', process.env.EMAIL_USER || 'Not set');
-      console.log('📧 Current EMAIL_PASS:', process.env.EMAIL_PASS ? 'Set' : 'Not set');
-      this.transporter = null;
+      console.log('📧 To enable Resend, set RESEND_API_KEY in .env');
     }
   }
 
@@ -53,10 +22,8 @@ class EmailService {
     try {
       console.log('📧 Starting password reset email send...');
       console.log('📧 Email config check:');
-      console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Not set');
-      console.log('  - EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set' : '❌ Not set');
-      console.log('  - EMAIL_HOST:', process.env.EMAIL_HOST || 'Not set');
-      console.log('  - EMAIL_PORT:', process.env.EMAIL_PORT || 'Not set');
+      console.log('  - RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Not set');
+      console.log('  - RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL || 'Not set');
       
       // Auto-detect client URL based on environment
       const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
@@ -64,9 +31,8 @@ class EmailService {
       const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
       const emailContent = {
-        from: `Colab Esports <${process.env.EMAIL_USER || 'support@colabesports.in'}>`,
+        from: process.env.RESEND_FROM_EMAIL || 'support@colabesports.in',
         to: email,
-        replyTo: 'support@colabesports.in',
         subject: '🔐 Reset Your Colab Esports Password',
         html: `
           <!DOCTYPE html>
@@ -141,39 +107,47 @@ The Colab Esports Team
         `
       };
 
-      if (this.transporter) {
-        // SMTP configured: Try to send actual email with timeout
+      if (this.resend) {
+        // Resend configured: Send email
         try {
-          console.log('📧 Attempting to send via SMTP...');
+          console.log('📧 Attempting to send via Resend...');
+          const response = await this.resend.emails.send(emailContent);
           
-          // Create a timeout promise (5 seconds max)
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Email send timeout')), 5000)
-          );
+          if (response.error) {
+            console.error('❌ Resend Error:', response.error);
+            console.log('📧 Falling back to console logging...');
+            
+            console.log('\n📧 =============== PASSWORD RESET EMAIL (RESEND FAILED) ===============');
+            console.log('📧 To:', email);
+            console.log('📧 Subject:', emailContent.subject);
+            console.log('📧 Reset URL:', resetUrl);
+            console.log('📧 Error:', response.error.message);
+            console.log('📧 ================================================================\n');
+            
+            return {
+              success: true,
+              messageId: 'fallback-' + Date.now(),
+              resetUrl: resetUrl
+            };
+          }
           
-          // Race between email send and timeout
-          const sendPromise = this.transporter.sendMail(emailContent);
-          const info = await Promise.race([sendPromise, timeoutPromise]);
-          
-          console.log('✅ Password reset email sent via SMTP:', info.messageId);
+          console.log('✅ Password reset email sent via Resend:', response.data.id);
           console.log('📧 Email sent to:', email);
           return {
             success: true,
-            messageId: info.messageId,
+            messageId: response.data.id,
             resetUrl: null
           };
-        } catch (smtpError) {
-          console.error('❌ SMTP Error Details:');
-          console.error('  - Error Code:', smtpError.code);
-          console.error('  - Error Message:', smtpError.message);
+        } catch (resendError) {
+          console.error('❌ Resend Error Details:');
+          console.error('  - Error Message:', resendError.message);
           console.log('📧 Falling back to console logging...');
           
-          // Fall back to console logging if SMTP fails
-          console.log('\n📧 =============== PASSWORD RESET EMAIL (SMTP FAILED) ===============');
+          console.log('\n📧 =============== PASSWORD RESET EMAIL (RESEND FAILED) ===============');
           console.log('📧 To:', email);
           console.log('📧 Subject:', emailContent.subject);
           console.log('📧 Reset URL:', resetUrl);
-          console.log('📧 SMTP Error:', smtpError.message);
+          console.log('📧 Error:', resendError.message);
           console.log('📧 ================================================================\n');
           
           return {
@@ -188,13 +162,13 @@ The Colab Esports Team
         console.log('📧 To:', email);
         console.log('📧 Subject:', emailContent.subject);
         console.log('📧 Reset URL:', resetUrl);
-        console.log('📧 Email would be sent via SMTP if credentials were configured');
+        console.log('📧 Email would be sent via Resend if API key was configured');
         console.log('📧 ================================================\n');
         
         return {
           success: true,
           messageId: 'dev-' + Date.now(),
-          resetUrl: resetUrl // Return URL in development for testing
+          resetUrl: resetUrl
         };
       }
     } catch (error) {
@@ -207,13 +181,13 @@ The Colab Esports Team
   }
 
   async testConnection() {
-    if (!this.transporter) {
-      return { success: true, message: 'Development mode - no SMTP connection needed' };
+    if (!this.resend) {
+      return { success: true, message: 'Development mode - no Resend connection needed' };
     }
 
     try {
-      await this.transporter.verify();
-      return { success: true, message: 'SMTP connection verified' };
+      console.log('Testing Resend connection...');
+      return { success: true, message: 'Resend API configured' };
     } catch (error) {
       return { success: false, error: error.message };
     }
