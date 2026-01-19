@@ -25,6 +25,7 @@ import CountdownTimer from '../../components/common/CountdownTimer';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
 import { getServerStats, getServerPlayers, getPlayerStats } from '../../utils/cs2ServerStatus';
 import notificationService from '../../services/notificationService';
+import secureRequest from '../../utils/secureRequest';
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -81,19 +82,16 @@ const SingleTournamentPage = () => {
   const fetchRegisteredTeams = React.useCallback(async () => {
     try {
       setLoadingTeams(true);
-      const token = localStorage.getItem('token');
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
       // For BGMI tournaments, use the BGMI-specific endpoint
-      let endpoint = `${API_BASE_URL}/api/tournaments/${id}/participants`;
+      let endpoint = `/api/tournaments/${id}/participants`;
 
       if (tournament?.gameType === 'bgmi') {
-        endpoint = `${API_BASE_URL}/api/bgmi-registration/tournament/${id}/teams`;
+        endpoint = `/api/bgmi-registration/tournament/${id}/teams`;
       }
 
-      const response = await fetch(endpoint, { headers });
-      const data = await response.json();
+      const data = await secureRequest.get(endpoint);
 
       if (data.success) {
         // Handle both response formats
@@ -152,26 +150,8 @@ const SingleTournamentPage = () => {
 
       try {
         console.log('🔍 Fetching tournament:', id);
-        const token = localStorage.getItem('token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-        // Add timeout to prevent infinite loading
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-        const response = await fetch(`${API_BASE_URL}/api/tournaments/${id}`, {
-          headers,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const data = await secureRequest.get(`/api/tournaments/${id}`);
         console.log('✅ Tournament data received:', data);
 
         if (data.success) {
@@ -349,9 +329,7 @@ const SingleTournamentPage = () => {
     if (!tournament?._id || tournament.status !== 'completed') return;
 
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/scoreboards`);
-      const data = await response.json();
+      const data = await secureRequest.get(`/api/tournaments/${tournament._id}/scoreboards`);
 
       if (data.success) {
         const scoreboardsData = data.data.scoreboards || [];

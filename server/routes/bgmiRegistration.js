@@ -564,7 +564,7 @@ router.get('/admin/registrations', auth, [
     // Get registrations with pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const registrations = await TournamentRegistration.find(query)
-      .populate('tournamentId', 'name gameType mode')
+      .populate('tournamentId', 'name gameType mode grouping currentParticipants maxParticipants')
       .populate('userId', 'username email')
       .populate('verifiedBy', 'username')
       .sort({ registeredAt: -1 })
@@ -1507,6 +1507,92 @@ router.get('/tournament/:tournamentId/teams', async (req, res) => {
       error: {
         code: 'FETCH_TEAMS_FAILED',
         message: 'Failed to fetch tournament teams',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   PUT /api/bgmi-registration/admin/:registrationId/group
+// @desc    Manually assign group to a registration (Admin only)
+// @access  Private (Admin)
+router.put('/admin/:registrationId/group', auth, [
+  body('group')
+    .notEmpty()
+    .withMessage('Group is required')
+    .matches(/^G\d+$/)
+    .withMessage('Group must be in format G1, G2, G3, etc.')
+], async (req, res) => {
+  try {
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: errors.array(),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { registrationId } = req.params;
+    const { group } = req.body;
+
+    console.log(`🔄 Manually assigning group ${group} to registration ${registrationId}`);
+
+    // Find and update registration
+    const registration = await TournamentRegistration.findByIdAndUpdate(
+      registrationId,
+      { group },
+      { new: true, runValidators: true }
+    ).populate('userId', 'username email');
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Registration not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    console.log(`✅ Group ${group} assigned to team ${registration.teamName}`);
+
+    res.json({
+      success: true,
+      message: `Team "${registration.teamName}" moved to ${group}`,
+      data: {
+        registration
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Manual group assignment error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'GROUP_ASSIGNMENT_FAILED',
+        message: 'Failed to assign group',
+        details: error.message,
         timestamp: new Date().toISOString()
       }
     });

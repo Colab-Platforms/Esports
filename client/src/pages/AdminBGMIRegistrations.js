@@ -1472,6 +1472,7 @@ const AdminBGMIRegistrations = () => {
         {showEditModal && selectedRegistration && (
           <EditRegistrationModal
             registration={selectedRegistration}
+            tournament={selectedRegistration.tournamentId}
             onClose={() => {
               setShowEditModal(false);
               setSelectedRegistration(null);
@@ -2222,15 +2223,51 @@ const ImageVerificationModal = ({
 };
 
 // Edit Registration Modal Component
-const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
+const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
     teamName: registration.teamName,
     teamLeader: { ...registration.teamLeader },
     teamMembers: [...registration.teamMembers],
-    whatsappNumber: registration.whatsappNumber
+    whatsappNumber: registration.whatsappNumber,
+    group: registration.group || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Calculate available groups based on tournament settings
+  const getAvailableGroups = () => {
+    if (!tournament || !tournament.grouping?.enabled) {
+      console.log('❌ Grouping not enabled:', { tournament: !!tournament, enabled: tournament?.grouping?.enabled });
+      return [];
+    }
+
+    const groupSize = tournament.grouping.groupSize || 20;
+    // Use maxParticipants to calculate total possible groups
+    const maxTeams = tournament.maxParticipants || 100;
+    const totalGroups = Math.ceil(maxTeams / groupSize);
+
+    console.log('✅ Groups calculated:', { maxTeams, groupSize, totalGroups });
+
+    const groups = [];
+    for (let i = 1; i <= totalGroups; i++) {
+      groups.push(`G${i}`);
+    }
+    return groups;
+  };
+
+  const availableGroups = getAvailableGroups();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('📋 EditRegistrationModal opened:', {
+      registration: registration._id,
+      tournament: tournament,
+      tournamentId: tournament?._id,
+      grouping: tournament?.grouping,
+      currentParticipants: tournament?.currentParticipants,
+      availableGroups
+    });
+  }, [tournament, registration, availableGroups]);
 
   const handleInputChange = (section, field, value, index = null) => {
     setFormData(prev => {
@@ -2301,6 +2338,24 @@ const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
       
       if (response.success) {
         console.log('✅ Registration updated successfully');
+        
+        // If group was changed, also update group separately
+        if (formData.group && formData.group !== registration.group) {
+          console.log(`🔄 Updating group to ${formData.group}...`);
+          try {
+            const groupResponse = await api.put(`/api/bgmi-registration/admin/${registration._id}/group`, { group: formData.group });
+            console.log(`✅ Group update response:`, groupResponse);
+            if (groupResponse.success) {
+              console.log(`✅ Group updated to ${formData.group}`);
+            } else {
+              console.error('⚠️ Group update failed:', groupResponse);
+            }
+          } catch (groupError) {
+            console.error('⚠️ Group update failed:', groupError);
+            console.error('⚠️ Group error details:', groupError.response?.data);
+          }
+        }
+        
         onUpdate();
       } else {
         console.error('❌ Update failed:', response);
@@ -2459,6 +2514,43 @@ const EditRegistrationModal = ({ registration, onClose, onUpdate }) => {
               onChange={(e) => handleInputChange('', 'whatsappNumber', e.target.value)}
               className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
             />
+          </div>
+
+          {/* Group Assignment */}
+          <div className="bg-gaming-charcoal rounded-lg p-6 border border-gaming-neon/30">
+            <h3 className="text-lg font-bold text-gaming-neon mb-4">🎮 Group Assignment</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Current Group</label>
+                <div className="px-4 py-3 bg-gaming-slate border border-gray-600 rounded-lg text-white">
+                  {registration.group || 'Not Assigned'}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Assign to Group</label>
+                {availableGroups.length > 0 ? (
+                  <select
+                    value={formData.group || ''}
+                    onChange={(e) => handleInputChange('', 'group', e.target.value)}
+                    className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                  >
+                    <option value="">Select Group</option>
+                    {availableGroups.map(group => (
+                      <option key={group} value={group}>{group}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-4 py-3 bg-gaming-slate border border-gray-600 rounded-lg text-gray-400">
+                    Grouping not enabled for this tournament
+                  </div>
+                )}
+              </div>
+            </div>
+            {availableGroups.length > 0 && (
+              <p className="text-xs text-gray-400 mt-3">
+                💡 Total Groups: {availableGroups.length} | Group Size: {tournament?.grouping?.groupSize || 20}
+              </p>
+            )}
           </div>
 
           {/* Submit Buttons */}

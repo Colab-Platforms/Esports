@@ -722,7 +722,8 @@ router.put('/:id', auth, async (req, res) => {
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
       'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
       'endDate', 'registrationDeadline', 'status', 'rules',
-      'region', 'featured', 'bannerImage', 'tags', 'youtubeVideoId', 'isLiveStreamEnabled'
+      'region', 'featured', 'bannerImage', 'tags', 'youtubeVideoId', 'isLiveStreamEnabled',
+      'grouping'
     ];
 
     const updatedFields = [];

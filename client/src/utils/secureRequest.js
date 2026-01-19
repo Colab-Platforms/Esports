@@ -24,6 +24,42 @@ class SecureRequest {
     }
     
     console.log('🔗 API URL configured:', this.API_URL);
+    this.pendingRequests = new Map(); // Track pending requests for cancellation
+    this.REQUEST_TIMEOUT = 90000; // 90 seconds timeout
+    this.MAX_RETRIES = 2; // Retry up to 2 times
+  }
+
+  // Cancel previous request if new one is made to same endpoint
+  cancelPreviousRequest(endpoint) {
+    if (this.pendingRequests.has(endpoint)) {
+      const controller = this.pendingRequests.get(endpoint);
+      controller.abort();
+      console.log(`🛑 Cancelled previous request to ${endpoint}`);
+      this.pendingRequests.delete(endpoint);
+    }
+  }
+
+  // Retry logic with exponential backoff
+  async retryWithBackoff(fn, retries = this.MAX_RETRIES) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === retries) {
+          throw error; // Final attempt failed
+        }
+        
+        // Don't retry on abort errors (user cancelled)
+        if (error.name === 'AbortError') {
+          throw error;
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, i) * 1000;
+        console.log(`⏳ Retry attempt ${i + 1}/${retries} after ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
   // Encode sensitive data to make it less readable in network tab
@@ -55,38 +91,45 @@ class SecureRequest {
       console.log(`🔗 POST ${this.API_URL}${endpoint}`);
       console.log(`🔗 Full URL: ${this.API_URL}${endpoint}`);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      const response = await fetch(`${this.API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest', // Add security header
-          ...options.headers
-        },
-        body: JSON.stringify(encodedData),
-        signal: controller.signal,
-        ...options
+      // Use retry logic for POST requests
+      return await this.retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
+        
+        try {
+          const response = await fetch(`${this.API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              ...options.headers
+            },
+            body: JSON.stringify(encodedData),
+            signal: controller.signal,
+            ...options
+          });
+
+          clearTimeout(timeoutId);
+          console.log(`📊 Response status: ${response.status}`);
+          
+          if (!response.ok) {
+            console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+            const errorData = await response.json();
+            console.error('❌ Error response:', errorData);
+            return errorData;
+          }
+
+          const result = await response.json();
+          console.log('✅ Response data:', result);
+          return result;
+        } finally {
+          clearTimeout(timeoutId);
+        }
       });
-
-      clearTimeout(timeoutId);
-      console.log(`📊 Response status: ${response.status}`);
-      
-      if (!response.ok) {
-        console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
-        const errorData = await response.json();
-        console.error('❌ Error response:', errorData);
-        return errorData;
-      }
-
-      const result = await response.json();
-      console.log('✅ Response data:', result);
-      return result;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error('❌ Request timeout - took longer than 30 seconds');
-        throw new Error('Request timeout. Server is not responding.');
+        console.error('❌ Request timeout or cancelled - took longer than 90 seconds');
+        throw new Error('Request timeout. Please check your internet connection and try again.');
       }
       console.error('❌ Secure request error:', error);
       console.error('❌ Error message:', error.message);
@@ -98,18 +141,51 @@ class SecureRequest {
   // Make secure GET request
   async get(endpoint, options = {}) {
     try {
-      const response = await fetch(`${this.API_URL}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          ...options.headers
-        },
-        ...options
-      });
+      // Cancel previous request to same endpoint
+      this.cancelPreviousRequest(endpoint);
+      
+      // Use retry logic for GET requests
+      return await this.retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
+        
+        // Store controller for potential cancellation
+        this.pendingRequests.set(endpoint, controller);
+        
+        try {
+          const response = await fetch(`${this.API_URL}${endpoint}`, {
+            method: 'GET',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              ...options.headers
+            },
+            signal: controller.signal,
+            ...options
+          });
 
-      return await response.json();
+          clearTimeout(timeoutId);
+          this.pendingRequests.delete(endpoint);
+          
+          if (!response.ok) {
+            console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+            const errorData = await response.json();
+            return errorData;
+          }
+
+          return await response.json();
+        } finally {
+          clearTimeout(timeoutId);
+          this.pendingRequests.delete(endpoint);
+        }
+      });
     } catch (error) {
-      console.error('Secure request error:', error);
+      this.pendingRequests.delete(endpoint);
+      
+      if (error.name === 'AbortError') {
+        console.error('❌ Request timeout or cancelled - took longer than 90 seconds');
+        throw new Error('Request timeout. Please check your internet connection and try again.');
+      }
+      console.error('❌ Secure request error:', error);
       throw error;
     }
   }
@@ -117,22 +193,55 @@ class SecureRequest {
   // Make secure PUT request
   async put(endpoint, data, options = {}) {
     try {
+      // Cancel previous request to same endpoint
+      this.cancelPreviousRequest(endpoint);
+      
       const encodedData = this.encodeSensitiveData(data);
+      
+      // Use retry logic for PUT requests
+      return await this.retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT);
+        
+        // Store controller for potential cancellation
+        this.pendingRequests.set(endpoint, controller);
 
-      const response = await fetch(`${this.API_URL}${endpoint}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          ...options.headers
-        },
-        body: JSON.stringify(encodedData),
-        ...options
+        try {
+          const response = await fetch(`${this.API_URL}${endpoint}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+              ...options.headers
+            },
+            body: JSON.stringify(encodedData),
+            signal: controller.signal,
+            ...options
+          });
+
+          clearTimeout(timeoutId);
+          this.pendingRequests.delete(endpoint);
+          
+          if (!response.ok) {
+            console.error(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+            const errorData = await response.json();
+            return errorData;
+          }
+
+          return await response.json();
+        } finally {
+          clearTimeout(timeoutId);
+          this.pendingRequests.delete(endpoint);
+        }
       });
-
-      return await response.json();
     } catch (error) {
-      console.error('Secure request error:', error);
+      this.pendingRequests.delete(endpoint);
+      
+      if (error.name === 'AbortError') {
+        console.error('❌ Request timeout or cancelled - took longer than 90 seconds');
+        throw new Error('Request timeout. Please check your internet connection and try again.');
+      }
+      console.error('❌ Secure request error:', error);
       throw error;
     }
   }
