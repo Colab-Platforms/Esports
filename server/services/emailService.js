@@ -142,23 +142,30 @@ The Colab Esports Team
       };
 
       if (this.transporter) {
-        // SMTP configured: Try to send actual email
+        // SMTP configured: Try to send actual email with timeout
         try {
           console.log('📧 Attempting to send via SMTP...');
-          const info = await this.transporter.sendMail(emailContent);
+          
+          // Create a timeout promise (5 seconds max)
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Email send timeout')), 5000)
+          );
+          
+          // Race between email send and timeout
+          const sendPromise = this.transporter.sendMail(emailContent);
+          const info = await Promise.race([sendPromise, timeoutPromise]);
+          
           console.log('✅ Password reset email sent via SMTP:', info.messageId);
           console.log('📧 Email sent to:', email);
           return {
             success: true,
             messageId: info.messageId,
-            resetUrl: null // Don't return URL when email is actually sent
+            resetUrl: null
           };
         } catch (smtpError) {
           console.error('❌ SMTP Error Details:');
           console.error('  - Error Code:', smtpError.code);
           console.error('  - Error Message:', smtpError.message);
-          console.error('  - Response:', smtpError.response);
-          console.error('  - Command:', smtpError.command);
           console.log('📧 Falling back to console logging...');
           
           // Fall back to console logging if SMTP fails
@@ -172,7 +179,7 @@ The Colab Esports Team
           return {
             success: true,
             messageId: 'fallback-' + Date.now(),
-            resetUrl: resetUrl // Return URL as fallback
+            resetUrl: resetUrl
           };
         }
       } else {

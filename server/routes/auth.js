@@ -161,23 +161,20 @@ router.post('/forgot-password', async (req, res) => {
 
     console.log('✅ Reset token generated for user:', user.username);
 
-    // Send password reset email
-    const emailResult = await emailService.sendPasswordResetEmail(
+    // Send password reset email (don't wait for it - send in background)
+    emailService.sendPasswordResetEmail(
       email, 
       resetToken, 
       user.username
-    );
+    ).catch(error => {
+      console.error('❌ Background email send failed:', error.message);
+    });
 
-    if (emailResult.success) {
-      console.log('✅ Password reset email sent successfully');
-    } else {
-      console.error('❌ Failed to send password reset email:', emailResult.error);
-    }
-
+    // Return success immediately without waiting for email
     res.json({
       success: true,
       message: 'Password reset email sent successfully',
-      // In development, include the reset URL for testing
+      timestamp: new Date().toISOString()
       ...(emailResult.resetUrl && { resetUrl: emailResult.resetUrl }),
       userFound: true, // Debug info
       timestamp: new Date().toISOString()
