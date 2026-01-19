@@ -22,12 +22,12 @@ class EmailService {
         }
       });
       
-      console.log('📧 Email Service: SMTP configured');
-      console.log('  - Host:', process.env.EMAIL_HOST);
+      // console.log('📧 Email Service: SMTP configured');
+      // console.log('  - Host:', process.env.EMAIL_HOST);
       // console.log('  - Port:', port);
-      console.log('  - Secure:', secure);
-      console.log('  - User:', process.env.EMAIL_USER);
-      console.log('  - Password length:', process.env.EMAIL_PASS?.length || 0, 'characters');
+      // console.log('  - Secure:', secure);
+      // console.log('  - User:', process.env.EMAIL_USER);
+      // console.log('  - Password length:', process.env.EMAIL_PASS?.length || 0, 'characters');
       
       // Test connection
       this.transporter.verify((error, success) => {
