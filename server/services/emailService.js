@@ -13,20 +13,12 @@ class EmailService {
                           process.env.EMAIL_USER !== 'your-gmail@gmail.com';
     
     if (hasEmailConfig) {
-      // Use actual SMTP (works in both development and production)
-      const port = parseInt(process.env.EMAIL_PORT) || 587;
-      const secure = port === 465; // Use secure connection for port 465
-      
+      // Use Gmail transport (works better on Railway than SMTP)
       this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: port,
-        secure: secure, // true for 465, false for 587
+        service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
-        },
-        tls: {
-          rejectUnauthorized: false // Allow self-signed certificates
         }
       });
       
@@ -68,7 +60,7 @@ class EmailService {
       
       // Auto-detect client URL based on environment
       const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
-      const clientUrl = isDevelopment ? 'http://localhost:3000' : 'https://colabesports.in';
+      const clientUrl = isDevelopment ? 'https://esports-eciq.vercel.app' : (process.env.CLIENT_URL || 'https://colabesports.in');
       const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
       const emailContent = {
