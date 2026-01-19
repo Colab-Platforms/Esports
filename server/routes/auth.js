@@ -174,9 +174,7 @@ router.post('/forgot-password', async (req, res) => {
     res.json({
       success: true,
       message: 'Password reset email sent successfully',
-      timestamp: new Date().toISOString()
-      ...(emailResult.resetUrl && { resetUrl: emailResult.resetUrl }),
-      userFound: true, // Debug info
+      userFound: true,
       timestamp: new Date().toISOString()
     });
 
