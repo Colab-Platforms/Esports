@@ -160,7 +160,7 @@ const AdminBGMIRegistrations = () => {
           // `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[2]?.name || ''}"`,
           // `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
-          `"${reg.group || ''}`
+          `"${reg.group || ''}"`,
           `"${reg.status || ''}"`
         ].join(','))
       ].join('\n');
@@ -1472,7 +1472,7 @@ const AdminBGMIRegistrations = () => {
         {showEditModal && selectedRegistration && (
           <EditRegistrationModal
             registration={selectedRegistration}
-            tournament={selectedRegistration.tournamentId}
+            tournament={tournaments.find(t => t._id === selectedRegistration.tournamentId) || { _id: selectedRegistration.tournamentId }}
             onClose={() => {
               setShowEditModal(false);
               setSelectedRegistration(null);

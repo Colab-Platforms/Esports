@@ -3,6 +3,7 @@ const { body, validationResult, query } = require('express-validator');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
 const WalletService = require('../services/walletService');
+const redisService = require('../services/redisService');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -353,6 +354,20 @@ router.get('/:id', async (req, res) => {
     
     console.log('🔍 Fetching tournament:', tournamentId, 'Type:', typeof tournamentId);
     
+    // Check Redis cache first
+    const cacheKey = `tournament:${tournamentId}`;
+    const cachedTournament = await redisService.get(cacheKey);
+    
+    if (cachedTournament) {
+      console.log('✅ Tournament found in cache');
+      return res.json({
+        success: true,
+        data: cachedTournament,
+        timestamp: new Date().toISOString(),
+        cached: true
+      });
+    }
+    
     // First fetch tournament without populate to check registration
     const tournament = await Tournament.findById(tournamentId);
 
@@ -404,13 +419,18 @@ router.get('/:id', async (req, res) => {
       plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
     }
 
+    const responseData = {
+      tournament: plainTournament,
+      isUserRegistered,
+      roomDetails
+    };
+
+    // Cache the response (5 minutes TTL)
+    await redisService.set(cacheKey, responseData, 300);
+
     res.json({
       success: true,
-      data: { 
-        tournament: plainTournament,
-        isUserRegistered,
-        roomDetails
-      },
+      data: responseData,
       timestamp: new Date().toISOString()
     });
 
