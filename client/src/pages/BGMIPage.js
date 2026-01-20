@@ -37,6 +37,7 @@ const BGMIPage = () => {
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Debounce filters to avoid too many API calls
   useEffect(() => {
@@ -50,16 +51,36 @@ const BGMIPage = () => {
   useEffect(() => {
     // Fetch BGMI tournaments based on active tab and debounced filters
     const status = getStatusFromTab(activeTab);
-    dispatch(fetchTournaments({
+    
+    // Convert filter values to numbers if they're not empty
+    const filterParams = {
       gameType: 'bgmi',
       status,
-      entryFeeMin: debouncedFilters.entryFeeMin,
-      entryFeeMax: debouncedFilters.entryFeeMax,
-      prizePoolMin: debouncedFilters.prizePoolMin,
-      mode: debouncedFilters.mode,
       page: 1,
       limit: 12
-    }));
+    };
+    
+    // Only add filters if they have values
+    if (debouncedFilters.entryFeeMin) {
+      filterParams.entryFeeMin = parseFloat(debouncedFilters.entryFeeMin);
+    }
+    if (debouncedFilters.entryFeeMax) {
+      filterParams.entryFeeMax = parseFloat(debouncedFilters.entryFeeMax);
+    }
+    if (debouncedFilters.prizePoolMin) {
+      filterParams.prizePoolMin = parseFloat(debouncedFilters.prizePoolMin);
+    }
+    if (debouncedFilters.mode) {
+      filterParams.mode = debouncedFilters.mode;
+    }
+    
+    console.log('Fetching tournaments with filters:', filterParams);
+    dispatch(fetchTournaments(filterParams));
+    
+    // Mark initial load as complete after first fetch
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
   }, [dispatch, activeTab, debouncedFilters]);
 
   const getStatusFromTab = (tab) => {
@@ -169,7 +190,8 @@ const BGMIPage = () => {
     );
   }
 
-  if (loading) {
+  // Only show full page loading on initial load, not on tab changes
+  if (loading && isInitialLoad) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
         <LoadingSpinner size="lg" text="Loading BGMI tournaments..." />
@@ -295,7 +317,17 @@ const BGMIPage = () => {
         )}
 
         {/* Main Content Grid - Tournaments */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+          {/* Subtle loading overlay when fetching new tab data */}
+          {loading && !isInitialLoad && (
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-lg flex items-center justify-center z-10 pointer-events-none">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-gaming-neon border-t-transparent"></div>
+                <p className="text-gaming-neon text-sm font-display">Loading tournaments...</p>
+              </div>
+            </div>
+          )}
+          
           {!tournaments || tournaments.length === 0 ? (
             <div className="card-gaming p-8 text-center">
               <div className="text-gray-400 text-6xl mb-4">

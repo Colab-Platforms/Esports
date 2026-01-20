@@ -88,15 +88,25 @@ router.get('/', [
       }
     }
     if (mode) filters.mode = mode;
-    if (entryFeeMin) filters.entryFeeMin = parseFloat(entryFeeMin);
-    if (entryFeeMax) filters.entryFeeMax = parseFloat(entryFeeMax);
-    if (prizePoolMin) filters.prizePoolMin = parseFloat(prizePoolMin);
-    if (prizePoolMax) filters.prizePoolMax = parseFloat(prizePoolMax);
+    
+    // Convert numeric filters
+    if (entryFeeMin && entryFeeMin !== '') {
+      filters.entryFeeMin = parseFloat(entryFeeMin);
+    }
+    if (entryFeeMax && entryFeeMax !== '') {
+      filters.entryFeeMax = parseFloat(entryFeeMax);
+    }
+    if (prizePoolMin && prizePoolMin !== '') {
+      filters.prizePoolMin = parseFloat(prizePoolMin);
+    }
+    if (prizePoolMax && prizePoolMax !== '') {
+      filters.prizePoolMax = parseFloat(prizePoolMax);
+    }
     if (featured !== undefined) filters.featured = featured === 'true';
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    console.log('🔍 Tournaments API Query:');
+    console.log('Tournaments API Query:');
     console.log('  Filters:', JSON.stringify(filters));
     console.log('  Page:', page, 'Limit:', limit, 'Skip:', skip);
 
@@ -107,7 +117,7 @@ router.get('/', [
     if (!isAdminRequest) {
       const cachedData = await redisService.get(cacheKey);
       if (cachedData) {
-        console.log('✅ Tournaments found in cache');
+        console.log('Tournaments found in cache');
         return res.json({
           success: true,
           data: cachedData,
@@ -137,9 +147,9 @@ router.get('/', [
       Tournament.getFilteredTournaments(filters).getQuery()
     );
 
-    console.log(`✅ Tournaments found: ${tournamentsWithStringIds.length} out of ${total} total`);
-    console.log('📝 Tournament IDs:', tournamentsWithStringIds.map(t => ({ id: t._id, name: t.name })));
-    console.log('📊 Response will include:', {
+    console.log(`Tournaments found: ${tournamentsWithStringIds.length} out of ${total} total`);
+    console.log('Tournament IDs:', tournamentsWithStringIds.map(t => ({ id: t._id, name: t.name })));
+    console.log('Response will include:', {
       tournamentsCount: tournamentsWithStringIds.length,
       totalCount: total,
       page: parseInt(page),
