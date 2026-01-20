@@ -45,7 +45,12 @@ class RedisService {
       const data = await this.client.get(key);
       if (data) {
         console.log(`✅ Cache hit for key: ${key}`);
-        return JSON.parse(data);
+        // Upstash returns data as string, so parse it
+        // If it's already an object, return as-is
+        if (typeof data === 'string') {
+          return JSON.parse(data);
+        }
+        return data;
       }
       return null;
     } catch (error) {
@@ -61,8 +66,9 @@ class RedisService {
     }
 
     try {
-      // Upstash SDK uses 'set' with 'ex' option for TTL
-      await this.client.set(key, JSON.stringify(value), { ex: ttl });
+      // Upstash SDK handles serialization, but we need to stringify for consistency
+      const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+      await this.client.set(key, stringValue, { ex: ttl });
       console.log(`✅ Cache set for key: ${key} (TTL: ${ttl}s)`);
       return true;
     } catch (error) {
