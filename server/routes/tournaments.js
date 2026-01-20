@@ -100,6 +100,23 @@ router.get('/', [
     console.log('  Filters:', JSON.stringify(filters));
     console.log('  Page:', page, 'Limit:', limit, 'Skip:', skip);
 
+    // Create cache key from filters and pagination
+    const cacheKey = `tournaments:${JSON.stringify(filters)}:${page}:${limit}`;
+    
+    // Check Redis cache first (only for public requests)
+    if (!isAdminRequest) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        console.log('✅ Tournaments found in cache');
+        return res.json({
+          success: true,
+          data: cachedData,
+          timestamp: new Date().toISOString(),
+          cached: true
+        });
+      }
+    }
+
     // Optimize query with lean() for better performance and select only needed fields
     const tournaments = await Tournament.getFilteredTournaments(filters)
       .select('-participants -matches -moderators -scoreboards') // Exclude heavy fields
@@ -130,17 +147,24 @@ router.get('/', [
       pages: Math.ceil(total / parseInt(limit))
     });
 
+    const responseData = {
+      tournaments: tournamentsWithStringIds,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    };
+
+    // Cache the response (5 minutes TTL) for public requests
+    if (!isAdminRequest) {
+      await redisService.set(cacheKey, responseData, 300);
+    }
+
     res.json({
       success: true,
-      data: {
-        tournaments: tournamentsWithStringIds,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit))
-        }
-      },
+      data: responseData,
       timestamp: new Date().toISOString()
     });
 
