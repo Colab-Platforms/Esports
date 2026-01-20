@@ -186,6 +186,21 @@ router.get('/', [
 // @access  Public
 router.get('/stats', async (req, res) => {
   try {
+    // Check Redis cache first
+    const cacheKey = 'platform:stats';
+    const cachedStats = await redisService.get(cacheKey);
+    
+    if (cachedStats) {
+      console.log('✅ Platform stats found in cache');
+      return res.json({
+        success: true,
+        data: cachedStats,
+        message: 'Platform statistics retrieved successfully',
+        timestamp: new Date().toISOString(),
+        cached: true
+      });
+    }
+
     const [
       totalUsers,
       activeTournaments,
@@ -220,22 +235,27 @@ router.get('/stats', async (req, res) => {
       return `₹${amount}+`;
     };
 
+    const statsData = {
+      totalPlayers: formatNumber(totalUsers),
+      activeTournaments: activeTournaments.toString(),
+      completedTournaments: completedTournaments.toString(),
+      totalPrizes: formatCurrency(totalPrizes),
+      totalTransactions: formatNumber(totalTransactions),
+      rawStats: {
+        totalUsers,
+        activeTournaments,
+        completedTournaments,
+        totalPrizes,
+        totalTransactions
+      }
+    };
+
+    // Cache the response (10 minutes TTL)
+    await redisService.set(cacheKey, statsData, 600);
+
     res.json({
       success: true,
-      data: {
-        totalPlayers: formatNumber(totalUsers),
-        activeTournaments: activeTournaments.toString(),
-        completedTournaments: completedTournaments.toString(),
-        totalPrizes: formatCurrency(totalPrizes),
-        totalTransactions: formatNumber(totalTransactions),
-        rawStats: {
-          totalUsers,
-          activeTournaments,
-          completedTournaments,
-          totalPrizes,
-          totalTransactions
-        }
-      },
+      data: statsData,
       message: 'Platform statistics retrieved successfully',
       timestamp: new Date().toISOString()
     });
@@ -1594,6 +1614,14 @@ router.post('/:id/scoreboards', auth, async (req, res) => {
     tournament.scoreboards.push(newScoreboard);
     await tournament.save();
     
+    // Invalidate BGMI scoreboards cache when new scoreboard is uploaded
+    if (tournament.gameType === 'bgmi') {
+      console.log('🔄 Invalidating BGMI scoreboards cache...');
+      await redisService.delete('bgmi:scoreboards:10');
+      await redisService.delete('bgmi:scoreboards:6');
+      console.log('✅ BGMI scoreboards cache invalidated');
+    }
+    
     res.json({
       success: true,
       data: {
@@ -1889,6 +1917,20 @@ router.get('/bgmi/scoreboards', async (req, res) => {
     const { limit = 10 } = req.query;
     console.log('📊 Requested limit:', limit);
     
+    // Check Redis cache first
+    const cacheKey = `bgmi:scoreboards:${limit}`;
+    const cachedScoreboards = await redisService.get(cacheKey);
+    
+    if (cachedScoreboards) {
+      console.log('✅ BGMI scoreboards found in cache');
+      return res.json({
+        success: true,
+        data: cachedScoreboards,
+        timestamp: new Date().toISOString(),
+        cached: true
+      });
+    }
+    
     // Find all BGMI tournaments with scoreboards
     const tournaments = await Tournament.find({
       gameType: 'bgmi',
@@ -1925,13 +1967,18 @@ router.get('/bgmi/scoreboards', async (req, res) => {
       .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
       .slice(0, parseInt(limit));
     
+    const responseData = {
+      scoreboards: sortedScoreboards,
+      count: sortedScoreboards.length,
+      total: allScoreboards.length
+    };
+    
+    // Cache the response (5 minutes TTL - shorter for scoreboards since they change frequently)
+    await redisService.set(cacheKey, responseData, 300);
+    
     res.json({
       success: true,
-      data: {
-        scoreboards: sortedScoreboards,
-        count: sortedScoreboards.length,
-        total: allScoreboards.length
-      },
+      data: responseData,
       timestamp: new Date().toISOString()
     });
     

@@ -12,6 +12,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, tag, game, logo, description, maxMembers, privacy } = req.body;
     const userId = req.user.userId;
+    const redisService = require('../services/redisService');
 
     // Check if user already has a team for this game
     const existingTeam = await Team.findOne({
@@ -54,6 +55,9 @@ router.post('/', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
+
+    // Invalidate cache
+    await redisService.delete(`teams:my-teams:${userId}`);
 
     res.status(201).json({
       success: true,
@@ -126,6 +130,22 @@ router.get('/', async (req, res) => {
 router.get('/my-teams', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    // Create cache key
+    const cacheKey = `teams:my-teams:${userId}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`✅ Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     const teams = await Team.find({
       'members.userId': userId,
@@ -135,14 +155,20 @@ router.get('/my-teams', auth, async (req, res) => {
       .populate('members.userId', 'username avatarUrl')
       .sort({ createdAt: -1 });
 
-    console.log(`📊 Found ${teams.length} teams for user ${userId}`);
+    console.log(`Found ${teams.length} teams for user ${userId}`);
     teams.forEach(team => {
       console.log(`   Team: ${team.name}, Captain ID: ${team.captain?._id}, Captain Username: ${team.captain?.username}`);
     });
 
+    const responseData = { teams };
+
+    // Cache for 5 minutes
+    await redisService.set(cacheKey, responseData, 300);
+
     res.json({
       success: true,
-      data: { teams },
+      data: responseData,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 
@@ -479,7 +505,7 @@ router.post('/:id/invite', auth, async (req, res) => {
       type: 'team_invitation',
       title: 'Team Invitation',
       message: `${invitingUserData.username} invited you to join ${team.name}`,
-      actionUrl: `/profile?tab=teams&subtab=invitations`,
+      actionUrl: `/teams?tab=teams`,
       isRead: false,
       metadata: {
         teamId: team._id,
@@ -518,6 +544,21 @@ router.post('/:id/invite', auth, async (req, res) => {
 // @access  Private
 router.get('/invitations/my-invitations', auth, async (req, res) => {
   try {
+    const redisService = require('../services/redisService');
+    const cacheKey = `teams:invitations:${req.user.userId}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const invitations = await TeamInvitation.find({
       invitedUser: req.user.userId,
       status: 'pending'
@@ -529,9 +570,15 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
     // Filter out expired invitations
     const validInvitations = invitations.filter(inv => !inv.isExpired());
 
+    const responseData = { invitations: validInvitations };
+
+    // Cache for 2 minutes (invitations change frequently)
+    await redisService.set(cacheKey, responseData, 120);
+
     res.json({
       success: true,
-      data: { invitations: validInvitations },
+      data: responseData,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 
@@ -553,6 +600,7 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/accept', auth, async (req, res) => {
   try {
+    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id)
       .populate('teamId');
 
@@ -616,6 +664,10 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
     invitation.status = 'accepted';
     await invitation.save();
 
+    // Invalidate cache for the user
+    await redisService.delete(`teams:my-teams:${req.user.userId}`);
+    await redisService.delete(`teams:invitations:${req.user.userId}`);
+
     res.json({
       success: true,
       message: 'Joined team successfully',
@@ -641,6 +693,7 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/reject', auth, async (req, res) => {
   try {
+    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id);
 
     if (!invitation) {
@@ -668,6 +721,9 @@ router.post('/invitations/:id/reject', auth, async (req, res) => {
 
     invitation.status = 'rejected';
     await invitation.save();
+
+    // Invalidate cache
+    await redisService.delete(`teams:invitations:${req.user.userId}`);
 
     res.json({
       success: true,

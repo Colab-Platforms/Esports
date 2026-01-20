@@ -134,8 +134,9 @@ const TeamsPage = () => {
       const response = await axios.get(endpoint, config);
       
       if (response.data.success) {
-        console.log('✅ Fetched players:', response.data.data.players.length);
-        console.log('📊 Players data:', response.data.data.players);
+        console.log('Fetched players:', response.data.data.players.length);
+        console.log('Players data:', response.data.data.players);
+        console.log('Cached:', response.data.cached);
         // Log friend status for each player
         response.data.data.players.forEach(p => {
           console.log(`Player: ${p.username}, isFriend: ${p.isFriend}, friendRequestSent: ${p.friendRequestSent}`);
@@ -143,7 +144,7 @@ const TeamsPage = () => {
         setPlayers(response.data.data.players || []);
       }
     } catch (error) {
-      console.error('❌ Error fetching players:', error);
+      console.error('Error fetching players:', error);
       // Show error to user
       setPlayers([]);
     } finally {
@@ -177,6 +178,8 @@ const TeamsPage = () => {
       });
       
       if (response.data.success) {
+        console.log('Fetched friend requests:', response.data.data.requests.length);
+        console.log('Cached:', response.data.cached);
         setFriendRequests(response.data.data.requests || []);
       }
     } catch (error) {
@@ -198,7 +201,8 @@ const TeamsPage = () => {
       
       if (response.data.success) {
         const teams = response.data.data.teams || [];
-        console.log('📊 Fetched teams:', teams);
+        console.log('Fetched teams:', teams.length);
+        console.log('Cached:', response.data.cached);
         teams.forEach(team => {
           console.log(`   Team: ${team.name}, Captain:`, team.captain);
         });
@@ -221,6 +225,8 @@ const TeamsPage = () => {
       });
       
       if (response.data.success) {
+        console.log('Fetched team invitations:', response.data.data.invitations.length);
+        console.log('Cached:', response.data.cached);
         setTeamInvitations(response.data.data.invitations || []);
       }
     } catch (error) {

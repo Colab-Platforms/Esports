@@ -18,11 +18,20 @@ const GamesPage = () => {
     useEffect(() => {
         const fetchGames = async () => {
             try {
-                setLoading(true);
-                
                 // Fetch games first
                 const gamesResponse = await api.getGames();
                 const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
+                
+                // If data came from cache, don't show loading
+                if (gamesResponse?.cached) {
+                    setGames(gamesArray);
+                    setLoading(false);
+                    setError(null);
+                    return;
+                }
+                
+                // If not cached, show loading
+                setLoading(true);
                 setGames(gamesArray);
                 
                 // Add delay before fetching featured games to avoid rate limiting
@@ -32,10 +41,10 @@ const GamesPage = () => {
                 const featuredArray = featuredData?.data?.games || featuredData || [];
                 
                 setError(null);
+                setLoading(false);
             } catch (err) {
                 console.error('Error fetching games:', err);
                 setError('Failed to load games. Please try again later.');
-            } finally {
                 setLoading(false);
             }
         };
@@ -198,21 +207,64 @@ const GamesPage = () => {
         </Link>
     );
 
-    // Loading state
+    // Loading state - Show skeleton loaders instead of blank loading
     if (loading) {
         return (
-            <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
-                <div className="text-center">
-                    {/* Infinity Dots Loader */}
-                    <div className="flex justify-center items-center space-x-2 mb-4">
-                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
-                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.6s'}}></div>
-                        <div className="w-3 h-3 bg-gaming-gold rounded-full animate-bounce" style={{animationDelay: '0.8s'}}></div>
+            <div className="min-h-screen bg-gaming-dark">
+                {/* Banner Skeleton */}
+                <section className="relative h-96 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+                    <div className="absolute inset-0 bg-gradient-to-r from-gaming-charcoal via-gaming-slate to-gaming-charcoal animate-pulse" />
+                </section>
+
+                {/* Games Grid Skeleton */}
+                <section className="py-16">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        {/* Title Skeleton */}
+                        <div className="text-center mb-12">
+                            <div className="h-12 bg-gaming-slate rounded-lg animate-pulse mb-4 max-w-xs mx-auto" />
+                            <div className="h-6 bg-gaming-charcoal rounded-lg animate-pulse max-w-2xl mx-auto" />
+                        </div>
+
+                        {/* Filter Buttons Skeleton */}
+                        <div className="mb-8 flex flex-wrap gap-2 justify-center">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div key={i} className="h-10 w-24 bg-gaming-slate rounded-lg animate-pulse" />
+                            ))}
+                        </div>
+
+                        {/* Game Cards Skeleton */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <div key={i} className="rounded-xl border border-gaming-border overflow-hidden">
+                                    <div className="p-6 h-64 bg-gradient-to-br from-gaming-charcoal to-gaming-slate animate-pulse flex flex-col justify-between">
+                                        {/* Icon & Category */}
+                                        <div className="flex justify-between items-start">
+                                            <div className="w-12 h-12 bg-gaming-slate rounded-lg animate-pulse" />
+                                            <div className="w-16 h-6 bg-gaming-gold/30 rounded-full animate-pulse" />
+                                        </div>
+
+                                        {/* Game Info */}
+                                        <div>
+                                            <div className="h-8 bg-gaming-slate rounded-lg animate-pulse mb-2 w-3/4" />
+                                            <div className="h-4 bg-gaming-charcoal rounded-lg animate-pulse mb-4 w-full" />
+                                            <div className="h-4 bg-gaming-charcoal rounded-lg animate-pulse mb-4 w-2/3" />
+
+                                            {/* Stats */}
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[1, 2, 3].map((j) => (
+                                                    <div key={j} className="text-center">
+                                                        <div className="h-5 bg-gaming-slate rounded animate-pulse mb-1" />
+                                                        <div className="h-3 bg-gaming-charcoal rounded animate-pulse" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    <p className="text-gray-300">Loading games...</p>
-                </div>
+                </section>
             </div>
         );
     }

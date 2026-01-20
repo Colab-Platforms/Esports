@@ -3,6 +3,7 @@ const router = express.Router();
 const CS2Match = require('../models/CS2Match');
 const User = require('../models/User');
 const steamAPI = require('../services/steamAPI');
+const redisService = require('../services/redisService');
 
 /**
  * Convert Account ID to Steam64 ID
@@ -46,6 +47,22 @@ function steam64ToAccountId(steam64) {
 router.get('/all-players', async (req, res) => {
   try {
     const { limit = 50, serverId, startDate, endDate } = req.query;
+
+    // Create cache key from query params
+    const cacheKey = `cs2-leaderboard:all-players:${limit}:${serverId || 'all'}:${startDate || 'all'}:${endDate || 'all'}`;
+    
+    // Check Redis cache first
+    const cachedLeaderboard = await redisService.get(cacheKey);
+    if (cachedLeaderboard) {
+      console.log('✅ CS2 leaderboard found in cache');
+      return res.json({
+        success: true,
+        leaderboard: cachedLeaderboard.leaderboard,
+        totalPlayers: cachedLeaderboard.totalPlayers,
+        filters: cachedLeaderboard.filters,
+        cached: true
+      });
+    }
 
     // Build match query
     const matchQuery = {};
@@ -230,6 +247,19 @@ router.get('/all-players', async (req, res) => {
         }
       };
     });
+
+    // Cache the response (30 minutes TTL for leaderboard)
+    const cacheData = {
+      leaderboard,
+      totalPlayers: leaderboard.length,
+      filters: {
+        serverId: serverId || 'all',
+        startDate: startDate || 'all',
+        endDate: endDate || 'all',
+        limit: parseInt(limit, 10)
+      }
+    };
+    await redisService.set(cacheKey, cacheData, 1800);
 
     res.json({
       success: true,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBell, FiX, FiCheck, FiTrash2, FiExternalLink } from 'react-icons/fi';
 import { 
@@ -16,6 +17,7 @@ import axios from 'axios';
 
 const NotificationPanel = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { token } = useSelector(selectAuth);
   const notifications = useSelector(selectNotifications);
   const unreadCount = useSelector(selectUnreadCount);
@@ -105,7 +107,7 @@ const NotificationPanel = () => {
     }
     
     if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+      navigate(notification.actionUrl);
     }
     
     setIsOpen(false);

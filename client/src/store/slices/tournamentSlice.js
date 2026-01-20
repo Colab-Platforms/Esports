@@ -52,9 +52,16 @@ export const fetchTournaments = createAsyncThunk(
       });
       
       console.log('✅ Tournaments fetched successfully');
+      console.log('📊 Cached:', response.data.cached ? 'YES' : 'NO');
+      
       // Clean up cancel token after successful request
       cancelTokens.delete('tournaments/fetchTournaments');
-      return response.data.data;
+      
+      // Return response with cached flag
+      return {
+        ...response.data.data,
+        cached: response.data.cached
+      };
     } catch (error) {
       // Handle different error types
       if (axios.isCancel(error)) {
@@ -243,12 +250,20 @@ const tournamentSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Fetch tournaments
-      .addCase(fetchTournaments.pending, (state) => {
-        state.isLoading = true;
+      .addCase(fetchTournaments.pending, (state, action) => {
+        // Don't show loading if we already have data (will be replaced by cached data)
+        if (state.tournaments.length === 0) {
+          state.isLoading = true;
+        }
         state.error = null;
       })
       .addCase(fetchTournaments.fulfilled, (state, action) => {
-        state.isLoading = false;
+        // If data came from cache, don't show loading
+        if (action.payload.cached) {
+          state.isLoading = false;
+        } else {
+          state.isLoading = false;
+        }
         state.tournaments = action.payload.tournaments;
         state.pagination = action.payload.pagination;
       })

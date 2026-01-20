@@ -68,6 +68,22 @@ router.get('/players', auth, async (req, res) => {
   try {
     const { search, game } = req.query;
     const currentUserId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    // Create cache key based on search and game filters
+    const cacheKey = `players:${currentUserId}:${search || 'all'}:${game || 'all'}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     let query = { _id: { $ne: currentUserId }, isActive: true };
 
@@ -91,7 +107,7 @@ router.get('/players', auth, async (req, res) => {
       .limit(50)
       .lean();
     
-    console.log(`📊 Found ${players.length} players for user ${currentUserId}`);
+    console.log(`Found ${players.length} players for user ${currentUserId}`);
 
     // Check friend request status for each player
     const FriendRequest = require('../models/FriendRequest');
@@ -109,7 +125,7 @@ router.get('/players', auth, async (req, res) => {
         status: 'pending'
       });
 
-      console.log(`👤 Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
+      console.log(`Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
 
       return {
         _id: player._id, // Use _id instead of id for consistency
@@ -132,9 +148,15 @@ router.get('/players', auth, async (req, res) => {
       };
     }));
 
+    const responseData = { players: playersWithStats };
+
+    // Cache the response for 5 minutes
+    await redisService.set(cacheKey, responseData, 300);
+
     res.json({
       success: true,
-      data: { players: playersWithStats },
+      data: responseData,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 
@@ -241,7 +263,7 @@ router.post('/friend-request', auth, async (req, res) => {
       type: 'friend_request',
       title: 'New Friend Request',
       message: `${sender.username} sent you a friend request`,
-      actionUrl: '/profile?tab=teams&subtab=requests',
+      actionUrl: '/teams?tab=friends',
       isRead: false
     });
 
@@ -395,6 +417,22 @@ router.get('/friends', auth, async (req, res) => {
 router.get('/friend-requests', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    // Create cache key
+    const cacheKey = `friend-requests:${userId}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     const requests = await FriendRequest.find({
       recipient: userId,
@@ -421,9 +459,15 @@ router.get('/friend-requests', auth, async (req, res) => {
       message: req.message
     }));
 
+    const responseData = { requests: formattedRequests };
+
+    // Cache for 2 minutes (friend requests change frequently)
+    await redisService.set(cacheKey, responseData, 120);
+
     res.json({
       success: true,
-      data: { requests: formattedRequests },
+      data: responseData,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 
@@ -447,6 +491,7 @@ router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
   try {
     const { requestId } = req.params;
     const userId = req.user.userId;
+    const redisService = require('../services/redisService');
 
     const friendRequest = await FriendRequest.findById(requestId);
 
@@ -496,7 +541,13 @@ router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
       $addToSet: { friends: userId }
     });
 
-    console.log(`✅ Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
+    // Invalidate cache for both users
+    await redisService.delete(`friend-requests:${userId}`);
+    await redisService.delete(`friend-requests:${friendRequest.sender}`);
+    await redisService.delete(`players:${userId}:all:all`);
+    await redisService.delete(`players:${friendRequest.sender}:all:all`);
+
+    console.log(`Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
 
     res.json({
       success: true,
@@ -524,6 +575,7 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
   try {
     const { requestId } = req.params;
     const userId = req.user.userId;
+    const redisService = require('../services/redisService');
 
     const friendRequest = await FriendRequest.findById(requestId);
 
@@ -553,7 +605,10 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
     friendRequest.status = 'rejected';
     await friendRequest.save();
 
-    console.log(`❌ Friend request rejected: ${friendRequest.sender} -> ${userId}`);
+    // Invalidate cache
+    await redisService.delete(`friend-requests:${userId}`);
+
+    console.log(`Friend request rejected: ${friendRequest.sender} -> ${userId}`);
 
     res.json({
       success: true,
