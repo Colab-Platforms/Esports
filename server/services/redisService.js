@@ -61,7 +61,8 @@ class RedisService {
     }
 
     try {
-      await this.client.setEx(key, ttl, JSON.stringify(value));
+      // Upstash SDK uses 'set' with 'ex' option for TTL
+      await this.client.set(key, JSON.stringify(value), { ex: ttl });
       console.log(`✅ Cache set for key: ${key} (TTL: ${ttl}s)`);
       return true;
     } catch (error) {
