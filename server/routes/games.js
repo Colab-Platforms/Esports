@@ -3,6 +3,7 @@ const router = express.Router();
 const Game = require('../models/Game');
 const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
+const redisService = require('../services/redisService');
 
 // Get all games
 router.get('/', async (req, res) => {
@@ -14,6 +15,21 @@ router.get('/', async (req, res) => {
   });
   
   try {
+    // Check Redis cache first
+    const cacheKey = 'games:all:active';
+    const cachedGames = await redisService.get(cacheKey);
+    
+    if (cachedGames) {
+      console.log('✅ Games found in cache');
+      return res.json({
+        success: true,
+        data: {
+          games: cachedGames
+        },
+        cached: true
+      });
+    }
+
     const games = await Game.find({ isActive: true }).sort({ order: 1, createdAt: 1 }).lean();
     
     console.log('🎮 Games API - Found games:', games.length);
@@ -26,6 +42,9 @@ router.get('/', async (req, res) => {
         totalPrize: game.totalPrize
       });
     });
+    
+    // Cache the response (5 minutes TTL)
+    await redisService.set(cacheKey, games, 300);
     
     res.json({
       success: true,
@@ -53,10 +72,23 @@ router.get('/featured', async (req, res) => {
   });
   
   try {
+    // Check Redis cache first
+    const cacheKey = 'games:featured';
+    const cachedFeaturedGames = await redisService.get(cacheKey);
+    
+    if (cachedFeaturedGames) {
+      console.log('✅ Featured games found in cache');
+      return res.json(cachedFeaturedGames);
+    }
+
     const featuredGames = await Game.find({ 
       isActive: true, 
       featured: true 
     }).sort({ order: 1, createdAt: 1 }).lean();
+    
+    // Cache the response (5 minutes TTL)
+    await redisService.set(cacheKey, featuredGames, 300);
+    
     res.json(featuredGames);
   } catch (error) {
     console.error('Error fetching featured games:', error);
