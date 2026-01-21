@@ -54,7 +54,7 @@ router.get('/all-players', async (req, res) => {
     // Check Redis cache first
     const cachedLeaderboard = await redisService.get(cacheKey);
     if (cachedLeaderboard) {
-      console.log('✅ CS2 leaderboard found in cache');
+      console.log('CS2 leaderboard found in cache');
       return res.json({
         success: true,
         leaderboard: cachedLeaderboard.leaderboard,
@@ -203,9 +203,9 @@ router.get('/all-players', async (req, res) => {
           const accountId = steam64ToAccountId(formatted.steam64Id);
           steamPlayers[accountId] = formatted;
         });
-        console.log(`[CS2 Leaderboard] Fetched Steam data for ${Object.keys(steamPlayers).length} players`);
+        console.log(`CS2 Leaderboard: Fetched Steam data for ${Object.keys(steamPlayers).length} players`);
       } catch (error) {
-        console.error('[CS2 Leaderboard] Error fetching Steam data:', error.message);
+        console.error('CS2 Leaderboard: Error fetching Steam data:', error.message);
       }
     }
 
@@ -274,7 +274,7 @@ router.get('/all-players', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[CS2 Leaderboard] Error:', error);
+    console.error('CS2 Leaderboard Error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch leaderboard',
@@ -378,7 +378,7 @@ router.get('/registered-players', async (req, res) => {
       });
     }
 
-    console.log(`[CS2 Leaderboard] Found ${accountIds.length} registered players with valid Steam IDs`);
+    console.log(`CS2 Leaderboard: Found ${accountIds.length} registered players with valid Steam IDs`);
 
     // Step 3: Build match query
     const matchQuery = {
@@ -500,7 +500,7 @@ router.get('/registered-players', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[CS2 Leaderboard] Error:', error);
+    console.error('CS2 Leaderboard Error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch leaderboard',
@@ -632,7 +632,7 @@ router.get('/player/:userId', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[CS2 Leaderboard] Error fetching player stats:', error);
+    console.error('CS2 Leaderboard Error fetching player stats:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch player stats',
@@ -651,6 +651,22 @@ router.get('/multi-server', async (req, res) => {
   try {
     const { limit = 50 } = req.query;
 
+    // Create cache key
+    const cacheKey = `cs2-leaderboard:multi-server:${limit}`;
+    
+    // Check Redis cache first
+    const cachedLeaderboard = await redisService.get(cacheKey);
+    if (cachedLeaderboard) {
+      console.log('CS2 multi-server leaderboard found in cache');
+      return res.json({
+        success: true,
+        leaderboard: cachedLeaderboard.leaderboard,
+        total: cachedLeaderboard.total,
+        message: 'Retrieved from cache',
+        cached: true
+      });
+    }
+
     // Step 1: Get registered users with Steam IDs
     const registeredUsers = await User.find({
       'steamProfile.isConnected': true,
@@ -658,9 +674,17 @@ router.get('/multi-server', async (req, res) => {
     }).select('username steamProfile.steamId steamProfile.avatar steamProfile.displayName');
 
     if (registeredUsers.length === 0) {
+      // Cache empty result too
+      const emptyData = {
+        leaderboard: [],
+        total: 0
+      };
+      await redisService.set(cacheKey, emptyData, 1800);
+      
       return res.json({
         success: true,
         leaderboard: [],
+        total: 0,
         message: 'No registered players found'
       });
     }
@@ -696,7 +720,7 @@ router.get('/multi-server', async (req, res) => {
       }
     });
 
-    console.log(`[CS2 Multi-Server] Found ${accountIds.length} registered players with valid Steam IDs`);
+    console.log(`CS2 Multi-Server: Found ${accountIds.length} registered players with valid Steam IDs`);
 
     // Step 3: Get CS2 stats with server information
     // FIXED: Take only the final round per match (handles cumulative data correctly)
@@ -788,6 +812,13 @@ router.get('/multi-server', async (req, res) => {
       };
     });
 
+    // Cache the response (30 minutes TTL for leaderboard)
+    const cacheData = {
+      leaderboard,
+      total: leaderboard.length
+    };
+    await redisService.set(cacheKey, cacheData, 1800);
+
     res.json({
       success: true,
       leaderboard,
@@ -796,7 +827,7 @@ router.get('/multi-server', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[CS2 Multi-Server] Error:', error);
+    console.error('CS2 Multi-Server Error:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -861,7 +892,7 @@ router.get('/all-stats', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[CS2 Leaderboard] Error fetching all stats:', error);
+    console.error('CS2 Leaderboard Error fetching all stats:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch statistics',
@@ -878,7 +909,7 @@ router.get('/debug/:accountId', async (req, res) => {
   try {
     const { accountId } = req.params;
     
-    console.log(`🔍 DEBUG: Checking raw data for AccountID: ${accountId}`);
+    console.log(`DEBUG: Checking raw data for AccountID: ${accountId}`);
     
     // Get all raw match data for this player
     const rawMatches = await CS2Match.find({ accountid: parseInt(accountId) })

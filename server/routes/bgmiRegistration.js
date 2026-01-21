@@ -571,17 +571,22 @@ router.get('/admin/registrations', auth, [
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get stats
+    // Get total count for current filters
+    const totalCount = await TournamentRegistration.countDocuments(query);
+
+    // Get stats based on current filters
     const stats = {
-      total: await TournamentRegistration.countDocuments({}),
-      pending: await TournamentRegistration.countDocuments({ status: 'pending' }),
-      imagesUploaded: await TournamentRegistration.countDocuments({ status: 'images_uploaded' }),
-      verified: await TournamentRegistration.countDocuments({ status: 'verified' }),
+      total: totalCount,
+      pending: await TournamentRegistration.countDocuments({ ...query, status: 'pending' }),
+      imagesUploaded: await TournamentRegistration.countDocuments({ ...query, status: 'images_uploaded' }),
+      verified: await TournamentRegistration.countDocuments({ ...query, status: 'verified' }),
       rejected: await TournamentRegistration.countDocuments({ 
+        ...query,
         status: 'rejected', 
         rejectionReason: { $not: /^Not Verified/ } 
       }),
       notVerified: await TournamentRegistration.countDocuments({ 
+        ...query,
         status: 'rejected', 
         rejectionReason: /^Not Verified/ 
       })
@@ -595,8 +600,8 @@ router.get('/admin/registrations', auth, [
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total: stats.total,
-          pages: Math.ceil(stats.total / parseInt(limit))
+          total: totalCount,
+          pages: Math.ceil(totalCount / parseInt(limit))
         }
       },
       timestamp: new Date().toISOString()

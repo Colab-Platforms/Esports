@@ -860,7 +860,7 @@ const AdminBGMIRegistrations = () => {
           </h3>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="card-gaming p-3 text-center">
               <div className="text-xl font-bold text-gaming-neon">{stats.total}</div>
               <div className="text-xs text-gray-400">Total</div>
@@ -868,10 +868,6 @@ const AdminBGMIRegistrations = () => {
             <div className="card-gaming p-3 text-center">
               <div className="text-xl font-bold text-yellow-400">{stats.pending}</div>
               <div className="text-xs text-gray-400">Pending</div>
-            </div>
-            <div className="card-gaming p-3 text-center">
-              <div className="text-xl font-bold text-blue-400">{stats.imagesUploaded}</div>
-              <div className="text-xs text-gray-400">Images</div>
             </div>
             <div className="card-gaming p-3 text-center">
               <div className="text-xl font-bold text-green-400">{stats.verified}</div>
@@ -904,16 +900,6 @@ const AdminBGMIRegistrations = () => {
               }`}
             >
               Pending ({stats.pending})
-            </button>
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'images_uploaded' }))}
-              className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                filters.status === 'images_uploaded' 
-                  ? 'bg-blue-500 text-white font-medium' 
-                  : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
-              }`}
-            >
-              Images ({stats.imagesUploaded})
             </button>
             <button
               onClick={() => setFilters(prev => ({ ...prev, status: 'verified' }))}
