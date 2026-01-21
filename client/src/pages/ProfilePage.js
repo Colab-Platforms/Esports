@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   FiUser, 
@@ -160,6 +161,7 @@ const ProfilePage = () => {
 
 // General Tab Component - Dashboard Content
 const GeneralTab = ({ user }) => {
+  const navigate = useNavigate();
   const stats = [
     {
       title: 'Tournaments Won',
@@ -228,7 +230,10 @@ const GeneralTab = ({ user }) => {
             </h3>
             <div className="text-center py-8">
               <p className="text-gray-400 mb-4">No active tournaments</p>
-              <button className="btn-gaming">
+              <button 
+                onClick={() => navigate('/bgmi')}
+                className="btn-gaming"
+              >
                 Browse Tournaments
               </button>
             </div>

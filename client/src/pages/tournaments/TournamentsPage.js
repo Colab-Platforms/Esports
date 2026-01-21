@@ -343,7 +343,7 @@ const TournamentsPage = () => {
                     <option>LOWEST ENTRY FEE</option>
                   </select>
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Game Type</label>
                   <select 
                     value={activeCategoryTab}
@@ -355,7 +355,7 @@ const TournamentsPage = () => {
                     <option value="cs2">CS2</option>
                     <option value="valorant">Valorant</option>
                   </select>
-                </div>
+                </div> */}
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">Entry Fee</label>
                   <select className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming">
@@ -391,7 +391,7 @@ const TournamentsPage = () => {
         </AnimatePresence>
 
         {/* Tournament Status Tabs */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <div className="overflow-x-auto">
             <div className="flex space-x-8 border-b border-gaming-border min-w-max">
               {statusTabs.map((tab) => (
@@ -409,10 +409,10 @@ const TournamentsPage = () => {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Tournament Categories */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <div className="overflow-x-auto">
             <div className="flex gap-4 min-w-max pb-2">
               {categoryTabs.map((category) => (
@@ -430,7 +430,7 @@ const TournamentsPage = () => {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Tournament Grid */}
         <div className="min-h-96">

@@ -40,6 +40,7 @@ const BGMITournamentDetails = ({
   const [activeTab, setActiveTab] = useState('general');
   const [registeredTeams, setRegisteredTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [joinForm, setJoinForm] = useState({
     gameId: '',
     teamName: ''
@@ -51,6 +52,14 @@ const BGMITournamentDetails = ({
       dispatch(fetchTournamentById(id));
     }
   }, [dispatch, id, tournamentData]);
+
+  // Check if user is registered
+  useEffect(() => {
+    if (tournament && user) {
+      const registered = tournament.participants?.some(p => p.userId === user.id) || propIsUserRegistered;
+      setIsUserRegistered(registered);
+    }
+  }, [tournament, user, propIsUserRegistered]);
 
   // Fetch registered teams for BGMI tournament
   useEffect(() => {
@@ -135,18 +144,11 @@ const BGMITournamentDetails = ({
     }
   };
 
-  const isUserRegistered = () => {
-    // Use prop if provided, otherwise check tournament participants
-    if (propIsUserRegistered !== false) return propIsUserRegistered;
-    if (!tournament || !user) return false;
-    return tournament.participants?.some(p => p.userId === user.id);
-  };
-
   const canRegister = () => {
     if (!tournament) return false;
     return tournament.status === 'registration_open' && 
            tournament.currentParticipants < tournament.maxParticipants &&
-           !isUserRegistered();
+           !isUserRegistered;
   };
 
   if (loading && loading.tournamentDetails) {
@@ -208,7 +210,9 @@ const BGMITournamentDetails = ({
   }
 
   return (
-    <div className="min-h-screen bg-gaming-dark">
+    <>
+      {/* Desktop View */}
+      <div className="min-h-screen bg-gaming-dark hidden lg:block">
       {/* Hero Section */}
       <div className="relative bg-gradient-to-r from-gaming-dark via-gaming-charcoal to-gaming-dark py-16">
         <div className="absolute inset-0 bg-black/50"></div>
@@ -529,7 +533,14 @@ const BGMITournamentDetails = ({
               </div>
 
               {/* Registration Status */}
-              {isUserRegistered() ? (
+              {!isAuthenticated ? (
+                <button
+                  onClick={() => navigate('/login')}
+                  className="w-full btn-gaming mb-4"
+                >
+                  🔐 Login to Join - ₹{tournament.entryFee}
+                </button>
+              ) : isUserRegistered ? (
                 <div className="text-center p-4 bg-green-500/10 border border-green-500/30 rounded-lg mb-4">
                   <div className="text-green-400 text-2xl mb-2">✅</div>
                   <div className="text-green-400 font-bold">You're Registered!</div>
@@ -537,13 +548,7 @@ const BGMITournamentDetails = ({
                 </div>
               ) : canRegister() ? (
                 <button
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      navigate('/login');
-                      return;
-                    }
-                    setShowRegistrationForm(true);
-                  }}
+                  onClick={() => setShowRegistrationForm(true)}
                   className="w-full btn-gaming mb-4"
                 >
                   Register Now - ₹{tournament.entryFee}
@@ -621,6 +626,8 @@ const BGMITournamentDetails = ({
           onClose={() => setShowRegistrationForm(false)}
           onSuccess={(registration) => {
             setShowRegistrationForm(false);
+            // Update local registration state immediately
+            setIsUserRegistered(true);
             // Refresh tournament data to show updated participant count
             dispatch(fetchTournamentById(id));
             console.log('✅ Registration successful:', registration);
@@ -695,7 +702,25 @@ const BGMITournamentDetails = ({
           </motion.div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Mobile/Tablet View - Show message */}
+      <div className="min-h-screen bg-gaming-dark lg:hidden flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📱</div>
+          <h2 className="text-2xl font-bold text-white mb-4">Desktop Only</h2>
+          <p className="text-gray-300 mb-6">
+            Tournament details are optimized for desktop viewing. Please visit this page on a desktop or laptop for the best experience.
+          </p>
+          <button
+            onClick={() => window.history.back()}
+            className="px-6 py-3 bg-gaming-neon text-gaming-dark font-bold rounded-lg hover:bg-gaming-neon/90 transition-colors"
+          >
+            ← Go Back
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 
