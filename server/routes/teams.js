@@ -267,6 +267,14 @@ router.put('/:id', auth, async (req, res) => {
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
 
+    // Invalidate cache for all team members
+    const redisService = require('../services/redisService');
+    const memberIds = team.members.map(m => m.userId?._id || m.userId).filter(Boolean);
+    
+    for (const memberId of memberIds) {
+      await redisService.delete(`teams:my-teams:${memberId}`);
+    }
+
     res.json({
       success: true,
       data: { team },
@@ -371,6 +379,10 @@ router.post('/:id/leave', auth, async (req, res) => {
 
     team.removeMember(req.user.userId);
     await team.save();
+
+    // Invalidate cache for the user who left
+    const redisService = require('../services/redisService');
+    await redisService.delete(`teams:my-teams:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -803,6 +815,13 @@ router.post('/:id/remove-member', auth, async (req, res) => {
     // Remove member
     team.removeMember(memberId);
     await team.save();
+    await team.populate('captain', 'username avatarUrl');
+    await team.populate('members.userId', 'username avatarUrl');
+
+    // Invalidate cache for both the removed member and the team captain
+    const redisService = require('../services/redisService');
+    await redisService.delete(`teams:my-teams:${memberId}`);
+    await redisService.delete(`teams:my-teams:${captainId}`);
 
     console.log(`✅ Member ${memberId} removed from team ${team.name}`);
 
@@ -912,6 +931,10 @@ router.post('/:id/add-member', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
+
+    // Invalidate cache for the added member
+    const redisService = require('../services/redisService');
+    await redisService.delete(`teams:my-teams:${userId}`);
 
     console.log(`✅ Member ${userId} added to team ${team.name}`);
 

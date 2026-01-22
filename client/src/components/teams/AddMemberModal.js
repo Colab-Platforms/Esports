@@ -14,7 +14,7 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
 
   // Search for players
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
+    if (searchQuery.trim().length < 1) {
       setSearchResults([]);
       return;
     }
@@ -25,11 +25,10 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
         const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
         
         const response = await axios.get(
-          `${API_URL}/api/users/players/public`,
+          `${API_URL}/api/users/friends-to-add`,
           {
             params: {
-              search: searchQuery,
-              limit: 10
+              search: searchQuery
             },
             headers: {
               Authorization: `Bearer ${token}`
@@ -38,16 +37,19 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
         );
 
         if (response.data.success) {
-          // Filter out current team members and captain
+          // Filter out current team members
           const filtered = response.data.data.players.filter(player => {
-            const isMember = team.members.some(m => m.userId._id === player._id);
+            const isMember = team.members.some(m => {
+              if (!m.userId) return false;
+              return m.userId._id === player._id || m.userId._id === player.id;
+            });
             return !isMember;
           });
           setSearchResults(filtered);
         }
       } catch (error) {
         console.error('Error searching players:', error);
-        toast.error('Failed to search players', {
+        toast.error('Failed to search friends', {
           duration: 2000,
           position: 'top-center'
         });
@@ -134,7 +136,7 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
             <FiSearch className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by username, email, or bio..."
+              placeholder="Search your friends..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-gold/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gaming-gold"
@@ -164,7 +166,7 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {loading ? (
               <div className="text-center py-8 text-gray-400">
-                Searching players...
+                Searching friends...
               </div>
             ) : searchResults.length > 0 ? (
               searchResults.map((player) => (
@@ -185,13 +187,13 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
                   </div>
                 </motion.button>
               ))
-            ) : searchQuery.trim().length >= 2 ? (
+            ) : searchQuery.trim().length >= 1 ? (
               <div className="text-center py-8 text-gray-400">
-                No players found
+                No friends found
               </div>
             ) : (
               <div className="text-center py-8 text-gray-400">
-                Type at least 2 characters to search
+                Type to search your friends
               </div>
             )}
           </div>

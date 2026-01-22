@@ -697,6 +697,84 @@ router.get('/players/public', async (req, res) => {
   }
 });
 
+// @route   GET /api/users/friends-to-add
+// @desc    Get user's friends that can be added to a team
+// @access  Private
+router.get('/friends-to-add', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { search } = req.query;
+
+    console.log(`🔍 Fetching friends to add for user: ${userId}`);
+
+    // Get current user with friends populated
+    const user = await User.findById(userId)
+      .populate('friends', 'username email avatarUrl level currentRank tournamentsWon favoriteGame bio country _id');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    let friends = user.friends || [];
+
+    console.log(`👥 User has ${friends.length} friends`);
+
+    // Filter by search if provided
+    if (search && search.trim().length > 0) {
+      friends = friends.filter(friend => 
+        friend.username && friend.username.toLowerCase().includes(search.toLowerCase())
+      );
+      console.log(`🔎 After search filter: ${friends.length} friends`);
+    }
+
+    // Format response
+    const formattedFriends = friends
+      .filter(friend => friend.username) // Only include friends with username
+      .map(friend => ({
+        _id: friend._id,
+        id: friend._id,
+        username: friend.username,
+        email: friend.email,
+        avatarUrl: friend.avatarUrl,
+        level: friend.level || 1,
+        rank: friend.currentRank || 'Unranked',
+        wins: friend.tournamentsWon || 0,
+        favoriteGame: friend.favoriteGame,
+        bio: friend.bio,
+        country: friend.country
+      }));
+
+    console.log(`✅ Returning ${formattedFriends.length} formatted friends`);
+
+    res.json({
+      success: true,
+      data: {
+        players: formattedFriends,
+        total: formattedFriends.length
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching friends to add:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch friends',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/users/stats/public
 // @desc    Get public stats (total users, teams, etc.)
 // @access  Public

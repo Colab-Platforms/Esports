@@ -139,7 +139,7 @@ teamSchema.methods.removeMember = function(userId) {
   }
   
   this.members = this.members.filter(
-    member => member.userId.toString() !== userId.toString()
+    member => member.userId && member.userId.toString() !== userId.toString()
   );
 };
 

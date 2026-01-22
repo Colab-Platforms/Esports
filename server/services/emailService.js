@@ -30,8 +30,14 @@ class EmailService {
       const clientUrl = isDevelopment ? 'https://esports-eciq.vercel.app' : (process.env.CLIENT_URL || 'https://colabesports.in');
       const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
+      // Use proper Resend email format - must be from a verified domain
+      // If RESEND_FROM_EMAIL is not set, use onboarding@resend.dev (Resend's test domain)
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+      const fromName = 'Colab Esports';
+      const from = `${fromName} <${fromEmail}>`;
+
       const emailContent = {
-        from: process.env.RESEND_FROM_EMAIL || 'support@colabesports.in',
+        from: from,
         to: email,
         subject: '🔐 Reset Your Colab Esports Password',
         html: `
