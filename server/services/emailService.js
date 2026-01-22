@@ -26,8 +26,15 @@ class EmailService {
       console.log('  - RESEND_FROM_EMAIL:', process.env.RESEND_FROM_EMAIL || 'Not set');
       
       // Auto-detect client URL based on environment
-      const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
-      const clientUrl = isDevelopment ? 'https://esports-eciq.vercel.app' : (process.env.CLIENT_URL || 'https://colabesports.in');
+      // Use CLIENT_URL from env, fallback to NODE_ENV check
+      let clientUrl = process.env.CLIENT_URL;
+      
+      if (!clientUrl) {
+        // Fallback if CLIENT_URL not set
+        const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+        clientUrl = isDevelopment ? 'http://localhost:3000' : 'https://colabesports.in';
+      }
+      
       const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
       // Use proper Resend email format - must be from a verified domain
