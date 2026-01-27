@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
+import TournamentTeamRegistrationForm from '../../components/tournaments/TournamentTeamRegistrationForm';
 import {
   fetchTournamentById,
   joinTournament,
@@ -37,6 +38,7 @@ const BGMITournamentDetails = ({
 
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [showTeamRegistrationForm, setShowTeamRegistrationForm] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [registeredTeams, setRegisteredTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
@@ -547,12 +549,20 @@ const BGMITournamentDetails = ({
                   <div className="text-gray-300 text-sm mt-1">Good luck in the tournament</div>
                 </div>
               ) : canRegister() ? (
-                <button
-                  onClick={() => setShowRegistrationForm(true)}
-                  className="w-full btn-gaming mb-4"
-                >
-                  Register Now - ₹{tournament.entryFee}
-                </button>
+                <div className="space-y-2 mb-4">
+                  <button
+                    onClick={() => setShowRegistrationForm(true)}
+                    className="w-full btn-gaming"
+                  >
+                    Register Now - ₹{tournament.entryFee}
+                  </button>
+                  <button
+                    onClick={() => setShowTeamRegistrationForm(true)}
+                    className="w-full btn-primary text-sm"
+                  >
+                    👥 Register with Team
+                  </button>
+                </div>
               ) : (
                 <div className="text-center p-4 bg-red-500/10 border border-red-500/30 rounded-lg mb-4">
                   <div className="text-red-400 font-bold">Registration Closed</div>
@@ -633,6 +643,27 @@ const BGMITournamentDetails = ({
             console.log('✅ Registration successful:', registration);
           }}
         />
+      )}
+
+      {/* Team Registration Form Modal */}
+      {showTeamRegistrationForm && tournament && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gaming-card border border-gaming-border rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+            <TournamentTeamRegistrationForm
+              tournament={tournament}
+              token={localStorage.getItem('token')}
+              onSuccess={() => {
+                setShowTeamRegistrationForm(false);
+                // Update local registration state immediately
+                setIsUserRegistered(true);
+                // Refresh tournament data to show updated participant count
+                dispatch(fetchTournamentById(id));
+                console.log('✅ Team registration successful!');
+              }}
+              onClose={() => setShowTeamRegistrationForm(false)}
+            />
+          </div>
+        </div>
       )}
 
       {/* Old Join Tournament Modal (kept for backward compatibility) */}
