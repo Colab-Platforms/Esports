@@ -11,9 +11,10 @@ class SecureRequest {
       const hostname = window.location.hostname; // localhost, colabesports.in, etc
       const port = window.location.port; // 3000, 5001, etc
       
+      // For development (localhost:3000 or 192.168.x.x:3000), use localhost:5001
       // For production (colabesports.in), use same domain with /api
-      // For development (localhost:3000), use localhost:5001
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+        // Development: always use localhost:5001
         this.API_URL = 'http://localhost:5001';
       } else {
         // Production: use same domain
@@ -24,6 +25,7 @@ class SecureRequest {
     }
     
     console.log('🔗 API URL configured:', this.API_URL);
+    console.log('🔗 Frontend hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');
     this.pendingRequests = new Map(); // Track pending requests for cancellation
     this.REQUEST_TIMEOUT = 90000; // 90 seconds timeout
     this.MAX_RETRIES = 2; // Retry up to 2 times
