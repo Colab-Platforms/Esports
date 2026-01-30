@@ -125,8 +125,8 @@ const GamesPage = () => {
         if (name.includes('valorant') || id.includes('valorant')) {
             return 'valorant';
         }
-        if (name.includes('free fire') || name.includes('freefire') || id.includes('freefire')) {
-            return 'freefire';
+        if (name.includes('Free Fire') || name.includes('freefire') || id.includes('ff')) {
+            return 'ff';
         }
         if (name.includes('mobile legends') || name.includes('ml') || id.includes('ml')) {
             return 'ml';
@@ -153,8 +153,19 @@ const GamesPage = () => {
     // Get unique game types from database
     const gameTypes = ['all', ...new Set(games.map(game => getGameType(game)))];
 
-    const GameCard = ({ game }) => (
-        <Link to={`/game/${game.id}`}>
+    const GameCard = ({ game }) => {
+        // Map game types to their route paths
+        const getRoutePath = (game) => {
+            const gameType = getGameType(game);
+            // Map gameType to route path
+            if (gameType === 'freefire') {
+                return 'ff'; // Use 'ff' for Free Fire route
+            }
+            return gameType;
+        };
+        
+        return (
+        <Link to={`/game/${getRoutePath(game)}`}>
             <motion.div
                 whileHover={{ y: -8, scale: 1.02 }}
                 className="relative overflow-hidden rounded-xl border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"
@@ -205,7 +216,8 @@ const GamesPage = () => {
                 </div>
             </motion.div>
         </Link>
-    );
+        );
+    };
 
     // Loading state - Show skeleton loaders instead of blank loading
     if (loading) {
@@ -274,7 +286,7 @@ const GamesPage = () => {
         return (
             <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
                 <div className="text-center">
-                    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                    <div className="text-red-500 text-6xl mb-4"></div>
                     <h2 className="text-2xl font-bold text-white mb-2">Error Loading Games</h2>
                     <p className="text-gray-300 mb-4">{error}</p>
                     <button

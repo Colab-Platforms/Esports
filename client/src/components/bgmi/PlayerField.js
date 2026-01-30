@@ -11,7 +11,8 @@ const PlayerField = memo(({
   errors,
   isOriginalMember,
   friends,
-  allPlayers
+  allPlayers,
+  isUnregistered
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const playerErrors = errors?.[playerNumber - 1] || {};
@@ -181,6 +182,18 @@ const PlayerField = memo(({
           )}
         </div>
       </div>
+
+      {/* Unregistered Warning */}
+      {isUnregistered && (
+        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <p className="text-red-400 text-xs font-medium">
+            ⚠️ This player is not registered on our platform
+          </p>
+          <p className="text-red-300 text-xs mt-1">
+            Player must sign up before tournament registration
+          </p>
+        </div>
+      )}
 
       {/* Remove Button - Bottom */}
       {playerNumber !== 1 && (

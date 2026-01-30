@@ -47,7 +47,8 @@ import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
 import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
-import BGMITournamentDetails from './pages/tournaments/BGMITournamentDetails';
+import FreeFirePage from './pages/FreeFirePage';
+import TournamentDetails from './pages/tournaments/TournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
@@ -69,6 +70,9 @@ const GameRouter = () => {
     case 'bgmi':
     case 'battlegrounds mobile india':
       return <BGMIPage />;
+    case 'ff':
+    case 'free fire':
+      return <FreeFirePage />;
     case 'cs2':
     case 'counter-strike 2':
     case 'counter strike 2':
@@ -367,6 +371,21 @@ function App() {
                   transition={{ duration: 0.3 }}
                 >
                   <BGMIPage />
+                </motion.div>
+              } 
+            />
+            
+            {/* Free Fire Route */}
+            <Route 
+              path="/freefire" 
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <FreeFirePage />
                 </motion.div>
               } 
             />

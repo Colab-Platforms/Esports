@@ -14,7 +14,7 @@ import {
 } from '../../store/slices/tournamentSlice';
 import { selectAuth } from '../../store/slices/authSlice';
 
-const BGMITournamentDetails = ({ 
+const TournamentDetails = ({ 
   tournamentData = null, 
   isUserRegistered: propIsUserRegistered = false,
   registeredTeams: propRegisteredTeams = [],
@@ -63,9 +63,9 @@ const BGMITournamentDetails = ({
     }
   }, [tournament, user, propIsUserRegistered]);
 
-  // Fetch registered teams for BGMI tournament
+  // Fetch registered teams for BGMI/Free Fire tournament
   useEffect(() => {
-    if (id && tournament?.gameType === 'bgmi') {
+    if (id && (tournament?.gameType === 'bgmi' || tournament?.gameType === 'freefire')) {
       fetchRegisteredTeams();
     }
   }, [id, tournament?.gameType]);
@@ -73,7 +73,10 @@ const BGMITournamentDetails = ({
   const fetchRegisteredTeams = async () => {
     try {
       setLoadingTeams(true);
-      const response = await fetch(`/api/bgmi-registration/tournament/${id}/teams`);
+      const endpoint = tournament?.gameType === 'freefire' 
+        ? `/api/freefire-registration/tournament/${id}/teams`
+        : `/api/bgmi-registration/tournament/${id}/teams`;
+      const response = await fetch(endpoint);
       const data = await response.json();
       if (data.success) {
         setRegisteredTeams(data.data?.teams || []);
@@ -332,7 +335,11 @@ const BGMITournamentDetails = ({
                       <div className="space-y-3">
                         <div>
                           <div className="text-sm text-gray-400">Game</div>
-                          <div className="text-white font-medium">BGMI (Battlegrounds Mobile India)</div>
+                          <div className="text-white font-medium">
+                            {tournament.gameType === 'freefire' 
+                              ? 'Free Fire' 
+                              : 'BGMI (Battlegrounds Mobile India)'}
+                          </div>
                         </div>
                         <div>
                           <div className="text-sm text-gray-400">Mode</div>
@@ -382,7 +389,9 @@ const BGMITournamentDetails = ({
                   </div>
                   
                   <div className="mt-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <h4 className="text-yellow-400 font-bold mb-2">Important Notes for BGMI:</h4>
+                    <h4 className="text-yellow-400 font-bold mb-2">
+                      Important Notes for {tournament.gameType === 'freefire' ? 'Free Fire' : 'BGMI'}:
+                    </h4>
                     <ul className="text-sm text-gray-300 space-y-1">
                       <li>• Room ID and password will be shared 30 minutes before match start</li>
                       <li>• Screenshots of final results are mandatory for verification</li>
@@ -579,10 +588,10 @@ const BGMITournamentDetails = ({
               {/* Action Buttons */}
               <div className="space-y-2">
                 <button
-                  onClick={() => navigate('/bgmi')}
+                  onClick={() => navigate(tournament.gameType === 'freefire' ? '/freefire' : '/bgmi')}
                   className="w-full btn-primary"
                 >
-                  ← Back to BGMI
+                  ← Back to {tournament.gameType === 'freefire' ? 'Free Fire' : 'BGMI'}
                 </button>
                 
                 {tournament.status === 'active' && (
@@ -631,7 +640,7 @@ const BGMITournamentDetails = ({
         </div>
       </div>
 
-      {/* BGMI Registration Form Modal */}
+      {/* Registration Form Modal - Works for BGMI and Free Fire */}
       {showRegistrationForm && tournament && (
         <BGMIRegistrationForm
           tournament={tournament}
@@ -757,4 +766,4 @@ const BGMITournamentDetails = ({
   );
 };
 
-export default BGMITournamentDetails;
+export default TournamentDetails;

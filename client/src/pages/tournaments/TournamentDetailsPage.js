@@ -27,6 +27,11 @@ const TournamentDetailsPage = () => {
         name: 'CS2',
         bgImage: 'linear-gradient(135deg, #1e3c72 0%, #000000 100%)',
         description: 'Counter-Strike 2 competitive tournaments'
+      },
+      freefire: {
+        name: 'Free Fire',
+        bgImage: 'linear-gradient(135deg, #ff1744 0%, #000000 100%)',
+        description: 'Fast-paced battle royale tournaments for mobile gamers'
       }
     };
     return games[game] || games.valorant;

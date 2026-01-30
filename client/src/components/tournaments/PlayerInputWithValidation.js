@@ -26,7 +26,23 @@ const PlayerInputWithValidation = ({
 
     setValidating(true);
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      // Get API URL with smart detection
+      let API_URL = process.env.REACT_APP_API_URL;
+      if (!API_URL && typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+          API_URL = 'http://127.0.0.1:5001';
+        } else {
+          const protocol = window.location.protocol;
+          API_URL = `${protocol}//${hostname}`;
+        }
+      }
+      if (!API_URL) {
+        API_URL = 'http://127.0.0.1:5001';
+      }
+
+      console.log('🔗 Validating player with API URL:', API_URL);
+      
       const response = await axios.post(
         `${API_URL}/api/tournaments/validate-player`,
         { bgmiUid, ignName },
@@ -107,6 +123,7 @@ const PlayerInputWithValidation = ({
 
         {validationStatus === 'valid' ? (
           <button
+            type="button"
             onClick={handleClear}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
@@ -115,6 +132,7 @@ const PlayerInputWithValidation = ({
           </button>
         ) : (
           <button
+            type="button"
             onClick={validatePlayer}
             disabled={validating || (!bgmiUid && !ignName)}
             className="px-4 py-2 bg-gaming-gold hover:bg-yellow-500 disabled:bg-gray-600 text-black rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"

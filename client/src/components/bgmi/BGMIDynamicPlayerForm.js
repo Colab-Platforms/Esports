@@ -43,6 +43,7 @@ const BGMIDynamicPlayerForm = ({
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [friendsError, setFriendsError] = useState('');
+  const [unregisteredPlayerIndices, setUnregisteredPlayerIndices] = useState([]);
 
   // Validation functions
   const validateIGN = (ign) => {
@@ -223,10 +224,95 @@ const BGMIDynamicPlayerForm = ({
 
     setLoading(true);
     try {
+      // Validate that all players exist in Users collection
+      console.log('🔍 Validating players exist in Users collection...');
+      console.log('👥 Players to validate:', players);
+      
+      // Get API URL with smart detection
+      let API_URL = process.env.REACT_APP_API_URL;
+      if (!API_URL && typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+          API_URL = 'http://127.0.0.1:5001';
+        } else {
+          const protocol = window.location.protocol;
+          API_URL = `${protocol}//${hostname}`;
+        }
+      }
+      if (!API_URL) {
+        API_URL = 'http://127.0.0.1:5001';
+      }
+
+      console.log('🔗 Using API URL:', API_URL);
+
+      // Validate each player
+      const validationPromises = players.map((player, idx) => {
+        console.log(`📤 Validating player ${idx + 1}:`, player);
+        return fetch(`${API_URL}/api/tournaments/validate-player`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            bgmiUid: player.bgmiId,
+            ignName: player.name
+          })
+        })
+        .then(res => {
+          console.log(`📥 Response status for player ${idx + 1}:`, res.status);
+          return res.json();
+        })
+        .then(data => {
+          console.log(`✅ Validation result for player ${idx + 1}:`, data);
+          return data;
+        })
+        .catch(err => {
+          console.error(`❌ Validation error for player ${idx + 1}:`, err);
+          return { success: false, error: err.message };
+        });
+      });
+
+      const validationResults = await Promise.all(validationPromises);
+      
+      console.log('📊 All validation results:', validationResults);
+      
+      // Check if all players are registered
+      const unregisteredPlayers = [];
+      validationResults.forEach((result, index) => {
+        console.log(`Player ${index + 1} - isRegistered:`, result.data?.isRegistered);
+        if (!result.data?.isRegistered) {
+          unregisteredPlayers.push(`Player ${index + 1}: ${players[index].name}`);
+        }
+      });
+
+      console.log('🚨 Unregistered players:', unregisteredPlayers);
+
+      if (unregisteredPlayers.length > 0) {
+        // Mark which players are unregistered
+        const unregisteredIndices = [];
+        validationResults.forEach((result, index) => {
+          if (!result.data?.isRegistered) {
+            unregisteredIndices.push(index);
+          }
+        });
+        setUnregisteredPlayerIndices(unregisteredIndices);
+        
+        const errorMsg = `⚠️ The following players are not registered on our platform:\n${unregisteredPlayers.join('\n')}\n\nAll team members must be registered before tournament registration.`;
+        console.error('❌ Validation failed:', errorMsg);
+        window.dynamicFormValidationError = errorMsg;
+        setLoading(false);
+        return;
+      }
+
+      // Clear unregistered players list if validation passes
+      setUnregisteredPlayerIndices([]);
+
       // Call parent's onSubmit with players data
       await onSubmit(players);
     } catch (error) {
       console.error('Error submitting form:', error);
+      window.dynamicFormValidationError = 'Error validating players. Please try again.';
     } finally {
       setLoading(false);
     }
@@ -266,6 +352,7 @@ const BGMIDynamicPlayerForm = ({
                   isOriginalMember={index < teamSize}
                   friends={friends}
                   allPlayers={players}
+                  isUnregistered={unregisteredPlayerIndices.includes(index)}
                 />
               </div>
               

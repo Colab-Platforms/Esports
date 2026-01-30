@@ -41,7 +41,21 @@ const TournamentTeamRegistrationForm = ({ tournament, token, onSuccess, onClose 
     setLoading(true);
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      // Get API URL with smart detection
+      let API_URL = process.env.REACT_APP_API_URL;
+      if (!API_URL && typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+          API_URL = 'http://127.0.0.1:5001';
+        } else {
+          const protocol = window.location.protocol;
+          API_URL = `${protocol}//${hostname}`;
+        }
+      }
+      if (!API_URL) {
+        API_URL = 'http://127.0.0.1:5001';
+      }
+
       const response = await axios.post(
         `${API_URL}/api/tournaments/${tournament._id}/join-with-players`,
         {

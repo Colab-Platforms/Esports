@@ -12,7 +12,7 @@ const router = express.Router();
 // @desc    Get all tournaments with filtering
 // @access  Public
 router.get('/', [
-  query('gameType').optional().isIn(['bgmi', 'valorant', 'cs2']),
+  query('gameType').optional().isIn(['bgmi', 'valorant', 'cs2', 'ff']),
   query('status').optional().custom((value) => {
     if (typeof value === 'string') {
       const statuses = value.split(',');
@@ -78,7 +78,11 @@ router.get('/', [
     } = req.query;
 
     const filters = {};
-    if (gameType) filters.gameType = gameType;
+    if (gameType) {
+      // Normalize 'ff' to 'freefire'
+      const normalizedGameType = gameType === 'ff' ? 'freefire' : gameType;
+      filters.gameType = normalizedGameType;
+    }
     if (status) {
       // Handle multiple status values separated by comma
       if (typeof status === 'string' && status.includes(',')) {
@@ -781,7 +785,7 @@ router.post('/', auth, [
     .isLength({ min: 3, max: 100 })
     .withMessage('Tournament name must be 3-100 characters'),
   body('gameType')
-    .isIn(['bgmi', 'valorant', 'cs2'])
+    .isIn(['bgmi', 'valorant', 'cs2', 'freefire'])
     .withMessage('Invalid game type'),
   // Description - Optional for CS2
   body('description')

@@ -17,8 +17,8 @@ const tournamentSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Game type is required'],
     enum: {
-      values: ['bgmi', 'cs2', 'valorant'],
-      message: 'Game type must be one of: bgmi, cs2, valorant'
+      values: ['bgmi', 'cs2', 'valorant', 'freefire'],
+      message: 'Game type must be one of: bgmi, cs2, valorant, freefire'
     }
   },
   mode: {

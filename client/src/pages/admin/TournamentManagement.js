@@ -66,16 +66,17 @@ const TournamentManagement = () => {
   const getGameType = (gameId) => {
     const game = games.find(g => g._id === gameId);
     if (!game) return '';
-    // Map game id to gameType (bgmi, valorant, cs2)
+    // Map game id to gameType (bgmi, valorant, cs2, freefire)
     const gameTypeMap = {
       'bgmi': 'bgmi',
       'valorant': 'valorant',
       'cs2': 'cs2',
-      'freefire': 'bgmi', // Fallback
-      'pubgpc': 'cs2', // Fallback
-      'mobilelegends': 'bgmi' // Fallback
+      'freefire': 'freefire',
+      'ff': 'freefire', // Map short form to full form
+      'pubgpc': 'cs2',
+      'mobilelegends': 'bgmi'
     };
-    return gameTypeMap[game.id] || 'bgmi';
+    return gameTypeMap[game.id] || game.id;
   };
 
   useEffect(() => {
@@ -620,16 +621,17 @@ const TournamentManagement = () => {
                       {games.length === 0 ? 'Loading games...' : 'Select a game'}
                     </option>
                     {games.map(game => {
-                      // Map game.id to gameType (bgmi, valorant, cs2)
+                      // Map game.id to gameType (bgmi, valorant, cs2, freefire)
                       const gameTypeMap = {
                         'bgmi': 'bgmi',
                         'valorant': 'valorant',
                         'cs2': 'cs2',
-                        'freefire': 'bgmi',
+                        'freefire': 'freefire',
+                        'ff': 'freefire', // Map short form to full form
                         'pubgpc': 'cs2',
                         'mobilelegends': 'bgmi'
                       };
-                      const gameType = gameTypeMap[game.id] || 'bgmi';
+                      const gameType = gameTypeMap[game.id] || game.id;
                       
                       return (
                         <option key={game._id} value={gameType}>
@@ -750,8 +752,8 @@ const TournamentManagement = () => {
                   )}
                 </div>
 
-                {/* Grouping Configuration - Only for BGMI */}
-                {selectedGameType === 'bgmi' && (
+                {/* Grouping Configuration - For BGMI and Free Fire */}
+                {(selectedGameType === 'bgmi' || selectedGameType === 'freefire') && (
                   <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4 space-y-4">
                     <div className="flex items-center space-x-2">
                       <input

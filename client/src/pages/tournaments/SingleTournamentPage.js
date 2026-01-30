@@ -1099,9 +1099,15 @@ const SingleTournamentPage = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={handleJoinTournament}
-                      disabled={!isAuthenticated || tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())}
-                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${!isAuthenticated || tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          navigate('/login');
+                        } else {
+                          handleJoinTournament();
+                        }
+                      }}
+                      disabled={tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())}
+                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${(tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {!isAuthenticated ? ('LOGIN TO JOIN') : (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date()) ? ('REGISTRATION CLOSED') : tournament?.status !== 'registration_open' ? ('REGISTRATION CLOSED') : tournament?.gameType === 'cs2' ? ('JOIN SERVER') : ('REGISTER NOW')}
                     </button>
@@ -1152,7 +1158,7 @@ const SingleTournamentPage = () => {
 
       {/* Registration Modal */}
       {showRegistration && tournament && (
-        tournament.gameType === 'bgmi' ? (
+        (tournament.gameType === 'bgmi' || tournament.gameType === 'freefire' || tournament.gameType === 'ff') ? (
           <BGMIRegistrationForm
             tournament={tournament}
             onClose={() => setShowRegistration(false)}

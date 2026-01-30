@@ -270,6 +270,65 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
+      // Validate team members exist in Users collection (only for manual registration)
+      if (!showDynamicForm && registrationMode === 'manual') {
+        console.log('🔍 Validating team members...');
+        
+        const teamMembersToValidate = [
+          { name: formData.teamLeader.name, bgmiId: formData.teamLeader.bgmiId },
+          ...formData.teamMembers
+        ];
+
+        // Get API URL with smart detection
+        let API_URL = process.env.REACT_APP_API_URL;
+        if (!API_URL && typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+            API_URL = 'http://127.0.0.1:5001';
+          } else {
+            const protocol = window.location.protocol;
+            API_URL = `${protocol}//${hostname}`;
+          }
+        }
+        if (!API_URL) {
+          API_URL = 'http://127.0.0.1:5001';
+        }
+
+        // Validate each team member
+        const validationPromises = teamMembersToValidate.map(member =>
+          fetch(`${API_URL}/api/tournaments/validate-player`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              bgmiUid: member.bgmiId,
+              ignName: member.name
+            })
+          }).then(res => res.json())
+        );
+
+        const validationResults = await Promise.all(validationPromises);
+        
+        // Check if all members are registered
+        const unregisteredMembers = [];
+        validationResults.forEach((result, index) => {
+          if (!result.data?.isRegistered) {
+            const memberName = index === 0 ? 'Team Leader' : `Team Member ${index}`;
+            unregisteredMembers.push(`${memberName} (${teamMembersToValidate[index].name})`);
+          }
+        });
+
+        if (unregisteredMembers.length > 0) {
+          setError(`⚠️ The following players are not registered on our platform:\n${unregisteredMembers.join('\n')}\n\nAll team members must be registered before tournament registration.`);
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ All team members validated successfully');
+      }
+
       let response;
 
       if (registrationMode === 'team' && selectedTeam) {
@@ -444,24 +503,37 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
               </div>
             </div>
 
-            {/* Team Members - Dynamic Form */}
-            {!showDynamicForm ? (
-              <button
-                type="button"
-                onClick={() => setShowDynamicForm(true)}
-                className="w-full px-4 py-3 bg-gaming-neon/10 border border-gaming-neon text-gaming-neon rounded-lg font-medium hover:bg-gaming-neon/20 transition-colors"
-              >
-                + Add Team Members
-              </button>
-            ) : (
-              <BGMIDynamicPlayerForm
-                teamSize={selectedTeam?.memberCount || 2}
-                existingTeamMembers={selectedTeam?.members || []}
-                onSubmit={handleDynamicFormSubmit}
-                onCancel={() => setShowDynamicForm(false)}
-                tournament={tournament}
-              />
-            )}
+            {/* Team Members Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-300">
+                  Team Players
+                </label>
+                {!showDynamicForm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDynamicForm(true)}
+                    className="px-3 py-1 bg-gaming-neon/10 border border-gaming-neon text-gaming-neon rounded font-medium hover:bg-gaming-neon/20 transition-colors text-xs"
+                  >
+                    + Add
+                  </button>
+                )}
+              </div>
+              
+              {showDynamicForm ? (
+                <BGMIDynamicPlayerForm
+                  teamSize={selectedTeam?.memberCount || 2}
+                  existingTeamMembers={selectedTeam?.members || []}
+                  onSubmit={handleDynamicFormSubmit}
+                  onCancel={() => setShowDynamicForm(false)}
+                  tournament={tournament}
+                />
+              ) : (
+                <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4 text-center text-gray-400">
+                  <p className="text-sm">Click "+ Add" to add team players</p>
+                </div>
+              )}
+            </div>
           </>
         </form>
 
@@ -486,9 +558,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
                 if (dynamicFormButton) {
                   dynamicFormButton.click();
                   // Check if validation failed
-                  if (window.dynamicFormValidationError) {
-                    setSnackbar({ message: window.dynamicFormValidationError, type: 'warning' });
-                  }
+                  setTimeout(() => {
+                    if (window.dynamicFormValidationError) {
+                      setError(window.dynamicFormValidationError);
+                    }
+                  }, 100);
                 }
               }}
               className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
