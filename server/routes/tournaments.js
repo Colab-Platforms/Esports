@@ -684,6 +684,17 @@ router.post('/:id/join-with-players', auth, [
         continue;
       }
 
+      // Verify that the provided BGMI UID matches the player's registered BGMI ID
+      if (player.bgmiUid !== foundPlayer.gameIds.bgmi) {
+        console.log(`❌ BGMI UID mismatch for ${foundPlayer.username}: provided ${player.bgmiUid}, registered ${foundPlayer.gameIds.bgmi}`);
+        invalidPlayers.push({
+          bgmiUid: player.bgmiUid,
+          ignName: player.ignName,
+          message: 'BGMI UID does not match player\'s registered ID'
+        });
+        continue;
+      }
+
       console.log(`✅ Player validated: ${foundPlayer.username}`);
       playerIds.push(foundPlayer._id);
     }
