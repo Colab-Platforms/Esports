@@ -7,7 +7,8 @@ const PlayerInputWithValidation = ({
   playerIndex, 
   onPlayerChange, 
   onValidationChange,
-  token 
+  token,
+  registrationError = null // Error message from parent component
 }) => {
   const [bgmiUid, setBgmiUid] = useState('');
   const [ignName, setIgnName] = useState('');
@@ -102,6 +103,8 @@ const PlayerInputWithValidation = ({
     setValidationMessage('');
     setPlayerData(null);
     onValidationChange(playerIndex, false);
+    // Clear registration error when clearing player
+    onPlayerChange(playerIndex, { registrationError: null });
   };
 
   return (
@@ -191,6 +194,21 @@ const PlayerInputWithValidation = ({
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Registration Error - Show if this player failed during registration */}
+      {registrationError && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-red-900/30 border border-red-600/50">
+          <FiX className="text-red-400 w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-red-400 font-medium text-sm">
+              ⚠️ Player Not Authorized
+            </p>
+            <p className="text-red-300 text-sm mt-1">
+              {registrationError}
+            </p>
           </div>
         </div>
       )}

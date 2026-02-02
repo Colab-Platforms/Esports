@@ -732,23 +732,24 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
+    // Allow empty strings for bgmiIgnName - don't fall back to old value
     if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
     
     // Update social accounts
     if (socialAccounts !== undefined) {
       user.socialAccounts = {
-        twitter: socialAccounts.twitter || user.socialAccounts?.twitter || '',
-        instagram: socialAccounts.instagram || user.socialAccounts?.instagram || '',
-        github: socialAccounts.github || user.socialAccounts?.github || '',
-        linkedin: socialAccounts.linkedin || user.socialAccounts?.linkedin || ''
+        twitter: socialAccounts.twitter !== undefined ? socialAccounts.twitter : (user.socialAccounts?.twitter || ''),
+        instagram: socialAccounts.instagram !== undefined ? socialAccounts.instagram : (user.socialAccounts?.instagram || ''),
+        github: socialAccounts.github !== undefined ? socialAccounts.github : (user.socialAccounts?.github || ''),
+        linkedin: socialAccounts.linkedin !== undefined ? socialAccounts.linkedin : (user.socialAccounts?.linkedin || '')
       };
     }
 
-    // Update game IDs
+    // Update game IDs - Allow empty strings to clear values
     if (gameIds !== undefined) {
       user.gameIds = {
-        steam: gameIds.steam || user.gameIds?.steam || '',
-        bgmi: gameIds.bgmi || user.gameIds?.bgmi || ''
+        steam: gameIds.steam !== undefined ? gameIds.steam : (user.gameIds?.steam || ''),
+        bgmi: gameIds.bgmi !== undefined ? gameIds.bgmi : (user.gameIds?.bgmi || '')
       };
     }
 

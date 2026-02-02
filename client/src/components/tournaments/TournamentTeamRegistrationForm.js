@@ -6,9 +6,9 @@ import toast from 'react-hot-toast';
 
 const TournamentTeamRegistrationForm = ({ tournament, token, onSuccess, onClose }) => {
   const [teamPlayers, setTeamPlayers] = useState([
-    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '' },
-    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '' },
-    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '' }
+    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '', registrationError: null },
+    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '', registrationError: null },
+    { bgmiUid: '', ignName: '', isValid: false, playerId: null, username: '', registrationError: null }
   ]);
   const [loading, setLoading] = useState(false);
 
@@ -90,6 +90,24 @@ const TournamentTeamRegistrationForm = ({ tournament, token, onSuccess, onClose 
       
       if (error.response?.data?.error?.code === 'INVALID_PLAYERS') {
         const invalidPlayers = error.response.data.error.invalidPlayers;
+        
+        // Map errors to player indices
+        const newPlayers = [...teamPlayers];
+        invalidPlayers.forEach(invalidPlayer => {
+          // Find the player index that matches this invalid player
+          const playerIndex = newPlayers.findIndex(p => 
+            p.bgmiUid === invalidPlayer.bgmiUid || 
+            p.ignName === invalidPlayer.ignName
+          );
+          
+          if (playerIndex !== -1) {
+            newPlayers[playerIndex].registrationError = invalidPlayer.message;
+          }
+        });
+        
+        setTeamPlayers(newPlayers);
+        
+        // Show summary toast
         const message = invalidPlayers
           .map(p => `${p.ignName || p.bgmiUid} - ${p.message}`)
           .join('\n');
@@ -129,6 +147,7 @@ const TournamentTeamRegistrationForm = ({ tournament, token, onSuccess, onClose 
             onPlayerChange={handlePlayerChange}
             onValidationChange={handleValidationChange}
             token={token}
+            registrationError={player.registrationError}
           />
         ))}
       </div>
