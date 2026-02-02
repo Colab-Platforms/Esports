@@ -62,8 +62,15 @@ const PlayerInputWithValidation = ({
         setValidationMessage('✅ Player found on platform');
         setPlayerData(response.data.data.player);
         onValidationChange(playerIndex, true);
-        // Use user-provided IGN name, or fallback to player's bgmiIgnName from database
-        const finalIgnName = playerIgnName || response.data.data.player.bgmiIgnName || response.data.data.player.username;
+        
+        // Auto-fill IGN name with player's bgmiIgnName from database
+        const playerIgnNameFromDb = response.data.data.player.bgmiIgnName;
+        if (playerIgnNameFromDb && !ignName) {
+          setIgnName(playerIgnNameFromDb);
+        }
+        
+        // Use player's bgmiIgnName from database, or user-provided IGN name
+        const finalIgnName = playerIgnNameFromDb || playerIgnName || response.data.data.player.username;
         onPlayerChange(playerIndex, {
           bgmiUid,
           ignName: finalIgnName,
