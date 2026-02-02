@@ -52,7 +52,8 @@ const ProfileSettingsPage = () => {
     state: user?.state || '',
     favoriteGame: user?.favoriteGame || '',
     profileVisibility: user?.profileVisibility || 'public',
-    bio: user?.bio || ''
+    bio: user?.bio || '',
+    bgmiIgnName: user?.bgmiIgnName || ''
   });
 
   const [gameIds, setGameIds] = useState({
@@ -89,7 +90,8 @@ const ProfileSettingsPage = () => {
         state: user.state || '',
         favoriteGame: user.favoriteGame || '',
         profileVisibility: user.profileVisibility || 'public',
-        bio: user.bio || ''
+        bio: user.bio || '',
+        bgmiIgnName: user.bgmiIgnName || ''
       });
       setSocialAccounts({
         twitter: user.socialAccounts?.twitter || '',
@@ -197,6 +199,7 @@ const ProfileSettingsPage = () => {
           favoriteGame: profileData.favoriteGame,
           profileVisibility: profileData.profileVisibility,
           bio: profileData.bio,
+          bgmiIgnName: profileData.bgmiIgnName,
           socialAccounts,
           gameIds
         },
@@ -659,6 +662,23 @@ const ProfileSettingsPage = () => {
                       placeholder="Enter your BGMI ID (e.g., BGMIWX7XLIFKE)"
                     />
                     <p className="text-xs text-gray-500 mt-1">Required for BGMI tournament participation</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      BGMI IGN Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.bgmiIgnName}
+                      onChange={(e) => handleProfileChange('bgmiIgnName', e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                      placeholder="Enter your BGMI IGN name (e.g., ProGamer123)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Your in-game name for BGMI tournaments</p>
                   </div>
 
                   <div>

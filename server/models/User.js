@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema({
     bgmi: { type: String, default: '' },
     valorant: { type: String, default: '' }
   },
+  bgmiIgnName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [30, 'IGN name cannot exceed 30 characters']
+  },
   bgmiUid: {
     type: String,
     default: '',

@@ -962,6 +962,24 @@ router.post('/', auth, [
       plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
     }
 
+    // Invalidate all tournament cache keys to ensure new tournament appears immediately
+    console.log('🔄 Invalidating tournament cache after creation...');
+    try {
+      // Delete all tournament-related cache keys
+      const cacheKeys = [
+        'tournaments:*',
+        `tournaments:{"gameType":"${req.body.gameType}"}:*`,
+        `tournaments:{"gameType":"${req.body.gameType}","status":*`,
+      ];
+      
+      // Use Redis pattern deletion
+      await redisService.deletePattern('tournaments:*');
+      console.log('✅ Tournament cache invalidated');
+    } catch (cacheError) {
+      console.error('⚠️ Cache invalidation failed (non-critical):', cacheError.message);
+      // Don't fail the request if cache invalidation fails
+    }
+
     res.status(201).json({
       success: true,
       data: { tournament: plainTournament },
@@ -1142,6 +1160,15 @@ router.put('/:id', auth, async (req, res) => {
     // Ensure _id is a string for client-side usage
     if (plainTournament._id) {
       plainTournament._id = plainTournament._id.toString ? plainTournament._id.toString() : String(plainTournament._id);
+    }
+
+    // Invalidate tournament cache after update
+    console.log('🔄 Invalidating tournament cache after update...');
+    try {
+      await redisService.deletePattern('tournaments:*');
+      console.log('✅ Tournament cache invalidated');
+    } catch (cacheError) {
+      console.error('⚠️ Cache invalidation failed (non-critical):', cacheError.message);
     }
     
     res.json({
@@ -1779,6 +1806,15 @@ router.delete('/:id', auth, async (req, res) => {
 
     // Delete the tournament
     await Tournament.findByIdAndDelete(req.params.id);
+
+    // Invalidate tournament cache after deletion
+    console.log('🔄 Invalidating tournament cache after deletion...');
+    try {
+      await redisService.deletePattern('tournaments:*');
+      console.log('✅ Tournament cache invalidated');
+    } catch (cacheError) {
+      console.error('⚠️ Cache invalidation failed (non-critical):', cacheError.message);
+    }
 
     res.json({
       success: true,

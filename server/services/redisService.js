@@ -93,6 +93,29 @@ class RedisService {
     }
   }
 
+  // Delete cache keys matching a pattern
+  async deletePattern(pattern) {
+    if (!this.isConnected || !this.client) {
+      return false;
+    }
+
+    try {
+      // Get all keys matching the pattern
+      const keys = await this.client.keys(pattern);
+      if (keys && keys.length > 0) {
+        // Delete all matching keys
+        await this.client.del(...keys);
+        console.log(`✅ Cache deleted for ${keys.length} keys matching pattern: ${pattern}`);
+        return true;
+      }
+      console.log(`ℹ️ No cache keys found matching pattern: ${pattern}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Redis deletePattern error:', error.message);
+      return false;
+    }
+  }
+
   // Clear all cache
   async flushAll() {
     if (!this.isConnected || !this.client) {

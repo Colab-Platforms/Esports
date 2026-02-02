@@ -17,12 +17,16 @@ const PlayerInputWithValidation = ({
   const [playerData, setPlayerData] = useState(null);
 
   const validatePlayer = async () => {
-    if (!bgmiUid && !ignName) {
+    // BGMI UID is required for validation
+    if (!bgmiUid) {
       setValidationStatus('invalid');
-      setValidationMessage('❌ Enter BGMI UID or IGN name');
+      setValidationMessage('❌ BGMI UID is required');
       onValidationChange(playerIndex, false);
       return;
     }
+
+    // IGN name is optional but if provided, use it; otherwise use empty string
+    const playerIgnName = ignName || '';
 
     setValidating(true);
     try {
@@ -41,11 +45,11 @@ const PlayerInputWithValidation = ({
         API_URL = 'http://127.0.0.1:5001';
       }
 
-      console.log('🔗 Validating player with API URL:', API_URL);
+      console.log('🔗 Validating player with BGMI UID:', bgmiUid);
       
       const response = await axios.post(
         `${API_URL}/api/tournaments/validate-player`,
-        { bgmiUid, ignName },
+        { bgmiUid, ignName: playerIgnName },
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -58,15 +62,18 @@ const PlayerInputWithValidation = ({
         setValidationMessage('✅ Player found on platform');
         setPlayerData(response.data.data.player);
         onValidationChange(playerIndex, true);
+        // Use user-provided IGN name, or fallback to player's bgmiIgnName from database
+        const finalIgnName = playerIgnName || response.data.data.player.bgmiIgnName || response.data.data.player.username;
         onPlayerChange(playerIndex, {
           bgmiUid,
-          ignName,
+          ignName: finalIgnName,
           playerId: response.data.data.player._id,
-          username: response.data.data.player.username
+          username: response.data.data.player.username,
+          bgmiIgnName: response.data.data.player.bgmiIgnName
         });
       } else {
         setValidationStatus('invalid');
-        setValidationMessage('❌ Player not registered on platform');
+        setValidationMessage('❌ Player not registered on platform with this BGMI UID');
         setPlayerData(null);
         onValidationChange(playerIndex, false);
       }
@@ -134,7 +141,7 @@ const PlayerInputWithValidation = ({
           <button
             type="button"
             onClick={validatePlayer}
-            disabled={validating || (!bgmiUid && !ignName)}
+            disabled={validating || !bgmiUid}
             className="px-4 py-2 bg-gaming-gold hover:bg-yellow-500 disabled:bg-gray-600 text-black rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
           >
             {validating ? (
@@ -166,9 +173,16 @@ const PlayerInputWithValidation = ({
               {validationMessage}
             </p>
             {playerData && validationStatus === 'valid' && (
-              <p className="text-green-300 text-sm mt-1">
-                Username: <span className="font-medium">{playerData.username}</span>
-              </p>
+              <div className="space-y-1">
+                <p className="text-green-300 text-sm">
+                  Username: <span className="font-medium">{playerData.username}</span>
+                </p>
+                {playerData.bgmiIgnName && (
+                  <p className="text-green-300 text-sm">
+                    IGN Name: <span className="font-medium">{playerData.bgmiIgnName}</span>
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
