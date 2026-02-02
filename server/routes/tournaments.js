@@ -541,7 +541,7 @@ router.post('/validate-player', auth, async (req, res) => {
 
     console.log('🔍 Validating player with query:', query);
 
-    const player = await User.findOne(query).select('_id username bgmiUid gameIds avatarUrl level');
+    const player = await User.findOne(query).select('_id username bgmiUid bgmiIgnName gameIds avatarUrl level');
 
     if (!player) {
       console.log('❌ Player not found');
@@ -565,6 +565,7 @@ router.post('/validate-player', auth, async (req, res) => {
           _id: player._id,
           username: player.username,
           bgmiUid: player.bgmiUid || player.gameIds?.bgmi,
+          bgmiIgnName: player.bgmiIgnName,
           avatarUrl: player.avatarUrl,
           level: player.level
         }

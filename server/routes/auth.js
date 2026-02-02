@@ -682,7 +682,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -732,6 +732,7 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
+    if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
     
     // Update social accounts
     if (socialAccounts !== undefined) {
@@ -776,6 +777,7 @@ router.put('/profile', auth, async (req, res) => {
       totalEarnings: user.totalEarnings,
       tournamentsWon: user.tournamentsWon,
       gameIds: user.gameIds,
+      bgmiIgnName: user.bgmiIgnName,
       steamProfile: user.steamProfile,
       createdAt: user.createdAt
     };
