@@ -146,7 +146,7 @@ const TournamentTeamRegistrationForm = ({ tournament, token, onSuccess, onClose 
                 <>
                   <span className="text-green-400 font-bold">✅</span>
                   <span className="text-gray-300">
-                    Player {index + 1}: <span className="text-green-400 font-medium">{player.username}</span>
+                    Player {index + 1}: <span className="text-green-400 font-medium">{player.ignName || player.username}</span>
                   </span>
                 </>
               ) : (
