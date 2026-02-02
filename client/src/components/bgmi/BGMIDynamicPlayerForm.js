@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
+import { selectUser } from '../../store/slices/authSlice';
 import api from '../../services/api';
 import PlayerField from './PlayerField';
 
@@ -10,6 +12,7 @@ const BGMIDynamicPlayerForm = ({
   onCancel,
   tournament
 }) => {
+  const currentUser = useSelector(selectUser);
   // Initialize players array with existing team members only
   const initializePlayers = () => {
     const players = [];
@@ -144,7 +147,22 @@ const BGMIDynamicPlayerForm = ({
     setFriendsError('');
     try {
       const response = await api.get('/api/users/friends');
-      const friendsList = response.data?.friends || response.friends || [];
+      let friendsList = response.data?.friends || response.friends || [];
+      
+      // Add current user to the beginning of friends list so they can add themselves
+      if (currentUser) {
+        const currentUserInList = {
+          _id: currentUser._id,
+          username: currentUser.username,
+          bgmiUid: currentUser.gameIds?.bgmi || currentUser.bgmiUid || '',
+          bgmiIgnName: currentUser.bgmiIgnName || '',
+          avatarUrl: currentUser.avatarUrl
+        };
+        
+        // Add current user at the beginning if not already in the list
+        friendsList = [currentUserInList, ...friendsList];
+      }
+      
       setFriends(friendsList);
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -152,7 +170,7 @@ const BGMIDynamicPlayerForm = ({
     } finally {
       setLoadingFriends(false);
     }
-  }, []);
+  }, [currentUser]);
 
   // Fetch friends list on component mount
   useEffect(() => {

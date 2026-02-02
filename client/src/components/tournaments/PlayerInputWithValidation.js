@@ -65,18 +65,18 @@ const PlayerInputWithValidation = ({
         
         // Auto-fill IGN name with player's bgmiIgnName from database
         const playerIgnNameFromDb = response.data.data.player.bgmiIgnName;
-        if (playerIgnNameFromDb && !ignName) {
+        if (playerIgnNameFromDb) {
           setIgnName(playerIgnNameFromDb);
         }
         
-        // Use player's bgmiIgnName from database, or user-provided IGN name
+        // Use player's bgmiIgnName from database (priority), then user-provided IGN name, then username
         const finalIgnName = playerIgnNameFromDb || playerIgnName || response.data.data.player.username;
         onPlayerChange(playerIndex, {
           bgmiUid,
           ignName: finalIgnName,
           playerId: response.data.data.player._id,
           username: response.data.data.player.username,
-          bgmiIgnName: response.data.data.player.bgmiIgnName
+          bgmiIgnName: playerIgnNameFromDb
         });
       } else {
         setValidationStatus('invalid');

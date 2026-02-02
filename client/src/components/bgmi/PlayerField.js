@@ -128,7 +128,7 @@ const PlayerField = memo(({
                     className="w-full px-3 py-2 text-left text-white hover:bg-gaming-neon/20 transition-colors text-sm flex items-center justify-between"
                   >
                     <div className="flex-1">
-                      <span>{friend.username}</span>
+                      <span>{friend.bgmiIgnName || friend.username}</span>
                       {friend.bgmiUid && (
                         <p className="text-gaming-neon text-xs">UID: {friend.bgmiUid}</p>
                       )}
