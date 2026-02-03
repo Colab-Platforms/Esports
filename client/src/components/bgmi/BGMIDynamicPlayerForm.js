@@ -23,6 +23,7 @@ const BGMIDynamicPlayerForm = ({
         players.push({
           name: member.username || member.name || '',
           bgmiId: member.gameId || member.bgmiId || '',
+          playerId: member._id || null,
           isAdded: false // Mark as original member
         });
       });
@@ -33,6 +34,7 @@ const BGMIDynamicPlayerForm = ({
       players.push({
         name: '',
         bgmiId: '',
+        playerId: null,
         isAdded: false
       });
     }
@@ -188,6 +190,7 @@ const BGMIDynamicPlayerForm = ({
         {
           name: '',
           bgmiId: '',
+          playerId: null,
           isAdded: true
         }
       ]);
@@ -223,6 +226,18 @@ const BGMIDynamicPlayerForm = ({
       updated[playerIndex] = {
         ...updated[playerIndex],
         bgmiId: value
+      };
+      return updated;
+    });
+  }, []);
+
+  // Handle player ID change (when friend is selected from dropdown)
+  const handlePlayerIdChange = useCallback((playerIndex, playerId) => {
+    setPlayers(prev => {
+      const updated = [...prev];
+      updated[playerIndex] = {
+        ...updated[playerIndex],
+        playerId: playerId
       };
       return updated;
     });
@@ -274,7 +289,8 @@ const BGMIDynamicPlayerForm = ({
           },
           body: JSON.stringify({
             bgmiUid: player.bgmiId,
-            ignName: player.name
+            ignName: player.name,
+            playerId: player.playerId
           })
         })
         .then(res => {
@@ -365,6 +381,7 @@ const BGMIDynamicPlayerForm = ({
                   isRemovable={index >= teamSize}
                   onNameChange={handleNameChange}
                   onUidChange={handleUidChange}
+                  onPlayerIdChange={handlePlayerIdChange}
                   onRemove={handleRemovePlayer}
                   errors={errors}
                   isOriginalMember={index < teamSize}

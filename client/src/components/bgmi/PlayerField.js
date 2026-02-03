@@ -8,6 +8,7 @@ const PlayerField = memo(({
   onNameChange,
   onUidChange,
   onRemove,
+  onPlayerIdChange,
   errors,
   isOriginalMember,
   friends,
@@ -42,10 +43,14 @@ const PlayerField = memo(({
     console.log('🎮 Friend selected:', {
       username: friend.username,
       bgmiUid: friend.bgmiUid,
+      playerId: friend._id,
       playerNumber: playerNumber
     });
     onNameChange(playerNumber - 1, friend.username);
     onUidChange(playerNumber - 1, friend.bgmiUid || '');
+    if (onPlayerIdChange) {
+      onPlayerIdChange(playerNumber - 1, friend._id);
+    }
     setShowDropdown(false);
   };
 

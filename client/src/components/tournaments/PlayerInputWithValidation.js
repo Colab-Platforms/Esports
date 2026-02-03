@@ -50,7 +50,7 @@ const PlayerInputWithValidation = ({
       
       const response = await axios.post(
         `${API_URL}/api/tournaments/validate-player`,
-        { bgmiUid, ignName: playerIgnName },
+        { bgmiUid, ignName: playerIgnName, playerId: null },
         {
           headers: {
             Authorization: `Bearer ${token}`

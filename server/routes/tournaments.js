@@ -510,7 +510,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private
 router.post('/validate-player', auth, async (req, res) => {
   try {
-    const { bgmiUid, ignName } = req.body;
+    const { bgmiUid, ignName, playerId } = req.body;
 
     if (!bgmiUid && !ignName) {
       return res.status(400).json({
@@ -523,7 +523,76 @@ router.post('/validate-player', auth, async (req, res) => {
       });
     }
 
-    // Search for player in User collection
+    // If playerId is provided (player selected from dropdown), validate against that specific player
+    if (playerId) {
+      const selectedPlayer = await User.findById(playerId);
+      
+      if (!selectedPlayer) {
+        return res.json({
+          success: true,
+          data: {
+            isRegistered: false,
+            message: 'Player not found on platform'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Check if player is active
+      if (!selectedPlayer.isActive) {
+        return res.json({
+          success: true,
+          data: {
+            isRegistered: false,
+            message: 'Player is not active on platform'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Check if player has BGMI ID set
+      if (!selectedPlayer.gameIds?.bgmi) {
+        return res.json({
+          success: true,
+          data: {
+            isRegistered: false,
+            message: 'Player does not have BGMI ID registered'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Verify the provided BGMI UID matches the player's registered BGMI ID
+      if (bgmiUid && bgmiUid !== selectedPlayer.gameIds.bgmi) {
+        return res.json({
+          success: true,
+          data: {
+            isRegistered: false,
+            message: 'BGMI UID does not match player\'s registered ID'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // All checks passed
+      return res.json({
+        success: true,
+        data: {
+          isRegistered: true,
+          player: {
+            _id: selectedPlayer._id,
+            username: selectedPlayer.username,
+            bgmiUid: selectedPlayer.gameIds.bgmi,
+            bgmiIgnName: selectedPlayer.bgmiIgnName,
+            avatarUrl: selectedPlayer.avatarUrl,
+            level: selectedPlayer.level
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // If no playerId, search for player by BGMI UID or IGN name
     const query = { isActive: true };
     const orConditions = [];
 
@@ -532,7 +601,7 @@ router.post('/validate-player', auth, async (req, res) => {
       orConditions.push({ bgmiUid: bgmiUid });
     }
     if (ignName) {
-      orConditions.push({ username: { $regex: `^${ignName}$`, $options: 'i' } });
+      orConditions.push({ username: { $regex: `^${ignName}`, $options: 'i' } });
     }
 
     if (orConditions.length > 0) {
