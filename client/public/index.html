@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="utf-8" />
-  <link rel="icon" href="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140" />
+  <link rel="icon"
+    href="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="Colab Esports - Gaming Platform" />
@@ -11,14 +12,17 @@
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
   <!-- LCP Optimization: Preload critical images with high priority -->
-  <link rel="preload" as="image" href="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Post.jpg?v=1767875878" fetchpriority="high" />
-  <link rel="preload" as="image" href="https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp" fetchpriority="high" />
-  
+  <link rel="preload" as="image" href="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Post.jpg?v=1767875878"
+    fetchpriority="high" />
+  <link rel="preload" as="image"
+    href="https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp"
+    fetchpriority="high" />
+
   <!-- DNS prefetch for faster API connections -->
   <link rel="dns-prefetch" href="https://api.colabesports.in" />
   <link rel="dns-prefetch" href="https://res.cloudinary.com" />
   <link rel="dns-prefetch" href="https://cdn.shopify.com" />
-  
+
   <!-- Preconnect to critical third-party origins -->
   <link rel="preconnect" href="https://res.cloudinary.com" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,14 +33,24 @@
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
-  
+
   <!-- Defer non-critical 3rd party analytics script to after page load -->
   <script defer>
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+      t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
+      y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
     })(window, document, "clarity", "script", "u9f5vz7vq6");
+  </script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8NFCYV3N2B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-8NFCYV3N2B');
   </script>
 </body>
 
