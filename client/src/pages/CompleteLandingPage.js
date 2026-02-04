@@ -184,11 +184,11 @@ const CompleteLandingPage = () => {
 
   // Upcoming games data
   const upcomingGames = [
-    { name: 'Valorant', gameType: 'valorant', status: 'Coming Q1 2025', color: 'from-red-500 to-pink-500' },
-    { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
-    { name: 'Free Fire', gameType: 'freefire', status: 'Coming Q2 2025', color: 'from-yellow-500 to-orange-500' },
-    { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
-    { name: 'FC 24', gameType: 'fc24', status: 'Coming Q3 2025', color: 'from-green-500 to-blue-500' }
+    { name: 'Valorant', gameType: 'valorant', status: 'Coming 2025', color: 'from-red-500 to-pink-500' },
+    // { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
+    { name: 'Free Fire', gameType: 'freefire', status: 'Coming 2025', color: 'from-yellow-500 to-orange-500' },
+    // { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
+    { name: 'Counter Strike 2', gameType: 'cs2', status: 'Coming 2026', color: 'from-green-500 to-blue-500' }
   ];
 
   // Initial data fetch on component mount - with cache checking
@@ -1372,49 +1372,33 @@ const CompleteLandingPage = () => {
         </div>
       </section>
 
-      {/* CS2 Servers - Only 2 Mumbai Servers */}
-      <section className="py-20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-blue-900/10 to-gaming-dark"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <motion.div
-                className="text-5xl"
-              >
-                <GameIcon gameType="cs2" size="2xl" />
-              </motion.div>
-              <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
-                CS2 Tournament Servers
-              </h2>
-            </div>
-            <p className="text-gray-400 text-lg font-gaming">Active Tournaments • Real Prizes • Join Now</p>
-            
-            {/* Temporary Debug Button - Remove after testing */}
-            <div className="mt-4">
-              <button
-                onClick={async () => {
-                  console.log('🔄 Clearing CS2 server cache and refreshing...');
-                  clearCache(); // Clear all cache
-                  setServers([]); // Clear current servers
-                  await fetchServers(); // Fetch fresh data
-                  console.log('✅ CS2 servers refreshed');
-                }}
-                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-              >
-                🔄 Refresh CS2 Servers
-              </button>
-            </div>
-          </motion.div>
+      {/* CS2 Servers - Only show if servers exist */}
+      {servers.length > 0 && (
+        <section className="py-20 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-blue-900/10 to-gaming-dark"></div>
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mb-12"
+            >
+              <div className="flex items-center justify-center space-x-3 mb-4">
+                <motion.div
+                  className="text-5xl"
+                >
+                  <GameIcon gameType="cs2" size="2xl" />
+                </motion.div>
+                <h2 className="text-4xl md:text-5xl font-gaming font-bold text-white">
+                  CS2 Servers
+                </h2>
+              </div>
+              <p className="text-gray-400 text-lg font-gaming">Active Servers • Join Now</p>
+            </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {servers.length > 0 ? (
-              servers.map((server, idx) => (
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {servers.map((server, idx) => (
                 <motion.div
                   key={server.id}
                   initial={{ opacity: 0, y: 30 }}
@@ -1469,54 +1453,35 @@ const CompleteLandingPage = () => {
                       to={`/tournaments/${server.id}`}
                       className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
                     >
-                      Join Tournament
+                      Join Server
                     </Link>
                   </div>
                 </motion.div>
-              ))
-            ) : (
-              <div className="col-span-2 text-center py-12">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  className="text-6xl mb-6"
-                >
-                  <GameIcon gameType="cs2" size="2xl" />
-                </motion.div>
-                <h3 className="text-2xl font-bold text-white mb-4">No Active CS2 Tournaments</h3>
-                <p className="text-gray-400 mb-6">Check back soon for new tournaments!</p>
-                <Link
-                  to="/tournaments"
-                  className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold hover:from-blue-500/30 hover:to-cyan-500/30 transition-all"
-                >
-                  View All Tournaments
-                </Link>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <Link
-              to="/cs2"
-              className="inline-flex items-center text-gaming-gold hover:text-gaming-accent font-bold text-lg group"
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="text-center mt-12"
             >
-              View All CS2 Features
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+              <Link
+                to="/cs2"
+                className="inline-flex items-center text-gaming-gold hover:text-gaming-accent font-bold text-lg group"
               >
-                <FiArrowRight className="ml-2" />
-              </motion.div>
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+                View All CS2 Features
+                <motion.div
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <FiArrowRight className="ml-2" />
+                </motion.div>
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
 
 

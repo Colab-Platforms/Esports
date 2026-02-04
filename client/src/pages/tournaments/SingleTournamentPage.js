@@ -1106,10 +1106,27 @@ const SingleTournamentPage = () => {
                           handleJoinTournament();
                         }
                       }}
-                      disabled={tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())}
-                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${(tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      disabled={
+                        tournament?.gameType === 'cs2' 
+                          ? tournament?.status !== 'active'
+                          : tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())
+                      }
+                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${
+                        (tournament?.gameType === 'cs2' 
+                          ? tournament?.status !== 'active'
+                          : tournament?.status !== 'registration_open' || (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date())
+                        ) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
                     >
-                      {!isAuthenticated ? ('LOGIN TO JOIN') : (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date()) ? ('REGISTRATION CLOSED') : tournament?.status !== 'registration_open' ? ('REGISTRATION CLOSED') : tournament?.gameType === 'cs2' ? ('JOIN SERVER') : ('REGISTER NOW')}
+                      {!isAuthenticated ? ('LOGIN TO JOIN') : 
+                       tournament?.gameType === 'cs2' ? (
+                         tournament?.status === 'active' ? ('JOIN SERVER') : ('SERVER INACTIVE')
+                       ) : (
+                         (tournament?.registrationDeadline && new Date(tournament.registrationDeadline) < new Date()) ? ('REGISTRATION CLOSED') : 
+                         tournament?.status !== 'registration_open' ? ('REGISTRATION CLOSED') : 
+                         ('REGISTER NOW')
+                       )
+                      }
                     </button>
                   )}
                 </div>

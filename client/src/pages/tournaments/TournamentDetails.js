@@ -151,6 +151,15 @@ const TournamentDetails = ({
 
   const canRegister = () => {
     if (!tournament) return false;
+    
+    // For CS2 tournaments, check if status is 'active'
+    if (tournament.gameType === 'cs2') {
+      return tournament.status === 'active' && 
+             tournament.currentParticipants < tournament.maxParticipants &&
+             !isUserRegistered;
+    }
+    
+    // For other games, check if status is 'registration_open'
     return tournament.status === 'registration_open' && 
            tournament.currentParticipants < tournament.maxParticipants &&
            !isUserRegistered;
