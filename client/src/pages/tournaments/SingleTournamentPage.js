@@ -199,21 +199,22 @@ const SingleTournamentPage = () => {
 
           console.log('👤 User registration status:', data.data.isUserRegistered);
 
-          // Fetch server stats and players for CS2 tournaments
+          // Fetch server stats and players for CS2 tournaments (non-blocking)
           if (enhancedTournament.gameType === 'cs2' && enhancedTournament.roomDetails?.cs2) {
-            try {
-              const [stats, players] = await Promise.all([
-                getServerStats(enhancedTournament),
-                getServerPlayers(enhancedTournament),
-                getPlayerStats(enhancedTournament)
-              ]);
+            // Don't await these - let them load in background
+            Promise.all([
+              getServerStats(enhancedTournament),
+              getServerPlayers(enhancedTournament),
+              getPlayerStats(enhancedTournament)
+            ]).then(([stats, players, playerStats]) => {
               setServerStats(stats);
               setServerPlayers(players);
               console.log('📊 Server stats loaded:', stats);
               console.log('👥 Server players loaded:', players);
-            } catch (error) {
+              console.log('📈 Player stats loaded:', playerStats);
+            }).catch(error => {
               console.error('Failed to fetch server data:', error);
-            }
+            });
           }
           console.log('🎮 Room details available:', !!data.data.roomDetails);
 
