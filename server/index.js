@@ -8,6 +8,7 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const iltorb = require('iltorb');
 const compression = require('compression');
 
 // Disable all console output globally
@@ -142,12 +143,20 @@ app.use('/api/auth/steam', oauthLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Compression middleware - compress all responses
+const brotliOptions = {
+  chunkSize: 16 * 1024,
+  params: {
+    [iltorb.params.QUALITY]: 4,
+    [iltorb.params.MODE]: 0,
+    [iltorb.params.LGWIN]: 22,
+  }
+};
+
 app.use(compression({
-  level: 6, // Balance between compression ratio and speed
-  threshold: 1024, // Only compress responses larger than 1KB
+  level: 6,
+  threshold: 1024,
+  brotli: brotliOptions,
   filter: (req, res) => {
-    // Don't compress image uploads or binary files
     if (req.path.includes('/uploads/')) {
       return false;
     }
