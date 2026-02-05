@@ -230,6 +230,19 @@ router.post('/:matchId/verify/:teamId', auth, async (req, res) => {
     // Update leaderboard
     await updateLeaderboard(match.tournamentId, teamResult, match.matchNumber);
     
+    // Clear cache and recalculate ranks asynchronously (non-blocking)
+    try {
+      const redisService = require('../services/redisService');
+      await redisService.del(`bgmi-leaderboard:${match.tournamentId}`);
+    } catch (err) {
+      console.warn('Failed to clear cache');
+    }
+    
+    // Run rank recalculation in background
+    recalculateRanks(match.tournamentId).catch(err => 
+      console.error('Background rank recalculation failed:', err)
+    );
+    
     res.json({
       success: true,
       message: 'Result verified and leaderboard updated'
@@ -246,20 +259,52 @@ router.post('/:matchId/verify/:teamId', auth, async (req, res) => {
 // Get leaderboard
 router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
   try {
+    const cacheKey = `bgmi-leaderboard:${req.params.tournamentId}`;
+    
+    // Try Redis cache first
+    try {
+      const redisService = require('../services/redisService');
+      const cached = await redisService.get(cacheKey);
+      if (cached) {
+        return res.json({
+          success: true,
+          data: { leaderboard: JSON.parse(cached) },
+          cached: true
+        });
+      }
+    } catch (err) {
+      console.warn('Redis unavailable, querying database');
+    }
+    
+    // Query with lean() for performance
     const leaderboard = await BGMILeaderboard.find({
       tournamentId: req.params.tournamentId
-    }).sort({ totalPoints: -1 });
+    })
+      .sort({ totalPoints: -1 })
+      .lean()
+      .exec();
     
-    // Calculate ranks
-    leaderboard.forEach((entry, index) => {
-      entry.currentRank = index + 1;
-    });
+    // Add ranks
+    const ranked = leaderboard.map((entry, index) => ({
+      ...entry,
+      currentRank: index + 1
+    }));
+    
+    // Cache for 5 minutes
+    try {
+      const redisService = require('../services/redisService');
+      await redisService.setex(cacheKey, 300, JSON.stringify(ranked));
+    } catch (err) {
+      console.warn('Failed to cache leaderboard');
+    }
     
     res.json({
       success: true,
-      data: { leaderboard }
+      data: { leaderboard: ranked },
+      cached: false
     });
   } catch (error) {
+    console.error('Error fetching leaderboard:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching leaderboard'
@@ -319,15 +364,26 @@ async function updateLeaderboard(tournamentId, teamResult, matchNumber) {
   }
 }
 
-// Recalculate ranks for all teams
+// Recalculate ranks for all teams - using bulk operations
 async function recalculateRanks(tournamentId) {
   const entries = await BGMILeaderboard.find({ tournamentId })
-    .sort({ totalPoints: -1 });
+    .sort({ totalPoints: -1 })
+    .lean();
   
-  for (let i = 0; i < entries.length; i++) {
-    entries[i].previousRank = entries[i].currentRank;
-    entries[i].currentRank = i + 1;
-    await entries[i].save();
+  const bulkOps = entries.map((entry, index) => ({
+    updateOne: {
+      filter: { _id: entry._id },
+      update: {
+        $set: {
+          previousRank: entry.currentRank || 0,
+          currentRank: index + 1
+        }
+      }
+    }
+  }));
+  
+  if (bulkOps.length > 0) {
+    await BGMILeaderboard.bulkWrite(bulkOps);
   }
 }
 
