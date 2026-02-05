@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
 
 // Console configuration - must be imported first
 import './config/console';
@@ -61,8 +62,6 @@ import ResultSubmission from './components/matches/ResultSubmission';
 // Services
 import { initializeSocket, disconnectSocket } from './utils/socket';
 import notificationService from './services/notificationService';
-import { Analytics } from "@vercel/analytics/react"
-
 // Game Router Component
 const GameRouter = () => {
   const { gameType } = useParams();
@@ -243,7 +242,7 @@ function App() {
   return (
     <ThemeProvider>
       <Analytics/>
-      <div className="min-h-screen bg-theme-bg-primary text-theme-text-primary flex flex-col transition-colors duration-300">
+      <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
       
