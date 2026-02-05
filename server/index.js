@@ -8,7 +8,7 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const iltorb = require('iltorb');
+const iltorb = require('brotli');
 const compression = require('compression');
 
 // Disable all console output globally
