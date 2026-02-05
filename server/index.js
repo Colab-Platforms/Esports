@@ -8,8 +8,8 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const iltorb = require('brotli');
-const compression = require('compression');
+// const iltorb = require('brotli');
+// const compression = require('compression');
 
 // Disable all console output globally
 require('./config/console');
@@ -143,26 +143,26 @@ app.use('/api/auth/steam', oauthLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-const brotliOptions = {
-  chunkSize: 16 * 1024,
-  params: {
-    [iltorb.params.QUALITY]: 4,
-    [iltorb.params.MODE]: 0,
-    [iltorb.params.LGWIN]: 22,
-  }
-};
+// const brotliOptions = {
+//   chunkSize: 16 * 1024,
+//   params: {
+//     [iltorb.params.QUALITY]: 4,
+//     [iltorb.params.MODE]: 0,
+//     [iltorb.params.LGWIN]: 22,
+//   }
+// };
 
-app.use(compression({
-  level: 6,
-  threshold: 1024,
-  brotli: brotliOptions,
-  filter: (req, res) => {
-    if (req.path.includes('/uploads/')) {
-      return false;
-    }
-    return true;
-  }
-}));
+// app.use(compression({
+//   level: 6,
+//   threshold: 1024,
+//   brotli: brotliOptions,
+//   filter: (req, res) => {
+//     if (req.path.includes('/uploads/')) {
+//       return false;
+//     }
+//     return true;
+//   }
+// }));
 
 // Response sanitization middleware (hide sensitive data in production)
 // DISABLED FOR NOW - causing performance issues
