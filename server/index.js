@@ -8,6 +8,7 @@ const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const compression = require('compression');
 
 // Disable all console output globally
 require('./config/console');
@@ -140,6 +141,21 @@ app.use('/api/auth/steam', oauthLimiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Compression middleware with Brotli support
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  brotli: {
+    lgwin: 22
+  },
+  filter: (req, res) => {
+    if (req.path.includes('/uploads/')) {
+      return false;
+    }
+    return true;
+  }
+}));
 
 // Response sanitization middleware (hide sensitive data in production)
 // DISABLED FOR NOW - causing performance issues
