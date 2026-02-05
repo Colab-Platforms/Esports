@@ -61,6 +61,7 @@ import ResultSubmission from './components/matches/ResultSubmission';
 // Services
 import { initializeSocket, disconnectSocket } from './utils/socket';
 import notificationService from './services/notificationService';
+import { Analytics } from "@vercel/analytics/react"
 
 // Game Router Component
 const GameRouter = () => {
@@ -241,6 +242,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <Analytics/>
       <div className="min-h-screen bg-theme-bg-primary text-theme-text-primary flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
