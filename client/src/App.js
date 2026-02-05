@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Analytics } from '@vercel/analytics/react';
 
 // Console configuration - must be imported first
 import './config/console';
@@ -241,7 +240,6 @@ function App() {
 
   return (
     <ThemeProvider>
-      <Analytics/>
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
