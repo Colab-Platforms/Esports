@@ -233,7 +233,7 @@ router.post('/:matchId/verify/:teamId', auth, async (req, res) => {
     // Clear cache and recalculate ranks asynchronously (non-blocking)
     try {
       const redisService = require('../services/redisService');
-      await redisService.del(`bgmi-leaderboard:${match.tournamentId}`);
+      await redisService.delete(`bgmi-leaderboard:${match.tournamentId}`);
     } catch (err) {
       console.warn('Failed to clear cache');
     }
@@ -268,7 +268,7 @@ router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
       if (cached) {
         return res.json({
           success: true,
-          data: { leaderboard: JSON.parse(cached) },
+          data: { leaderboard: cached },
           cached: true
         });
       }
@@ -293,7 +293,7 @@ router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
     // Cache for 5 minutes
     try {
       const redisService = require('../services/redisService');
-      await redisService.setex(cacheKey, 300, JSON.stringify(ranked));
+      await redisService.set(cacheKey, ranked, 300);
     } catch (err) {
       console.warn('Failed to cache leaderboard');
     }
@@ -354,9 +354,6 @@ async function updateLeaderboard(tournamentId, teamResult, matchNumber) {
     leaderboardEntry.lastUpdated = new Date();
     
     await leaderboardEntry.save();
-    
-    // Recalculate all ranks
-    await recalculateRanks(tournamentId);
     
   } catch (error) {
     console.error('Error updating leaderboard:', error);
