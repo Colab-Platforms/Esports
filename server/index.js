@@ -446,6 +446,15 @@ app.get('/api/test/matches', async (req, res) => {
 // Import tournament scheduler
 const tournamentScheduler = require('./utils/tournamentScheduler');
 
+app.get('/', (req, res) => {
+    res.json({ 
+        message: "🎮 Welcome to Colab Esports API",
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        status: "online"
+    });
+})
+
 // Start server
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
