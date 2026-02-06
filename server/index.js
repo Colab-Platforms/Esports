@@ -188,6 +188,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esports', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  maxIdleTimeMS: 45000,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
 })
   .then(async () => {
     console.log('✅ MongoDB connected successfully');

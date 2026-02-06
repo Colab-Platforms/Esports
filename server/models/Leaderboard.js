@@ -327,10 +327,25 @@ leaderboardSchema.statics.getLeaderboard = async function(options = {}) {
     period
   } = options;
   
+  // Generate cache key
+  const cacheKey = `leaderboard:${gameType}:${leaderboardType}:${tournamentId || 'all'}:${skip}:${limit}`;
+  
+  // Try to get from Redis cache first
+  try {
+    const redisService = require('../services/redisService');
+    const cached = await redisService.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (err) {
+    console.warn('Redis cache miss, querying database');
+  }
+  
   const query = {
     gameType,
     leaderboardType,
-    isActive: true
+    isActive: true,
+    userId: { $ne: null, $exists: true }
   };
   
   if (tournamentId) {
@@ -343,21 +358,25 @@ leaderboardSchema.statics.getLeaderboard = async function(options = {}) {
     if (period.week) query['period.week'] = period.week;
   }
   
-  // Add userId exists check to filter out deleted users
-  query.userId = { $ne: null, $exists: true };
-  
+  // Use lean() for read-only queries - much faster
   const results = await this.find(query)
     .populate('userId', 'username avatarUrl gameIds')
     .populate('tournamentId', 'name')
     .sort({ points: -1, 'stats.totalScore': -1 })
-    .limit(limit * 2) // Fetch extra to account for null users after populate
-    .skip(skip);
+    .limit(limit)
+    .skip(skip)
+    .lean()
+    .exec();
   
-  // Filter out entries where userId is null after populate (deleted users)
-  const filtered = results.filter(entry => entry.userId != null);
+  // Cache for 5 minutes
+  try {
+    const redisService = require('../services/redisService');
+    await redisService.setex(cacheKey, 300, JSON.stringify(results));
+  } catch (err) {
+    console.warn('Failed to cache leaderboard');
+  }
   
-  // Return only the requested limit
-  return filtered.slice(0, limit);
+  return results;
 };
 
 // Static method to update rankings
@@ -373,11 +392,10 @@ leaderboardSchema.statics.updateRankings = async function(gameType, leaderboardT
   }
   
   const leaderboards = await this.find(query)
-    .sort({ points: -1, 'stats.totalScore': -1 });
+    .sort({ points: -1, 'stats.totalScore': -1 })
+    .lean();
   
-  const bulkOps = [];
-  
-  leaderboards.forEach((entry, index) => {
+  const bulkOps = leaderboards.map((entry, index) => {
     const newRank = index + 1;
     const previousRank = entry.rank || 0;
     
@@ -390,7 +408,7 @@ leaderboardSchema.statics.updateRankings = async function(gameType, leaderboardT
       rankChange = 'down';
     }
     
-    bulkOps.push({
+    return {
       updateOne: {
         filter: { _id: entry._id },
         update: {
@@ -402,7 +420,7 @@ leaderboardSchema.statics.updateRankings = async function(gameType, leaderboardT
           }
         }
       }
-    });
+    };
   });
   
   if (bulkOps.length > 0) {
