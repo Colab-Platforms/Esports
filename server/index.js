@@ -31,13 +31,15 @@ const io = new Server(server, {
         'https://esports-eciq.vercel.app',
         'https://www.colabesports.in',
         'https://colabesports.in',
+        'https://colab-esports-server.onrender.com',
         process.env.CLIENT_URL
       ];
       
-      // Allow all Vercel domains, localhost, and production domains
+      // Allow all Vercel domains, localhost, Render, and production domains
       if (allowedOrigins.includes(origin) || 
           origin.match(/^http:\/\/[\d.]+:3000$/) ||
           origin.match(/^https:\/\/.*\.vercel\.app$/) ||
+          origin.match(/^https:\/\/.*\.onrender\.com$/) ||
           origin.match(/^https:\/\/.*\.colabesports\.in$/)) {
         callback(null, true);
       } else {
@@ -67,13 +69,14 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Allow localhost, any IP address on port 3000, Vercel domains, and production domain
+    // Allow localhost, any IP address on port 3000, Vercel domains, Render, and production domain
     const allowedOrigins = [
       'http://localhost:3000',
       'https://esports-62sh.vercel.app',
       'https://esports-eciq.vercel.app',
       'https://www.colabesports.in',
       'https://colabesports.in',
+      'https://colab-esports-server.onrender.com',
       process.env.CLIENT_URL
     ];
     
@@ -81,6 +84,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || 
         origin.match(/^http:\/\/[\d.]+:3000$/) ||
         origin.match(/^https:\/\/.*\.vercel\.app$/) ||
+        origin.match(/^https:\/\/.*\.onrender\.com$/) ||
         origin.match(/^https:\/\/.*\.colabesports\.in$/)) {
       callback(null, true);
     } else {

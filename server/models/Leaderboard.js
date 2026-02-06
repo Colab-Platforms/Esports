@@ -371,7 +371,7 @@ leaderboardSchema.statics.getLeaderboard = async function(options = {}) {
   // Cache for 5 minutes
   try {
     const redisService = require('../services/redisService');
-    await redisService.setex(cacheKey, 300, JSON.stringify(results));
+    await redisService.set(cacheKey, results, 300);
   } catch (err) {
     console.warn('Failed to cache leaderboard');
   }
