@@ -14,57 +14,135 @@ const GamesPage = () => {
     const [siteImages, setSiteImages] = useState({});
     const [selectedGameFilter, setSelectedGameFilter] = useState('all');
 
+    // Cache utility functions
+    const getCachedGames = () => {
+        try {
+            const cached = localStorage.getItem('games_cache');
+            if (!cached) return null;
+            
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
+            const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+            
+            if (cacheAge > CACHE_TTL) {
+                localStorage.removeItem('games_cache');
+                return null;
+            }
+            
+            console.log('📦 Using cached games data');
+            return data;
+        } catch (err) {
+            console.error('Cache read error:', err);
+            return null;
+        }
+    };
+
+    const setCachedGames = (data) => {
+        try {
+            localStorage.setItem('games_cache', JSON.stringify({
+                data,
+                timestamp: Date.now()
+            }));
+            console.log('💾 Games data cached');
+        } catch (err) {
+            console.error('Cache write error:', err);
+        }
+    };
+
+    const getCachedImages = () => {
+        try {
+            const cached = localStorage.getItem('site_images_cache');
+            if (!cached) return null;
+            
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
+            const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+            
+            if (cacheAge > CACHE_TTL) {
+                localStorage.removeItem('site_images_cache');
+                return null;
+            }
+            
+            console.log('📦 Using cached site images');
+            return data;
+        } catch (err) {
+            console.error('Cache read error:', err);
+            return null;
+        }
+    };
+
+    const setCachedImages = (data) => {
+        try {
+            localStorage.setItem('site_images_cache', JSON.stringify({
+                data,
+                timestamp: Date.now()
+            }));
+            console.log('💾 Site images cached');
+        } catch (err) {
+            console.error('Cache write error:', err);
+        }
+    };
+
     // Fetch games from database
     useEffect(() => {
         const fetchGames = async () => {
             try {
-                // Fetch games first
-                const gamesResponse = await api.getGames();
-                const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
+                // Check cache first
+                const cachedGames = getCachedGames();
+                const cachedImages = getCachedImages();
                 
-                // If data came from cache, don't show loading
-                if (gamesResponse?.cached) {
-                    setGames(gamesArray);
+                if (cachedGames && cachedImages) {
+                    // Use cached data immediately
+                    setGames(cachedGames);
+                    setSiteImages(cachedImages);
                     setLoading(false);
-                    setError(null);
                     return;
                 }
                 
-                // If not cached, show loading
                 setLoading(true);
+                
+                // Fetch games and site images in parallel (no artificial delays)
+                const [gamesResponse, imagesResult] = await Promise.all([
+                    api.getGames(),
+                    imageService.getAllImages()
+                ]);
+                
+                const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
                 setGames(gamesArray);
                 
-                // Add delay before fetching featured games to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Set site images if fetch was successful
+                if (imagesResult.success) {
+                    setSiteImages(imagesResult.data);
+                    setCachedImages(imagesResult.data);
+                }
                 
-                const featuredData = await api.getFeaturedGames();
-                const featuredArray = featuredData?.data?.games || featuredData || [];
+                // Cache games data
+                setCachedGames(gamesArray);
                 
                 setError(null);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching games:', err);
+                
+                // Try to use stale cache on error
+                const cachedGames = getCachedGames();
+                const cachedImages = getCachedImages();
+                
+                if (cachedGames && cachedImages) {
+                    console.log('⚠️ Using stale cache due to error');
+                    setGames(cachedGames);
+                    setSiteImages(cachedImages);
+                    setLoading(false);
+                    return;
+                }
+                
                 setError('Failed to load games. Please try again later.');
                 setLoading(false);
             }
         };
 
         fetchGames();
-        
-        // Add delay before fetching site images to avoid rate limiting
-        const timer = setTimeout(() => {
-            fetchSiteImages();
-        }, 1000);
-        
-        return () => clearTimeout(timer);
     }, []);
-
-    const fetchSiteImages = async () => {
-        const result = await imageService.getAllImages();
-        if (result.success) {
-            setSiteImages(result.data);
-        }
-    };
 
     // Create banners from ImageManagement (games-slide-1, games-slide-2, games-slide-3)
     const banners = [

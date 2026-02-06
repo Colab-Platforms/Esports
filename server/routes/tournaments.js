@@ -322,8 +322,10 @@ router.get('/:id/eligible-teams', auth, async (req, res) => {
       game: 'bgmi',
       isActive: true
     })
-      .populate('captain', 'username avatarUrl gameIds')
-      .populate('members.userId', 'username avatarUrl gameIds isActive');
+      .populate([
+        { path: 'captain', select: 'username avatarUrl gameIds' },
+        { path: 'members.userId', select: 'username avatarUrl gameIds isActive' }
+      ]);
 
     // Filter and validate teams
     const eligibleTeams = [];
@@ -465,9 +467,11 @@ router.get('/:id', async (req, res) => {
       }
     }
     
-    // Now populate for response
-    await tournament.populate('createdBy', 'username avatarUrl level');
-    await tournament.populate('participants.userId', 'username avatarUrl level currentRank');
+    // Now populate for response - use parallel execution instead of sequential
+    await Promise.all([
+      tournament.populate('createdBy', 'username avatarUrl level'),
+      tournament.populate('participants.userId', 'username avatarUrl level currentRank')
+    ]);
 
     // Convert to plain object for proper JSON serialization
     const plainTournament = tournament.toObject();
@@ -829,9 +833,11 @@ router.post('/:id/join-with-players', auth, [
     await tournament.save();
     console.log('✅ User added to tournament participants');
 
-    // Populate registration for response
-    await registration.populate('userId', 'username avatarUrl');
-    await registration.populate('teamPlayers', 'username avatarUrl gameIds');
+    // Populate registration for response - use parallel execution
+    await Promise.all([
+      registration.populate('userId', 'username avatarUrl'),
+      registration.populate('teamPlayers', 'username avatarUrl gameIds')
+    ]);
 
     console.log('✅ Tournament registration successful!');
 
@@ -1924,8 +1930,11 @@ router.get('/:id/participants', async (req, res) => {
     // Ensure id is a string
     const tournamentId = req.params.id?.toString ? req.params.id.toString() : String(req.params.id);
     
+    // Use lean() for better performance since we're only reading data
     const tournament = await Tournament.findById(tournamentId)
-      .populate('participants.userId', 'username avatarUrl level currentRank totalEarnings');
+      .select('participants currentParticipants maxParticipants')
+      .populate('participants.userId', 'username avatarUrl level currentRank totalEarnings')
+      .lean();
 
     if (!tournament) {
       return res.status(404).json({

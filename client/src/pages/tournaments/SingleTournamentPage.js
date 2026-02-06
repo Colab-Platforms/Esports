@@ -318,10 +318,8 @@ const SingleTournamentPage = () => {
   // Fetch registered teams when tournament data is loaded
   useEffect(() => {
     if (tournament && tournament._id) {
-      const timer = setTimeout(() => {
-        fetchRegisteredTeams();
-      }, 800);
-      return () => clearTimeout(timer);
+      // Fetch immediately without artificial delay
+      fetchRegisteredTeams();
     }
   }, [tournament?._id, tournament?.gameType, fetchRegisteredTeams]);
 

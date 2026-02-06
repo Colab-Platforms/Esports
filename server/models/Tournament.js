@@ -391,6 +391,10 @@ tournamentSchema.index({ prizePool: -1 });
 tournamentSchema.index({ featured: -1, createdAt: -1 });
 tournamentSchema.index({ 'participants.userId': 1 });
 tournamentSchema.index({ createdBy: 1 });
+// Additional indexes for performance optimization
+tournamentSchema.index({ registrationDeadline: 1 });
+tournamentSchema.index({ status: 1, startDate: 1 });
+tournamentSchema.index({ gameType: 1, status: 1, startDate: -1 });
 
 // Pre-save middleware to update tournament status
 tournamentSchema.pre('save', function(next) {

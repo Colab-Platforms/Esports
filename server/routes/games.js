@@ -154,6 +154,11 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Game not found' });
     }
     
+    // Invalidate cache when game is updated
+    await redisService.delete('games:all:active');
+    await redisService.delete('games:featured');
+    console.log('✅ Game cache invalidated');
+    
     console.log('✅ Game updated:', game);
     res.json({
       success: true,
@@ -177,6 +182,12 @@ router.delete('/:id', async (req, res) => {
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
     }
+    
+    // Invalidate cache when game is deleted
+    await redisService.delete('games:all:active');
+    await redisService.delete('games:featured');
+    console.log('✅ Game cache invalidated');
+    
     res.json({ 
       success: true,
       message: 'Game deleted successfully', 
@@ -210,6 +221,11 @@ router.patch('/:id/stats', async (req, res) => {
     if (!game) {
       return res.status(404).json({ message: 'Game not found' });
     }
+    
+    // Invalidate cache when game stats are updated
+    await redisService.delete('games:all:active');
+    await redisService.delete('games:featured');
+    console.log('✅ Game cache invalidated');
     
     res.json({ 
       success: true,
