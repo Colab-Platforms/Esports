@@ -445,7 +445,13 @@ app.get('/api/test/matches', async (req, res) => {
   }
 });
 
-
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'working perfectly',
+    timestamp: new Date().toISOString()
+  });
+});
 
 
 // Import tournament scheduler
