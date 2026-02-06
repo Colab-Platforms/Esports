@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: colab-esports-server
+    env: node
+    plan: standard
+    buildCommand: npm run install-all
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001

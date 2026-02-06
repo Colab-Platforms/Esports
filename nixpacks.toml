@@ -1,14 +1,15 @@
-# Nixpacks Configuration for Render
-# This tells Render how to build and deploy
+# Nixpacks Configuration for Railway
+# This tells Railway to only deploy backend
 
 [phases.setup]
-nixPkgs = ["nodejs-22_x"]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-cmds = ["npm install --production=false", "cd client && npm install"]
+cmds = ["npm install --production=false"]
 
 [phases.build]
-cmds = ["cd client && npm run build"]
+# No build command - skip building client
+cmds = []
 
 [start]
-cmd = "npm start"
+cmd = "node server/index.js"
