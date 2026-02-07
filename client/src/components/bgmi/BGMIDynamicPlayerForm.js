@@ -55,16 +55,16 @@ const BGMIDynamicPlayerForm = ({
     if (!ign || !ign.trim()) {
       return 'IGN is required';
     }
-    if (ign.length < 3) {
-      return 'IGN must be at least 3 characters';
-    }
-    if (ign.length > 20) {
-      return 'IGN cannot exceed 20 characters';
-    }
-    // Updated regex to allow letters, numbers, underscores, and spaces
-    if (!/^[a-zA-Z0-9_ ]+$/.test(ign)) {
-      return 'IGN can only contain letters, numbers, underscores, and spaces';
-    }
+    // if (ign.length < 3) {
+    //   return 'IGN must be at least 3 characters';
+    // }
+    // if (ign.length > 20) {
+    //   return 'IGN cannot exceed 20 characters';
+    // }
+    // // Updated regex to allow letters, numbers, underscores, and spaces
+    // if (!/^[a-zA-Z0-9_ ]+$/.test(ign)) {
+    //   return 'IGN can only contain letters, numbers, underscores, and spaces';
+    // }
     return null;
   };
 
