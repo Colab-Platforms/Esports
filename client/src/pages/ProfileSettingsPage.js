@@ -441,10 +441,10 @@ const ProfileSettingsPage = () => {
               </div>
 
               {/* Tabs */}
-              <div className="flex space-x-4 mb-6 border-b border-gaming-border">
+              <div className="flex flex-wrap gap-2 mb-6 border-b border-gaming-border overflow-x-auto">
                 <button
                   onClick={() => setActiveSection('account')}
-                  className={`pb-3 px-2 font-medium transition-colors ${
+                  className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
                     activeSection === 'account'
                       ? 'text-gaming-gold border-b-2 border-gaming-gold'
                       : 'text-gray-400 hover:text-white'
@@ -454,7 +454,7 @@ const ProfileSettingsPage = () => {
                 </button>
                 <button
                   onClick={() => setActiveSection('gameids')}
-                  className={`pb-3 px-2 font-medium transition-colors ${
+                  className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
                     activeSection === 'gameids'
                       ? 'text-gaming-gold border-b-2 border-gaming-gold'
                       : 'text-gray-400 hover:text-white'
@@ -464,7 +464,7 @@ const ProfileSettingsPage = () => {
                 </button>
                 <button
                   onClick={() => setActiveSection('social')}
-                  className={`pb-3 px-2 font-medium transition-colors ${
+                  className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
                     activeSection === 'social'
                       ? 'text-gaming-gold border-b-2 border-gaming-gold'
                       : 'text-gray-400 hover:text-white'
@@ -472,16 +472,16 @@ const ProfileSettingsPage = () => {
                 >
                   Social Media
                 </button>
-                <button
+                {/* <button
                   onClick={() => setActiveSection('password')}
-                  className={`pb-3 px-2 font-medium transition-colors ${
+                  className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
                     activeSection === 'password'
                       ? 'text-gaming-gold border-b-2 border-gaming-gold'
                       : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   Password
-                </button>
+                </button> */}
               </div>
 
               {/* Account Information Section */}
@@ -519,7 +519,7 @@ const ProfileSettingsPage = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         <FiPhone className="inline mr-2" />
-                        Phone Number
+                        Phone Number *
                       </label>
                       <input
                         type="tel"
