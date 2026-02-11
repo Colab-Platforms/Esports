@@ -292,9 +292,10 @@ const GameAccountsSection = ({ user }) => {
     {
       game: 'BGMI',
       icon: '📱',
-      connected: !!user?.gameIds?.bgmi,
-      username: user?.gameIds?.bgmi || 'Not connected',
-      status: user?.gameIds?.bgmi ? 'Connected' : 'Not Connected'
+      connected: !!(user?.bgmiIgnName || user?.bgmiUid),
+      username: user?.bgmiIgnName || 'Not connected',
+      uid: user?.bgmiUid || '',
+      status: (user?.bgmiIgnName || user?.bgmiUid) ? 'Connected' : 'Not Connected'
     }
   ];
 
@@ -313,7 +314,16 @@ const GameAccountsSection = ({ user }) => {
               <div>
                 <p className="text-white font-medium">{account.game}</p>
                 <p className="text-sm text-gray-400">
-                  {account.connected ? account.username : 'Not connected'}
+                  {account.connected ? (
+                    <>
+                      <span className="font-medium">{account.username}</span>
+                      {account.uid && (
+                        <span className="block text-xs text-gray-500">UID: {account.uid}</span>
+                      )}
+                    </>
+                  ) : (
+                    'Not connected'
+                  )}
                 </p>
               </div>
             </div>

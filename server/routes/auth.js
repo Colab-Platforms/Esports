@@ -328,7 +328,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
-    const { username, email, phone, password } = req.body;
+    const { username, email, phone, password, bgmiIgnName, bgmiUid, gameIds } = req.body;
 
     // Basic validation
     if (!username || !email || !phone || !password) {
@@ -406,12 +406,28 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
 
     // Create new user
     console.log('👤 Creating new user...');
-    const user = new User({
+    const userData = {
       username,
       email,
       phone,
       passwordHash: password // Will be hashed by pre-save middleware
-    });
+    };
+
+    // Add game-specific data if provided
+    if (bgmiIgnName) {
+      userData.bgmiIgnName = bgmiIgnName;
+      console.log('🎮 BGMI IGN added:', bgmiIgnName);
+    }
+    if (bgmiUid) {
+      userData.bgmiUid = bgmiUid;
+      console.log('🎮 BGMI UID added:', bgmiUid);
+    }
+    if (gameIds && gameIds.steam) {
+      userData.gameIds = { steam: gameIds.steam };
+      console.log('🎮 Steam ID added:', gameIds.steam);
+    }
+
+    const user = new User(userData);
 
     console.log('💾 Saving user to database...');
     await user.save();
@@ -434,7 +450,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           avatarUrl: user.avatarUrl,
           bio: user.bio,
           country: user.country,
-          state: user.state,  // ✅ Added missing state field
+          state: user.state,
           favoriteGame: user.favoriteGame,
           profileVisibility: user.profileVisibility,
           socialAccounts: user.socialAccounts,
@@ -446,6 +462,8 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           totalEarnings: user.totalEarnings,
           tournamentsWon: user.tournamentsWon,
           gameIds: user.gameIds,
+          bgmiIgnName: user.bgmiIgnName,
+          bgmiUid: user.bgmiUid,
           createdAt: user.createdAt
         }
       },
