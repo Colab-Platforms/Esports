@@ -630,52 +630,52 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
 });
 
 // @route   GET /api/users/players/public
-// @desc    Get all players (public - no auth required)
+// @desc    Get all players (public - no auth required) - Search by IGN name or BGMI UID only
 // @access  Public
 router.get('/players/public', async (req, res) => {
   try {
-    const { search, game } = req.query;
+    const { search } = req.query;
 
-    let query = {};  // Remove isActive filter - show all users
+    let query = {};
 
-    // Global search - search in username, email, bio, country
+    // Only search by IGN name (bgmiIgnName) or BGMI UID
+    // Both fields must exist for player to be searchable
     if (search) {
-      query.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { bio: { $regex: search, $options: 'i' } },
-        { country: { $regex: search, $options: 'i' } }
+      query.$and = [
+        {
+          $or: [
+            { bgmiIgnName: { $regex: search, $options: 'i' } },
+            { 'gameIds.bgmi': { $regex: search, $options: 'i' } }
+          ]
+        },
+        // Both IGN and UID must be present
+        { bgmiIgnName: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi': { $exists: true, $ne: '' } }
+      ];
+    } else {
+      // If no search, still require both IGN and UID to be present
+      query.$and = [
+        { bgmiIgnName: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi': { $exists: true, $ne: '' } }
       ];
     }
 
-    // Filter by game (check in games array)
-    if (game && game !== 'all') {
-      query.games = game;
-    }
-
-    console.log('🔍 Public players query:', query);
+    console.log('🔍 BGMI players query:', query);
 
     const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame games bio country createdAt')
+      .select('username bgmiIgnName avatarUrl gameIds')
       .limit(50)
       .lean();
     
-    console.log(`✅ Found ${players.length} players`);
+    console.log(`✅ Found ${players.length} BGMI players with both IGN and UID`);
 
     // Format response
     const formattedPlayers = players.map(player => ({
       _id: player._id,
       username: player.username,
-      email: player.email,
-      avatar: player.avatarUrl,
-      level: player.level || 1,
-      rank: player.currentRank || 'Unranked',
-      wins: player.tournamentsWon || 0,
-      games: player.games || [],
-      favoriteGame: player.favoriteGame,
-      bio: player.bio,
-      country: player.country,
-      joinedAt: player.createdAt
+      bgmiIgnName: player.bgmiIgnName,
+      bgmiUid: player.gameIds?.bgmi || '',
+      avatar: player.avatarUrl
     }));
 
     res.json({
@@ -686,7 +686,7 @@ router.get('/players/public', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching public players:', error);
+    console.error('Error fetching public BGMI players:', error);
     res.status(500).json({
       success: false,
       error: {

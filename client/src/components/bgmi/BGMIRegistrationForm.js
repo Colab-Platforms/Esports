@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
 import api from '../../services/api';
-import BGMIDynamicPlayerForm from './BGMIDynamicPlayerForm';
+import PlayerSearchAndAdd from './PlayerSearchAndAdd';
 import Snackbar from '../common/Snackbar';
 
 const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
@@ -12,100 +12,18 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [snackbar, setSnackbar] = useState({ message: '', type: 'info' });
-  const [registrationMode, setRegistrationMode] = useState('manual'); // 'manual' or 'team'
-  const [userTeams, setUserTeams] = useState([]);
-  const [loadingTeams, setLoadingTeams] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
-  const [showDynamicForm, setShowDynamicForm] = useState(false); // Track if using dynamic form
 
   const [formData, setFormData] = useState({
     teamName: '',
     teamLeader: {
       name: user?.username || '',
-      bgmiId: '',
+      bgmiId: user?.gameIds?.bgmi || user?.bgmiUid || '',
       phone: ''
     },
-    teamMembers: [
-      { name: '', bgmiId: '' },
-      { name: '', bgmiId: '' },
-      { name: '', bgmiId: '' }
-    ],
-    // whatsappNumber will be same as teamLeader.phone
+    teamMembers: []
   });
 
-  // Fetch user's eligible teams when component mounts
-  const fetchEligibleTeams = useCallback(async () => {
-    setLoadingTeams(true);
-    try {
-      console.log('🔍 Fetching eligible teams for tournament:', tournament._id);
-      console.log('🔍 API URL:', `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/tournaments/${tournament._id}/eligible-teams`);
-
-      const response = await api.get(`/api/tournaments/${tournament._id}/eligible-teams`);
-      console.log('📤 Teams API response:', response);
-      console.log('📤 Response status:', response.status);
-      console.log('📤 Response data:', response.data);
-
-      const teams = response.data?.teams || response.data?.data?.teams || [];
-      console.log('👥 Found teams:', teams.length, teams);
-
-      setUserTeams(teams);
-
-      // Always show teams, regardless of eligibility
-      if (teams.length > 0) {
-        console.log('✅ Found teams, setting registration mode to team');
-        setRegistrationMode('team');
-      } else {
-        console.log('ℹ️ No teams found, keeping manual mode');
-      }
-    } catch (error) {
-      console.error('❌ Error fetching eligible teams:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
-      console.error('❌ Error message:', error.message);
-      // If error, keep manual mode as default
-    } finally {
-      setLoadingTeams(false);
-    }
-  }, [tournament._id]);
-
-  useEffect(() => {
-    if (tournament?._id) {
-      fetchEligibleTeams();
-    }
-  }, [tournament._id, fetchEligibleTeams]);
-
-  const handleTeamSelect = useCallback((team) => {
-    if (selectedTeam?._id === team._id) return; // Prevent selecting the same team
-
-    setSelectedTeam(team);
-    setError(''); // Clear any previous errors
-
-    // Pre-fill form data with team information
-    if (team && team.members) {
-      const captain = team.members.find(member => member.role === 'captain');
-      const members = team.members.filter(member => member.role !== 'captain');
-
-      // Pad members array to ensure we have 3 entries
-      const paddedMembers = [
-        { name: members[0]?.username || '', bgmiId: members[0]?.gameId || '' },
-        { name: members[1]?.username || '', bgmiId: members[1]?.gameId || '' },
-        { name: members[2]?.username || '', bgmiId: members[2]?.gameId || '' }
-      ];
-
-      setFormData(prev => ({
-        ...prev,
-        teamName: team.name,
-        teamLeader: {
-          ...prev.teamLeader,
-          name: captain?.username || '',
-          bgmiId: captain?.gameId || ''
-        },
-        teamMembers: paddedMembers
-      }));
-    }
-  }, [selectedTeam]);
-
-  const handleInputChange = useCallback((section, field, value, index = null) => {
+  const handleInputChange = useCallback((section, field, value) => {
     setFormData(prev => {
       if (section === 'teamLeader') {
         return {
@@ -115,16 +33,6 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             [field]: value
           }
         };
-      } else if (section === 'teamMembers') {
-        const updatedMembers = [...prev.teamMembers];
-        updatedMembers[index] = {
-          ...updatedMembers[index],
-          [field]: value
-        };
-        return {
-          ...prev,
-          teamMembers: updatedMembers
-        };
       } else {
         return {
           ...prev,
@@ -132,6 +40,45 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
         };
       }
     });
+  }, []);
+
+  // Add player from search
+  const handleAddPlayerFromSearch = useCallback((player) => {
+    setFormData(prev => {
+      // Check if player already added
+      const alreadyAdded = prev.teamMembers.some(m => m.name.toLowerCase() === player.name.toLowerCase());
+      if (alreadyAdded) {
+        setSnackbar({ message: 'Player already added', type: 'warning' });
+        return prev;
+      }
+
+      // Check team size limit (4 players including leader)
+      if (prev.teamMembers.length >= 3) {
+        setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
+        return prev;
+      }
+
+      return {
+        ...prev,
+        teamMembers: [
+          ...prev.teamMembers,
+          {
+            name: player.name,
+            bgmiId: player.bgmiId,
+            playerId: player.playerId
+          }
+        ]
+      };
+    });
+    setSnackbar({ message: `${player.name} added to team`, type: 'success' });
+  }, []);
+
+  // Remove player from team
+  const handleRemovePlayer = useCallback((index) => {
+    setFormData(prev => ({
+      ...prev,
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+    }));
   }, []);
 
   const validateForm = () => {
@@ -147,9 +94,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       return false;
     }
     
-    // Only validate teamLeader.bgmiId if NOT using dynamic form
-    // If using dynamic form, validation happens in BGMIDynamicPlayerForm
-    if (!showDynamicForm && !formData.teamLeader.bgmiId.trim()) {
+    if (!formData.teamLeader.bgmiId.trim()) {
       setError('Team leader BGMI ID is required');
       return false;
     }
@@ -159,202 +104,127 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       return false;
     }
 
-    // Team members validation - only if NOT using dynamic form
-    if (!showDynamicForm) {
-      for (let i = 0; i < formData.teamMembers.length; i++) {
-        const member = formData.teamMembers[i];
-        if (!member.name.trim()) {
-          setError(`Team member ${i + 1} name is required`);
-          return false;
-        }
-        if (!member.bgmiId.trim()) {
-          setError(`Team member ${i + 1} BGMI ID is required`);
-          return false;
-        }
-      }
+    // Team members validation - must have exactly 3 members (+ leader = 4 total)
+    if (formData.teamMembers.length < 3) {
+      setError(`Please add ${3 - formData.teamMembers.length} more player(s)`);
+      return false;
+    }
 
-      // Check for duplicate BGMI IDs
-      const allBgmiIds = [
-        formData.teamLeader.bgmiId,
-        ...formData.teamMembers.map(m => m.bgmiId)
-      ];
-      const uniqueBgmiIds = [...new Set(allBgmiIds)];
-      if (allBgmiIds.length !== uniqueBgmiIds.length) {
-        setError('All team members must have unique BGMI IDs');
+    for (let i = 0; i < formData.teamMembers.length; i++) {
+      const member = formData.teamMembers[i];
+      if (!member.name.trim()) {
+        setError(`Team member ${i + 1} name is required`);
         return false;
       }
+      if (!member.bgmiId.trim()) {
+        setError(`Team member ${i + 1} BGMI ID is required`);
+        return false;
+      }
+    }
+
+    // Check for duplicate BGMI IDs
+    const allBgmiIds = [
+      formData.teamLeader.bgmiId,
+      ...formData.teamMembers.map(m => m.bgmiId)
+    ];
+    const uniqueBgmiIds = [...new Set(allBgmiIds)];
+    if (allBgmiIds.length !== uniqueBgmiIds.length) {
+      setError('All team members must have unique BGMI IDs');
+      return false;
     }
 
     return true;
   };
 
-  // Handle dynamic form submission
-  const handleDynamicFormSubmit = useCallback(async (players) => {
-    setError('');
-    setLoading(true);
-
-    try {
-      // Extract team leader from first player in the array
-      const teamLeader = players[0];
-      
-      // Prepare registration data from dynamic form
-      const registrationData = {
-        teamName: formData.teamName,
-        teamLeader: {
-          name: teamLeader.name,
-          bgmiId: teamLeader.bgmiId,
-          phone: formData.teamLeader.phone
-        },
-        teamMembers: players.slice(1).map(p => ({
-          name: p.name,
-          bgmiId: p.bgmiId
-        })),
-        whatsappNumber: formData.teamLeader.phone
-      };
-
-      console.log('🎮 Submitting dynamic form BGMI registration:', {
-        tournamentId: tournament._id,
-        teamName: registrationData.teamName,
-        teamLeader: registrationData.teamLeader.name,
-        teamLeaderUid: registrationData.teamLeader.bgmiId
-      });
-
-      const response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
-
-      console.log('Registration API response:', response);
-
-      const responseData = response.data || response;
-      console.log('Response data:', responseData);
-
-      const isSuccess = responseData?.success === true ||
-        (responseData?.registration && !responseData?.error);
-
-      if (isSuccess) {
-        setSuccess(true);
-        console.log('Registration successful:', responseData);
-
-        setTimeout(() => {
-          const registrationData = responseData.data?.registration ||
-            responseData.registration ||
-            responseData;
-          console.log('Passing registration data to onSuccess:', registrationData);
-          onSuccess && onSuccess(registrationData);
-        }, 2000);
-      } else {
-        console.error('Registration API failed:', responseData);
-        setError(responseData?.error?.message || responseData?.message || 'Registration failed');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      setError(
-        error.response?.data?.error?.message ||
-        error.message ||
-        'Failed to register team'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [formData, tournament._id, onSuccess]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // If using dynamic form, don't validate here - let dynamic form handle it
-    if (!showDynamicForm) {
-      if (!validateForm()) {
-        return;
-      }
+    if (!validateForm()) {
+      return;
     }
 
     setLoading(true);
 
     try {
-      // Validate team members exist in Users collection (only for manual registration)
-      if (!showDynamicForm && registrationMode === 'manual') {
-        console.log('🔍 Validating team members...');
-        
-        const teamMembersToValidate = [
-          { name: formData.teamLeader.name, bgmiId: formData.teamLeader.bgmiId },
-          ...formData.teamMembers
-        ];
+      // Validate team members exist in Users collection
+      console.log('🔍 Validating team members...');
+      
+      const teamMembersToValidate = [
+        { name: formData.teamLeader.name, bgmiId: formData.teamLeader.bgmiId },
+        ...formData.teamMembers
+      ];
 
-        // Get API URL with smart detection
-        let API_URL = process.env.REACT_APP_API_URL;
-        if (!API_URL && typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
-            API_URL = 'http://127.0.0.1:5001';
-          } else {
-            const protocol = window.location.protocol;
-            API_URL = `${protocol}//${hostname}`;
-          }
-        }
-        if (!API_URL) {
+      // Get API URL with smart detection
+      let API_URL = process.env.REACT_APP_API_URL;
+      if (!API_URL && typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
           API_URL = 'http://127.0.0.1:5001';
+        } else {
+          const protocol = window.location.protocol;
+          API_URL = `${protocol}//${hostname}`;
         }
-
-        // Validate each team member
-        const validationPromises = teamMembersToValidate.map(member =>
-          fetch(`${API_URL}/api/tournaments/validate-player`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-              bgmiUid: member.bgmiId,
-              ignName: member.name
-            })
-          }).then(res => res.json())
-        );
-
-        const validationResults = await Promise.all(validationPromises);
-        
-        // Check if all members are registered
-        const unregisteredMembers = [];
-        validationResults.forEach((result, index) => {
-          if (!result.data?.isRegistered) {
-            const memberName = index === 0 ? 'Team Leader' : `Team Member ${index}`;
-            unregisteredMembers.push(`${memberName} (${teamMembersToValidate[index].name})`);
-          }
-        });
-
-        if (unregisteredMembers.length > 0) {
-          setError(`⚠️ The following players are not registered on our platform:\n${unregisteredMembers.join('\n')}\n\nAll team members must be registered before tournament registration.`);
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ All team members validated successfully');
+      }
+      if (!API_URL) {
+        API_URL = 'http://127.0.0.1:5001';
       }
 
-      let response;
+      // Validate each team member
+      const validationPromises = teamMembersToValidate.map(member =>
+        fetch(`${API_URL}/api/tournaments/validate-player`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            bgmiUid: member.bgmiId,
+            ignName: member.name
+          })
+        }).then(res => res.json())
+      );
 
-      if (registrationMode === 'team' && selectedTeam) {
-        // Use team-based registration
-        console.log('🎮 Submitting team-based BGMI registration:', {
-          tournamentId: tournament._id,
-          teamId: selectedTeam._id
-        });
+      const validationResults = await Promise.all(validationPromises);
+      
+      // Check if all members are registered
+      const unregisteredMembers = [];
+      validationResults.forEach((result, index) => {
+        if (!result.data?.isRegistered) {
+          const memberName = index === 0 ? 'Team Leader' : `Team Member ${index}`;
+          unregisteredMembers.push(`${memberName} (${teamMembersToValidate[index].name})`);
+        }
+      });
 
-        response = await api.post(`/api/tournaments/${tournament._id}/join-with-team`, {
-          teamId: selectedTeam._id
-        });
-      } else {
-        // Use manual registration
-        console.log('🎮 Submitting manual BGMI registration:', {
-          tournamentId: tournament._id,
-          teamName: formData.teamName
-        });
-
-        const registrationData = {
-          ...formData,
-          whatsappNumber: formData.teamLeader.phone
-        };
-
-        response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
+      if (unregisteredMembers.length > 0) {
+        setError(`⚠️ The following players are not registered on our platform:\n${unregisteredMembers.join('\n')}\n\nAll team members must be registered before tournament registration.`);
+        setLoading(false);
+        return;
       }
+
+      console.log('✅ All team members validated successfully');
+
+      // Submit registration
+      console.log('🎮 Submitting BGMI registration:', {
+        tournamentId: tournament._id,
+        teamName: formData.teamName
+      });
+
+      const registrationData = {
+        teamName: formData.teamName,
+        teamLeader: {
+          name: formData.teamLeader.name,
+          bgmiId: formData.teamLeader.bgmiId,
+          phone: formData.teamLeader.phone
+        },
+        teamMembers: formData.teamMembers.map(m => ({
+          name: m.name,
+          bgmiId: m.bgmiId
+        })),
+        whatsappNumber: formData.teamLeader.phone
+      };
+
+      const response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
 
       console.log('📤 Registration API response:', response);
 
@@ -461,8 +331,8 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
         {/* Form - Scrollable */}
         <form id="registration-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Error Message - Only show validation errors, not warnings */}
-          {error && !error.includes('⚠️') && (
+          {/* Error Message */}
+          {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
               <div className="flex items-center space-x-2">
                 <span className="text-red-400">⚠️</span>
@@ -471,73 +341,111 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Manual Registration Form */}
-          <>
-            {/* Team Name + Phone Number - Side by Side */}
+          {/* Team Name + Phone Number - Side by Side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Team Name *
+              </label>
+              <input
+                type="text"
+                value={formData.teamName}
+                onChange={(e) => handleInputChange('', 'teamName', e.target.value)}
+                placeholder="Enter your team name"
+                className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                value={formData.teamLeader.phone}
+                onChange={(e) => handleInputChange('teamLeader', 'phone', e.target.value)}
+                placeholder="10-digit phone"
+                className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Team Leader Info (Pre-filled) */}
+          <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">👤 Team Leader (You)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Team Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.teamName}
-                  onChange={(e) => handleInputChange('', 'teamName', e.target.value)}
-                  placeholder="Enter your team name"
-                  className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                  required
-                />
+                <label className="block text-xs text-gray-400 mb-1">IGN Name</label>
+                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
+                  {formData.teamLeader.name || 'N/A'}
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Phone Number *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.teamLeader.phone}
-                  onChange={(e) => handleInputChange('teamLeader', 'phone', e.target.value)}
-                  placeholder="10-digit phone"
-                  className="w-full px-4 py-3 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                  required
-                />
+                <label className="block text-xs text-gray-400 mb-1">BGMI UID</label>
+                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
+                  {formData.teamLeader.bgmiId || 'Not set'}
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Search and Add Players */}
+          <PlayerSearchAndAdd
+            onAddPlayer={handleAddPlayerFromSearch}
+            currentTeamMembers={[formData.teamLeader, ...formData.teamMembers]}
+            maxPlayers={4}
+            currentUserData={user}
+          />
+
+          {/* Team Members List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-300">
+                👥 Team Members ({formData.teamMembers.length}/3)
+              </label>
             </div>
 
-            {/* Team Members Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-300">
-                  Team Players
-                </label>
-                {!showDynamicForm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowDynamicForm(true)}
-                    className="px-3 py-1 bg-gaming-neon/10 border border-gaming-neon text-gaming-neon rounded font-medium hover:bg-gaming-neon/20 transition-colors text-xs"
-                  >
-                    + Add
-                  </button>
-                )}
+            {formData.teamMembers.length === 0 ? (
+              <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4 text-center text-gray-400">
+                <p className="text-sm">Search and add players above to build your team</p>
               </div>
-              
-              {showDynamicForm ? (
-                <BGMIDynamicPlayerForm
-                  teamSize={selectedTeam?.memberCount || 2}
-                  existingTeamMembers={selectedTeam?.members || []}
-                  onSubmit={handleDynamicFormSubmit}
-                  onCancel={() => setShowDynamicForm(false)}
-                  tournament={tournament}
-                />
-              ) : (
-                <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4 text-center text-gray-400">
-                  <p className="text-sm">Click "+ Add" to add team players</p>
-                </div>
-              )}
-            </div>
-          </>
+            ) : (
+              <div className="space-y-2">
+                {formData.teamMembers.map((member, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-3 flex items-center justify-between"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gaming-neon font-bold text-sm">#{index + 2}</span>
+                        <div>
+                          <h4 className="text-white font-medium text-sm">{member.name}</h4>
+                          <p className="text-gaming-neon text-xs">UID: {member.bgmiId}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <motion.button
+                      type="button"
+                      onClick={() => handleRemovePlayer(index)}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors"
+                    >
+                      Remove
+                    </motion.button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
         </form>
 
-        {/* Submit Buttons - Fixed at Bottom - Always Show */}
+        {/* Submit Buttons - Fixed at Bottom */}
         <div className="border-t border-gaming-slate bg-gaming-dark p-3 flex justify-end space-x-2">
           <button
             type="button"
@@ -547,53 +455,21 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
           >
             Cancel
           </button>
-          {showDynamicForm ? (
-            <button
-              type="button"
-              onClick={() => {
-                // Clear previous error
-                window.dynamicFormValidationError = null;
-                // Trigger dynamic form submission by finding and clicking its submit button
-                const dynamicFormButton = document.querySelector('[data-dynamic-form-submit]');
-                if (dynamicFormButton) {
-                  dynamicFormButton.click();
-                  // Check if validation failed
-                  setTimeout(() => {
-                    if (window.dynamicFormValidationError) {
-                      setError(window.dynamicFormValidationError);
-                    }
-                  }, 100);
-                }
-              }}
-              className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center space-x-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gaming-dark"></div>
-                  <span>Registering...</span>
-                </span>
-              ) : (
-                'Register Team'
-              )}
-            </button>
-          ) : (
-            <button
-              type="submit"
-              form="registration-form"
-              className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-              disabled={loading || (registrationMode === 'team' && !selectedTeam)}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center space-x-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gaming-dark"></div>
-                  <span>Registering...</span>
-                </span>
-              ) : (
-                'Register Team'
-              )}
-            </button>
-          )}
+          <button
+            type="submit"
+            form="registration-form"
+            className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
+            disabled={loading || formData.teamMembers.length < 3}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center space-x-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gaming-dark"></div>
+                <span>Registering...</span>
+              </span>
+            ) : (
+              'Register Team'
+            )}
+          </button>
         </div>
       </motion.div>
 
