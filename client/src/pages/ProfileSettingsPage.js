@@ -53,7 +53,8 @@ const ProfileSettingsPage = () => {
     favoriteGame: user?.favoriteGame || '',
     profileVisibility: user?.profileVisibility || 'public',
     bio: user?.bio || '',
-    bgmiIgnName: user?.bgmiIgnName || ''
+    bgmiIgnName: user?.bgmiIgnName || '',
+    bgmiUid: user?.bgmiUid || ''
   });
 
   const [gameIds, setGameIds] = useState({
@@ -91,7 +92,8 @@ const ProfileSettingsPage = () => {
         favoriteGame: user.favoriteGame || '',
         profileVisibility: user.profileVisibility || 'public',
         bio: user.bio || '',
-        bgmiIgnName: user.bgmiIgnName || ''
+        bgmiIgnName: user.bgmiIgnName || '',
+        bgmiUid: user.bgmiUid || ''
       });
       setSocialAccounts({
         twitter: user.socialAccounts?.twitter || '',
@@ -200,6 +202,7 @@ const ProfileSettingsPage = () => {
           profileVisibility: profileData.profileVisibility,
           bio: profileData.bio,
           bgmiIgnName: profileData.bgmiIgnName,
+          bgmiUid: profileData.bgmiUid,
           socialAccounts,
           gameIds
         },
@@ -649,24 +652,7 @@ const ProfileSettingsPage = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      BGMI ID
-                    </label>
-                    <input
-                      type="text"
-                      value={gameIds.bgmi}
-                      onChange={(e) => handleGameIdChange('bgmi', e.target.value)}
-                      disabled={!isEditing}
-                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                      }`}
-                      placeholder="Enter your BGMI ID (e.g., BGMIWX7XLIFKE)"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Required for BGMI tournament participation</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      BGMI IGN Name
+                      BGMI IGN (In-Game Name)
                     </label>
                     <input
                       type="text"
@@ -679,6 +665,40 @@ const ProfileSettingsPage = () => {
                       placeholder="Enter your BGMI IGN name (e.g., ProGamer123)"
                     />
                     <p className="text-xs text-gray-500 mt-1">Your in-game name for BGMI tournaments</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      BGMI UID (User ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.bgmiUid}
+                      onChange={(e) => handleProfileChange('bgmiUid', e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                      placeholder="Enter your BGMI UID (e.g., 5123456789)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Your unique BGMI user ID for verification</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      BGMI ID (Legacy)
+                    </label>
+                    <input
+                      type="text"
+                      value={gameIds.bgmi}
+                      onChange={(e) => handleGameIdChange('bgmi', e.target.value)}
+                      disabled={!isEditing}
+                      className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                        isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                      placeholder="Enter your BGMI ID (e.g., BGMIWX7XLIFKE)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Optional: Legacy BGMI ID format</p>
                   </div>
 
                   <div>
