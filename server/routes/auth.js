@@ -700,7 +700,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -750,8 +750,9 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
-    // Allow empty strings for bgmiIgnName - don't fall back to old value
+    // Allow empty strings for bgmiIgnName and bgmiUid - don't fall back to old value
     if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
+    if (bgmiUid !== undefined) user.bgmiUid = bgmiUid;
     
     // Update social accounts
     if (socialAccounts !== undefined) {
@@ -784,7 +785,7 @@ router.put('/profile', auth, async (req, res) => {
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       country: user.country,
-      state: user.state,  // ✅ Added missing state field
+      state: user.state,
       favoriteGame: user.favoriteGame,
       profileVisibility: user.profileVisibility,
       socialAccounts: user.socialAccounts,
@@ -797,6 +798,7 @@ router.put('/profile', auth, async (req, res) => {
       tournamentsWon: user.tournamentsWon,
       gameIds: user.gameIds,
       bgmiIgnName: user.bgmiIgnName,
+      bgmiUid: user.bgmiUid,
       steamProfile: user.steamProfile,
       createdAt: user.createdAt
     };
