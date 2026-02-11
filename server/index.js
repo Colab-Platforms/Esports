@@ -26,6 +26,7 @@ const io = new Server(server, {
       if (!origin) return callback(null, true);
       
       const allowedOrigins = [
+        'http://192.168.1.119:3000',
         'http://localhost:3000',
         'https://esports-62sh.vercel.app',
         'https://esports-eciq.vercel.app',
@@ -454,7 +455,7 @@ app.get('/', (req, res) => {
 });
 
 
-// Import tournament scheduler
+// Import tournament schedulers
 const tournamentScheduler = require('./utils/tournamentScheduler');
 
 // Start server
