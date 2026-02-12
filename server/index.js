@@ -278,6 +278,16 @@ try {
   console.error('❌ Error stack:', error.stack);
 }
 app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
+
+console.log('🔄 Loading Free Fire Registration routes...');
+try {
+  const freeFireRoutes = require('./routes/freeFireRegistration');
+  app.use('/api/freefire-registration', freeFireRoutes);
+  console.log('✅ Free Fire Registration routes loaded successfully');
+} catch (error) {
+  console.error('❌ Failed to load Free Fire Registration routes:', error);
+  console.error('❌ Error details:', error.message);
+}
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
 app.use('/api/servers', require('./routes/servers'));

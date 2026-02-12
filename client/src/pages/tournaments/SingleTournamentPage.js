@@ -17,6 +17,7 @@ import { selectAuth } from '../../store/slices/authSlice';
 import TournamentRegistration from '../../components/tournaments/TournamentRegistration';
 import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
 import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
+import FreeFireRegistrationForm from '../../components/freefire/FreeFireRegistrationForm';
 import GameIcon from '../../components/common/GameIcon';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
@@ -1174,8 +1175,14 @@ const SingleTournamentPage = () => {
 
       {/* Registration Modal */}
       {showRegistration && tournament && (
-        (tournament.gameType === 'bgmi' || tournament.gameType === 'freefire' || tournament.gameType === 'ff') ? (
+        tournament.gameType === 'bgmi' ? (
           <BGMIRegistrationForm
+            tournament={tournament}
+            onClose={() => setShowRegistration(false)}
+            onSuccess={handleRegistrationSuccess}
+          />
+        ) : (tournament.gameType === 'freefire' || tournament.gameType === 'ff') ? (
+          <FreeFireRegistrationForm
             tournament={tournament}
             onClose={() => setShowRegistration(false)}
             onSuccess={handleRegistrationSuccess}
