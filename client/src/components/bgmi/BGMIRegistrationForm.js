@@ -16,9 +16,9 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     teamName: '',
     teamLeader: {
-      name: user?.username || '',
-      bgmiId: user?.gameIds?.bgmi || user?.bgmiUid || '',
-      phone: ''
+      name: user?.bgmiIgnName || user?.username || '',
+      bgmiId: user?.bgmiUid || user?.gameIds?.bgmi || '',
+      phone: user?.phone || ''
     },
     teamMembers: []
   });
