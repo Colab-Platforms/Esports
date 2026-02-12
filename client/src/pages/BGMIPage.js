@@ -423,36 +423,95 @@ const BGMIPage = () => {
           </div>
         )}
 
-        {/* BGMI Specific Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-              <GameIcon gameType="bgmi" size="sm" />
-              <span>BGMI Tournament Rules</span>
-            </h3>
-            <div className="space-y-2 text-sm text-gray-300">
-              <div>• Room ID and password will be shared 30 minutes before match</div>
-              <div>• Screenshots required for result verification</div>
-              <div>• No third-party apps or cheats allowed</div>
-              <div>• Follow fair play guidelines</div>
-              <div>• Disputes must be raised within 24 hours</div>
+        {/* BGMI Registration Process Section */}
+        <div className="card-gaming p-8 mt-8">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center space-x-2">
+            <GameIcon gameType="bgmi" size="sm" />
+            <span>How to Register for BGMI Tournament</span>
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {/* Step 1 */}
+            <div className="flex flex-col">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/20 border-2 border-gaming-gold flex items-center justify-center">
+                  <span className="text-gaming-gold font-bold text-lg">1</span>
+                </div>
+                <h3 className="text-lg font-bold text-white ml-3">Login</h3>
+              </div>
+              <ul className="text-sm text-gray-300 space-y-1 ml-2">
+                <li>• Log in to your account on the Colab Esports website</li>
+              </ul>
             </div>
-          </div>
 
-          <div className="card-gaming p-6">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-              <GameIcon gameType="bgmi" size="sm" />
-              <span>How to Join BGMI Match</span>
-            </h3>
-            <div className="space-y-2 text-sm text-gray-300">
-              <div>1. Register for the tournament</div>
-              <div>2. Get room credentials before match time</div>
-              <div>3. Join the custom room in BGMI</div>
-              <div>4. Play the match and take screenshots</div>
-              <div>5. Submit results through our platform</div>
+            {/* Step 2 */}
+            <div className="flex flex-col">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/20 border-2 border-gaming-gold flex items-center justify-center">
+                  <span className="text-gaming-gold font-bold text-lg">2</span>
+                </div>
+                <h3 className="text-lg font-bold text-white ml-3">Complete Profile</h3>
+              </div>
+              <ul className="text-sm text-gray-300 space-y-1 ml-2">
+                <li>• Go to Profile Settings</li>
+                <li>• Add your BGMI UID</li>
+                <li>• Add your BGMI Player name</li>
+                <li>• Make sure the details are correct</li>
+              </ul>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex flex-col">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/20 border-2 border-gaming-gold flex items-center justify-center">
+                  <span className="text-gaming-gold font-bold text-lg">3</span>
+                </div>
+                <h3 className="text-lg font-bold text-white ml-3">Add Team Members</h3>
+              </div>
+              <ul className="text-sm text-gray-300 space-y-1 ml-2">
+                <li>• Go to Party Finder page</li>
+                <li>• Add your friends as members</li>
+                <li>• Minimum 4 players required</li>
+                <li>• All invited members must accept</li>
+              </ul>
+            </div>
+
+            {/* Step 4 */}
+            <div className="flex flex-col">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/20 border-2 border-gaming-gold flex items-center justify-center">
+                  <span className="text-gaming-gold font-bold text-lg">4</span>
+                </div>
+                <h3 className="text-lg font-bold text-white ml-3">Tournament Registration</h3>
+              </div>
+              <ul className="text-sm text-gray-300 space-y-1 ml-2">
+                <li>• Fill in Team Name</li>
+                <li>• Enter Team Leader Phone Number</li>
+                <li>• Add Team Members List</li>
+                <li>• If not enough players, add more via Party Finder</li>
+              </ul>
+            </div>
+
+            {/* Step 5 */}
+            <div className="flex flex-col">
+              <div className="flex items-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/20 border-2 border-gaming-gold flex items-center justify-center">
+                  <span className="text-gaming-gold font-bold text-lg">5</span>
+                </div>
+                <h3 className="text-lg font-bold text-white ml-3">WhatsApp Verification</h3>
+              </div>
+              <ul className="text-sm text-gray-300 space-y-1 ml-2">
+                <li>• Receive WhatsApp message to reserve game slot</li>
+                <li>• Complete all mandatory verification steps</li>
+                <li>• Get added to official tournament WhatsApp group</li>
+                <li>• Receive match timings, Room ID & Password</li>
+                <li>• Get important game announcements</li>
+              </ul>
             </div>
           </div>
         </div>
+
+
       </div>
     </div>
   );
