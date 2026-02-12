@@ -684,7 +684,7 @@ const ProfileSettingsPage = () => {
                     <p className="text-xs text-gray-500 mt-1">Your unique BGMI user ID for verification</p>
                   </div>
 
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       BGMI ID (Legacy)
                     </label>
@@ -699,7 +699,7 @@ const ProfileSettingsPage = () => {
                       placeholder="Enter your BGMI ID (e.g., BGMIWX7XLIFKE)"
                     />
                     <p className="text-xs text-gray-500 mt-1">Optional: Legacy BGMI ID format</p>
-                  </div>
+                  </div> */}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
