@@ -328,7 +328,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
-    const { username, email, phone, password, bgmiIgnName, bgmiUid, gameIds } = req.body;
+    const { username, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
 
     // Basic validation
     if (!username || !email || !phone || !password) {
@@ -422,6 +422,14 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       userData.bgmiUid = bgmiUid;
       console.log('🎮 BGMI UID added:', bgmiUid);
     }
+    if (freeFireIgnName) {
+      userData.freeFireIgnName = freeFireIgnName;
+      console.log('🔥 Free Fire IGN added:', freeFireIgnName);
+    }
+    if (freeFireUid) {
+      userData.freeFireUid = freeFireUid;
+      console.log('🔥 Free Fire UID added:', freeFireUid);
+    }
     if (gameIds && gameIds.steam) {
       userData.gameIds = { steam: gameIds.steam };
       console.log('🎮 Steam ID added:', gameIds.steam);
@@ -464,6 +472,8 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           gameIds: user.gameIds,
           bgmiIgnName: user.bgmiIgnName,
           bgmiUid: user.bgmiUid,
+          freeFireIgnName: user.freeFireIgnName,
+          freeFireUid: user.freeFireUid,
           createdAt: user.createdAt
         }
       },
@@ -700,7 +710,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -750,9 +760,11 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
-    // Allow empty strings for bgmiIgnName and bgmiUid - don't fall back to old value
+    // Allow empty strings for game fields - don't fall back to old value
     if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
     if (bgmiUid !== undefined) user.bgmiUid = bgmiUid;
+    if (freeFireIgnName !== undefined) user.freeFireIgnName = freeFireIgnName;
+    if (freeFireUid !== undefined) user.freeFireUid = freeFireUid;
     
     // Update social accounts
     if (socialAccounts !== undefined) {
@@ -768,7 +780,8 @@ router.put('/profile', auth, async (req, res) => {
     if (gameIds !== undefined) {
       user.gameIds = {
         steam: gameIds.steam !== undefined ? gameIds.steam : (user.gameIds?.steam || ''),
-        bgmi: gameIds.bgmi !== undefined ? gameIds.bgmi : (user.gameIds?.bgmi || '')
+        bgmi: gameIds.bgmi !== undefined ? gameIds.bgmi : (user.gameIds?.bgmi || ''),
+        freefire: gameIds.freefire !== undefined ? gameIds.freefire : (user.gameIds?.freefire || '')
       };
     }
 
@@ -799,6 +812,8 @@ router.put('/profile', auth, async (req, res) => {
       gameIds: user.gameIds,
       bgmiIgnName: user.bgmiIgnName,
       bgmiUid: user.bgmiUid,
+      freeFireIgnName: user.freeFireIgnName,
+      freeFireUid: user.freeFireUid,
       steamProfile: user.steamProfile,
       createdAt: user.createdAt
     };

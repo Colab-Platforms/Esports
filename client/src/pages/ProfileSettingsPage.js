@@ -54,12 +54,15 @@ const ProfileSettingsPage = () => {
     profileVisibility: user?.profileVisibility || 'public',
     bio: user?.bio || '',
     bgmiIgnName: user?.bgmiIgnName || '',
-    bgmiUid: user?.bgmiUid || ''
+    bgmiUid: user?.bgmiUid || '',
+    freeFireIgnName: user?.freeFireIgnName || '',
+    freeFireUid: user?.freeFireUid || ''
   });
 
   const [gameIds, setGameIds] = useState({
     bgmi: user?.gameIds?.bgmi || '',
-    steam: user?.gameIds?.steam || ''
+    steam: user?.gameIds?.steam || '',
+    freefire: user?.gameIds?.freefire || ''
   });
 
   const indianStates = [
@@ -93,7 +96,9 @@ const ProfileSettingsPage = () => {
         profileVisibility: user.profileVisibility || 'public',
         bio: user.bio || '',
         bgmiIgnName: user.bgmiIgnName || '',
-        bgmiUid: user.bgmiUid || ''
+        bgmiUid: user.bgmiUid || '',
+        freeFireIgnName: user.freeFireIgnName || '',
+        freeFireUid: user.freeFireUid || ''
       });
       setSocialAccounts({
         twitter: user.socialAccounts?.twitter || '',
@@ -103,7 +108,8 @@ const ProfileSettingsPage = () => {
       });
       setGameIds({
         bgmi: user.gameIds?.bgmi || '',
-        steam: user.gameIds?.steam || ''
+        steam: user.gameIds?.steam || '',
+        freefire: user.gameIds?.freefire || ''
       });
     }
   }, [user]);
@@ -203,6 +209,8 @@ const ProfileSettingsPage = () => {
           bio: profileData.bio,
           bgmiIgnName: profileData.bgmiIgnName,
           bgmiUid: profileData.bgmiUid,
+          freeFireIgnName: profileData.freeFireIgnName,
+          freeFireUid: profileData.freeFireUid,
           socialAccounts,
           gameIds
         },
@@ -682,6 +690,50 @@ const ProfileSettingsPage = () => {
                       placeholder="Enter your BGMI UID (e.g., 5123456789)"
                     />
                     <p className="text-xs text-gray-500 mt-1">Your unique BGMI user ID for verification</p>
+                  </div>
+
+                  {/* Free Fire Section */}
+                  <div className="border-t border-gaming-slate pt-4 mt-4">
+                    <h4 className="text-white font-medium mb-3 flex items-center space-x-2">
+                      <span className="text-xl">🔥</span>
+                      <span>Free Fire</span>
+                    </h4>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Free Fire IGN (In-Game Name)
+                        </label>
+                        <input
+                          type="text"
+                          value={profileData.freeFireIgnName}
+                          onChange={(e) => handleProfileChange('freeFireIgnName', e.target.value)}
+                          disabled={!isEditing}
+                          className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                            isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                          }`}
+                          placeholder="Enter your Free Fire IGN (e.g., FireMaster99)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Your in-game name for Free Fire tournaments</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          Free Fire UID (User ID)
+                        </label>
+                        <input
+                          type="text"
+                          value={profileData.freeFireUid}
+                          onChange={(e) => handleProfileChange('freeFireUid', e.target.value)}
+                          disabled={!isEditing}
+                          className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                            isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                          }`}
+                          placeholder="Enter your Free Fire UID (e.g., 1234567890)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Your unique Free Fire user ID for verification</p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* <div>

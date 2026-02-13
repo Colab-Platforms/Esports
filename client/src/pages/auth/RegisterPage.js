@@ -33,6 +33,8 @@ const RegisterPage = () => {
     selectedGame: '',
     bgmiIgnName: '',
     bgmiUid: '',
+    freeFireIgnName: '',
+    freeFireUid: '',
     steamId: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -106,6 +108,17 @@ const RegisterPage = () => {
       }
     }
 
+    if (formData.selectedGame === 'Free Fire') {
+      if (!formData.freeFireIgnName || !formData.freeFireUid) {
+        toast.error('Please fill in Free Fire IGN and UID');
+        return false;
+      }
+      if (formData.freeFireUid.length < 8) {
+        toast.error('Free Fire UID must be at least 8 characters');
+        return false;
+      }
+    }
+
     if (formData.selectedGame === 'CS2') {
       if (!formData.steamId) {
         toast.error('Please enter your Steam ID');
@@ -135,6 +148,9 @@ const RegisterPage = () => {
       if (formData.selectedGame === 'BGMI') {
         requestData.bgmiIgnName = formData.bgmiIgnName;
         requestData.bgmiUid = formData.bgmiUid;
+      } else if (formData.selectedGame === 'Free Fire') {
+        requestData.freeFireIgnName = formData.freeFireIgnName;
+        requestData.freeFireUid = formData.freeFireUid;
       } else if (formData.selectedGame === 'CS2') {
         requestData.gameIds = {
           steam: formData.steamId
@@ -383,7 +399,7 @@ const RegisterPage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setFormData({ ...formData, selectedGame: 'BGMI', steamId: '' });
+                        setFormData({ ...formData, selectedGame: 'BGMI', steamId: '', freeFireIgnName: '', freeFireUid: '' });
                         setShowGameDropdown(false);
                       }}
                       className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
@@ -398,7 +414,18 @@ const RegisterPage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setFormData({ ...formData, selectedGame: 'CS2', bgmiIgnName: '', bgmiUid: '' });
+                        setFormData({ ...formData, selectedGame: 'Free Fire', steamId: '', bgmiIgnName: '', bgmiUid: '' });
+                        setShowGameDropdown(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
+                    >
+                      <span className="mr-3 text-xl">🔥</span>
+                      Free Fire
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, selectedGame: 'CS2', bgmiIgnName: '', bgmiUid: '', freeFireIgnName: '', freeFireUid: '' });
                         setShowGameDropdown(false);
                       }}
                       className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
@@ -458,6 +485,60 @@ const RegisterPage = () => {
                       className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
                       placeholder="Enter your BGMI UID"
                       value={formData.bgmiUid}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Free Fire Fields - Show when Free Fire is selected */}
+            {formData.selectedGame === 'Free Fire' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-4"
+              >
+                {/* Free Fire IGN Name */}
+                <div>
+                  <label htmlFor="freeFireIgnName" className="block text-sm font-medium text-gray-300 mb-2">
+                    Free Fire IGN (In-Game Name)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiUser className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="freeFireIgnName"
+                      name="freeFireIgnName"
+                      type="text"
+                      required={formData.selectedGame === 'Free Fire'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your Free Fire IGN"
+                      value={formData.freeFireIgnName}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                {/* Free Fire UID */}
+                <div>
+                  <label htmlFor="freeFireUid" className="block text-sm font-medium text-gray-300 mb-2">
+                    Free Fire UID (User ID)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <IoGameController className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="freeFireUid"
+                      name="freeFireUid"
+                      type="text"
+                      required={formData.selectedGame === 'Free Fire'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your Free Fire UID"
+                      value={formData.freeFireUid}
                       onChange={handleChange}
                     />
                   </div>

@@ -56,7 +56,8 @@ const userSchema = new mongoose.Schema({
   gameIds: {
     steam: { type: String, default: '' },
     bgmi: { type: String, default: '' },
-    valorant: { type: String, default: '' }
+    valorant: { type: String, default: '' },
+    freefire: { type: String, default: '' }
   },
   bgmiIgnName: {
     type: String,
@@ -68,6 +69,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
     sparse: true // Allow multiple users without bgmiUid
+  },
+  freeFireIgnName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [30, 'Free Fire IGN name cannot exceed 30 characters']
+  },
+  freeFireUid: {
+    type: String,
+    default: '',
+    sparse: true // Allow multiple users without freeFireUid
   },
   steamProfile: {
     steamId: { type: String, default: '' },
