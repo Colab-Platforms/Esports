@@ -20,9 +20,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       bgmiId: user?.bgmiUid || user?.gameIds?.bgmi || '',
       phone: user?.phone || ''
     },
-    teamMembers: [],
-    selectedLeaderIndex: null, // null means current user is leader
-    substitutes: {} // Track which members are substitutes by index
+    teamMembers: []
   });
 
   const handleInputChange = useCallback((section, field, value) => {
@@ -54,14 +52,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
         return prev;
       }
 
-      // Check team size limit (5 players including leader)
-      if (prev.teamMembers.length >= 4) {
-        setSnackbar({ message: 'Team is full (5 players max)', type: 'warning' });
+      // Check team size limit (4 players including leader)
+      if (prev.teamMembers.length >= 3) {
+        setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
         return prev;
       }
-
-      const newMemberIndex = prev.teamMembers.length;
-      const isSubstitute = newMemberIndex === 3; // 5th member (index 3) is substitute by default
 
       return {
         ...prev,
@@ -72,11 +67,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             bgmiId: player.bgmiId,
             playerId: player.playerId
           }
-        ],
-        substitutes: {
-          ...prev.substitutes,
-          [newMemberIndex]: isSubstitute
-        }
+        ]
       };
     });
     setSnackbar({ message: `${player.name} added to team`, type: 'success' });
@@ -84,56 +75,11 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
   // Remove player from team
   const handleRemovePlayer = useCallback((index) => {
-    setFormData(prev => {
-      const newFormData = {
-        ...prev,
-        teamMembers: prev.teamMembers.filter((_, i) => i !== index)
-      };
-      // If removed player was selected as leader, reset selection
-      if (prev.selectedLeaderIndex === index) {
-        newFormData.selectedLeaderIndex = null;
-      } else if (prev.selectedLeaderIndex > index) {
-        // Adjust index if a player before the selected leader was removed
-        newFormData.selectedLeaderIndex = prev.selectedLeaderIndex - 1;
-      }
-      return newFormData;
-    });
-  }, []);
-
-  // Handle leader selection
-  const handleSelectLeader = useCallback((index) => {
     setFormData(prev => ({
       ...prev,
-      selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index
+      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
     }));
   }, []);
-
-  // Handle substitute toggle - only one substitute allowed
-  const handleToggleSubstitute = useCallback((index) => {
-    setFormData(prev => {
-      // If clicking on the current substitute, deselect it
-      if (prev.substitutes[index]) {
-        return {
-          ...prev,
-          substitutes: {
-            ...prev.substitutes,
-            [index]: false
-          }
-        };
-      }
-      
-      // If clicking on a different member, deselect all others and select this one
-      const newSubstitutes = {};
-      newSubstitutes[index] = true;
-      return {
-        ...prev,
-        substitutes: newSubstitutes
-      };
-    });
-  }, []);
-
-  // Check if user has BGMI UID and IGN set
-  const hasBgmiCredentials = user?.bgmiUid && user?.bgmiIgnName;
 
   const validateForm = () => {
     // Team name validation
@@ -158,9 +104,9 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       return false;
     }
 
-    // Team members validation - must have exactly 4 members (+ leader = 5 total)
-    if (formData.teamMembers.length < 4) {
-      setError(`Please add ${4 - formData.teamMembers.length} more player(s)`);
+    // Team members validation - must have exactly 3 members (+ leader = 4 total)
+    if (formData.teamMembers.length < 3) {
+      setError(`Please add ${3 - formData.teamMembers.length} more player(s)`);
       return false;
     }
 
@@ -201,28 +147,12 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
-      // Determine actual team leader
-      let actualTeamLeader;
-      if (formData.selectedLeaderIndex === null) {
-        // Original user is the leader (default)
-        actualTeamLeader = formData.teamLeader;
-        var otherMembers = formData.teamMembers;
-      } else {
-        // A team member was selected as leader
-        actualTeamLeader = formData.teamMembers[formData.selectedLeaderIndex];
-        // Other members include the original leader + remaining members
-        otherMembers = [
-          formData.teamLeader,
-          ...formData.teamMembers.filter((_, i) => i !== formData.selectedLeaderIndex)
-        ];
-      }
-
       // Validate team members exist in Users collection
       console.log('🔍 Validating team members...');
       
       const teamMembersToValidate = [
-        { name: actualTeamLeader.name, bgmiId: actualTeamLeader.bgmiId },
-        ...otherMembers
+        { name: formData.teamLeader.name, bgmiId: formData.teamLeader.bgmiId },
+        ...formData.teamMembers
       ];
 
       // Get API URL with smart detection
@@ -283,32 +213,20 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       const registrationData = {
         teamName: formData.teamName,
         teamLeader: {
-          name: actualTeamLeader.name,
-          bgmiId: actualTeamLeader.bgmiId,
-          phone: formData.teamLeader.phone,
-          isSubstitute: formData.substitutes[-1] || false
+          name: formData.teamLeader.name,
+          bgmiId: formData.teamLeader.bgmiId,
+          phone: formData.teamLeader.phone
         },
-        teamMembers: otherMembers.map((m, idx) => {
-          // Find the original index of this member
-          let originalIndex;
-          if (formData.selectedLeaderIndex !== null) {
-            // If a member was selected as leader, adjust indices
-            originalIndex = idx < formData.selectedLeaderIndex ? idx : idx - 1;
-          } else {
-            originalIndex = idx;
-          }
-          return {
-            name: m.name,
-            bgmiId: m.bgmiId,
-            isSubstitute: formData.substitutes[originalIndex] || false
-          };
-        }),
+        teamMembers: formData.teamMembers.map(m => ({
+          name: m.name,
+          bgmiId: m.bgmiId
+        })),
         whatsappNumber: formData.teamLeader.phone
       };
 
       const response = await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
 
-      console.log('� Registration API response:', response);
+      console.log('📤 Registration API response:', response);
 
       const responseData = response.data || response;
       console.log('📤 Response data:', responseData);
@@ -413,19 +331,6 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
         {/* Form - Scrollable */}
         <form id="registration-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* BGMI Credentials Warning */}
-          {!hasBgmiCredentials && (
-            <div className="bg-red-500/15 border border-red-500/40 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <span className="text-red-400 text-xl mt-0.5">⚠️</span>
-                <div>
-                  <h3 className="text-red-400 font-semibold text-sm mb-1">BGMI Profile Incomplete</h3>
-                  <p className="text-red-300 text-sm">Please set your BGMI UID and IGN in your profile settings before registering for tournaments.</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Error Message */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
@@ -466,11 +371,30 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {/* Team Leader Info (Pre-filled) */}
+          <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-300 mb-3">👤 Team Leader (You)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">IGN Name</label>
+                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
+                  {formData.teamLeader.name || 'N/A'}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">BGMI UID</label>
+                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
+                  {formData.teamLeader.bgmiId || 'Not set'}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Search and Add Players */}
           <PlayerSearchAndAdd
             onAddPlayer={handleAddPlayerFromSearch}
             currentTeamMembers={[formData.teamLeader, ...formData.teamMembers]}
-            maxPlayers={5}
+            maxPlayers={4}
             currentUserData={user}
           />
 
@@ -478,56 +402,9 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-gray-300">
-                👥 Team Members ({(hasBgmiCredentials ? 1 : 0) + formData.teamMembers.length}/5)
+                👥 Team Members ({formData.teamMembers.length}/3)
               </label>
             </div>
-
-            {/* Team Leader - Only show if BGMI credentials are set */}
-            {hasBgmiCredentials && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className={`rounded-lg p-3 flex items-center justify-between transition-all ${
-                  formData.selectedLeaderIndex === null
-                    ? 'bg-gaming-charcoal border border-gaming-neon/30'
-                    : 'bg-gaming-charcoal border border-gaming-slate'
-                }`}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-gaming-neon font-bold text-sm">#1</span>
-                    <div>
-                      <h4 className="text-white font-medium text-sm">{formData.teamLeader.name}</h4>
-                      <p className="text-gaming-neon text-xs">UID: {formData.teamLeader.bgmiId}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectLeader(-1)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                      formData.selectedLeaderIndex === null
-                        ? 'bg-gaming-neon/30 border border-gaming-neon text-gaming-neon'
-                        : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-gaming-neon/50'
-                    }`}
-                  >
-                    {formData.selectedLeaderIndex === null ? '✓ Leader' : 'Set Leader'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSubstitute(-1)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                      formData.substitutes[-1]
-                        ? 'bg-yellow-500/30 border border-yellow-500 text-yellow-400'
-                        : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-yellow-500/50'
-                    }`}
-                  >
-                    {formData.substitutes[-1] ? '✓ Sub' : 'Sub'}
-                  </button>
-                </div>
-              </motion.div>
-            )}
 
             {formData.teamMembers.length === 0 ? (
               <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4 text-center text-gray-400">
@@ -535,66 +412,34 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
               </div>
             ) : (
               <div className="space-y-2">
-                {formData.teamMembers.map((member, index) => {
-                  const isSelectedLeader = formData.selectedLeaderIndex === index;
-                  const isSubstitute = formData.substitutes[index];
-                  return (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className={`rounded-lg p-3 flex items-center justify-between transition-all ${
-                        isSelectedLeader
-                          ? 'bg-gaming-charcoal border border-gaming-neon/50'
-                          : 'bg-gaming-charcoal border border-gaming-slate'
-                      }`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gaming-neon font-bold text-sm">#{index + 2}</span>
-                          <div>
-                            <h4 className="text-white font-medium text-sm">{member.name}</h4>
-                            <p className="text-gaming-neon text-xs">UID: {member.bgmiId}</p>
-                          </div>
+                {formData.teamMembers.map((member, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-3 flex items-center justify-between"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gaming-neon font-bold text-sm">#{index + 2}</span>
+                        <div>
+                          <h4 className="text-white font-medium text-sm">{member.name}</h4>
+                          <p className="text-gaming-neon text-xs">UID: {member.bgmiId}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSelectLeader(index)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                            isSelectedLeader
-                              ? 'bg-gaming-neon/30 border border-gaming-neon text-gaming-neon'
-                              : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-gaming-neon/50'
-                          }`}
-                        >
-                          {isSelectedLeader ? '✓ Leader' : 'Set Leader'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSubstitute(index)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                            isSubstitute
-                              ? 'bg-yellow-500/30 border border-yellow-500 text-yellow-400'
-                              : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-yellow-500/50'
-                          }`}
-                        >
-                          {isSubstitute ? '✓ Sub' : 'Sub'}
-                        </button>
-                        <motion.button
-                          type="button"
-                          onClick={() => handleRemovePlayer(index)}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors"
-                        >
-                          Remove
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                    </div>
+                    <motion.button
+                      type="button"
+                      onClick={() => handleRemovePlayer(index)}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors"
+                    >
+                      Remove
+                    </motion.button>
+                  </motion.div>
+                ))}
               </div>
             )}
           </div>
@@ -614,7 +459,7 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             type="submit"
             form="registration-form"
             className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-            disabled={loading || formData.teamMembers.length < 4}
+            disabled={loading || formData.teamMembers.length < 3}
           >
             {loading ? (
               <span className="flex items-center justify-center space-x-1">

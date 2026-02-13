@@ -200,13 +200,17 @@ const PlayerSearchAndAdd = ({
       )}
 
       {/* Info Text */}
-      {!isTeamFull && (
-        <div className="text-xs rounded p-2 bg-gaming-charcoal/50 text-gray-400">
-          <p>
-            💡 Search by IGN name or BGMI UID. Players must have both set to appear in results.
-          </p>
-        </div>
-      )}
+      <div className={`text-xs rounded p-2 ${
+        isTeamFull
+          ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+          : 'bg-gaming-charcoal/50 text-gray-400'
+      }`}>
+        <p>
+          {isTeamFull
+            ? '❌ Team is full. Remove a player to add more.'
+            : '💡 Search by IGN name or BGMI UID. Players must have both set to appear in results.'}
+        </p>
+      </div>
     </div>
   );
 };

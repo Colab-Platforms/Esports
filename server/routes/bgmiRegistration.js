@@ -33,7 +33,7 @@ router.get('/admin/emergency-test', (req, res) => {
 });
 
 // @route   POST /api/bgmi-registration/:tournamentId/register
-// @desc    Register a 5-player team for BGMI tournament
+// @desc    Register a 4-player team for BGMI tournament
 // @access  Private
 router.post('/:tournamentId/register', auth, [
   // Team Details Validation
@@ -55,10 +55,10 @@ router.post('/:tournamentId/register', auth, [
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
   
-  // Team Members Validation (exactly 4 members)
+  // Team Members Validation (exactly 3 members)
   body('teamMembers')
-    .isArray({ min: 4, max: 4 })
-    .withMessage('Team must have exactly 4 members'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members'),
   body('teamMembers.*.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
