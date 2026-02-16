@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 
@@ -14,49 +14,80 @@ const PlayerSearchAndAdd = ({
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Search players by IGN name or BGMI UID only
-  const handleSearch = useCallback(async (query) => {
-    setSearchQuery(query);
-    setError('');
-    
-    if (!query.trim()) {
+  // Debounced search - triggers 800ms after user stops typing
+  useEffect(() => {
+    // Clear results if query is empty
+    if (!searchQuery.trim()) {
       setSearchResults([]);
       setHasSearched(false);
+      setError('');
       return;
     }
 
+    // Set loading state immediately
     setLoading(true);
-    setHasSearched(true);
-    
-    try {
-      const response = await api.get('/api/users/players/public', {
-        params: { search: query }
-      });
+    setError('');
 
-      let players = response.data?.data?.players || response.data?.players || [];
+    // Debounce timer - wait 800ms before searching
+    const debounceTimer = setTimeout(async () => {
+      setHasSearched(true);
       
-      // Filter out already added players
-      const addedUsernames = currentTeamMembers.map(m => m.name.toLowerCase());
-      players = players.filter(p => !addedUsernames.includes(p.bgmiIgnName?.toLowerCase()));
+      console.log('🔍 Searching for:', searchQuery.trim());
       
-      // Filter out current user if they're in results
-      if (currentUserData?.username) {
-        players = players.filter(p => p.username?.toLowerCase() !== currentUserData.username.toLowerCase());
-      }
+      try {
+        const response = await api.get('/api/users/players/public', {
+          params: { search: searchQuery.trim() }
+        });
 
-      setSearchResults(players);
-      
-      if (players.length === 0 && query.trim()) {
-        setError('No players found with both IGN name and BGMI UID set');
+        console.log('📦 API Response:', response.data);
+
+        let players = response.data?.data?.players || response.data?.players || [];
+        
+        console.log('👥 Players found:', players.length);
+        
+        // Filter out already added players
+        const addedUsernames = currentTeamMembers.map(m => m.name.toLowerCase());
+        players = players.filter(p => !addedUsernames.includes(p.bgmiIgnName?.toLowerCase()));
+        
+        // Filter out current user if they're in results
+        if (currentUserData?.username) {
+          players = players.filter(p => p.username?.toLowerCase() !== currentUserData.username.toLowerCase());
+        }
+
+        console.log('✅ Final filtered players:', players.length);
+
+        setSearchResults(players);
+        
+        if (players.length === 0 && searchQuery.trim()) {
+          setError('No players found with both IGN name and BGMI UID set');
+        }
+      } catch (err) {
+        console.error('❌ Search error:', err);
+        console.error('Error response:', err.response?.data);
+        setError('Failed to search players');
+        setSearchResults([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Search error:', err);
-      setError('Failed to search players');
-      setSearchResults([]);
-    } finally {
+    }, 800); // 800ms debounce delay
+
+    // Cleanup function - cancel timer if user types again
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  }, [searchQuery, currentTeamMembers, currentUserData]);
+
+  // Handle input change
+  const handleInputChange = (e) => {
+    setSearchQuery(e.target.value);
+    // Show loading immediately when user types
+    if (e.target.value.trim()) {
+      setLoading(true);
+    }
+    else {
       setLoading(false);
     }
-  }, [currentTeamMembers, currentUserData]);
+  };
 
   // Add player to team
   const handleAddPlayer = useCallback((player) => {
@@ -95,7 +126,7 @@ const PlayerSearchAndAdd = ({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={handleInputChange}
             placeholder={isTeamFull ? "Team is full" : "Search by IGN name or BGMI UID..."}
             disabled={isTeamFull}
             className={`w-full px-4 py-3 bg-gaming-charcoal border rounded-lg text-white focus:outline-none transition-colors ${
@@ -208,7 +239,7 @@ const PlayerSearchAndAdd = ({
         <p>
           {isTeamFull
             ? '❌ Team is full. Remove a player to add more.'
-            : '💡 Search by IGN name or BGMI UID. Players must have both set to appear in results.'}
+            : '💡 Type to search by IGN name or BGMI UID. Results appear after 0.8s. Players must have both set to appear.'}
         </p>
       </div>
     </div>
