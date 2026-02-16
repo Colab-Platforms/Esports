@@ -104,15 +104,61 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
   // Handle leader selection
   const handleSelectLeader = useCallback((index) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index
-    }));
+    setFormData(prev => {
+      // Check if this player is currently marked as substitute
+      if (prev.substitutes[index]) {
+        setSnackbar({ 
+          message: '❌ Substitute cannot be the team leader', 
+          type: 'error' 
+        });
+        return prev;
+      }
+      
+      // If selecting current user as leader (index -1), check if they're substitute
+      if (index === -1 && prev.substitutes[-1]) {
+        setSnackbar({ 
+          message: '❌ Substitute cannot be the team leader', 
+          type: 'error' 
+        });
+        return prev;
+      }
+      
+      // Clear substitute status when making someone leader
+      const newSubstitutes = { ...prev.substitutes };
+      if (index !== null) {
+        newSubstitutes[index] = false;
+      }
+      
+      return {
+        ...prev,
+        selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index,
+        substitutes: newSubstitutes
+      };
+    });
   }, []);
 
   // Handle substitute toggle - only one substitute allowed, always enabled
   const handleToggleSubstitute = useCallback((index) => {
     setFormData(prev => {
+      // Check if this player is currently selected as leader
+      if (prev.selectedLeaderIndex === index) {
+        setSnackbar({ 
+          message: '❌ Team leader cannot be a substitute', 
+          type: 'error' 
+        });
+        return prev;
+      }
+      
+      // Check if current user (index -1) is being marked as substitute
+      // but they are the default leader (selectedLeaderIndex is null)
+      if (index === -1 && prev.selectedLeaderIndex === null) {
+        setSnackbar({ 
+          message: '❌ Team leader cannot be a substitute', 
+          type: 'error' 
+        });
+        return prev;
+      }
+
       // Always switch substitute to the clicked member
       const newSubstitutes = {};
       Object.keys(prev.substitutes).forEach(key => {
