@@ -410,28 +410,40 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       username,
       email,
       phone,
-      passwordHash: password // Will be hashed by pre-save middleware
+      passwordHash: password, // Will be hashed by pre-save middleware
+      gameIds: {
+        steam: '',
+        bgmi: { ign: '', uid: '' },
+        freefire: { ign: '', uid: '' },
+        valorant: ''
+      }
     };
 
     // Add game-specific data if provided
-    if (bgmiIgnName) {
-      userData.bgmiIgnName = bgmiIgnName;
-      console.log('🎮 BGMI IGN added:', bgmiIgnName);
+    if (bgmiIgnName || bgmiUid) {
+      userData.gameIds.bgmi = {
+        ign: bgmiIgnName || '',
+        uid: bgmiUid || ''
+      };
+      // Also save to legacy fields for backward compatibility
+      userData.bgmiIgnName = bgmiIgnName || '';
+      userData.bgmiUid = bgmiUid || '';
+      console.log('🎮 BGMI data added:', { ign: bgmiIgnName, uid: bgmiUid });
     }
-    if (bgmiUid) {
-      userData.bgmiUid = bgmiUid;
-      console.log('🎮 BGMI UID added:', bgmiUid);
+    
+    if (freeFireIgnName || freeFireUid) {
+      userData.gameIds.freefire = {
+        ign: freeFireIgnName || '',
+        uid: freeFireUid || ''
+      };
+      // Also save to legacy fields for backward compatibility
+      userData.freeFireIgnName = freeFireIgnName || '';
+      userData.freeFireUid = freeFireUid || '';
+      console.log('🔥 Free Fire data added:', { ign: freeFireIgnName, uid: freeFireUid });
     }
-    if (freeFireIgnName) {
-      userData.freeFireIgnName = freeFireIgnName;
-      console.log('🔥 Free Fire IGN added:', freeFireIgnName);
-    }
-    if (freeFireUid) {
-      userData.freeFireUid = freeFireUid;
-      console.log('🔥 Free Fire UID added:', freeFireUid);
-    }
+    
     if (gameIds && gameIds.steam) {
-      userData.gameIds = { steam: gameIds.steam };
+      userData.gameIds.steam = gameIds.steam;
       console.log('🎮 Steam ID added:', gameIds.steam);
     }
 
@@ -760,11 +772,35 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
-    // Allow empty strings for game fields - don't fall back to old value
-    if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
-    if (bgmiUid !== undefined) user.bgmiUid = bgmiUid;
-    if (freeFireIgnName !== undefined) user.freeFireIgnName = freeFireIgnName;
-    if (freeFireUid !== undefined) user.freeFireUid = freeFireUid;
+    
+    // Update game IDs with new structure
+    if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
+      if (!user.gameIds) user.gameIds = {};
+      if (!user.gameIds.bgmi) user.gameIds.bgmi = {};
+      
+      user.gameIds.bgmi.ign = bgmiIgnName !== undefined ? bgmiIgnName : (user.gameIds.bgmi.ign || '');
+      user.gameIds.bgmi.uid = bgmiUid !== undefined ? bgmiUid : (user.gameIds.bgmi.uid || '');
+      
+      // Also update legacy fields for backward compatibility
+      user.bgmiIgnName = user.gameIds.bgmi.ign;
+      user.bgmiUid = user.gameIds.bgmi.uid;
+      
+      console.log('🎮 BGMI data updated:', user.gameIds.bgmi);
+    }
+    
+    if (freeFireIgnName !== undefined || freeFireUid !== undefined) {
+      if (!user.gameIds) user.gameIds = {};
+      if (!user.gameIds.freefire) user.gameIds.freefire = {};
+      
+      user.gameIds.freefire.ign = freeFireIgnName !== undefined ? freeFireIgnName : (user.gameIds.freefire.ign || '');
+      user.gameIds.freefire.uid = freeFireUid !== undefined ? freeFireUid : (user.gameIds.freefire.uid || '');
+      
+      // Also update legacy fields for backward compatibility
+      user.freeFireIgnName = user.gameIds.freefire.ign;
+      user.freeFireUid = user.gameIds.freefire.uid;
+      
+      console.log('🔥 Free Fire data updated:', user.gameIds.freefire);
+    }
     
     // Update social accounts
     if (socialAccounts !== undefined) {
@@ -776,13 +812,37 @@ router.put('/profile', auth, async (req, res) => {
       };
     }
 
-    // Update game IDs - Allow empty strings to clear values
+    // Update game IDs - Handle steam and other games
     if (gameIds !== undefined) {
-      user.gameIds = {
-        steam: gameIds.steam !== undefined ? gameIds.steam : (user.gameIds?.steam || ''),
-        bgmi: gameIds.bgmi !== undefined ? gameIds.bgmi : (user.gameIds?.bgmi || ''),
-        freefire: gameIds.freefire !== undefined ? gameIds.freefire : (user.gameIds?.freefire || '')
-      };
+      if (!user.gameIds) user.gameIds = {};
+      
+      if (gameIds.steam !== undefined) {
+        user.gameIds.steam = gameIds.steam;
+      }
+      
+      // Handle bgmi if passed as object in gameIds
+      if (gameIds.bgmi !== undefined) {
+        if (typeof gameIds.bgmi === 'object') {
+          user.gameIds.bgmi = {
+            ign: gameIds.bgmi.ign || user.gameIds.bgmi?.ign || '',
+            uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
+          };
+          user.bgmiIgnName = user.gameIds.bgmi.ign;
+          user.bgmiUid = user.gameIds.bgmi.uid;
+        }
+      }
+      
+      // Handle freefire if passed as object in gameIds
+      if (gameIds.freefire !== undefined) {
+        if (typeof gameIds.freefire === 'object') {
+          user.gameIds.freefire = {
+            ign: gameIds.freefire.ign || user.gameIds.freefire?.ign || '',
+            uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
+          };
+          user.freeFireIgnName = user.gameIds.freefire.ign;
+          user.freeFireUid = user.gameIds.freefire.uid;
+        }
+      }
     }
 
     await user.save();

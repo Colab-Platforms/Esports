@@ -53,16 +53,22 @@ const ProfileSettingsPage = () => {
     favoriteGame: user?.favoriteGame || '',
     profileVisibility: user?.profileVisibility || 'public',
     bio: user?.bio || '',
-    bgmiIgnName: user?.bgmiIgnName || '',
-    bgmiUid: user?.bgmiUid || '',
-    freeFireIgnName: user?.freeFireIgnName || '',
-    freeFireUid: user?.freeFireUid || ''
+    bgmiIgnName: user?.gameIds?.bgmi?.ign || user?.bgmiIgnName || '',
+    bgmiUid: user?.gameIds?.bgmi?.uid || user?.bgmiUid || '',
+    freeFireIgnName: user?.gameIds?.freefire?.ign || user?.freeFireIgnName || '',
+    freeFireUid: user?.gameIds?.freefire?.uid || user?.freeFireUid || ''
   });
 
   const [gameIds, setGameIds] = useState({
-    bgmi: user?.gameIds?.bgmi || '',
-    steam: user?.gameIds?.steam || '',
-    freefire: user?.gameIds?.freefire || ''
+    bgmi: {
+      ign: user?.gameIds?.bgmi?.ign || user?.bgmiIgnName || '',
+      uid: user?.gameIds?.bgmi?.uid || user?.bgmiUid || ''
+    },
+    freefire: {
+      ign: user?.gameIds?.freefire?.ign || user?.freeFireIgnName || '',
+      uid: user?.gameIds?.freefire?.uid || user?.freeFireUid || ''
+    },
+    steam: user?.gameIds?.steam || ''
   });
 
   const indianStates = [
@@ -95,10 +101,10 @@ const ProfileSettingsPage = () => {
         favoriteGame: user.favoriteGame || '',
         profileVisibility: user.profileVisibility || 'public',
         bio: user.bio || '',
-        bgmiIgnName: user.bgmiIgnName || '',
-        bgmiUid: user.bgmiUid || '',
-        freeFireIgnName: user.freeFireIgnName || '',
-        freeFireUid: user.freeFireUid || ''
+        bgmiIgnName: user.gameIds?.bgmi?.ign || user.bgmiIgnName || '',
+        bgmiUid: user.gameIds?.bgmi?.uid || user.bgmiUid || '',
+        freeFireIgnName: user.gameIds?.freefire?.ign || user.freeFireIgnName || '',
+        freeFireUid: user.gameIds?.freefire?.uid || user.freeFireUid || ''
       });
       setSocialAccounts({
         twitter: user.socialAccounts?.twitter || '',
@@ -107,9 +113,15 @@ const ProfileSettingsPage = () => {
         linkedin: user.socialAccounts?.linkedin || ''
       });
       setGameIds({
-        bgmi: user.gameIds?.bgmi || '',
-        steam: user.gameIds?.steam || '',
-        freefire: user.gameIds?.freefire || ''
+        bgmi: {
+          ign: user.gameIds?.bgmi?.ign || user.bgmiIgnName || '',
+          uid: user.gameIds?.bgmi?.uid || user.bgmiUid || ''
+        },
+        freefire: {
+          ign: user.gameIds?.freefire?.ign || user.freeFireIgnName || '',
+          uid: user.gameIds?.freefire?.uid || user.freeFireUid || ''
+        },
+        steam: user.gameIds?.steam || ''
       });
     }
   }, [user]);
