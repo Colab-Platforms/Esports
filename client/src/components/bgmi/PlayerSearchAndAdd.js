@@ -40,7 +40,7 @@ const PlayerSearchAndAdd = ({
         });
 
         console.log('📦 API Response:', response.data);
-
+ 
         let players = response.data?.data?.players || response.data?.players || [];
         
         console.log('👥 Players found:', players.length);
