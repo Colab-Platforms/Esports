@@ -12,7 +12,7 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     required: [true, 'User ID is required']
   },
   
-  // Team Details (4 players per team for BGMI)
+  // Team Details (4-5 players per team for BGMI: 3 required + 1 optional substitute)
   teamName: {
     type: String,
     required: [true, 'Team name is required'],
@@ -37,10 +37,14 @@ const tournamentRegistrationSchema = new mongoose.Schema({
       type: String,
       required: [true, 'Team leader phone is required'],
       match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
+    },
+    isSubstitute: {
+      type: Boolean,
+      default: false
     }
   },
   
-  // Team Members (3 additional players)
+  // Team Members (3-4 additional players: 3 required + 1 optional substitute)
   teamMembers: [{
     name: {
       type: String,
@@ -51,6 +55,10 @@ const tournamentRegistrationSchema = new mongoose.Schema({
       type: String,
       required: [true, 'Team member BGMI ID is required'],
       trim: true
+    },
+    isSubstitute: {
+      type: Boolean,
+      default: false
     }
   }],
   
@@ -171,9 +179,9 @@ tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
 
 // Pre-save middleware to update tournament participant count
 tournamentRegistrationSchema.pre('save', function(next) {
-  // Ensure exactly 3 team members (plus leader = 4 total)
-  if (this.teamMembers.length !== 3) {
-    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
+  // Ensure 3-4 team members (plus leader = 4-5 total)
+  if (this.teamMembers.length < 3 || this.teamMembers.length > 4) {
+    return next(new Error('Team must have 3-4 members (plus leader = 4-5 total players)'));
   }
   
   // Collect all BGMI IDs to check for duplicates
