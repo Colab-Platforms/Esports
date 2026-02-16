@@ -633,59 +633,88 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
 // @desc    Get all players (public - no auth required) - Search by IGN name or BGMI UID only
 // @access  Public
 router.get('/players/public', async (req, res) => {
+  console.log('🎯 /api/users/players/public route hit!');
+  console.log('📥 Query params:', req.query);
+  
   try {
     const { search } = req.query;
+
+    // First, let's check how many users have BGMI data
+    const totalUsersWithBGMI = await User.countDocuments({
+      $or: [
+        { bgmiIgnName: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi.ign': { $exists: true, $ne: '' } }
+      ]
+    });
+    console.log('📊 Total users with BGMI IGN:', totalUsersWithBGMI);
+
+    const totalUsersWithUID = await User.countDocuments({
+      $or: [
+        { bgmiUid: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi.uid': { $exists: true, $ne: '' } }
+      ]
+    });
+    console.log('📊 Total users with BGMI UID:', totalUsersWithUID);
 
     let query = {};
 
     // Only search by IGN name (bgmiIgnName) or BGMI UID
     // Both fields must exist for player to be searchable
-    if (search) {
+    if (search && search.trim().length > 0) {
+      const searchTerm = search.trim();
+      
+      console.log('🔍 Searching for:', searchTerm);
+      
       query.$and = [
         {
           $or: [
-            { bgmiIgnName: { $regex: search, $options: 'i' } },
-            { 'gameIds.bgmi': { $regex: search, $options: 'i' } },
-            { bgmiUid: { $regex: search, $options: 'i' } }
+            { bgmiIgnName: { $regex: searchTerm, $options: 'i' } },
+            { 'gameIds.bgmi.ign': { $regex: searchTerm, $options: 'i' } },
+            { 'gameIds.bgmi.uid': { $regex: searchTerm, $options: 'i' } },
+            { bgmiUid: { $regex: searchTerm, $options: 'i' } }
           ]
         },
         // Both IGN and UID must be present (check both storage locations)
-        { bgmiIgnName: { $exists: true, $ne: '' } },
         {
           $or: [
-            { 'gameIds.bgmi': { $exists: true, $ne: '' } },
+            { bgmiIgnName: { $exists: true, $ne: '' } },
+            { 'gameIds.bgmi.ign': { $exists: true, $ne: '' } }
+          ]
+        },
+        {
+          $or: [
+            { 'gameIds.bgmi.uid': { $exists: true, $ne: '' } },
             { bgmiUid: { $exists: true, $ne: '' } }
           ]
         }
       ];
     } else {
-      // If no search, still require both IGN and UID to be present
-      query.$and = [
-        { bgmiIgnName: { $exists: true, $ne: '' } },
-        {
-          $or: [
-            { 'gameIds.bgmi': { $exists: true, $ne: '' } },
-            { bgmiUid: { $exists: true, $ne: '' } }
-          ]
+      // If no search query provided, return empty array
+      console.log('⚠️ No search query provided, returning empty results');
+      return res.json({
+        success: true,
+        data: {
+          players: [],
+          total: 0
         }
-      ];
+      });
     }
 
-    console.log('🔍 BGMI players query:', query);
+    console.log('🔍 BGMI players query:', JSON.stringify(query, null, 2));
 
     const players = await User.find(query)
       .select('username bgmiIgnName bgmiUid avatarUrl gameIds')
       .limit(50)
       .lean();
     
-    console.log(`✅ Found ${players.length} BGMI players with both IGN and UID`);
+    console.log(`✅ Found ${players.length} BGMI players matching search`);
 
     // Format response
     const formattedPlayers = players.map(player => ({
       _id: player._id,
       username: player.username,
-      bgmiIgnName: player.bgmiIgnName,
-      bgmiUid: player.bgmiUid || player.gameIds?.bgmi || '',
+      bgmiIgnName: player.gameIds?.bgmi?.ign || player.bgmiIgnName || '',
+      bgmiUid: player.gameIds?.bgmi?.uid || player.bgmiUid || '',
       avatar: player.avatarUrl
     }));
 

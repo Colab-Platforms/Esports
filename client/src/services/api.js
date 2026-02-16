@@ -87,7 +87,14 @@ class ApiService {
   }
 
   async get(endpoint, options = {}) {
-    return this.request(endpoint, { method: 'GET', ...options });
+    // Handle query parameters
+    let url = endpoint;
+    if (options.params) {
+      const queryString = new URLSearchParams(options.params).toString();
+      url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryString}`;
+      delete options.params; // Remove params from options as we've added them to URL
+    }
+    return this.request(url, { method: 'GET', ...options });
   }
 
   async post(endpoint, data, options = {}) {
