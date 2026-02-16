@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
 import api from '../../services/api';
+import FreeFirePlayerSearchAndAdd from './FreeFirePlayerSearchAndAdd';
 import Snackbar from '../common/Snackbar';
 
 const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
@@ -15,11 +16,12 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     teamName: '',
     teamLeader: {
-      name: user?.freeFireIgnName || user?.username || '',
-      freeFireId: user?.freeFireUid || user?.gameIds?.freefire || '',
+      name: user?.freeFireIgnName || user?.gameIds?.freefire?.ign || user?.username || '',
+      freeFireId: user?.freeFireUid || user?.gameIds?.freefire?.uid || '',
       phone: user?.phone || ''
     },
-    teamMembers: []
+    teamMembers: [],
+    selectedLeaderIndex: null // null means current user is leader
   });
 
   const handleInputChange = useCallback((section, field, value) => {
@@ -41,39 +43,65 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     });
   }, []);
 
-  // Add player manually
-  const handleAddPlayer = useCallback(() => {
-    if (formData.teamMembers.length >= 3) {
-      setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
-      return;
-    }
+  // Add player from search
+  const handleAddPlayerFromSearch = useCallback((player) => {
+    setFormData(prev => {
+      // Check if player already added
+      const alreadyAdded = prev.teamMembers.some(m => m.name.toLowerCase() === player.name.toLowerCase());
+      if (alreadyAdded) {
+        setSnackbar({ message: 'Player already added', type: 'warning' });
+        return prev;
+      }
 
-    setFormData(prev => ({
-      ...prev,
-      teamMembers: [
-        ...prev.teamMembers,
-        { name: '', freeFireId: '' }
-      ]
-    }));
-  }, [formData.teamMembers.length]);
+      // Check team size limit (4 players including leader for Free Fire)
+      if (prev.teamMembers.length >= 3) {
+        setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
+        return prev;
+      }
 
-  // Update team member
-  const handleUpdateMember = useCallback((index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      teamMembers: prev.teamMembers.map((member, i) => 
-        i === index ? { ...member, [field]: value } : member
-      )
-    }));
+      return {
+        ...prev,
+        teamMembers: [
+          ...prev.teamMembers,
+          {
+            name: player.name,
+            freeFireId: player.freeFireId,
+            playerId: player.playerId
+          }
+        ]
+      };
+    });
+    setSnackbar({ message: `${player.name} added to team`, type: 'success' });
   }, []);
 
   // Remove player from team
   const handleRemovePlayer = useCallback((index) => {
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+      };
+      // If removed player was selected as leader, reset selection
+      if (prev.selectedLeaderIndex === index) {
+        newFormData.selectedLeaderIndex = null;
+      } else if (prev.selectedLeaderIndex > index) {
+        // Adjust index if a player before the selected leader was removed
+        newFormData.selectedLeaderIndex = prev.selectedLeaderIndex - 1;
+      }
+      return newFormData;
+    });
+  }, []);
+
+  // Handle leader selection
+  const handleSelectLeader = useCallback((index) => {
     setFormData(prev => ({
       ...prev,
-      teamMembers: prev.teamMembers.filter((_, i) => i !== index)
+      selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index
     }));
   }, []);
+
+  // Check if user has Free Fire UID and IGN set
+  const hasFreeFireCredentials = user?.freeFireUid && user?.freeFireIgnName;
 
   const validateForm = () => {
     // Team name validation
@@ -87,12 +115,12 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       setError('Team leader name is required');
       return false;
     }
-    
+
     if (!formData.teamLeader.freeFireId.trim()) {
       setError('Team leader Free Fire ID is required');
       return false;
     }
-    
+
     if (!formData.teamLeader.phone.match(/^[6-9]\d{9}$/)) {
       setError('Team leader phone must be a valid Indian number');
       return false;
@@ -141,6 +169,80 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
+      // Determine actual team leader
+      let actualTeamLeader;
+      if (formData.selectedLeaderIndex === null) {
+        // Original user is the leader (default)
+        actualTeamLeader = formData.teamLeader;
+        var otherMembers = formData.teamMembers;
+      } else {
+        // A team member was selected as leader
+        actualTeamLeader = formData.teamMembers[formData.selectedLeaderIndex];
+        // Other members include the original leader + remaining members
+        otherMembers = [
+          formData.teamLeader,
+          ...formData.teamMembers.filter((_, i) => i !== formData.selectedLeaderIndex)
+        ];
+      }
+
+      // Validate team members exist in Users collection
+      console.log('🔍 Validating team members...');
+
+      const teamMembersToValidate = [
+        { name: actualTeamLeader.name, freeFireId: actualTeamLeader.freeFireId },
+        ...otherMembers
+      ];
+
+      // Get API URL with smart detection
+      let API_URL = process.env.REACT_APP_API_URL;
+      if (!API_URL && typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+          API_URL = 'http://127.0.0.1:5001';
+        } else {
+          const protocol = window.location.protocol;
+          API_URL = `${protocol}//${hostname}`;
+        }
+      }
+      if (!API_URL) {
+        API_URL = 'http://127.0.0.1:5001';
+      }
+
+      // Validate each team member
+      const validationPromises = teamMembersToValidate.map(member =>
+        fetch(`${API_URL}/api/tournaments/validate-player`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            freeFireUid: member.freeFireId,
+            ignName: member.name
+          })
+        }).then(res => res.json())
+      );
+
+      const validationResults = await Promise.all(validationPromises);
+
+      // Check if all members are registered
+      const unregisteredMembers = [];
+      validationResults.forEach((result, index) => {
+        if (!result.data?.isRegistered) {
+          const memberName = index === 0 ? 'Team Leader' : `Team Member ${index}`;
+          unregisteredMembers.push(`${memberName} (${teamMembersToValidate[index].name})`);
+        }
+      });
+
+      if (unregisteredMembers.length > 0) {
+        setError(`⚠️ The following players are not registered on our platform:\n${unregisteredMembers.join('\n')}\n\nAll team members must be registered before tournament registration.`);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ All team members validated successfully');
+
+      // Submit registration
       console.log('🔥 Submitting Free Fire registration:', {
         tournamentId: tournament._id,
         teamName: formData.teamName
@@ -149,16 +251,18 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       const registrationData = {
         teamName: formData.teamName,
         teamLeader: {
-          name: formData.teamLeader.name,
-          freeFireId: formData.teamLeader.freeFireId,
+          name: actualTeamLeader.name,
+          freeFireId: actualTeamLeader.freeFireId,
           phone: formData.teamLeader.phone
         },
-        teamMembers: formData.teamMembers.map(m => ({
+        teamMembers: otherMembers.map(m => ({
           name: m.name,
           freeFireId: m.freeFireId
         })),
         whatsappNumber: formData.teamLeader.phone
       };
+
+      console.log('📤 Sending registration data:', JSON.stringify(registrationData, null, 2));
 
       const response = await api.post(`/api/freefire-registration/${tournament._id}/register`, registrationData);
 
@@ -187,11 +291,24 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
       }
     } catch (error) {
       console.error('❌ Registration error:', error);
-      setError(
-        error.response?.data?.error?.message ||
-        error.message ||
-        'Failed to register team'
-      );
+      console.error('❌ Error response:', error.response?.data);
+      
+      // Get detailed error message
+      let errorMessage = 'Failed to register team';
+      
+      if (error.response?.data?.error?.details) {
+        // Show validation errors
+        const details = error.response.data.error.details;
+        errorMessage = details.map(d => `${d.param}: ${d.msg}`).join('\n');
+      } else if (error.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -270,12 +387,25 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
 
         {/* Form - Scrollable */}
         <form id="registration-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Free Fire Credentials Warning */}
+          {!hasFreeFireCredentials && (
+            <div className="bg-red-500/15 border border-red-500/40 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <span className="text-red-400 text-xl mt-0.5">⚠️</span>
+                <div>
+                  <h3 className="text-red-400 font-semibold text-sm mb-1">Free Fire Profile Incomplete</h3>
+                  <p className="text-red-300 text-sm">Please set your Free Fire UID and IGN in your profile settings before registering for tournaments.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
               <div className="flex items-center space-x-2">
                 <span className="text-red-400">⚠️</span>
-                <span className="text-red-400 font-medium">{error}</span>
+                <span className="text-red-400 font-medium whitespace-pre-line">{error}</span>
               </div>
             </div>
           )}
@@ -310,98 +440,112 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Team Leader Info (Pre-filled) */}
-          <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">👤 Team Leader (You)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">IGN Name</label>
-                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
-                  {formData.teamLeader.name || 'N/A'}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Free Fire UID</label>
-                <div className="px-4 py-2 bg-gaming-slate rounded text-white text-sm">
-                  {formData.teamLeader.freeFireId || 'Not set'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Add Player Button */}
-          <div>
-            <button
-              type="button"
-              onClick={handleAddPlayer}
-              disabled={formData.teamMembers.length >= 3}
-              className="w-full px-4 py-3 bg-orange-500/10 border border-orange-500/30 text-orange-500 rounded-lg hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-            >
-              <span className="text-xl">➕</span>
-              <span>Add Team Member ({formData.teamMembers.length}/3)</span>
-            </button>
-          </div>
+          {/* Search and Add Players */}
+          <FreeFirePlayerSearchAndAdd
+            onAddPlayer={handleAddPlayerFromSearch}
+            currentTeamMembers={[formData.teamLeader, ...formData.teamMembers]}
+            maxPlayers={4}
+            currentUserData={user}
+          />
 
           {/* Team Members List */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-gray-300">
-                👥 Team Members ({formData.teamMembers.length}/3)
+                👥 Team Members ({(hasFreeFireCredentials ? 1 : 0) + formData.teamMembers.length}/4)
               </label>
             </div>
 
+            {/* Team Leader - Only show if Free Fire credentials are set */}
+            {hasFreeFireCredentials && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className={`rounded-lg p-3 flex items-center justify-between transition-all ${
+                  formData.selectedLeaderIndex === null
+                    ? 'bg-gaming-charcoal border border-orange-500/30'
+                    : 'bg-gaming-charcoal border border-gaming-slate'
+                }`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-orange-500 font-bold text-sm">#1</span>
+                    <div>
+                      <h4 className="text-white font-medium text-sm">{formData.teamLeader.name}</h4>
+                      <p className="text-orange-500 text-xs">UID: {formData.teamLeader.freeFireId}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectLeader(-1)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                      formData.selectedLeaderIndex === null
+                        ? 'bg-orange-500/30 border border-orange-500 text-orange-500'
+                        : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-orange-500/50'
+                    }`}
+                  >
+                    {formData.selectedLeaderIndex === null ? '✓ Leader' : 'Set Leader'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {formData.teamMembers.length === 0 ? (
               <div className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4 text-center text-gray-400">
-                <p className="text-sm">Click "Add Team Member" button above to add players</p>
+                <p className="text-sm">Search and add players above to build your team</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {formData.teamMembers.map((member, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="bg-gaming-charcoal border border-gaming-slate rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-orange-500 font-bold">Player #{index + 2}</span>
-                      <motion.button
-                        type="button"
-                        onClick={() => handleRemovePlayer(index)}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors"
-                      >
-                        Remove
-                      </motion.button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">IGN Name *</label>
-                        <input
-                          type="text"
-                          value={member.name}
-                          onChange={(e) => handleUpdateMember(index, 'name', e.target.value)}
-                          placeholder="Enter IGN name"
-                          className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-orange-500 focus:outline-none"
-                          required
-                        />
+              <div className="space-y-2">
+                {formData.teamMembers.map((member, index) => {
+                  const isSelectedLeader = formData.selectedLeaderIndex === index;
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className={`rounded-lg p-3 flex items-center justify-between transition-all ${
+                        isSelectedLeader
+                          ? 'bg-gaming-charcoal border border-orange-500/50'
+                          : 'bg-gaming-charcoal border border-gaming-slate'
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-orange-500 font-bold text-sm">#{index + 2}</span>
+                          <div>
+                            <h4 className="text-white font-medium text-sm">{member.name}</h4>
+                            <p className="text-orange-500 text-xs">UID: {member.freeFireId}</p>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Free Fire UID *</label>
-                        <input
-                          type="text"
-                          value={member.freeFireId}
-                          onChange={(e) => handleUpdateMember(index, 'freeFireId', e.target.value)}
-                          placeholder="Enter Free Fire UID"
-                          className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded text-white text-sm focus:border-orange-500 focus:outline-none"
-                          required
-                        />
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectLeader(index)}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                            isSelectedLeader
+                              ? 'bg-orange-500/30 border border-orange-500 text-orange-500'
+                              : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-orange-500/50'
+                          }`}
+                        >
+                          {isSelectedLeader ? '✓ Leader' : 'Set Leader'}
+                        </button>
+                        <motion.button
+                          type="button"
+                          onClick={() => handleRemovePlayer(index)}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors"
+                        >
+                          Remove
+                        </motion.button>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </div>
