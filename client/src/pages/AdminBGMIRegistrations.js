@@ -1088,6 +1088,7 @@ const AdminBGMIRegistrations = () => {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 1 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 2 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 3 IGN</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Substitute</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tournament</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
@@ -1111,13 +1112,47 @@ const AdminBGMIRegistrations = () => {
                           <div className="text-sm text-white">{registration.userId?.email || 'N/A'}</div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="text-sm text-white">{registration.teamMembers?.[0]?.name || 'N/A'}</div>
+                          <div className="text-sm text-white">
+                            {(() => {
+                              // Get all non-substitute members
+                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
+                              return regularMembers[0]?.name || 'N/A';
+                            })()}
+                          </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="text-sm text-white">{registration.teamMembers?.[1]?.name || 'N/A'}</div>
+                          <div className="text-sm text-white">
+                            {(() => {
+                              // Get all non-substitute members
+                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
+                              return regularMembers[1]?.name || 'N/A';
+                            })()}
+                          </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="text-sm text-white">{registration.teamMembers?.[2]?.name || 'N/A'}</div>
+                          <div className="text-sm text-white">
+                            {(() => {
+                              // Get all non-substitute members
+                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
+                              return regularMembers[2]?.name || 'N/A';
+                            })()}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm">
+                            {(() => {
+                              // Check if team leader is substitute
+                              if (registration.teamLeader?.isSubstitute) {
+                                return <span className="text-yellow-400 font-medium">🔄 {registration.teamLeader.name}</span>;
+                              }
+                              // Check if any team member is substitute
+                              const substitute = registration.teamMembers?.find(m => m.isSubstitute);
+                              if (substitute) {
+                                return <span className="text-yellow-400 font-medium">🔄 {substitute.name}</span>;
+                              }
+                              return <span className="text-gray-500">None</span>;
+                            })()}
+                          </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm font-medium text-gaming-neon">{registration.group || 'Not Assigned'}</div>
@@ -1819,8 +1854,10 @@ const ImageVerificationModal = ({
                   
                   {/* Team Members */}
                   {registration.teamMembers.map((member, index) => (
-                    <div key={index} className="bg-gaming-slate/50 border border-gray-600 rounded p-1">
-                      <div className="text-gray-300 font-medium text-xs">👤 M{index + 1}</div>
+                    <div key={index} className={`rounded p-1 border ${member.isSubstitute ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-gaming-slate/50 border-gray-600'}`}>
+                      <div className={`font-medium text-xs ${member.isSubstitute ? 'text-yellow-400' : 'text-gray-300'}`}>
+                        {member.isSubstitute ? '🔄 Sub' : `👤 M${index + 1}`}
+                      </div>
                       <div className="text-white text-xs font-medium truncate">{member.name}</div>
                       <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
                     </div>
@@ -2465,8 +2502,10 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
           <div className="bg-gaming-charcoal rounded-lg p-6">
             <h3 className="text-lg font-bold text-gaming-neon mb-4">👥 Team Members</h3>
             {formData.teamMembers.map((member, index) => (
-              <div key={index} className="mb-6 last:mb-0">
-                <h4 className="text-md font-medium text-white mb-3">Member {index + 1}</h4>
+              <div key={index} className={`mb-6 last:mb-0 p-4 rounded-lg border ${member.isSubstitute ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-gaming-slate/30 border-gaming-slate'}`}>
+                <h4 className={`text-md font-medium mb-3 ${member.isSubstitute ? 'text-yellow-400' : 'text-white'}`}>
+                  {member.isSubstitute ? '🔄 Substitute Member' : `Member ${index + 1}`}
+                </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>

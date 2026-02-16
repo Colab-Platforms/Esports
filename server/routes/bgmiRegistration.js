@@ -33,7 +33,7 @@ router.get('/admin/emergency-test', (req, res) => {
 });
 
 // @route   POST /api/bgmi-registration/:tournamentId/register
-// @desc    Register a 4-player team for BGMI tournament
+// @desc    Register a 4-5 player team for BGMI tournament (3 required + 1 optional substitute)
 // @access  Private
 router.post('/:tournamentId/register', auth, [
   // Team Details Validation
@@ -55,10 +55,10 @@ router.post('/:tournamentId/register', auth, [
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
   
-  // Team Members Validation (exactly 3 members)
+  // Team Members Validation (3-4 members: 3 required + 1 optional substitute)
   body('teamMembers')
-    .isArray({ min: 3, max: 3 })
-    .withMessage('Team must have exactly 3 members'),
+    .isArray({ min: 3, max: 4 })
+    .withMessage('Team must have 3-4 members (3 required + 1 optional substitute)'),
   body('teamMembers.*.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
@@ -77,6 +77,7 @@ router.post('/:tournamentId/register', auth, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('❌ Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         error: {
@@ -90,6 +91,13 @@ router.post('/:tournamentId/register', auth, [
 
     const { tournamentId } = req.params;
     const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
+
+    console.log('📝 Registration data received:', {
+      teamName,
+      teamLeader,
+      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId, isSubstitute: m.isSubstitute })),
+      whatsappNumber
+    });
 
     // Check if tournament exists and is BGMI
     const tournament = await Tournament.findById(tournamentId);

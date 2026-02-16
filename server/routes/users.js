@@ -645,25 +645,36 @@ router.get('/players/public', async (req, res) => {
         {
           $or: [
             { bgmiIgnName: { $regex: search, $options: 'i' } },
-            { 'gameIds.bgmi': { $regex: search, $options: 'i' } }
+            { 'gameIds.bgmi': { $regex: search, $options: 'i' } },
+            { bgmiUid: { $regex: search, $options: 'i' } }
           ]
         },
-        // Both IGN and UID must be present
+        // Both IGN and UID must be present (check both storage locations)
         { bgmiIgnName: { $exists: true, $ne: '' } },
-        { 'gameIds.bgmi': { $exists: true, $ne: '' } }
+        {
+          $or: [
+            { 'gameIds.bgmi': { $exists: true, $ne: '' } },
+            { bgmiUid: { $exists: true, $ne: '' } }
+          ]
+        }
       ];
     } else {
       // If no search, still require both IGN and UID to be present
       query.$and = [
         { bgmiIgnName: { $exists: true, $ne: '' } },
-        { 'gameIds.bgmi': { $exists: true, $ne: '' } }
+        {
+          $or: [
+            { 'gameIds.bgmi': { $exists: true, $ne: '' } },
+            { bgmiUid: { $exists: true, $ne: '' } }
+          ]
+        }
       ];
     }
 
     console.log('🔍 BGMI players query:', query);
 
     const players = await User.find(query)
-      .select('username bgmiIgnName avatarUrl gameIds')
+      .select('username bgmiIgnName bgmiUid avatarUrl gameIds')
       .limit(50)
       .lean();
     
@@ -674,7 +685,7 @@ router.get('/players/public', async (req, res) => {
       _id: player._id,
       username: player.username,
       bgmiIgnName: player.bgmiIgnName,
-      bgmiUid: player.gameIds?.bgmi || '',
+      bgmiUid: player.bgmiUid || player.gameIds?.bgmi || '',
       avatar: player.avatarUrl
     }));
 
