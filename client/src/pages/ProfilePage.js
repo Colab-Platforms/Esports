@@ -1310,6 +1310,29 @@ const SettingsTab = () => {
 
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
+    
+    // Also update gameIds when BGMI/Free Fire fields change
+    if (field === 'bgmiIgnName') {
+      setGameIds(prev => ({
+        ...prev,
+        bgmi: { ...prev.bgmi, ign: value }
+      }));
+    } else if (field === 'bgmiUid') {
+      setGameIds(prev => ({
+        ...prev,
+        bgmi: { ...prev.bgmi, uid: value }
+      }));
+    } else if (field === 'freeFireIgnName') {
+      setGameIds(prev => ({
+        ...prev,
+        freefire: { ...prev.freefire, ign: value }
+      }));
+    } else if (field === 'freeFireUid') {
+      setGameIds(prev => ({
+        ...prev,
+        freefire: { ...prev.freefire, uid: value }
+      }));
+    }
   };
 
   const handleSocialChange = (platform, value) => {

@@ -136,6 +136,29 @@ const ProfileSettingsPage = () => {
 
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
+    
+    // Also update gameIds when BGMI/Free Fire fields change
+    if (field === 'bgmiIgnName') {
+      setGameIds(prev => ({
+        ...prev,
+        bgmi: { ...prev.bgmi, ign: value }
+      }));
+    } else if (field === 'bgmiUid') {
+      setGameIds(prev => ({
+        ...prev,
+        bgmi: { ...prev.bgmi, uid: value }
+      }));
+    } else if (field === 'freeFireIgnName') {
+      setGameIds(prev => ({
+        ...prev,
+        freefire: { ...prev.freefire, ign: value }
+      }));
+    } else if (field === 'freeFireUid') {
+      setGameIds(prev => ({
+        ...prev,
+        freefire: { ...prev.freefire, uid: value }
+      }));
+    }
   };
 
   const handleSocialChange = (platform, value) => {
@@ -437,7 +460,7 @@ const ProfileSettingsPage = () => {
                 <div className="pb-3">
                   <p className="text-gray-400 text-xs mb-1">BGMI ID</p>
                   <p className="text-white text-sm">
-                    {user?.gameIds?.bgmi || (
+                    {user?.gameIds?.bgmi?.uid || user?.bgmiUid || (
                       <span className="text-gray-500 italic">Not set</span>
                     )}
                   </p>

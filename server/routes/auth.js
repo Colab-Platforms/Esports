@@ -776,30 +776,58 @@ router.put('/profile', auth, async (req, res) => {
     // Update game IDs with new structure
     if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
-      if (!user.gameIds.bgmi) user.gameIds.bgmi = {};
+      
+      // Convert old string format to new object format
+      if (typeof user.gameIds.bgmi === 'string') {
+        const oldBgmiId = user.gameIds.bgmi;
+        user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
+        console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+      }
+      
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+        user.gameIds.bgmi = { ign: '', uid: '' };
+      }
       
       user.gameIds.bgmi.ign = bgmiIgnName !== undefined ? bgmiIgnName : (user.gameIds.bgmi.ign || '');
       user.gameIds.bgmi.uid = bgmiUid !== undefined ? bgmiUid : (user.gameIds.bgmi.uid || '');
+      
+      // Mark nested object as modified for Mongoose
+      user.markModified('gameIds.bgmi');
       
       // Also update legacy fields for backward compatibility
       user.bgmiIgnName = user.gameIds.bgmi.ign;
       user.bgmiUid = user.gameIds.bgmi.uid;
       
       console.log('🎮 BGMI data updated:', user.gameIds.bgmi);
+      console.log('🎮 Legacy fields updated:', { bgmiIgnName: user.bgmiIgnName, bgmiUid: user.bgmiUid });
     }
     
     if (freeFireIgnName !== undefined || freeFireUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
-      if (!user.gameIds.freefire) user.gameIds.freefire = {};
+      
+      // Convert old string format to new object format
+      if (typeof user.gameIds.freefire === 'string') {
+        const oldFreefireId = user.gameIds.freefire;
+        user.gameIds.freefire = { ign: '', uid: oldFreefireId };
+        console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+      }
+      
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+        user.gameIds.freefire = { ign: '', uid: '' };
+      }
       
       user.gameIds.freefire.ign = freeFireIgnName !== undefined ? freeFireIgnName : (user.gameIds.freefire.ign || '');
       user.gameIds.freefire.uid = freeFireUid !== undefined ? freeFireUid : (user.gameIds.freefire.uid || '');
+      
+      // Mark nested object as modified for Mongoose
+      user.markModified('gameIds.freefire');
       
       // Also update legacy fields for backward compatibility
       user.freeFireIgnName = user.gameIds.freefire.ign;
       user.freeFireUid = user.gameIds.freefire.uid;
       
       console.log('🔥 Free Fire data updated:', user.gameIds.freefire);
+      console.log('🔥 Legacy fields updated:', { freeFireIgnName: user.freeFireIgnName, freeFireUid: user.freeFireUid });
     }
     
     // Update social accounts
@@ -822,25 +850,57 @@ router.put('/profile', auth, async (req, res) => {
       
       // Handle bgmi if passed as object in gameIds
       if (gameIds.bgmi !== undefined) {
+        // Convert old string format to new object format
+        if (typeof user.gameIds.bgmi === 'string') {
+          const oldBgmiId = user.gameIds.bgmi;
+          user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
+          console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+        }
+        
         if (typeof gameIds.bgmi === 'object') {
+          if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+            user.gameIds.bgmi = { ign: '', uid: '' };
+          }
           user.gameIds.bgmi = {
             ign: gameIds.bgmi.ign || user.gameIds.bgmi?.ign || '',
             uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
           };
+          
+          // Mark nested object as modified for Mongoose
+          user.markModified('gameIds.bgmi');
+          
           user.bgmiIgnName = user.gameIds.bgmi.ign;
           user.bgmiUid = user.gameIds.bgmi.uid;
+          
+          console.log('🎮 BGMI updated via gameIds:', user.gameIds.bgmi);
         }
       }
       
       // Handle freefire if passed as object in gameIds
       if (gameIds.freefire !== undefined) {
+        // Convert old string format to new object format
+        if (typeof user.gameIds.freefire === 'string') {
+          const oldFreefireId = user.gameIds.freefire;
+          user.gameIds.freefire = { ign: '', uid: oldFreefireId };
+          console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+        }
+        
         if (typeof gameIds.freefire === 'object') {
+          if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+            user.gameIds.freefire = { ign: '', uid: '' };
+          }
           user.gameIds.freefire = {
             ign: gameIds.freefire.ign || user.gameIds.freefire?.ign || '',
             uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
           };
+          
+          // Mark nested object as modified for Mongoose
+          user.markModified('gameIds.freefire');
+          
           user.freeFireIgnName = user.gameIds.freefire.ign;
           user.freeFireUid = user.gameIds.freefire.uid;
+          
+          console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
         }
       }
     }
