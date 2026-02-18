@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiLogOut, FiAward, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import UserAvatar from '../common/UserAvatar';
 import CreateTeamModal from './CreateTeamModal';
+import { updateProfile } from '../../store/slices/authSlice';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -14,14 +16,63 @@ const GAME_LABELS = {
   ff: 'Free Fire'
 };
 
-const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
+const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token, currentUser, isAuthenticated, navigate }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editTeam, setEditTeam] = useState(null);
+  const dispatch = useDispatch();
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
+  const handleOpenCreateModal = () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to create a team', {
+        duration: 2000, position: 'top-center', icon: '🔒'
+      });
+      setTimeout(() => navigate('/login', { state: { from: '/teams' } }), 1500);
+      return;
+    }
+    setShowCreateModal(true);
+  };
+
+  const updateCaptainProfile = async (game, captainGameInfo) => {
+    if (!captainGameInfo || !game) return;
+    try {
+      const profilePayload = {};
+      if (game === 'bgmi') {
+        profilePayload.bgmiIgnName = captainGameInfo.ign || '';
+        profilePayload.bgmiUid = captainGameInfo.uid || '';
+      } else if (game === 'freefire') {
+        profilePayload.freeFireIgnName = captainGameInfo.ign || '';
+        profilePayload.freeFireUid = captainGameInfo.uid || '';
+      } else if (game === 'valorant') {
+        profilePayload.gameIds = { valorant: captainGameInfo.valorantId || '' };
+      } else if (game === 'cs2') {
+        profilePayload.gameIds = { steam: captainGameInfo.steamId || '' };
+      }
+      const hasData = Object.values(profilePayload).some(v =>
+        typeof v === 'string' ? v.trim() !== '' : Object.values(v).some(x => x.trim() !== '')
+      );
+      if (!hasData) return;
+      const res = await axios.put(`${API_URL}/api/auth/profile`, profilePayload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Update Redux store + localStorage so profile page and next modal open reflect new data
+      if (res.data?.success && res.data?.data?.user) {
+        dispatch(updateProfile(res.data.data.user));
+        localStorage.setItem('user', JSON.stringify({
+          ...JSON.parse(localStorage.getItem('user') || '{}'),
+          ...res.data.data.user
+        }));
+      }
+    } catch (err) {
+      console.warn('Could not update captain profile game info:', err);
+    }
+  };
 
   const handleCreateTeam = async (teamData) => {
+    const { captainGameInfo, ...payload } = teamData;
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.post(`${API_URL}/api/teams`, teamData, {
+      const response = await axios.post(`${API_URL}/api/teams`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -30,6 +81,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           style: { background: '#1a1a2e', color: '#fff', border: '1px solid #FFD700' }
         });
         setShowCreateModal(false);
+        await updateCaptainProfile(payload.game, captainGameInfo);
         onRefresh();
       }
     } catch (error) {
@@ -40,9 +92,9 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
   };
 
   const handleEditTeam = async (teamData) => {
+    const { captainGameInfo, ...payload } = teamData;
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.put(`${API_URL}/api/teams/${editTeam._id}`, teamData, {
+      const response = await axios.put(`${API_URL}/api/teams/${editTeam._id}`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -51,6 +103,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           style: { background: '#1a1a2e', color: '#fff', border: '1px solid #FFD700' }
         });
         setEditTeam(null);
+        await updateCaptainProfile(payload.game, captainGameInfo);
         onRefresh();
       }
     } catch (error) {
@@ -75,8 +128,14 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
         onRefresh();
       }
     } catch (error) {
-      toast.error(error.response?.data?.error?.message || 'Failed to delete team', {
-        duration: 3000, position: 'top-center'
+      const msg = error.response?.data?.error?.message || 'Failed to delete team';
+      const isActiveTournament = error.response?.data?.error?.code === 'TEAM_IN_ACTIVE_TOURNAMENT';
+      toast.error(msg, {
+        duration: isActiveTournament ? 6000 : 3000,
+        position: 'top-center',
+        style: isActiveTournament
+          ? { background: '#1a1a2e', color: '#fff', border: '1px solid #f59e0b', maxWidth: '380px' }
+          : undefined
       });
     }
   };
@@ -144,7 +203,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           <p className="text-gray-400 text-sm">Manage your gaming teams</p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleOpenCreateModal}
           className="px-6 py-2 bg-gaming-gold hover:bg-yellow-500 text-black rounded-lg font-medium transition-colors flex items-center space-x-2"
         >
           <FiPlus className="w-4 h-4" />
@@ -192,7 +251,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           <h3 className="text-white text-xl font-bold mb-2">No Teams Yet</h3>
           <p className="text-gray-400 mb-6">Create your first team and start playing together!</p>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleOpenCreateModal}
             className="px-6 py-2 bg-gaming-gold hover:bg-yellow-500 text-black rounded-lg font-medium transition-colors inline-flex items-center space-x-2"
           >
             <FiPlus className="w-4 h-4" />
@@ -206,6 +265,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           onClose={() => setShowCreateModal(false)}
           onCreate={handleCreateTeam}
           token={token}
+          currentUser={currentUser}
         />
       )}
 
@@ -215,6 +275,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token }) => {
           onCreate={handleEditTeam}
           token={token}
           editTeam={editTeam}
+          currentUser={currentUser}
         />
       )}
     </div>

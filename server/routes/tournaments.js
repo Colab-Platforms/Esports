@@ -1582,6 +1582,7 @@ router.post('/:id/join-with-team', auth, [
     const registration = new TournamentRegistration({
       tournamentId: tournament._id,
       userId: req.user.userId,
+      teamId: team._id,
       teamName: team.name,
       teamLeader: {
         name: captain.username,
