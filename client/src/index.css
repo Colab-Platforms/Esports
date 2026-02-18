@@ -299,6 +299,15 @@
   .wallet-balance {
     @apply text-3xl font-bold text-gaming-gold font-gaming;
   }
+
+  /* Hero text animations */
+  .hero-text-glow {
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5), 0 0 40px rgba(0, 255, 136, 0.3);
+  }
+
+  .hero-subtitle-glow {
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.6), 0 0 20px rgba(0, 212, 255, 0.4);
+  }
   
   .transaction-item {
     @apply flex items-center justify-between p-4 bg-gaming-charcoal rounded-lg border border-gray-700;
