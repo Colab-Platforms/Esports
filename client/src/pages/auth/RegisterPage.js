@@ -102,6 +102,7 @@ const RegisterPage = () => {
 
       try {
         const requestData = {
+          username: formData.fullName, // Temporarily use fullName as username for production
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
