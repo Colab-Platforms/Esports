@@ -9,19 +9,18 @@ import SteamConnectionWidget from '../steam/SteamConnectionWidget';
 import SteamLinkingModal from './SteamLinkingModal';
 import { getSteamAuthUrl } from '../../utils/apiConfig';
 
-const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
+const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector(selectAuth);
   
   const [formData, setFormData] = useState({
-    // Leader details
     leaderName: user?.username || '',
     leaderEmail: user?.email || '',
     leaderPhone: user?.phone || '',
     leaderIgn: '',
     leaderUid: '',
-    teamName: '',
+    teamName: selectedTeam?.name || '',
     // Team members
     teamMembers: []
   });
@@ -31,7 +30,42 @@ const TournamentRegistration = ({ tournament, onClose, onSuccess }) => {
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [userSteamData, setUserSteamData] = useState(null);
 
-  // Fetch fresh user data on mount to get latest Steam connection status
+  useEffect(() => {
+    if (!selectedTeam?.members || selectedTeam.members.length === 0) return;
+
+    const currentUserId = user?._id || user?.id || localStorage.getItem('userId');
+    const otherMembers = selectedTeam.members.filter(m => {
+      if (!m.userId) return false;
+      const memberId = m.userId._id || m.userId;
+      return memberId.toString() !== currentUserId?.toString();
+    });
+
+    const gameType = tournament?.gameType;
+    const preFilled = otherMembers.map(m => {
+      const u = m.userId;
+      if (gameType === 'bgmi') {
+        return {
+          ign: u?.gameIds?.bgmi?.ign || u?.bgmiIgnName || u?.username || '',
+          uid: u?.gameIds?.bgmi?.uid || u?.bgmiUid || ''
+        };
+      } else if (gameType === 'freefire' || gameType === 'ff') {
+        return {
+          ign: u?.gameIds?.freefire?.ign || u?.freeFireIgnName || u?.username || '',
+          uid: u?.gameIds?.freefire?.uid || u?.freeFireUid || ''
+        };
+      } else {
+        return { ign: u?.username || '', uid: '' };
+      }
+    });
+
+    if (preFilled.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        teamMembers: preFilled
+      }));
+    }
+  }, [selectedTeam, user, tournament]);
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (tournament.gameType === 'cs2') {

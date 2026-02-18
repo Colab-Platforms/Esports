@@ -929,8 +929,14 @@ router.put('/profile', auth, async (req, res) => {
     }
 
     await user.save();
-    
-    console.log('✅ Profile updated successfully for user:', user.username);
+
+    try {
+      const redisService = require('../services/redisService');
+      await redisService.delete(`teams:v2:my-teams:${user._id}`);
+      await redisService.delete(`players:v2:${user._id}:all:all`);
+    } catch (cacheErr) {
+      console.error('Cache invalidation failed:', cacheErr);
+    }
 
     // Return updated user data
     const updatedUser = {

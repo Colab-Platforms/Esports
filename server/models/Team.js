@@ -18,7 +18,7 @@ const teamSchema = new mongoose.Schema({
   game: {
     type: String,
     required: [true, 'Game is required'],
-    enum: ['bgmi', 'cs2']
+    enum: ['bgmi', 'cs2', 'valorant', 'freefire']
   },
   logo: {
     type: String,
