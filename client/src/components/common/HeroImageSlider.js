@@ -298,7 +298,7 @@ const HeroImageSlider = () => {
                   initial={{ opacity: 0, x: -30 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
-                  className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-tight hero-text-glow"
+                  className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-tight"
                 >
                   {currentSlideData.title.split(' ').map((word, wordIndex) => (
                     <motion.span
