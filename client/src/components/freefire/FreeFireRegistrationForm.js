@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
@@ -6,7 +6,7 @@ import api from '../../services/api';
 import FreeFirePlayerSearchAndAdd from './FreeFirePlayerSearchAndAdd';
 import Snackbar from '../common/Snackbar';
 
-const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
+const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) => {
   const user = useSelector(selectUser);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -14,15 +14,42 @@ const FreeFireRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [snackbar, setSnackbar] = useState({ message: '', type: 'info' });
 
   const [formData, setFormData] = useState({
-    teamName: '',
+    teamName: selectedTeam?.name || '',
     teamLeader: {
       name: user?.freeFireIgnName || user?.gameIds?.freefire?.ign || user?.username || '',
       freeFireId: user?.freeFireUid || user?.gameIds?.freefire?.uid || '',
       phone: user?.phone || ''
     },
     teamMembers: [],
-    selectedLeaderIndex: null // null means current user is leader
+    selectedLeaderIndex: null
   });
+
+  useEffect(() => {
+    if (!selectedTeam?.members || selectedTeam.members.length === 0) return;
+
+    const currentUserId = user?._id || user?.id || localStorage.getItem('userId');
+    const otherMembers = selectedTeam.members.filter(m => {
+      if (!m.userId) return false;
+      const memberId = m.userId._id || m.userId;
+      return memberId.toString() !== currentUserId?.toString();
+    });
+
+    const preFilled = otherMembers.map(m => {
+      const u = m.userId;
+      return {
+        name: u?.gameIds?.freefire?.ign || u?.freeFireIgnName || u?.username || '',
+        freeFireId: u?.gameIds?.freefire?.uid || u?.freeFireUid || '',
+        playerId: u?._id || ''
+      };
+    });
+
+    if (preFilled.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        teamMembers: preFilled
+      }));
+    }
+  }, [selectedTeam, user]);
 
   const handleInputChange = useCallback((section, field, value) => {
     setFormData(prev => {

@@ -108,7 +108,7 @@ class NotificationService {
       // Handle click
       browserNotification.onclick = () => {
         window.focus();
-        window.location.href = notification.actionUrl;
+        if (notification.actionUrl) window.location.href = notification.actionUrl;
         browserNotification.close();
       };
     }
@@ -130,9 +130,7 @@ class NotificationService {
           <p class="text-sm font-medium text-white">${notification.title}</p>
           <p class="text-sm text-gray-300 mt-1">${notification.message}</p>
           <div class="mt-2 flex space-x-2">
-            <button class="text-xs text-gaming-neon hover:text-gaming-neon/80 font-medium" onclick="window.location.href='${notification.actionUrl}'">
-              View Tournament
-            </button>
+            ${notification.actionUrl ? `<button class="text-xs text-gaming-neon hover:text-gaming-neon/80 font-medium" onclick="window.location.href='${notification.actionUrl}'">View</button>` : ''}
             <button class="text-xs text-gray-400 hover:text-gray-300" onclick="this.closest('.fixed').remove()">
               Dismiss
             </button>

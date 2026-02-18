@@ -10,11 +10,10 @@ const auth = require('../middleware/auth');
 // @access  Private
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, tag, game, logo, description, maxMembers, privacy } = req.body;
+    const { name, tag, game, logo, description, maxMembers, privacy, memberIds } = req.body;
     const userId = req.user.userId;
     const redisService = require('../services/redisService');
 
-    // Check if user already has a team for this game
     const existingTeam = await Team.findOne({
       game,
       $or: [
@@ -35,7 +34,47 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Create team
+    const members = [{
+      userId,
+      role: 'captain',
+      joinedAt: new Date()
+    }];
+
+    if (memberIds && Array.isArray(memberIds) && memberIds.length > 0) {
+      const effectiveMax = maxMembers || 5;
+      if (memberIds.length + 1 > effectiveMax) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TOO_MANY_MEMBERS',
+            message: `Cannot add ${memberIds.length} members. Max team size is ${effectiveMax} (including captain).`,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      const users = await User.find({ _id: { $in: memberIds } });
+      if (users.length !== memberIds.length) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_MEMBERS',
+            message: 'One or more selected users do not exist',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      for (const memberId of memberIds) {
+        if (memberId.toString() === userId.toString()) continue;
+        members.push({
+          userId: memberId,
+          role: 'member',
+          joinedAt: new Date()
+        });
+      }
+    }
+
     const team = new Team({
       name,
       tag,
@@ -43,11 +82,7 @@ router.post('/', auth, async (req, res) => {
       logo,
       description,
       captain: userId,
-      members: [{
-        userId,
-        role: 'captain',
-        joinedAt: new Date()
-      }],
+      members,
       maxMembers: maxMembers || 5,
       privacy: privacy || 'public'
     });
@@ -56,8 +91,13 @@ router.post('/', auth, async (req, res) => {
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
 
-    // Invalidate cache
-    await redisService.delete(`teams:my-teams:${userId}`);
+    const cacheKeysToDelete = [`teams:v2:my-teams:${userId}`];
+    if (memberIds && Array.isArray(memberIds)) {
+      for (const mid of memberIds) {
+        cacheKeysToDelete.push(`teams:v2:my-teams:${mid}`);
+      }
+    }
+    await Promise.all(cacheKeysToDelete.map(k => redisService.delete(k)));
 
     res.status(201).json({
       success: true,
@@ -133,26 +173,26 @@ router.get('/my-teams', auth, async (req, res) => {
     const redisService = require('../services/redisService');
 
     // Create cache key
-    const cacheKey = `teams:my-teams:${userId}`;
+    const cacheKey = `teams:v2:my-teams:${userId}`;
 
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`✅ Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    if (!req.query.fresh) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        return res.json({
+          success: true,
+          data: cachedData,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     const teams = await Team.find({
       'members.userId': userId,
       isActive: true
     })
-      .populate('captain', 'username avatarUrl')
-      .populate('members.userId', 'username avatarUrl')
+      .populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
+      .populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
       .sort({ createdAt: -1 });
 
     console.log(`Found ${teams.length} teams for user ${userId}`);
@@ -254,25 +294,44 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    // Update allowed fields
-    const { name, tag, logo, description, privacy } = req.body;
+    const { name, memberIds } = req.body;
     
     if (name) team.name = name;
-    if (tag) team.tag = tag;
-    if (logo !== undefined) team.logo = logo;
-    if (description !== undefined) team.description = description;
-    if (privacy) team.privacy = privacy;
+
+    if (memberIds && Array.isArray(memberIds)) {
+      const captainId = team.captain.toString();
+      const currentMemberIds = team.members.map(m => (m.userId?._id || m.userId).toString());
+      const newMemberIds = [captainId, ...memberIds.filter(id => id !== captainId)];
+
+      const removedIds = currentMemberIds.filter(id => !newMemberIds.includes(id));
+      const addedIds = newMemberIds.filter(id => !currentMemberIds.includes(id));
+
+      team.members = team.members.filter(m => {
+        const mid = (m.userId?._id || m.userId).toString();
+        return newMemberIds.includes(mid);
+      });
+
+      for (const addId of addedIds) {
+        team.members.push({ userId: addId, role: 'member', joinedAt: new Date() });
+      }
+
+      team.maxMembers = Math.max(team.maxMembers, team.members.length);
+
+      const redisService = require('../services/redisService');
+      for (const rid of removedIds) {
+        await redisService.delete(`teams:v2:my-teams:${rid}`);
+      }
+    }
 
     await team.save();
-    await team.populate('captain', 'username avatarUrl');
-    await team.populate('members.userId', 'username avatarUrl');
+    await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
+    await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
 
-    // Invalidate cache for all team members
     const redisService = require('../services/redisService');
-    const memberIds = team.members.map(m => m.userId?._id || m.userId).filter(Boolean);
+    const allMemberIds = team.members.map(m => m.userId?._id || m.userId).filter(Boolean);
     
-    for (const memberId of memberIds) {
-      await redisService.delete(`teams:my-teams:${memberId}`);
+    for (const memberId of allMemberIds) {
+      await redisService.delete(`teams:v2:my-teams:${memberId}`);
     }
 
     res.json({
@@ -382,7 +441,7 @@ router.post('/:id/leave', auth, async (req, res) => {
 
     // Invalidate cache for the user who left
     const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${req.user.userId}`);
+    await redisService.delete(`teams:v2:my-teams:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -677,7 +736,7 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
     await invitation.save();
 
     // Invalidate cache for the user
-    await redisService.delete(`teams:my-teams:${req.user.userId}`);
+    await redisService.delete(`teams:v2:my-teams:${req.user.userId}`);
     await redisService.delete(`teams:invitations:${req.user.userId}`);
 
     res.json({
@@ -820,8 +879,8 @@ router.post('/:id/remove-member', auth, async (req, res) => {
 
     // Invalidate cache for both the removed member and the team captain
     const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${memberId}`);
-    await redisService.delete(`teams:my-teams:${captainId}`);
+    await redisService.delete(`teams:v2:my-teams:${memberId}`);
+    await redisService.delete(`teams:v2:my-teams:${captainId}`);
 
     console.log(`✅ Member ${memberId} removed from team ${team.name}`);
 
@@ -934,7 +993,7 @@ router.post('/:id/add-member', auth, async (req, res) => {
 
     // Invalidate cache for the added member
     const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${userId}`);
+    await redisService.delete(`teams:v2:my-teams:${userId}`);
 
     console.log(`✅ Member ${userId} added to team ${team.name}`);
 

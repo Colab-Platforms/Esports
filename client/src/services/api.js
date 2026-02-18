@@ -147,6 +147,10 @@ class ApiService {
     return this.post('/api/steam/disconnect');
   }
 
+  async getUserTournaments() {
+    return this.get('/api/tournaments/my-tournaments');
+  }
+
   // Profile API
   async updateProfile(profileData) {
     try {

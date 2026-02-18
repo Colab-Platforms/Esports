@@ -70,8 +70,7 @@ router.get('/players', auth, async (req, res) => {
     const currentUserId = req.user.userId;
     const redisService = require('../services/redisService');
 
-    // Create cache key based on search and game filters
-    const cacheKey = `players:${currentUserId}:${search || 'all'}:${game || 'all'}`;
+    const cacheKey = `players:v2:${currentUserId}:${search || 'all'}:${game || 'all'}`;
 
     // Try to get from cache
     const cachedData = await redisService.get(cacheKey);
@@ -103,7 +102,7 @@ router.get('/players', auth, async (req, res) => {
     }
 
     const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games')
+      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
       .limit(50)
       .lean();
     
@@ -128,7 +127,7 @@ router.get('/players', auth, async (req, res) => {
       console.log(`Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
 
       return {
-        _id: player._id, // Use _id instead of id for consistency
+        _id: player._id,
         id: player._id,
         username: player.username,
         email: player.email,
@@ -139,12 +138,19 @@ router.get('/players', auth, async (req, res) => {
         favoriteGame: player.favoriteGame,
         bio: player.bio,
         country: player.country,
-        winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
+        winRate: Math.floor(Math.random() * 40) + 30,
         friendRequestSent: !!existingRequest,
         isFriend: isFriend,
-        games: player.games || (player.favoriteGame ? [player.favoriteGame] : []), // Use games array from DB
+        games: player.games || (player.favoriteGame ? [player.favoriteGame] : []),
         wins: player.tournamentsWon || 0,
-        rank: player.currentRank || 'Unranked'
+        rank: player.currentRank || 'Unranked',
+        gameIds: player.gameIds || {},
+        bgmiIgnName: player.gameIds?.bgmi?.ign || player.bgmiIgnName || '',
+        bgmiUid: player.gameIds?.bgmi?.uid || player.bgmiUid || '',
+        freeFireIgnName: player.gameIds?.freefire?.ign || player.freeFireIgnName || '',
+        freeFireUid: player.gameIds?.freefire?.uid || player.freeFireUid || '',
+        valorantId: player.gameIds?.valorant || '',
+        steamId: player.gameIds?.steam || ''
       };
     }));
 
@@ -544,8 +550,8 @@ router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
     // Invalidate cache for both users
     await redisService.delete(`friend-requests:${userId}`);
     await redisService.delete(`friend-requests:${friendRequest.sender}`);
-    await redisService.delete(`players:${userId}:all:all`);
-    await redisService.delete(`players:${friendRequest.sender}:all:all`);
+    await redisService.delete(`players:v2:${userId}:all:all`);
+    await redisService.delete(`players:v2:${friendRequest.sender}:all:all`);
 
     console.log(`Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
 
