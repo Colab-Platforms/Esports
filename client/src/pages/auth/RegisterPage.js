@@ -25,17 +25,11 @@ const RegisterPage = () => {
   const error = useSelector(selectAuthError);
   
   const [formData, setFormData] = useState({
-    username: '',
+    fullName: '',
     email: '',
     phone: '',
     password: '',
-    confirmPassword: '',
-    selectedGame: '',
-    bgmiIgnName: '',
-    bgmiUid: '',
-    freeFireIgnName: '',
-    freeFireUid: '',
-    steamId: ''
+    confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -61,120 +55,77 @@ const RegisterPage = () => {
   };
 
   const validateForm = () => {
-    if (!formData.username || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
-      toast.error('Please fill in all fields');
-      return false;
-    }
-
-    if (formData.username.length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return false;
-    }
-
-    if (!/^[a-zA-Z0-9_ ]+$/.test(formData.username)) {
-      toast.error('Username can only contain letters, numbers, spaces, and underscores');
-      return false;
-    }
-
-    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return false;
-    }
-
-    if (!/^(\+91)?[6-9]\d{9}$/.test(formData.phone)) {
-      toast.error('Please enter a valid Indian phone number (10 digits or +91 format)');
-      return false;
-    }
-
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return false;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return false;
-    }
-
-    // Validate game-specific fields
-    if (formData.selectedGame === 'BGMI') {
-      if (!formData.bgmiIgnName || !formData.bgmiUid) {
-        toast.error('Please fill in BGMI IGN and UID');
+      if (!formData.fullName || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
+        toast.error('Please fill in all fields');
         return false;
       }
-      if (formData.bgmiUid.length < 8) {
-        toast.error('BGMI UID must be at least 8 characters');
-        return false;
-      }
-    }
 
-    if (formData.selectedGame === 'Free Fire') {
-      if (!formData.freeFireIgnName || !formData.freeFireUid) {
-        toast.error('Please fill in Free Fire IGN and UID');
+      if (formData.fullName.length < 3) {
+        toast.error('Full name must be at least 3 characters');
         return false;
       }
-      if (formData.freeFireUid.length < 8) {
-        toast.error('Free Fire UID must be at least 8 characters');
-        return false;
-      }
-    }
 
-    if (formData.selectedGame === 'CS2') {
-      if (!formData.steamId) {
-        toast.error('Please enter your Steam ID');
+      if (!/^[a-zA-Z\s]+$/.test(formData.fullName)) {
+        toast.error('Full name can only contain letters and spaces');
         return false;
       }
-    }
 
-    return true;
-  };
+      if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
+        toast.error('Please enter a valid email address');
+        return false;
+      }
+
+      if (!/^(\+91)?[6-9]\d{9}$/.test(formData.phone)) {
+        toast.error('Please enter a valid Indian phone number (10 digits or +91 format)');
+        return false;
+      }
+
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return false;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return false;
+      }
+
+      return true;
+    };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+      e.preventDefault();
 
-    dispatch(registerStart());
+      if (!validateForm()) return;
 
-    try {
-      const requestData = {
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password
-      };
+      dispatch(registerStart());
 
-      // Add game-specific data
-      if (formData.selectedGame === 'BGMI') {
-        requestData.bgmiIgnName = formData.bgmiIgnName;
-        requestData.bgmiUid = formData.bgmiUid;
-      } else if (formData.selectedGame === 'Free Fire') {
-        requestData.freeFireIgnName = formData.freeFireIgnName;
-        requestData.freeFireUid = formData.freeFireUid;
-      } else if (formData.selectedGame === 'CS2') {
-        requestData.gameIds = {
-          steam: formData.steamId
+      try {
+        const requestData = {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password
         };
-      }
 
-      // Use secure request utility to hide sensitive data
-      const data = await secureRequest.post('/api/auth/register', requestData);
+        // Use secure request utility to hide sensitive data
+        const data = await secureRequest.post('/api/auth/register', requestData);
 
-      if (data.success) {
-        dispatch(registerSuccess(data.data));
-        toast.success('Sign up successful! Welcome to the arena! 🎮');
-        navigate('/dashboard');
-      } else {
-        dispatch(registerFailure(data.error));
+        if (data.success) {
+          dispatch(registerSuccess(data.data));
+          toast.success('Sign up successful! Welcome to the arena! 🎮');
+          navigate('/dashboard');
+        } else {
+          dispatch(registerFailure(data.error));
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        dispatch(registerFailure({
+          code: 'NETWORK_ERROR',
+          message: 'Network error. Please check your connection.'
+        }));
       }
-    } catch (error) {
-      console.error('Registration error:', error);
-      dispatch(registerFailure({
-        code: 'NETWORK_ERROR',
-        message: 'Network error. Please check your connection.'
-      }));
-    }
-  };
+    };
 
   return (
     <div className="h-screen bg-gaming-dark flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -224,23 +175,23 @@ const RegisterPage = () => {
           onSubmit={handleSubmit}
         >
           <div className="space-y-4">
-            {/* Username Field */}
+            {/* Full Name Field */}
             <div>
-              <label htmlFor="username" className="sr-only">
-                Username
+              <label htmlFor="fullName" className="sr-only">
+                Enter your Full Name :
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiUser className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id="username"
-                  name="username"
+                  id="fullName"
+                  name="fullName"
                   type="text"
                   required
                   className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
-                  placeholder="Username"
-                  value={formData.username}
+                  placeholder="Enter your Full Name"
+                  value={formData.fullName}
                   onChange={handleChange}
                 />
               </div>
@@ -360,7 +311,7 @@ const RegisterPage = () => {
 
             {/* Game Selection Dropdown */}
             <div>
-              <label htmlFor="selectedGame" className="block text-sm font-medium text-gray-300 mb-2">
+              {/* <label htmlFor="selectedGame" className="block text-sm font-medium text-gray-300 mb-2">
                 Select Your Game (Optional)
               </label>
               <div className="relative">
@@ -376,10 +327,10 @@ const RegisterPage = () => {
                 </button>
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <FiChevronDown className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${showGameDropdown ? 'rotate-180' : ''}`} />
-                </div>
+                </div> */}
                 
                 {/* Dropdown Menu */}
-                {showGameDropdown && (
+                {/* {showGameDropdown && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -435,19 +386,19 @@ const RegisterPage = () => {
                     </button>
                   </motion.div>
                 )}
-              </div>
+              </div> */}
             </div>
 
             {/* BGMI Fields - Show when BGMI is selected */}
-            {formData.selectedGame === 'BGMI' && (
+            {/* {formData.selectedGame === 'BGMI' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-4"
-              >
+              > */}
                 {/* BGMI IGN Name */}
-                <div>
+                {/* <div>
                   <label htmlFor="bgmiIgnName" className="block text-sm font-medium text-gray-300 mb-2">
                     BGMI IGN (In-Game Name)
                   </label>
@@ -466,10 +417,10 @@ const RegisterPage = () => {
                       onChange={handleChange}
                     />
                   </div>
-                </div>
+                </div> */}
 
                 {/* BGMI UID */}
-                <div>
+                {/* <div>
                   <label htmlFor="bgmiUid" className="block text-sm font-medium text-gray-300 mb-2">
                     BGMI UID (User ID)
                   </label>
@@ -490,18 +441,18 @@ const RegisterPage = () => {
                   </div>
                 </div>
               </motion.div>
-            )}
+            )} */}
 
             {/* Free Fire Fields - Show when Free Fire is selected */}
-            {formData.selectedGame === 'Free Fire' && (
+            {/* {formData.selectedGame === 'Free Fire' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-4"
-              >
+              > */}
                 {/* Free Fire IGN Name */}
-                <div>
+                {/* <div>
                   <label htmlFor="freeFireIgnName" className="block text-sm font-medium text-gray-300 mb-2">
                     Free Fire IGN (In-Game Name)
                   </label>
@@ -520,10 +471,10 @@ const RegisterPage = () => {
                       onChange={handleChange}
                     />
                   </div>
-                </div>
+                </div> */}
 
                 {/* Free Fire UID */}
-                <div>
+                {/* <div>
                   <label htmlFor="freeFireUid" className="block text-sm font-medium text-gray-300 mb-2">
                     Free Fire UID (User ID)
                   </label>
@@ -544,10 +495,10 @@ const RegisterPage = () => {
                   </div>
                 </div>
               </motion.div>
-            )}
+            )} */}
 
             {/* CS2 Steam ID Field - Show when CS2 is selected */}
-            {formData.selectedGame === 'CS2' && (
+            {/* {formData.selectedGame === 'CS2' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -583,7 +534,7 @@ const RegisterPage = () => {
                   </a>
                 </p>
               </motion.div>
-            )}
+            )} */}
           </div>
            
           {/* Terms and  Conditions */}
