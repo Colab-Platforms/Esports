@@ -93,6 +93,21 @@ class RedisService {
     }
   }
 
+  // Get keys matching a pattern
+  async keys(pattern) {
+    if (!this.isConnected || !this.client) {
+      return [];
+    }
+
+    try {
+      const keys = await this.client.keys(pattern);
+      return keys || [];
+    } catch (error) {
+      console.error('❌ Redis keys error:', error.message);
+      return [];
+    }
+  }
+
   // Delete cache keys matching a pattern
   async deletePattern(pattern) {
     if (!this.isConnected || !this.client) {

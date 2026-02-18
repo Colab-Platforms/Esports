@@ -66,22 +66,26 @@ router.get('/count', async (req, res) => {
 // @access  Private
 router.get('/players', auth, async (req, res) => {
   try {
-    const { search, game } = req.query;
+    const { search, game, fresh } = req.query;
     const currentUserId = req.user.userId;
     const redisService = require('../services/redisService');
 
     const cacheKey = `players:v2:${currentUserId}:${search || 'all'}:${game || 'all'}`;
 
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    // Try to get from cache only if not requesting fresh data
+    if (!fresh) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        console.log(`Cache hit for key: ${cacheKey}`);
+        return res.json({
+          success: true,
+          data: cachedData,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      console.log(`🔄 Fresh data requested, bypassing cache for key: ${cacheKey}`);
     }
 
     let query = { _id: { $ne: currentUserId }, isActive: true };
@@ -274,6 +278,22 @@ router.post('/friend-request', auth, async (req, res) => {
     });
 
     await notification.save();
+
+    // Invalidate players cache for sender so the UI updates on refresh
+    const redisService = require('../services/redisService');
+    const cachePattern = `players:v2:${senderId}:*`;
+    
+    // Delete all cached player lists for this user
+    try {
+      const keys = await redisService.keys(cachePattern);
+      if (keys && keys.length > 0) {
+        await Promise.all(keys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${keys.length} player cache entries for user ${senderId}`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+      // Don't fail the request if cache invalidation fails
+    }
 
     console.log(`📨 Friend request from ${sender.username} to ${recipient.username}`);
 
@@ -490,6 +510,81 @@ router.get('/friend-requests', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/friend-requests/sent
+// @desc    Get sent friend requests
+// @access  Private
+router.get('/friend-requests/sent', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    // Create cache key
+    const cacheKey = `friend-requests-sent:${userId}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const requests = await FriendRequest.find({
+      sender: userId,
+      status: 'pending'
+    })
+    .populate('recipient', 'username email avatarUrl level currentRank')
+    .sort({ createdAt: -1 });
+
+    const formattedRequests = requests.map(req => ({
+      _id: req._id,
+      id: req._id,
+      recipient: {
+        _id: req.recipient._id,
+        id: req.recipient._id,
+        username: req.recipient.username,
+        email: req.recipient.email,
+        avatarUrl: req.recipient.avatarUrl,
+        level: req.recipient.level,
+        currentRank: req.recipient.currentRank
+      },
+      createdAt: req.createdAt.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      }),
+      message: req.message
+    }));
+
+    const responseData = { requests: formattedRequests };
+
+    // Cache for 2 minutes
+    await redisService.set(cacheKey, responseData, 120);
+
+    res.json({
+      success: true,
+      data: responseData,
+      cached: false,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching sent friend requests:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch sent friend requests',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   POST /api/users/friend-request/:requestId/accept
 // @desc    Accept friend request
 // @access  Private
@@ -547,11 +642,23 @@ router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
       $addToSet: { friends: userId }
     });
 
-    // Invalidate cache for both users
+    // Invalidate cache for both users - clear all player list variations
     await redisService.delete(`friend-requests:${userId}`);
     await redisService.delete(`friend-requests:${friendRequest.sender}`);
-    await redisService.delete(`players:v2:${userId}:all:all`);
-    await redisService.delete(`players:v2:${friendRequest.sender}:all:all`);
+    
+    // Clear all player cache variations for both users
+    try {
+      const userKeys = await redisService.keys(`players:v2:${userId}:*`);
+      const senderKeys = await redisService.keys(`players:v2:${friendRequest.sender}:*`);
+      const allKeys = [...(userKeys || []), ...(senderKeys || [])];
+      
+      if (allKeys.length > 0) {
+        await Promise.all(allKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${allKeys.length} player cache entries after accepting friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
 
     console.log(`Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
 
@@ -611,8 +718,19 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
     friendRequest.status = 'rejected';
     await friendRequest.save();
 
-    // Invalidate cache
+    // Invalidate cache for both users
     await redisService.delete(`friend-requests:${userId}`);
+    
+    // Clear player cache for sender so their UI updates
+    try {
+      const senderKeys = await redisService.keys(`players:v2:${friendRequest.sender}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries after rejecting friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
 
     console.log(`Friend request rejected: ${friendRequest.sender} -> ${userId}`);
 
@@ -629,6 +747,191 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to reject friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/friend-request/:requestId/cancel
+// @desc    Cancel friend request (sender only)
+// @access  Private
+router.post('/friend-request/:requestId/cancel', auth, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    const friendRequest = await FriendRequest.findById(requestId);
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Friend request not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Only sender can cancel
+    if (friendRequest.sender.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You can only cancel your own friend requests',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Can only cancel pending requests
+    if (friendRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: 'Can only cancel pending requests',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Delete the request
+    await FriendRequest.findByIdAndDelete(requestId);
+
+    // Invalidate cache for sender
+    await redisService.delete(`friend-requests-sent:${userId}`);
+    
+    try {
+      const senderKeys = await redisService.keys(`players:v2:${userId}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries after cancelling friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
+
+    console.log(`Friend request cancelled: ${userId} -> ${friendRequest.recipient}`);
+
+    res.json({
+      success: true,
+      message: 'Friend request cancelled',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error cancelling friend request:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to cancel friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/unfriend/:friendId
+// @desc    Remove friend
+// @access  Private
+router.post('/unfriend/:friendId', auth, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_FRIEND_ID',
+          message: 'Friend ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (userId === friendId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Cannot unfriend yourself',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if they are actually friends
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!friend) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const isFriend = user.friends.some(id => id.toString() === friendId);
+    if (!isFriend) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NOT_FRIENDS',
+          message: 'You are not friends with this user',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Remove from both users' friend lists
+    await User.findByIdAndUpdate(userId, {
+      $pull: { friends: friendId }
+    });
+
+    await User.findByIdAndUpdate(friendId, {
+      $pull: { friends: userId }
+    });
+
+    // Invalidate cache for both users
+    try {
+      const userKeys = await redisService.keys(`players:v2:${userId}:*`);
+      const friendKeys = await redisService.keys(`players:v2:${friendId}:*`);
+      const allKeys = [...(userKeys || []), ...(friendKeys || [])];
+      
+      if (allKeys.length > 0) {
+        await Promise.all(allKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${allKeys.length} player cache entries after unfriending`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
+
+    console.log(`Unfriended: ${user.username} <-> ${friend.username}`);
+
+    res.json({
+      success: true,
+      message: 'Friend removed successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error unfriending:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to remove friend',
         timestamp: new Date().toISOString()
       }
     });

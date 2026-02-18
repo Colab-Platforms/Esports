@@ -13,7 +13,8 @@ import {
   FiX,
   FiEye,
   FiCheckCircle,
-  FiRefreshCw
+  FiRefreshCw,
+  FiUserMinus
 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
@@ -119,7 +120,8 @@ const TeamsPage = () => {
       const config = isAuthenticated ? {
         params: {
           search: searchQuery,
-          game: selectedGame !== 'all' ? selectedGame : undefined
+          game: selectedGame !== 'all' ? selectedGame : undefined,
+          fresh: 'true' // Always fetch fresh data to avoid cache issues
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -331,6 +333,87 @@ const TeamsPage = () => {
     }
   };
 
+  const cancelFriendRequest = async (playerId) => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      
+      // First find the request ID
+      const requestsResponse = await axios.get(`${API_URL}/api/users/friend-requests/sent`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const sentRequest = requestsResponse.data.data?.requests?.find(
+        req => req.recipient._id === playerId || req.recipient.id === playerId
+      );
+      
+      if (!sentRequest) {
+        toast.error('Friend request not found');
+        return;
+      }
+      
+      const response = await axios.post(
+        `${API_URL}/api/users/friend-request/${sentRequest._id}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        toast.success('Friend request cancelled', {
+          duration: 2000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #FFD700'
+          }
+        });
+        
+        // Update local state
+        setPlayers(players.map(p => 
+          (p._id === playerId || p.id === playerId) ? { ...p, friendRequestSent: false } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error cancelling friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to cancel request');
+    }
+  };
+
+  const unfriend = async (playerId) => {
+    if (!window.confirm('Are you sure you want to unfriend this player?')) {
+      return;
+    }
+    
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.post(
+        `${API_URL}/api/users/unfriend/${playerId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        toast.success('Friend removed', {
+          duration: 2000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #ef4444'
+          }
+        });
+        
+        // Update local state
+        setPlayers(players.map(p => 
+          (p._id === playerId || p.id === playerId) ? { ...p, isFriend: false } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error unfriending:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to unfriend');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gaming-dark py-4 md:py-8">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
@@ -460,20 +543,33 @@ const TeamsPage = () => {
                               >
                                 <FiEye className="w-3 h-3 md:w-4 md:h-4" />
                               </button>
-                              <button
-                                onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
-                                disabled={player.friendRequestSent || player.isFriend}
-                                className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded transition-colors ${
-                                  player.isFriend
-                                    ? 'bg-green-600/30 text-green-400 cursor-not-allowed border border-green-500/50'
-                                    : player.friendRequestSent
-                                    ? 'bg-yellow-600/30 text-yellow-400 cursor-not-allowed border border-yellow-500/50'
-                                    : 'bg-gaming-gold hover:bg-yellow-500 text-black'
-                                }`}
-                                title={player.isFriend ? 'Friends' : player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
-                              >
-                                {player.isFriend ? <FiCheckCircle className="w-3 h-3 md:w-4 md:h-4" /> : player.friendRequestSent ? <FiCheck className="w-3 h-3 md:w-4 md:h-4" /> : <FiUserPlus className="w-3 h-3 md:w-4 md:h-4" />}
-                              </button>
+                              
+                              {/* Friend Status Button */}
+                              {player.isFriend ? (
+                                <button
+                                  onClick={() => handleActionWithLogin(unfriend, player._id || player.id)}
+                                  className="px-2 md:px-3 py-1 bg-red-600/80 hover:bg-red-700 text-white text-xs md:text-sm rounded transition-colors"
+                                  title="Unfriend"
+                                >
+                                  <FiUserMinus className="w-3 h-3 md:w-4 md:h-4" />
+                                </button>
+                              ) : player.friendRequestSent ? (
+                                <button
+                                  onClick={() => handleActionWithLogin(cancelFriendRequest, player._id || player.id)}
+                                  className="px-2 md:px-3 py-1 bg-yellow-600/80 hover:bg-yellow-700 text-white text-xs md:text-sm rounded transition-colors"
+                                  title="Cancel Request"
+                                >
+                                  <FiX className="w-3 h-3 md:w-4 md:h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
+                                  className="px-2 md:px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs md:text-sm rounded transition-colors"
+                                  title="Add Friend"
+                                >
+                                  <FiUserPlus className="w-3 h-3 md:w-4 md:h-4" />
+                                </button>
+                              )}
                               
                               {/* Challenge Button with Dropdown */}
                               <div className="relative challenge-menu-container">
