@@ -932,8 +932,10 @@ router.put('/profile', auth, async (req, res) => {
 
     try {
       const redisService = require('../services/redisService');
+      // Clear this user's own teams cache
       await redisService.delete(`teams:v2:my-teams:${user._id}`);
-      await redisService.delete(`players:v2:${user._id}:all:all`);
+      // Clear ALL player-list caches across all viewers — any cached list could contain this user's stale game IDs
+      await redisService.deletePattern('players:v2:*');
     } catch (cacheErr) {
       console.error('Cache invalidation failed:', cacheErr);
     }

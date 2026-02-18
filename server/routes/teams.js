@@ -14,26 +14,6 @@ router.post('/', auth, async (req, res) => {
     const userId = req.user.userId;
     const redisService = require('../services/redisService');
 
-    const existingTeam = await Team.findOne({
-      game,
-      $or: [
-        { captain: userId },
-        { 'members.userId': userId }
-      ],
-      isActive: true
-    });
-
-    if (existingTeam) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'ALREADY_IN_TEAM',
-          message: `You are already in a ${game.toUpperCase()} team`,
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
     const members = [{
       userId,
       role: 'captain',
@@ -88,8 +68,8 @@ router.post('/', auth, async (req, res) => {
     });
 
     await team.save();
-    await team.populate('captain', 'username avatarUrl');
-    await team.populate('members.userId', 'username avatarUrl');
+    await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
+    await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
 
     const cacheKeysToDelete = [`teams:v2:my-teams:${userId}`];
     if (memberIds && Array.isArray(memberIds)) {
@@ -384,8 +364,45 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
 
+    // Block deletion if the team is registered in any active/ongoing tournament
+    const TournamentRegistration = require('../models/TournamentRegistration');
+    const Tournament = require('../models/Tournament');
+    const activeRegistration = await TournamentRegistration.findOne({
+      teamId: team._id,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    }).populate('tournamentId', 'name status');
+
+    if (activeRegistration) {
+      const t = activeRegistration.tournamentId;
+      const isOver = t && ['completed', 'cancelled', 'inactive'].includes(t.status);
+      if (!isOver) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TEAM_IN_ACTIVE_TOURNAMENT',
+            message: t
+              ? `This team is registered in an active tournament "${t.name}". You can only delete the team after the tournament ends.`
+              : 'This team is registered in an active tournament. You can only delete the team after the tournament ends.',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+    }
+
+    // Collect all member IDs before deactivating (for cache invalidation)
+    const allMemberIds = team.members
+      .map(m => (m.userId?._id || m.userId)?.toString())
+      .filter(Boolean);
+
     team.isActive = false;
     await team.save();
+
+    // Invalidate Redis cache for captain and all members
+    const redisService = require('../services/redisService');
+    const captainId = (team.captain?._id || team.captain)?.toString();
+    const cacheKeysToDelete = new Set(allMemberIds.map(id => `teams:v2:my-teams:${id}`));
+    if (captainId) cacheKeysToDelete.add(`teams:v2:my-teams:${captainId}`);
+    await Promise.all([...cacheKeysToDelete].map(k => redisService.delete(k)));
 
     res.json({
       success: true,

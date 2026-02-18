@@ -37,13 +37,18 @@ const getGameInfoFromPlayer = (player, gameId) => {
   }
 };
 
-const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam = null }) => {
+const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam = null, currentUser = null }) => {
   const isEdit = !!editTeam;
 
   const [formData, setFormData] = useState({
     name: editTeam?.name || '',
     game: editTeam?.game || fixedGame || 'bgmi'
   });
+  const [captainGameInfo, setCaptainGameInfo] = useState(() => {
+    const game = editTeam?.game || fixedGame || 'bgmi';
+    return getGameInfoFromPlayer(currentUser || {}, game);
+  });
+  const [editingCaptain, setEditingCaptain] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -52,6 +57,8 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
 
   const currentGame = GAMES.find(g => g.id === formData.game) || GAMES[0];
   const maxAddable = currentGame.maxMembers - 1;
+
+  const captainHasAllInfo = currentGame.fields.every(f => captainGameInfo[f] && captainGameInfo[f].trim());
 
   useEffect(() => {
     if (editTeam?.members) {
@@ -117,6 +124,8 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
   const handleGameChange = (gameId) => {
     const game = GAMES.find(g => g.id === gameId);
     setFormData(prev => ({ ...prev, game: gameId }));
+    setCaptainGameInfo(getGameInfoFromPlayer(currentUser || {}, gameId));
+    setEditingCaptain(false);
     const newMembers = selectedMembers.slice(0, game.maxMembers - 1).map(member => ({
       ...member,
       gameInfo: getGameInfoFromPlayer(member, gameId)
@@ -165,7 +174,8 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
         userId: m._id,
         username: m.username,
         ...m.gameInfo
-      }))
+      })),
+      captainGameInfo
     });
   };
 
@@ -232,9 +242,52 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                 </div>
                 <div className="flex-1">
                   <p className="text-white text-sm font-medium">You (Captain)</p>
+                  {captainHasAllInfo ? (
+                    <p className="text-green-400 text-xs flex items-center space-x-1">
+                      <FiCheck className="w-3 h-3" />
+                      <span>{currentGame.fields.map(f => captainGameInfo[f]).filter(Boolean).join(' | ')}</span>
+                    </p>
+                  ) : (
+                    <p className="text-yellow-400 text-xs flex items-center space-x-1">
+                      <FiAlertCircle className="w-3 h-3" />
+                      <span>Add your game info</span>
+                    </p>
+                  )}
                 </div>
-                <span className="text-gaming-gold text-xs font-medium px-2 py-0.5 bg-gaming-gold/10 rounded">Captain</span>
+                <div className="flex items-center space-x-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCaptain(v => !v)}
+                    className={`p-1.5 rounded transition-colors ${
+                      editingCaptain
+                        ? 'bg-gaming-gold/20 text-gaming-gold'
+                        : 'text-gray-400 hover:text-white hover:bg-gaming-dark'
+                    }`}
+                    title="Edit your game info"
+                  >
+                    <FiEdit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-gaming-gold text-xs font-medium px-2 py-0.5 bg-gaming-gold/10 rounded">Captain</span>
+                </div>
               </div>
+              {editingCaptain && (
+                <div className="border border-gaming-gold/20 rounded-lg bg-gaming-dark/50 p-3 space-y-2">
+                  {currentGame.fields.map(field => (
+                    <div key={field}>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        {currentGame.labels[field]} <span className="text-gaming-gold">(Your profile)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={captainGameInfo[field] || ''}
+                        onChange={(e) => setCaptainGameInfo(prev => ({ ...prev, [field]: e.target.value }))}
+                        placeholder={`Enter your ${currentGame.labels[field]}`}
+                        className="w-full px-2.5 py-1.5 bg-gaming-dark border border-gaming-border rounded text-white text-sm focus:border-gaming-gold focus:outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <AnimatePresence>
                 {selectedMembers.map((member) => (

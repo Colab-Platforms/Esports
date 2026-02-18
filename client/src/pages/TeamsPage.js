@@ -566,6 +566,9 @@ const TeamsPage = () => {
               fetchTeamInvitations();
             }}
             token={token}
+            currentUser={user}
+            isAuthenticated={isAuthenticated}
+            navigate={navigate}
           />
         )}
 

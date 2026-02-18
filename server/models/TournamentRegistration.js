@@ -68,6 +68,13 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     enum: ['pending', 'images_uploaded', 'verified', 'rejected'],
     default: 'pending'
   },
+
+  // Team reference (set when registering via a saved Team)
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null
+  },
   
   // Group Assignment (for tournaments with grouping enabled)
   group: {
@@ -140,6 +147,7 @@ tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 }, { unique: tru
 // Indexes for efficient queries
 tournamentRegistrationSchema.index({ tournamentId: 1, status: 1 });
 tournamentRegistrationSchema.index({ userId: 1 });
+tournamentRegistrationSchema.index({ teamId: 1, status: 1 });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
 

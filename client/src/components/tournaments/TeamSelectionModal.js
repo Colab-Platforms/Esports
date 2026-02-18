@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiUsers, FiPlus, FiCheck, FiAward, FiPhone, FiEdit2, FiAlertTriangle } from 'react-icons/fi';
-import { useSelector } from 'react-redux';
-import { selectUser } from '../../store/slices/authSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { selectUser, updateProfile } from '../../store/slices/authSlice';
 import UserAvatar from '../common/UserAvatar';
 import CreateTeamModal from '../teams/CreateTeamModal';
 import axios from 'axios';
@@ -21,26 +21,35 @@ const getGameInfo = (memberUser, gameType) => {
   if (!u) return { name: '', gameId: '' };
 
   switch (gameType) {
-    case 'bgmi':
+    case 'bgmi': {
+      // Handle both new object format {ign, uid} and legacy fields
+      const bgmi = u?.gameIds?.bgmi;
+      const ignFromObj = typeof bgmi === 'object' ? bgmi?.ign : '';
+      const uidFromObj = typeof bgmi === 'object' ? bgmi?.uid : (typeof bgmi === 'string' ? bgmi : '');
       return {
-        name: u?.gameIds?.bgmi?.ign || u?.bgmiIgnName || '',
-        gameId: u?.gameIds?.bgmi?.uid || u?.bgmiUid || ''
+        name: ignFromObj || u?.bgmiIgnName || '',
+        gameId: uidFromObj || u?.bgmiUid || ''
       };
+    }
     case 'freefire':
-    case 'ff':
+    case 'ff': {
+      const ff = u?.gameIds?.freefire;
+      const ignFromObj = typeof ff === 'object' ? ff?.ign : '';
+      const uidFromObj = typeof ff === 'object' ? ff?.uid : (typeof ff === 'string' ? ff : '');
       return {
-        name: u?.gameIds?.freefire?.ign || u?.freeFireIgnName || '',
-        gameId: u?.gameIds?.freefire?.uid || u?.freeFireUid || ''
+        name: ignFromObj || u?.freeFireIgnName || '',
+        gameId: uidFromObj || u?.freeFireUid || ''
       };
+    }
     case 'cs2':
       return {
-        name: u?.gameIds?.steam?.ign || '',
+        name: '',
         gameId: u?.gameIds?.steam || u?.steamProfile?.steamId || ''
       };
     case 'valorant':
       return {
-        name: u?.gameIds?.valorant?.ign || '',
-        gameId: u?.gameIds?.valorant || ''
+        name: '',
+        gameId: typeof u?.gameIds?.valorant === 'string' ? u.gameIds.valorant : ''
       };
     default:
       return { name: '', gameId: '' };
@@ -49,6 +58,7 @@ const getGameInfo = (memberUser, gameType) => {
 
 const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegister }) => {
   const user = useSelector(selectUser);
+  const dispatch = useDispatch();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
@@ -56,6 +66,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || '');
   const [memberEdits, setMemberEdits] = useState({});
   const [editingMemberId, setEditingMemberId] = useState(null);
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
   const gameType = tournament?.gameType;
   const needsPhone = gameType === 'bgmi' || gameType === 'freefire' || gameType === 'ff';
@@ -80,19 +91,20 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const memberWarnings = useMemo(() => {
     if (!selectedTeam) return [];
     const warnings = [];
+    const needsName = gameType !== 'cs2' && gameType !== 'valorant';
     selectedTeam.members?.forEach(m => {
       if (!m.userId) return;
       const info = getMemberInfo(m);
       const memberName = m.userId?.username || 'Unknown';
       const role = isCaptain(m) ? 'Team Leader' : 'Member';
-      if (!info.name) warnings.push(`${role} "${memberName}" is missing ${fields.nameLabel}`);
-      if (!info.gameId) warnings.push(`${role} "${memberName}" is missing ${fields.idLabel}`);
+      if (needsName && !info.name?.trim()) warnings.push(`${role} "${memberName}" is missing ${fields.nameLabel}`);
+      if (!info.gameId?.trim()) warnings.push(`${role} "${memberName}" is missing ${fields.idLabel}`);
     });
     if (needsPhone && !/^[6-9]\d{9}$/.test(phoneNumber)) {
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, currentUserId]);
+  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, currentUserId, gameType]);
 
   useEffect(() => {
     fetchTeams();
@@ -103,16 +115,20 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     setEditingMemberId(null);
   }, [selectedTeamId]);
 
-  const fetchTeams = async () => {
+  const fetchTeams = async (selectId = null) => {
     try {
       setLoading(true);
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/teams/my-teams?fresh=1`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
         const allTeams = response.data.data.teams || [];
-        setTeams(allTeams.filter(t => t.game === gameType));
+        const filtered = allTeams.filter(t => t.game === gameType);
+        setTeams(filtered);
+        if (selectId) {
+          const found = filtered.find(t => t._id === selectId);
+          if (found) setSelectedTeamId(found._id);
+        }
       }
     } catch (error) {
       console.error('Error fetching teams:', error);
@@ -121,10 +137,41 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     }
   };
 
-  const handleCreateTeam = async (teamData) => {
+  const updateCaptainProfile = async (game, captainGameInfo) => {
+    if (!captainGameInfo || !game) return;
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.post(`${API_URL}/api/teams`, teamData, {
+      const profilePayload = {};
+      if (game === 'bgmi') {
+        if (captainGameInfo.ign) profilePayload.bgmiIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid) profilePayload.bgmiUid = captainGameInfo.uid;
+      } else if (game === 'freefire' || game === 'ff') {
+        if (captainGameInfo.ign) profilePayload.freeFireIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid) profilePayload.freeFireUid = captainGameInfo.uid;
+      } else if (game === 'valorant') {
+        if (captainGameInfo.valorantId) profilePayload.gameIds = { valorant: captainGameInfo.valorantId };
+      } else if (game === 'cs2') {
+        if (captainGameInfo.steamId) profilePayload.gameIds = { steam: captainGameInfo.steamId };
+      }
+      if (Object.keys(profilePayload).length === 0) return;
+      const res = await axios.put(`${API_URL}/api/auth/profile`, profilePayload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data?.success && res.data?.data?.user) {
+        dispatch(updateProfile(res.data.data.user));
+        localStorage.setItem('user', JSON.stringify({
+          ...JSON.parse(localStorage.getItem('user') || '{}'),
+          ...res.data.data.user
+        }));
+      }
+    } catch (err) {
+      console.warn('Could not update captain profile from tournament modal:', err);
+    }
+  };
+
+  const handleCreateTeam = async (teamData) => {
+    const { captainGameInfo, ...payload } = teamData;
+    try {
+      const response = await axios.post(`${API_URL}/api/teams`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -133,9 +180,10 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
           style: { background: '#1a1a2e', color: '#fff', border: '1px solid #FFD700' }
         });
         setShowCreateModal(false);
-        const newTeam = response.data.data.team;
-        setTeams(prev => [...prev, newTeam]);
-        setSelectedTeamId(newTeam._id);
+        const newTeamId = response.data.data.team?._id;
+        // Update captain's profile with game info, then re-fetch with fresh populated data
+        await updateCaptainProfile(payload.game, captainGameInfo);
+        await fetchTeams(newTeamId);
       }
     } catch (error) {
       console.error('Error creating team:', error);
@@ -171,6 +219,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
         onCreate={handleCreateTeam}
         token={token}
         fixedGame={gameType}
+        currentUser={user}
       />
     );
   }
@@ -270,7 +319,10 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                               const info = getMemberInfo(member);
                               const isLeader = isCaptain(member);
                               const isEditing = editingMemberId === memberId;
-                              const hasMissingData = !info.name || !info.gameId;
+                              const needsName = gameType !== 'cs2' && gameType !== 'valorant';
+                              const missingName = needsName && !info.name?.trim();
+                              const missingId = !info.gameId?.trim();
+                              const hasMissingData = missingName || missingId;
 
                               return (
                                 <div key={memberId} className={`rounded-lg p-3 ${hasMissingData ? 'bg-red-900/20 border border-red-500/30' : 'bg-gaming-dark'}`}>
@@ -302,36 +354,56 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
 
                                   {isEditing ? (
                                     <div className="space-y-2 mt-2">
-                                      <div>
-                                        <label className="text-gray-500 text-[10px] uppercase tracking-wider">{fields.nameLabel}</label>
-                                        <input
-                                          type="text"
-                                          value={memberEdits[memberId]?.name ?? info.name}
-                                          onChange={(e) => handleEditMember(memberId, 'name', e.target.value)}
-                                          className="w-full bg-gaming-charcoal border border-gaming-border rounded px-3 py-1.5 text-white text-sm focus:border-gaming-gold focus:outline-none"
-                                        />
-                                      </div>
+                                      {gameType !== 'cs2' && gameType !== 'valorant' && (
+                                        <div>
+                                          <label className="text-gray-500 text-[10px] uppercase tracking-wider">{fields.nameLabel}</label>
+                                          <input
+                                            type="text"
+                                            value={memberEdits[memberId]?.name ?? info.name}
+                                            onChange={(e) => handleEditMember(memberId, 'name', e.target.value)}
+                                            className={`w-full bg-gaming-charcoal border rounded px-3 py-1.5 text-white text-sm focus:outline-none ${
+                                              !(memberEdits[memberId]?.name ?? info.name)
+                                                ? 'border-red-500 focus:border-red-400'
+                                                : 'border-gaming-border focus:border-gaming-gold'
+                                            }`}
+                                            placeholder={`Enter ${fields.nameLabel}`}
+                                          />
+                                          {!(memberEdits[memberId]?.name ?? info.name) && (
+                                            <p className="text-red-400 text-[10px] mt-0.5">Required</p>
+                                          )}
+                                        </div>
+                                      )}
                                       <div>
                                         <label className="text-gray-500 text-[10px] uppercase tracking-wider">{fields.idLabel}</label>
                                         <input
                                           type="text"
                                           value={memberEdits[memberId]?.gameId ?? info.gameId}
                                           onChange={(e) => handleEditMember(memberId, 'gameId', e.target.value)}
-                                          className="w-full bg-gaming-charcoal border border-gaming-border rounded px-3 py-1.5 text-white text-sm focus:border-gaming-gold focus:outline-none"
+                                          className={`w-full bg-gaming-charcoal border rounded px-3 py-1.5 text-white text-sm focus:outline-none ${
+                                            !(memberEdits[memberId]?.gameId ?? info.gameId)
+                                              ? 'border-red-500 focus:border-red-400'
+                                              : 'border-gaming-border focus:border-gaming-gold'
+                                          }`}
+                                          placeholder={`Enter ${fields.idLabel}`}
                                         />
+                                        {!(memberEdits[memberId]?.gameId ?? info.gameId) && (
+                                          <p className="text-red-400 text-[10px] mt-0.5">Required</p>
+                                        )}
                                       </div>
                                     </div>
                                   ) : (
                                     <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <span className="text-gray-500">{fields.nameLabel}: </span>
-                                        <span className={info.name ? 'text-gray-200' : 'text-red-400 font-medium'}>
-                                          {info.name || 'Not set'}
-                                        </span>
-                                      </div>
-                                      <div>
+                                      {needsName && (
+                                        <div>
+                                          <span className="text-gray-500">{fields.nameLabel}: </span>
+                                          <span className={!missingName ? 'text-gray-200' : 'text-red-400 font-medium'}>
+                                            {info.name || 'Not set'}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <div className={needsName ? '' : 'col-span-2'}>
                                         <span className="text-gray-500">{fields.idLabel}: </span>
-                                        <span className={info.gameId ? 'text-gray-200' : 'text-red-400 font-medium'}>
+                                        <span className={!missingId ? 'text-gray-200' : 'text-red-400 font-medium'}>
                                           {info.gameId || 'Not set'}
                                         </span>
                                       </div>
@@ -340,8 +412,10 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
 
                                   {hasMissingData && !isEditing && (
                                     <div className="flex items-center space-x-1 mt-1.5 text-[11px] text-red-400">
-                                      <FiAlertTriangle className="w-3 h-3" />
-                                      <span>Missing data — click edit to fix</span>
+                                      <FiAlertTriangle className="w-3 h-3 shrink-0" />
+                                      <span>
+                                        Missing: {[missingName && fields.nameLabel, missingId && fields.idLabel].filter(Boolean).join(' & ')} — click edit to fix
+                                      </span>
                                     </div>
                                   )}
                                 </div>
