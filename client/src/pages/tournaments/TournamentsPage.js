@@ -283,17 +283,15 @@ const TournamentsPage = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-gaming font-bold text-white">
+        {/* Page Title, Search and Filters - All in one line */}
+        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center gap-4">
+          {/* Page Title */}
+          <h1 className="text-3xl font-gaming font-bold text-white whitespace-nowrap">
             TOURNAMENTS
           </h1>
-        </div>
 
-        {/* Search and Filters */}
-        <div className="mb-8 flex flex-col md:flex-row gap-4">
           {/* Search Bar */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative w-full md:w-auto">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
@@ -307,7 +305,7 @@ const TournamentsPage = () => {
           {/* Filters Button */}
           <button 
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center space-x-2 px-6 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white hover:border-gaming-gold transition-colors duration-200 ${showFilters ? 'border-gaming-gold bg-gaming-gold/10' : ''}`}
+            className={`flex items-center space-x-2 px-6 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white hover:border-gaming-gold transition-colors duration-200 whitespace-nowrap ${showFilters ? 'border-gaming-gold bg-gaming-gold/10' : ''}`}
           >
             <FiFilter className="h-4 w-4" />
             <span>Filters</span>

@@ -55,16 +55,20 @@ class ApiService {
           throw new Error(`Invalid response format. Status: ${response.status}`);
         }
         
-        // Handle token expiry
-        if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {
+        // Handle token expiry or invalid token
+        if (response.status === 401 && (
+          data.error?.code === 'TOKEN_EXPIRED' || 
+          data.error?.code === 'INVALID_TOKEN'
+        )) {
           // Clear auth data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           
-          // Redirect to login
-          window.location.href = '/login?expired=true';
+          // Redirect to login with appropriate message
+          const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
+          window.location.href = `/login?${reason}=true`;
           
-          throw new Error('Session expired. Please login again.');
+          throw new Error(data.error?.message || 'Session expired. Please login again.');
         }
         
         if (!response.ok) {
