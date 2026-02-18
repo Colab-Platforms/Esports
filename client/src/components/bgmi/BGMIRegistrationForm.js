@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
@@ -6,7 +6,7 @@ import api from '../../services/api';
 import PlayerSearchAndAdd from './PlayerSearchAndAdd';
 import Snackbar from '../common/Snackbar';
 
-const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
+const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) => {
   const user = useSelector(selectUser);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -14,16 +14,46 @@ const BGMIRegistrationForm = ({ tournament, onClose, onSuccess }) => {
   const [snackbar, setSnackbar] = useState({ message: '', type: 'info' });
 
   const [formData, setFormData] = useState({
-    teamName: '',
+    teamName: selectedTeam?.name || '',
     teamLeader: {
       name: user?.gameIds?.bgmi?.ign || user?.bgmiIgnName || user?.username || '',
       bgmiId: user?.gameIds?.bgmi?.uid || user?.bgmiUid || '',
       phone: user?.phone || ''
     },
     teamMembers: [],
-    selectedLeaderIndex: null, // null means current user is leader
-    substitutes: {} // Track which members are substitutes by index
+    selectedLeaderIndex: null,
+    substitutes: {}
   });
+
+  useEffect(() => {
+    if (!selectedTeam?.members || selectedTeam.members.length === 0) return;
+
+    const currentUserId = user?._id || user?.id || localStorage.getItem('userId');
+    const otherMembers = selectedTeam.members.filter(m => {
+      if (!m.userId) return false;
+      const memberId = m.userId._id || m.userId;
+      return memberId.toString() !== currentUserId?.toString();
+    });
+
+    const preFilled = otherMembers.map(m => {
+      const u = m.userId;
+      return {
+        name: u?.gameIds?.bgmi?.ign || u?.bgmiIgnName || u?.username || '',
+        bgmiId: u?.gameIds?.bgmi?.uid || u?.bgmiUid || '',
+        playerId: u?._id || ''
+      };
+    });
+
+    if (preFilled.length > 0) {
+      const subs = {};
+      preFilled.forEach((_, i) => { subs[i] = false; });
+      setFormData(prev => ({
+        ...prev,
+        teamMembers: preFilled,
+        substitutes: subs
+      }));
+    }
+  }, [selectedTeam, user]);
 
   const handleInputChange = useCallback((section, field, value) => {
     setFormData(prev => {
