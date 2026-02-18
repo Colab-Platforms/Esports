@@ -74,7 +74,7 @@ const ProfilePage = () => {
             {/* User Info */}
             <div className="flex-1">
               <h1 className="text-3xl font-gaming font-bold text-white mb-2">
-                {user?.username || 'Gaming Profile'}
+                {user?.fullName || user?.username || 'Gaming Profile'}
               </h1>
               <p className="text-gray-400 mb-4">
                 {user?.bio || 'Professional esports player and tournament competitor'}

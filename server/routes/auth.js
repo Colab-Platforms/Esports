@@ -328,27 +328,27 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
-    const { username, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
+    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
 
-    // Basic validation
-    if (!username || !email || !phone || !password) {
+    // Basic validation - fullName, email, phone, and password are required
+    if (!fullName || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
         error: {
           code: 'MISSING_FIELDS',
-          message: 'All fields are required',
+          message: 'Full name, email, phone, and password are required',
           timestamp: new Date().toISOString()
         }
       });
     }
 
-    // Phone validation - Indian mobile numbers
-    if (!/^[6-9]\d{9}$/.test(phone)) {
+    // Full name validation
+    if (fullName.length < 3) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'INVALID_PHONE',
-          message: 'Please enter a valid 10-digit Indian mobile number',
+          code: 'INVALID_FULLNAME',
+          message: 'Full name must be at least 3 characters',
           timestamp: new Date().toISOString()
         }
       });
@@ -366,30 +366,51 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       });
     }
 
-    // Username validation
-    if (username.length < 3) {
+    // Phone validation - Indian mobile numbers
+    if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'INVALID_USERNAME',
-          message: 'Username must be at least 3 characters',
+          code: 'INVALID_PHONE',
+          message: 'Please enter a valid 10-digit Indian mobile number',
           timestamp: new Date().toISOString()
         }
       });
     }
 
+    // Generate unique username from full name
+    const generateUsername = (fullName) => {
+      // Convert to lowercase, replace spaces with underscore, remove special chars
+      const baseUsername = fullName
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '')
+        .substring(0, 20); // Limit to 20 chars
+      
+      // Add random 4-digit number for uniqueness
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      return `${baseUsername}_${randomNum}`;
+    };
+
+    const generatedUsername = generateUsername(fullName);
+    console.log('✅ Generated username:', generatedUsername);
+
     console.log('✅ Basic validation passed');
 
     // Check if user already exists
     console.log('🔍 Checking for existing user...');
+    
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }, { phone }]
+      $or: [
+        { email: email.toLowerCase() },
+        { phone }
+      ]
     });
 
     if (existingUser) {
-      console.log('❌ User already exists:', existingUser.email);
-      let field = 'email';
-      if (existingUser.username === username) field = 'username';
+      console.log('❌ User already exists:', existingUser.email || existingUser.phone);
+      let field = 'phone';
+      if (existingUser.email === email.toLowerCase()) field = 'email';
       if (existingUser.phone === phone) field = 'phone';
       
       return res.status(400).json({
@@ -407,7 +428,8 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     // Create new user
     console.log('👤 Creating new user...');
     const userData = {
-      username,
+      fullName,
+      username: generatedUsername,
       email,
       phone,
       passwordHash: password, // Will be hashed by pre-save middleware
@@ -464,6 +486,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         token,
         user: {
           id: user._id,
+          fullName: user.fullName,
           username: user.username,
           email: user.email,
           phone: user.phone,
@@ -493,7 +516,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    console.log('🎉 Registration successful for:', username);
+    console.log('🎉 Registration successful for:', fullName, `(${generatedUsername})`);
 
   } catch (error) {
     console.error('❌ Registration error:', error);
