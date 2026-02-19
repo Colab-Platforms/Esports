@@ -62,15 +62,20 @@ router.get('/count', async (req, res) => {
 });
 
 // @route   GET /api/users/players
-// @desc    Get all players with search and filter
+// @desc    Get all players with search and filter (with pagination)
 // @access  Private
 router.get('/players', auth, async (req, res) => {
   try {
-    const { search, game, fresh } = req.query;
+    const { search, game, fresh, page = 1, limit = 20 } = req.query;
     const currentUserId = req.user.userId;
     const redisService = require('../services/redisService');
 
-    const cacheKey = `players:v2:${currentUserId}:${search || 'all'}:${game || 'all'}`;
+    // Parse pagination params
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const cacheKey = `players:v3:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
 
     // Try to get from cache only if not requesting fresh data
     if (!fresh) {
@@ -105,12 +110,16 @@ router.get('/players', auth, async (req, res) => {
       query.favoriteGame = game;
     }
 
+    // Get total count for pagination
+    const totalPlayers = await User.countDocuments(query);
+
     const players = await User.find(query)
       .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
-      .limit(50)
+      .skip(skip)
+      .limit(limitNum)
       .lean();
     
-    console.log(`Found ${players.length} players for user ${currentUserId}`);
+    console.log(`Found ${players.length} players (page ${pageNum}, total: ${totalPlayers})`);
 
     // Check friend request status for each player
     const FriendRequest = require('../models/FriendRequest');
@@ -158,7 +167,17 @@ router.get('/players', auth, async (req, res) => {
       };
     }));
 
-    const responseData = { players: playersWithStats };
+    const responseData = { 
+      players: playersWithStats,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalPlayers / limitNum),
+        totalPlayers: totalPlayers,
+        playersPerPage: limitNum,
+        hasNextPage: pageNum < Math.ceil(totalPlayers / limitNum),
+        hasPrevPage: pageNum > 1
+      }
+    };
 
     // Cache the response for 5 minutes
     await redisService.set(cacheKey, responseData, 300);
@@ -950,14 +969,19 @@ router.post('/unfriend/:friendId', auth, async (req, res) => {
 });
 
 // @route   GET /api/users/players/public
-// @desc    Get all players (public - no auth required) - Search by IGN name or BGMI UID only
+// @desc    Get all players (public - no auth required) - Search by IGN name or BGMI UID only (with pagination)
 // @access  Public
 router.get('/players/public', async (req, res) => {
   console.log('🎯 /api/users/players/public route hit!');
   console.log('📥 Query params:', req.query);
   
   try {
-    const { search } = req.query;
+    const { search, page = 1, limit = 20 } = req.query;
+
+    // Parse pagination params
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
     // First, let's check how many users have BGMI data
     const totalUsersWithBGMI = await User.countDocuments({
@@ -1015,19 +1039,30 @@ router.get('/players/public', async (req, res) => {
         success: true,
         data: {
           players: [],
-          total: 0
+          pagination: {
+            currentPage: pageNum,
+            totalPages: 0,
+            totalPlayers: 0,
+            playersPerPage: limitNum,
+            hasNextPage: false,
+            hasPrevPage: false
+          }
         }
       });
     }
 
     console.log('🔍 BGMI players query:', JSON.stringify(query, null, 2));
 
+    // Get total count for pagination
+    const totalPlayers = await User.countDocuments(query);
+
     const players = await User.find(query)
       .select('username bgmiIgnName bgmiUid avatarUrl gameIds')
-      .limit(50)
+      .skip(skip)
+      .limit(limitNum)
       .lean();
     
-    console.log(`✅ Found ${players.length} BGMI players matching search`);
+    console.log(`✅ Found ${players.length} BGMI players matching search (page ${pageNum}, total: ${totalPlayers})`);
 
     // Format response
     const formattedPlayers = players.map(player => ({
@@ -1042,7 +1077,14 @@ router.get('/players/public', async (req, res) => {
       success: true,
       data: {
         players: formattedPlayers,
-        total: formattedPlayers.length
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalPlayers / limitNum),
+          totalPlayers: totalPlayers,
+          playersPerPage: limitNum,
+          hasNextPage: pageNum < Math.ceil(totalPlayers / limitNum),
+          hasPrevPage: pageNum > 1
+        }
       }
     });
   } catch (error) {

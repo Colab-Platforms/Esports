@@ -37,6 +37,10 @@ const TeamsPage = () => {
   const [friendFilter, setFriendFilter] = useState('all'); // 'all', 'friends', 'requested'
   const [myFriends, setMyFriends] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPlayers, setTotalPlayers] = useState(0);
+  const playersPerPage = 20;
 
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
@@ -65,7 +69,12 @@ const TeamsPage = () => {
       fetchMyTeams();
       fetchTeamInvitations();
     }
-  }, [activeTab, selectedGame, searchQuery]);
+  }, [activeTab, selectedGame, searchQuery, currentPage]);
+
+  // Reset to page 1 when filters change (but not when page changes)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedGame, searchQuery, friendFilter]);
 
   // Close challenge menu when clicking outside
   useEffect(() => {
@@ -128,6 +137,8 @@ const TeamsPage = () => {
         params: {
           search: searchQuery,
           game: selectedGame !== 'all' ? selectedGame : undefined,
+          page: currentPage,
+          limit: playersPerPage,
           fresh: 'true' // Always fetch fresh data to avoid cache issues
         },
         headers: {
@@ -136,26 +147,39 @@ const TeamsPage = () => {
       } : {
         params: {
           search: searchQuery,
-          game: selectedGame !== 'all' ? selectedGame : undefined
+          game: selectedGame !== 'all' ? selectedGame : undefined,
+          page: currentPage,
+          limit: playersPerPage
         }
       };
       
       const response = await axios.get(endpoint, config);
       
       if (response.data.success) {
-        console.log('Fetched players:', response.data.data.players.length);
-        console.log('Players data:', response.data.data.players);
+        const { players, pagination } = response.data.data;
+        console.log('Fetched players:', players.length);
+        console.log('Pagination:', pagination);
         console.log('Cached:', response.data.cached);
+        
         // Log friend status for each player
-        response.data.data.players.forEach(p => {
+        players.forEach(p => {
           console.log(`Player: ${p.username}, isFriend: ${p.isFriend}, friendRequestSent: ${p.friendRequestSent}`);
         });
-        setPlayers(response.data.data.players || []);
+        
+        setPlayers(players || []);
+        
+        // Update pagination state from backend response
+        if (pagination) {
+          setTotalPages(pagination.totalPages);
+          setTotalPlayers(pagination.totalPlayers);
+        }
       }
     } catch (error) {
       console.error('Error fetching players:', error);
       // Show error to user
       setPlayers([]);
+      setTotalPages(1);
+      setTotalPlayers(0);
     } finally {
       setLoading(false);
     }
@@ -585,7 +609,7 @@ const TeamsPage = () => {
                     </thead>
                     <tbody className="divide-y divide-gaming-border">
                       {(() => {
-                        // Apply friend filter
+                        // Apply friend filter (frontend filtering for friend status)
                         let filteredPlayers = players;
                         
                         if (friendFilter === 'friends' && isAuthenticated) {
@@ -596,6 +620,7 @@ const TeamsPage = () => {
                           filteredPlayers = players.filter(p => requestedIds.includes(p._id || p.id));
                         }
                         
+                        // No need to slice here - backend already sent paginated data
                         return filteredPlayers.map((player) => (
                           <tr key={player._id} className="hover:bg-gaming-charcoal/50 transition-colors">
                             <td className="px-2 md:px-4 py-3">
@@ -719,6 +744,94 @@ const TeamsPage = () => {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
+              <div className="card-gaming p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-400">
+                  Showing {((currentPage - 1) * playersPerPage) + 1} to {Math.min(currentPage * playersPerPage, totalPlayers)} of {totalPlayers} players
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                      
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+                      
+                      if (startPage > 1) {
+                        pages.push(
+                          <button
+                            key={1}
+                            onClick={() => setCurrentPage(1)}
+                            className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark transition-colors"
+                          >
+                            1
+                          </button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
+                      
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i)}
+                            className={`px-3 py-1 rounded-lg transition-colors ${
+                              currentPage === i
+                                ? 'bg-gaming-gold text-black font-medium'
+                                : 'bg-gaming-charcoal border border-gaming-border text-white hover:bg-gaming-dark'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        );
+                      }
+                      
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <button
+                            key={totalPages}
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark transition-colors"
+                          >
+                            {totalPages}
+                          </button>
+                        );
+                      }
+                      
+                      return pages;
+                    })()}
+                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>
