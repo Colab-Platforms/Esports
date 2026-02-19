@@ -1,9 +1,16 @@
 const { Redis } = require('@upstash/redis');
 
+// Set REDIS_DISABLED=true in your .env to bypass Redis entirely
+const REDIS_DISABLED = process.env.REDIS_DISABLED === 'true';
+
 class RedisService {
   constructor() {
     this.client = null;
     this.isConnected = false;
+    if (REDIS_DISABLED) {
+      console.log('⚠️  Redis is DISABLED (REDIS_DISABLED=true). All cache calls will be no-ops.');
+      return;
+    }
     this.initializeRedis();
   }
 

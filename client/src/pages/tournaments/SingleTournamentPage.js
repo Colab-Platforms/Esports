@@ -502,7 +502,6 @@ const SingleTournamentPage = () => {
     setRegistering(true);
 
     try {
-      const currentUserId = user?._id || user?.id || localStorage.getItem('userId');
       const gameType = tournament.gameType;
 
       const getInfo = (member) => {
@@ -523,14 +522,9 @@ const SingleTournamentPage = () => {
         return { name: '', gameId: '' };
       };
 
-      const captainMember = team.members.find(m => {
-        if (!m.userId) return false;
-        return (m.userId._id || m.userId).toString() === currentUserId?.toString();
-      });
-      const otherMembers = team.members.filter(m => {
-        if (!m.userId) return false;
-        return (m.userId._id || m.userId).toString() !== currentUserId?.toString();
-      });
+      // Identify captain by role, not by who is currently logged in
+      const captainMember = team.members.find(m => m.role === 'captain' && m.userId);
+      const otherMembers = team.members.filter(m => m.role !== 'captain' && m.userId);
 
       const leaderInfo = captainMember ? getInfo(captainMember) : { name: '', gameId: '' };
 
