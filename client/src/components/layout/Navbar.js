@@ -62,9 +62,9 @@ const Navbar = () => {
   const navLinks = [
     { to: '/', label: 'HOME' },
     { to: '/games', label: 'GAMES' },
-    { to: '/bgmi', label: 'BGMI' },
+    // { to: '/bgmi', label: 'BGMI' },
     { to: '/tournaments', label: 'TOURNAMENTS' },
-    { to: '/teams', label: 'PARTY FINDER' },
+    { to: '/teams', label: 'FRIENDS' },
     { to: '/leaderboard', label: 'LEADERBOARD' },
   ];
 
