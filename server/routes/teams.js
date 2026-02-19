@@ -12,7 +12,6 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, tag, game, logo, description, maxMembers, privacy, memberIds } = req.body;
     const userId = req.user.userId;
-    const redisService = require('../services/redisService');
 
     const members = [{
       userId,
@@ -70,14 +69,6 @@ router.post('/', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
     await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
-
-    const cacheKeysToDelete = [`teams:v2:my-teams:${userId}`];
-    if (memberIds && Array.isArray(memberIds)) {
-      for (const mid of memberIds) {
-        cacheKeysToDelete.push(`teams:v2:my-teams:${mid}`);
-      }
-    }
-    await Promise.all(cacheKeysToDelete.map(k => redisService.delete(k)));
 
     res.status(201).json({
       success: true,
@@ -150,22 +141,6 @@ router.get('/', async (req, res) => {
 router.get('/my-teams', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const redisService = require('../services/redisService');
-
-    // Create cache key
-    const cacheKey = `teams:v2:my-teams:${userId}`;
-
-    if (!req.query.fresh) {
-      const cachedData = await redisService.get(cacheKey);
-      if (cachedData) {
-        return res.json({
-          success: true,
-          data: cachedData,
-          cached: true,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
 
     const teams = await Team.find({
       'members.userId': userId,
@@ -181,9 +156,6 @@ router.get('/my-teams', auth, async (req, res) => {
     });
 
     const responseData = { teams };
-
-    // Cache for 5 minutes
-    await redisService.set(cacheKey, responseData, 300);
 
     res.json({
       success: true,
@@ -274,9 +246,76 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    const { name, memberIds } = req.body;
+    const { name, memberIds, membersGameInfo, captainGameInfo } = req.body;
     
     if (name) team.name = name;
+
+    // Update member profiles with provided game info
+    if (membersGameInfo && Array.isArray(membersGameInfo)) {
+      await Promise.all(membersGameInfo.map(async (info) => {
+        if (!info.userId) return;
+        const update = {};
+        if (info.ign !== undefined || info.uid !== undefined) {
+          if (team.game === 'bgmi') {
+            // Set the whole object to avoid "Cannot create field on string" errors from legacy "" values
+            const existing = await User.findById(info.userId).select('gameIds bgmiIgnName bgmiUid').lean();
+            const existingBgmi = typeof existing?.gameIds?.bgmi === 'object' ? existing.gameIds.bgmi : {};
+            update['gameIds.bgmi'] = {
+              ign: info.ign !== undefined ? info.ign : (existingBgmi.ign || existing?.bgmiIgnName || ''),
+              uid: info.uid !== undefined ? info.uid : (existingBgmi.uid || existing?.bgmiUid || '')
+            };
+            if (info.ign !== undefined) update.bgmiIgnName = info.ign;
+            if (info.uid !== undefined) update.bgmiUid = info.uid;
+          } else if (team.game === 'freefire') {
+            const existing = await User.findById(info.userId).select('gameIds freeFireIgnName freeFireUid').lean();
+            const existingFf = typeof existing?.gameIds?.freefire === 'object' ? existing.gameIds.freefire : {};
+            update['gameIds.freefire'] = {
+              ign: info.ign !== undefined ? info.ign : (existingFf.ign || existing?.freeFireIgnName || ''),
+              uid: info.uid !== undefined ? info.uid : (existingFf.uid || existing?.freeFireUid || '')
+            };
+            if (info.ign !== undefined) update.freeFireIgnName = info.ign;
+            if (info.uid !== undefined) update.freeFireUid = info.uid;
+          }
+        }
+        if (info.steamId !== undefined) update['gameIds.steam'] = info.steamId;
+        if (info.valorantId !== undefined) update['gameIds.valorant'] = info.valorantId;
+        if (Object.keys(update).length > 0) {
+          await User.findByIdAndUpdate(info.userId, { $set: update });
+        }
+      }));
+    }
+
+    // Update captain's profile if captainGameInfo provided
+    if (captainGameInfo) {
+      const captainId = team.captain?._id || team.captain;
+      const update = {};
+      if (team.game === 'bgmi') {
+        const existing = await User.findById(captainId).select('gameIds bgmiIgnName bgmiUid').lean();
+        const existingBgmi = typeof existing?.gameIds?.bgmi === 'object' ? existing.gameIds.bgmi : {};
+        update['gameIds.bgmi'] = {
+          ign: captainGameInfo.ign !== undefined ? captainGameInfo.ign : (existingBgmi.ign || existing?.bgmiIgnName || ''),
+          uid: captainGameInfo.uid !== undefined ? captainGameInfo.uid : (existingBgmi.uid || existing?.bgmiUid || '')
+        };
+        if (captainGameInfo.ign !== undefined) update.bgmiIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid !== undefined) update.bgmiUid = captainGameInfo.uid;
+      } else if (team.game === 'freefire') {
+        const existing = await User.findById(captainId).select('gameIds freeFireIgnName freeFireUid').lean();
+        const existingFf = typeof existing?.gameIds?.freefire === 'object' ? existing.gameIds.freefire : {};
+        update['gameIds.freefire'] = {
+          ign: captainGameInfo.ign !== undefined ? captainGameInfo.ign : (existingFf.ign || existing?.freeFireIgnName || ''),
+          uid: captainGameInfo.uid !== undefined ? captainGameInfo.uid : (existingFf.uid || existing?.freeFireUid || '')
+        };
+        if (captainGameInfo.ign !== undefined) update.freeFireIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid !== undefined) update.freeFireUid = captainGameInfo.uid;
+      } else if (team.game === 'cs2' && captainGameInfo.steamId !== undefined) {
+        update['gameIds.steam'] = captainGameInfo.steamId;
+      } else if (team.game === 'valorant' && captainGameInfo.valorantId !== undefined) {
+        update['gameIds.valorant'] = captainGameInfo.valorantId;
+      }
+      if (Object.keys(update).length > 0) {
+        await User.findByIdAndUpdate(captainId, { $set: update });
+      }
+    }
 
     if (memberIds && Array.isArray(memberIds)) {
       const captainId = team.captain.toString();
@@ -296,23 +335,11 @@ router.put('/:id', auth, async (req, res) => {
       }
 
       team.maxMembers = Math.max(team.maxMembers, team.members.length);
-
-      const redisService = require('../services/redisService');
-      for (const rid of removedIds) {
-        await redisService.delete(`teams:v2:my-teams:${rid}`);
-      }
     }
 
     await team.save();
     await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
     await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
-
-    const redisService = require('../services/redisService');
-    const allMemberIds = team.members.map(m => m.userId?._id || m.userId).filter(Boolean);
-    
-    for (const memberId of allMemberIds) {
-      await redisService.delete(`teams:v2:my-teams:${memberId}`);
-    }
 
     res.json({
       success: true,
@@ -389,20 +416,8 @@ router.delete('/:id', auth, async (req, res) => {
       }
     }
 
-    // Collect all member IDs before deactivating (for cache invalidation)
-    const allMemberIds = team.members
-      .map(m => (m.userId?._id || m.userId)?.toString())
-      .filter(Boolean);
-
     team.isActive = false;
     await team.save();
-
-    // Invalidate Redis cache for captain and all members
-    const redisService = require('../services/redisService');
-    const captainId = (team.captain?._id || team.captain)?.toString();
-    const cacheKeysToDelete = new Set(allMemberIds.map(id => `teams:v2:my-teams:${id}`));
-    if (captainId) cacheKeysToDelete.add(`teams:v2:my-teams:${captainId}`);
-    await Promise.all([...cacheKeysToDelete].map(k => redisService.delete(k)));
 
     res.json({
       success: true,
@@ -455,10 +470,6 @@ router.post('/:id/leave', auth, async (req, res) => {
 
     team.removeMember(req.user.userId);
     await team.save();
-
-    // Invalidate cache for the user who left
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:v2:my-teams:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -632,21 +643,6 @@ router.post('/:id/invite', auth, async (req, res) => {
 // @access  Private
 router.get('/invitations/my-invitations', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
-    const cacheKey = `teams:invitations:${req.user.userId}`;
-
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
-    }
-
     const invitations = await TeamInvitation.find({
       invitedUser: req.user.userId,
       status: 'pending'
@@ -659,9 +655,6 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
     const validInvitations = invitations.filter(inv => !inv.isExpired());
 
     const responseData = { invitations: validInvitations };
-
-    // Cache for 2 minutes (invitations change frequently)
-    await redisService.set(cacheKey, responseData, 120);
 
     res.json({
       success: true,
@@ -688,7 +681,6 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/accept', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id)
       .populate('teamId');
 
@@ -752,10 +744,6 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
     invitation.status = 'accepted';
     await invitation.save();
 
-    // Invalidate cache for the user
-    await redisService.delete(`teams:v2:my-teams:${req.user.userId}`);
-    await redisService.delete(`teams:invitations:${req.user.userId}`);
-
     res.json({
       success: true,
       message: 'Joined team successfully',
@@ -781,7 +769,6 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/reject', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id);
 
     if (!invitation) {
@@ -809,9 +796,6 @@ router.post('/invitations/:id/reject', auth, async (req, res) => {
 
     invitation.status = 'rejected';
     await invitation.save();
-
-    // Invalidate cache
-    await redisService.delete(`teams:invitations:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -893,11 +877,6 @@ router.post('/:id/remove-member', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache for both the removed member and the team captain
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:v2:my-teams:${memberId}`);
-    await redisService.delete(`teams:v2:my-teams:${captainId}`);
 
     console.log(`✅ Member ${memberId} removed from team ${team.name}`);
 
@@ -1007,10 +986,6 @@ router.post('/:id/add-member', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache for the added member
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:v2:my-teams:${userId}`);
 
     console.log(`✅ Member ${userId} added to team ${team.name}`);
 

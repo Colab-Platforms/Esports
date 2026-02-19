@@ -74,19 +74,16 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
 
   const selectedTeam = useMemo(() => teams.find(t => t._id === selectedTeamId), [teams, selectedTeamId]);
 
-  const currentUserId = user?._id || user?.id || localStorage.getItem('userId');
-
   const getMemberInfo = (member) => {
     const memberId = member.userId?._id || member.userId;
+    if (!memberId) return getGameInfo(member.userId, gameType);
     const edited = memberEdits[memberId];
     if (edited) return edited;
     return getGameInfo(member.userId, gameType);
   };
 
-  const isCaptain = (member) => {
-    const memberId = member.userId?._id || member.userId;
-    return memberId?.toString() === currentUserId?.toString();
-  };
+  // Use the role stored on the member record, not a logged-in user comparison
+  const isCaptain = (member) => member.role === 'captain';
 
   const memberWarnings = useMemo(() => {
     if (!selectedTeam) return [];
@@ -104,7 +101,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, currentUserId, gameType]);
+  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, gameType]);
 
   useEffect(() => {
     fetchTeams();
@@ -118,7 +115,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const fetchTeams = async (selectId = null) => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/api/teams/my-teams?fresh=1`, {
+      const response = await axios.get(`${API_URL}/api/teams/my-teams`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
