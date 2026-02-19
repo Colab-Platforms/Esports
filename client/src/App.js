@@ -269,7 +269,7 @@ function App() {
               path="/login" 
               element={
                 isAuthenticated ? (
-                  <Navigate to="/profile" replace />
+                  <Navigate to="/" replace />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -287,7 +287,7 @@ function App() {
               path="/register" 
               element={
                 isAuthenticated ? (
-                  <Navigate to="/profile" replace />
+                  <Navigate to="/" replace />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -547,14 +547,17 @@ function App() {
             <Route 
               path="/teams" 
               element={
-                <motion.div
+                isAuthenticated?( <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
                 >
                   <TeamsPage />
-                </motion.div>
+                </motion.div>):(
+                 <Navigate to="/login" replace/>
+                )
+                
               } 
             />
             
