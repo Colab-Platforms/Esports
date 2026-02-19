@@ -174,6 +174,9 @@ const TeamsPage = () => {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/users/friend-requests`, {
+        params: {
+          fresh: 'true' // Always fetch fresh data to avoid cache issues
+        },
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -628,6 +631,19 @@ const TeamsPage = () => {
         {/* Friend Requests Tab */}
         {activeTab === 'friends' && (
           <div className="space-y-6">
+            {/* Refresh Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={fetchFriendRequests}
+                disabled={loading}
+                className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh friend requests"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
             {loading ? (
               <div className="text-center py-12 text-gray-400">Loading requests...</div>
             ) : (

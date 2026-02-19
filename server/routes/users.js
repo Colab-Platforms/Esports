@@ -279,20 +279,26 @@ router.post('/friend-request', auth, async (req, res) => {
 
     await notification.save();
 
-    // Invalidate players cache for sender so the UI updates on refresh
+    // Invalidate cache for both sender and recipient
     const redisService = require('../services/redisService');
-    const cachePattern = `players:v2:${senderId}:*`;
     
-    // Delete all cached player lists for this user
+    // Invalidate sender's player cache
     try {
-      const keys = await redisService.keys(cachePattern);
-      if (keys && keys.length > 0) {
-        await Promise.all(keys.map(key => redisService.delete(key)));
-        console.log(`🗑️ Invalidated ${keys.length} player cache entries for user ${senderId}`);
+      const senderKeys = await redisService.keys(`players:v2:${senderId}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries for sender ${senderId}`);
       }
     } catch (cacheError) {
-      console.error('Error invalidating cache:', cacheError);
-      // Don't fail the request if cache invalidation fails
+      console.error('Error invalidating sender cache:', cacheError);
+    }
+    
+    // Invalidate recipient's friend requests cache so they see it immediately
+    try {
+      await redisService.delete(`friend-requests:${recipientId}`);
+      console.log(`🗑️ Invalidated friend requests cache for recipient ${recipientId}`);
+    } catch (cacheError) {
+      console.error('Error invalidating recipient cache:', cacheError);
     }
 
     console.log(`📨 Friend request from ${sender.username} to ${recipient.username}`);
@@ -443,21 +449,26 @@ router.get('/friends', auth, async (req, res) => {
 router.get('/friend-requests', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
+    const { fresh } = req.query;
     const redisService = require('../services/redisService');
 
     // Create cache key
     const cacheKey = `friend-requests:${userId}`;
 
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    // Try to get from cache only if not requesting fresh data
+    if (!fresh) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        console.log(`Cache hit for key: ${cacheKey}`);
+        return res.json({
+          success: true,
+          data: cachedData,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      console.log(`🔄 Fresh data requested, bypassing cache for key: ${cacheKey}`);
     }
 
     const requests = await FriendRequest.find({
