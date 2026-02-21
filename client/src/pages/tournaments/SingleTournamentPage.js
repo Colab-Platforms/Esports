@@ -153,7 +153,7 @@ const SingleTournamentPage = () => {
         console.log('🔍 Fetching tournament:', id);
 
         const data = await secureRequest.get(`/api/tournaments/${id}`);
-        console.log('✅ Tournament data received:', data);
+        console.log('✅ Tournament data received:', data);  
 
         if (data.success) {
           const tournamentData = data.data.tournament;
@@ -1033,7 +1033,7 @@ const SingleTournamentPage = () => {
         {/* Top Navigation Bar */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            to="/games"
+            to="/tournaments"
             className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 backdrop-blur-sm"
           >
             <FiArrowLeft className="h-5 w-5 text-white" />
