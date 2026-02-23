@@ -110,7 +110,7 @@ const TournamentCardProfessional = ({
               </div>
 
               {/* Players & Registration Row */}
-              <div className="flex justify-between items-center text-xs">
+              {/* <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center space-x-1.5">
                   <span className="text-gaming-gold font-display font-bold">PLAYERS:</span>
                   <span className="text-white font-display font-bold">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
@@ -119,7 +119,7 @@ const TournamentCardProfessional = ({
                   <span className="text-gaming-gold font-display font-bold">REG:</span>
                   <span className="text-gaming-neon font-display font-bold">{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
                 </div>}
-              </div>
+              </div> */}
 
               {/* Divider Line */}
               {gameType !== 'cs2' && <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />}
