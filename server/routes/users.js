@@ -75,13 +75,13 @@ router.get('/players', auth, async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const cacheKey = `players:v3:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
+    const cacheKey = `players:v4:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
 
     // Try to get from cache only if not requesting fresh data
     if (!fresh) {
       const cachedData = await redisService.get(cacheKey);
       if (cachedData) {
-        console.log(`Cache hit for key: ${cacheKey}`);
+        console.log(`✅ Cache hit for key: ${cacheKey}`);
         return res.json({
           success: true,
           data: cachedData,
@@ -121,23 +121,32 @@ router.get('/players', auth, async (req, res) => {
     
     console.log(`Found ${players.length} players (page ${pageNum}, total: ${totalPlayers})`);
 
-    // Check friend request status for each player
+    // 🚀 OPTIMIZATION: Batch fetch all friend requests at once instead of one by one
     const FriendRequest = require('../models/FriendRequest');
-    const playersWithStats = await Promise.all(players.map(async (player) => {
+    const playerIds = players.map(p => p._id);
+    
+    // Get all pending friend requests from current user to these players in ONE query
+    const existingRequests = await FriendRequest.find({
+      sender: currentUserId,
+      recipient: { $in: playerIds },
+      status: 'pending'
+    }).select('recipient').lean();
+    
+    // Create a Set for O(1) lookup
+    const requestedPlayerIds = new Set(
+      existingRequests.map(req => req.recipient.toString())
+    );
+
+    // Map players with stats - NO database queries in loop
+    const playersWithStats = players.map((player) => {
       // Check if already friends - ensure friends is an array
       const friendsArray = Array.isArray(player.friends) ? player.friends : [];
       const isFriend = friendsArray.some(
         friendId => friendId.toString() === currentUserId
       );
 
-      // Check if friend request already sent
-      const existingRequest = await FriendRequest.findOne({
-        sender: currentUserId,
-        recipient: player._id,
-        status: 'pending'
-      });
-
-      console.log(`Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
+      // Check if friend request already sent using Set (O(1) lookup)
+      const friendRequestSent = requestedPlayerIds.has(player._id.toString());
 
       return {
         _id: player._id,
@@ -152,7 +161,7 @@ router.get('/players', auth, async (req, res) => {
         bio: player.bio,
         country: player.country,
         winRate: Math.floor(Math.random() * 40) + 30,
-        friendRequestSent: !!existingRequest,
+        friendRequestSent: friendRequestSent,
         isFriend: isFriend,
         games: player.games || (player.favoriteGame ? [player.favoriteGame] : []),
         wins: player.tournamentsWon || 0,
@@ -165,7 +174,7 @@ router.get('/players', auth, async (req, res) => {
         valorantId: player.gameIds?.valorant || '',
         steamId: player.gameIds?.steam || ''
       };
-    }));
+    });
 
     const responseData = { 
       players: playersWithStats,
@@ -179,8 +188,8 @@ router.get('/players', auth, async (req, res) => {
       }
     };
 
-    // Cache the response for 5 minutes
-    await redisService.set(cacheKey, responseData, 300);
+    // Cache the response for 10 minutes (increased from 5)
+    await redisService.set(cacheKey, responseData, 600);
 
     res.json({
       success: true,
