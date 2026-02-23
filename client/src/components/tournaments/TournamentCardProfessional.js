@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import CountdownTimer from '../common/CountdownTimer';
+import { useSelector } from 'react-redux';
+import { selectAuth } from '../../store/slices/authSlice';
 
 const TournamentCardProfessional = ({ 
   tournament, 
@@ -14,6 +16,7 @@ const TournamentCardProfessional = ({
 }) => {
   const navigate = useNavigate();
   const isRegistrationClosed = tournament.status === 'registration_closed';
+  const { isAuthenticated, user } = useSelector(selectAuth);
   
   return (
     <motion.div
@@ -110,7 +113,7 @@ const TournamentCardProfessional = ({
               </div>
 
               {/* Players & Registration Row */}
-              {/* <div className="flex justify-between items-center text-xs">
+              {user?.role === 'admin' && <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center space-x-1.5">
                   <span className="text-gaming-gold font-display font-bold">PLAYERS:</span>
                   <span className="text-white font-display font-bold">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
@@ -119,7 +122,7 @@ const TournamentCardProfessional = ({
                   <span className="text-gaming-gold font-display font-bold">REG:</span>
                   <span className="text-gaming-neon font-display font-bold">{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
                 </div>}
-              </div> */}
+              </div>}
 
               {/* Divider Line */}
               {gameType !== 'cs2' && <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />}
