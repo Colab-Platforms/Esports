@@ -14,9 +14,9 @@ import {
   FiCopy
 } from 'react-icons/fi';
 import { selectAuth } from '../../store/slices/authSlice';
-import TournamentRegistration from '../../components/tournaments/TournamentRegistration';
 import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
-import BGMIRegistrationForm from '../../components/bgmi/BGMIRegistrationForm';
+import TeamSelectionModal from '../../components/tournaments/TeamSelectionModal';
+import api from '../../services/api';
 import GameIcon from '../../components/common/GameIcon';
 import { getRandomBanner } from '../../assets/tournamentBanners';
 import { getGameAsset } from '../../assets/gameAssets';
@@ -34,7 +34,8 @@ const SingleTournamentPage = () => {
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(selectAuth);
   const [activeTab, setActiveTab] = useState('general');
-  const [showRegistration, setShowRegistration] = useState(false);
+  const [showTeamSelection, setShowTeamSelection] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [tournament, setTournament] = useState(null);
   const [isUserRegistered, setIsUserRegistered] = useState(false);
@@ -152,7 +153,7 @@ const SingleTournamentPage = () => {
         console.log('🔍 Fetching tournament:', id);
 
         const data = await secureRequest.get(`/api/tournaments/${id}`);
-        console.log('✅ Tournament data received:', data);
+        console.log('✅ Tournament data received:', data);  
 
         if (data.success) {
           const tournamentData = data.data.tournament;
@@ -481,27 +482,137 @@ const SingleTournamentPage = () => {
       return;
     }
 
-    // BGMI/Other tournaments - Open registration modal
-    setShowRegistration(true);
+    setShowTeamSelection(true);
   }, [isAuthenticated, tournament, user, navigate]);
 
   const handleRegistrationSuccess = React.useCallback(() => {
-    setShowRegistration(false);
+    setShowTeamSelection(false);
     setIsUserRegistered(true);
-
-    // Refresh tournament data and teams
     fetchRegisteredTeams();
-
-    // Show success notification instead of reloading
     notificationService.showCustomNotification(
       'success',
       'Registration Successful!',
-      'You have been successfully registered for the tournament.'
+      'You have been successfully registered for the tournament.',
+      `/tournaments/${id}`
     );
+  }, [fetchRegisteredTeams, id]);
 
-    // Optionally refresh tournament data without full page reload
-    // fetchTournament();
-  }, [fetchRegisteredTeams]);
+  const handleDirectRegistration = React.useCallback(async (team, phoneNumber, memberEdits = {}) => {
+    if (!tournament || !team) return;
+    setRegistering(true);
+
+    try {
+      const gameType = tournament.gameType;
+
+      const getInfo = (member) => {
+        const memberId = member.userId?._id || member.userId;
+        const edited = memberEdits[memberId];
+        if (edited) return edited;
+
+        const u = member.userId;
+        if (gameType === 'bgmi') {
+          return { name: u?.gameIds?.bgmi?.ign || u?.bgmiIgnName || '', gameId: u?.gameIds?.bgmi?.uid || u?.bgmiUid || '' };
+        } else if (gameType === 'freefire' || gameType === 'ff') {
+          return { name: u?.gameIds?.freefire?.ign || u?.freeFireIgnName || '', gameId: u?.gameIds?.freefire?.uid || u?.freeFireUid || '' };
+        } else if (gameType === 'cs2') {
+          return { name: '', gameId: u?.gameIds?.steam || u?.steamProfile?.steamId || '' };
+        } else if (gameType === 'valorant') {
+          return { name: '', gameId: u?.gameIds?.valorant || '' };
+        }
+        return { name: '', gameId: '' };
+      };
+
+      // Identify captain by role, not by who is currently logged in
+      const captainMember = team.members.find(m => m.role === 'captain' && m.userId);
+      const otherMembers = team.members.filter(m => m.role !== 'captain' && m.userId);
+
+      const leaderInfo = captainMember ? getInfo(captainMember) : { name: '', gameId: '' };
+
+      if (gameType === 'bgmi') {
+        const registrationData = {
+          teamName: team.name,
+          teamLeader: {
+            name: leaderInfo.name,
+            bgmiId: leaderInfo.gameId,
+            phone: phoneNumber || user?.phone || '',
+            isSubstitute: false
+          },
+          teamMembers: otherMembers.map(m => {
+            const info = getInfo(m);
+            return { name: info.name, bgmiId: info.gameId, isSubstitute: false };
+          }),
+          whatsappNumber: phoneNumber || user?.phone || ''
+        };
+        await api.post(`/api/bgmi-registration/${tournament._id}/register`, registrationData);
+      } else if (gameType === 'freefire' || gameType === 'ff') {
+        const registrationData = {
+          teamName: team.name,
+          teamLeader: {
+            name: leaderInfo.name,
+            freeFireId: leaderInfo.gameId,
+            phone: phoneNumber || user?.phone || ''
+          },
+          teamMembers: otherMembers.map(m => {
+            const info = getInfo(m);
+            return { name: info.name, freeFireId: info.gameId };
+          }),
+          whatsappNumber: phoneNumber || user?.phone || ''
+        };
+        await api.post(`/api/freefire-registration/${tournament._id}/register`, registrationData);
+      } else if (gameType === 'cs2') {
+        const steamId = leaderInfo.gameId || user?.gameIds?.steam || user?.steamProfile?.steamId;
+        if (!steamId) {
+          notificationService.showCustomNotification('error', 'Steam Not Linked', 'Please connect your Steam account first.');
+          setRegistering(false);
+          return;
+        }
+        const tkn = localStorage.getItem('token');
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+        await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tkn}` },
+          body: JSON.stringify({ gameId: steamId, teamName: team.name })
+        });
+      } else {
+        const tkn = localStorage.getItem('token');
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+        await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tkn}` },
+          body: JSON.stringify({ teamName: team.name, gameId: leaderInfo.gameId || '' })
+        });
+      }
+
+      handleRegistrationSuccess();
+    } catch (error) {
+      let errorMessage = 'Registration failed. Please try again.';
+      const details = error.response?.data?.error?.details;
+      if (details && Array.isArray(details)) {
+        errorMessage = details.map(d => {
+          const path = d.path || d.param || '';
+          if (path.includes('teamLeader.bgmiId')) return `Team Leader is missing BGMI UID`;
+          if (path.includes('teamLeader.name')) return `Team Leader is missing BGMI IGN`;
+          if (path.includes('teamLeader.phone')) return `Team Leader phone number is invalid`;
+          if (path.includes('teamLeader.freeFireId')) return `Team Leader is missing Free Fire UID`;
+          if (path.includes('teamMembers')) {
+            const match = path.match(/teamMembers\[?(\d+)\]?/);
+            const idx = match ? parseInt(match[1]) + 1 : '';
+            if (path.includes('bgmiId')) return `Member ${idx} is missing BGMI UID`;
+            if (path.includes('freeFireId')) return `Member ${idx} is missing Free Fire UID`;
+            if (path.includes('name')) return `Member ${idx} is missing IGN`;
+            return d.msg;
+          }
+          if (path.includes('whatsappNumber')) return 'Invalid WhatsApp number';
+          return d.msg || `${path}: validation failed`;
+        }).join('\n');
+      } else {
+        errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || errorMessage;
+      }
+      notificationService.showCustomNotification('error', 'Registration Failed', errorMessage);
+    } finally {
+      setRegistering(false);
+    }
+  }, [tournament, user, handleRegistrationSuccess]);
 
   // Early return AFTER all hooks
   if (loadingTournament) {
@@ -922,7 +1033,7 @@ const SingleTournamentPage = () => {
         {/* Top Navigation Bar */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            to="/games"
+            to="/tournaments"
             className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 backdrop-blur-sm"
           >
             <FiArrowLeft className="h-5 w-5 text-white" />
@@ -1172,21 +1283,14 @@ const SingleTournamentPage = () => {
         tournamentName={tournament?.name || 'this tournament'}
       />
 
-      {/* Registration Modal */}
-      {showRegistration && tournament && (
-        (tournament.gameType === 'bgmi' || tournament.gameType === 'freefire' || tournament.gameType === 'ff') ? (
-          <BGMIRegistrationForm
-            tournament={tournament}
-            onClose={() => setShowRegistration(false)}
-            onSuccess={handleRegistrationSuccess}
-          />
-        ) : (
-          <TournamentRegistration
-            tournament={tournament}
-            onClose={() => setShowRegistration(false)}
-            onSuccess={handleRegistrationSuccess}
-          />
-        )
+      {showTeamSelection && tournament && (
+        <TeamSelectionModal
+          tournament={tournament}
+          token={localStorage.getItem('token')}
+          registering={registering}
+          onClose={() => setShowTeamSelection(false)}
+          onRegister={(team, phoneNumber, memberEdits) => handleDirectRegistration(team, phoneNumber, memberEdits)}
+        />
       )}
     </div>
   );

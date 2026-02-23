@@ -68,3 +68,4 @@ coverage/
 !client/README.md
 **/*.md
 !**/README.md
+package-lock.json

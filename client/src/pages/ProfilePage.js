@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { 
   FiUser, 
   FiAward, 
@@ -11,14 +11,16 @@ import {
   FiTwitter,
   FiInstagram,
   FiLinkedin,
-  FiExternalLink
+  FiExternalLink,
+  FiSettings
 } from 'react-icons/fi';
-import { selectAuth } from '../store/slices/authSlice';
+import { selectAuth, updateProfile } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
 import api from '../services/api';
 import axios from 'axios';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/common/ToastContainer';
+import ProfileSettingsForm from '../components/profile/ProfileSettingsForm';
 
 const ProfilePage = () => {
   const { user } = useSelector(selectAuth);
@@ -29,7 +31,8 @@ const ProfilePage = () => {
 
   const tabs = [
     { id: 'general', label: 'General', icon: FiUser },
-    { id: 'tournaments', label: 'My Tournaments', icon: FiAward }
+    { id: 'tournaments', label: 'My Tournaments', icon: FiAward },
+    { id: 'settings', label: 'Profile Settings', icon: FiSettings }
   ];
 
   useEffect(() => {
@@ -41,11 +44,11 @@ const ProfilePage = () => {
   const fetchUserTournaments = async () => {
     try {
       setLoading(true);
-      // API call to get user's tournaments
       const response = await api.getUserTournaments();
       setUserTournaments(response.data || []);
     } catch (error) {
       console.error('Error fetching tournaments:', error);
+      setUserTournaments([]);
     } finally {
       setLoading(false);
     }
@@ -72,7 +75,7 @@ const ProfilePage = () => {
             {/* User Info */}
             <div className="flex-1">
               <h1 className="text-3xl font-gaming font-bold text-white mb-2">
-                {user?.username || 'Gaming Profile'}
+                {user?.fullName || user?.username || 'Gaming Profile'}
               </h1>
               <p className="text-gray-400 mb-4">
                 {user?.bio || 'Professional esports player and tournament competitor'}
@@ -151,6 +154,10 @@ const ProfilePage = () => {
             tournaments={userTournaments}
             loading={loading}
           />
+        )}
+        
+        {activeTab === 'settings' && (
+          <SettingsTab />
         )}
         
       </div>
@@ -292,9 +299,10 @@ const GameAccountsSection = ({ user }) => {
     {
       game: 'BGMI',
       icon: '📱',
-      connected: !!user?.gameIds?.bgmi,
-      username: user?.gameIds?.bgmi || 'Not connected',
-      status: user?.gameIds?.bgmi ? 'Connected' : 'Not Connected'
+      connected: !!(user?.gameIds?.bgmi?.ign || user?.gameIds?.bgmi?.uid || user?.bgmiIgnName || user?.bgmiUid),
+      username: user?.gameIds?.bgmi?.ign || user?.bgmiIgnName || 'Not connected',
+      uid: user?.gameIds?.bgmi?.uid || user?.bgmiUid || '',
+      status: (user?.gameIds?.bgmi?.ign || user?.gameIds?.bgmi?.uid || user?.bgmiIgnName || user?.bgmiUid) ? 'Connected' : 'Not Connected'
     }
   ];
 
@@ -313,7 +321,16 @@ const GameAccountsSection = ({ user }) => {
               <div>
                 <p className="text-white font-medium">{account.game}</p>
                 <p className="text-sm text-gray-400">
-                  {account.connected ? account.username : 'Not connected'}
+                  {account.connected ? (
+                    <>
+                      <span className="font-medium">{account.username}</span>
+                      {account.uid && (
+                        <span className="block text-xs text-gray-500">UID: {account.uid}</span>
+                      )}
+                    </>
+                  ) : (
+                    'Not connected'
+                  )}
                 </p>
               </div>
             </div>
@@ -373,21 +390,40 @@ const SocialAccountsSection = ({ user }) => {
   );
 };
 
-// Tournaments Tab Component
 const TournamentsTab = ({ tournaments, loading }) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   
   const filterOptions = [
-    { value: 'all', label: 'All Tournaments' },
-    { value: 'upcoming', label: 'Upcoming' },
-    { value: 'ongoing', label: 'Ongoing' },
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Ongoing' },
     { value: 'completed', label: 'Completed' }
   ];
 
   const filteredTournaments = tournaments.filter(tournament => {
     if (filter === 'all') return true;
+    if (filter === 'active') {
+      return ['active', 'registration_open', 'registration_closed', 'upcoming'].includes(tournament.status);
+    }
     return tournament.status === filter;
   });
+
+  const statusColors = {
+    registration_open: 'bg-green-500/20 text-green-400',
+    active: 'bg-blue-500/20 text-blue-400',
+    upcoming: 'bg-cyan-500/20 text-cyan-400',
+    completed: 'bg-gray-500/20 text-gray-400',
+    cancelled: 'bg-red-500/20 text-red-400'
+  };
+
+  const statusLabels = {
+    registration_open: 'Open',
+    registration_closed: 'Closed',
+    active: 'Live',
+    upcoming: 'Upcoming',
+    completed: 'Completed',
+    cancelled: 'Cancelled'
+  };
 
   if (loading) {
     return <div className="text-center py-8 text-gray-400">Loading tournaments...</div>;
@@ -397,14 +433,12 @@ const TournamentsTab = ({ tournaments, loading }) => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-2xl font-bold text-white">My Tournaments</h2>
-        
-        {/* Filter Dropdown */}
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 flex-wrap">
           {filterOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 filter === option.value
                   ? 'bg-gaming-gold text-black'
                   : 'bg-gaming-charcoal text-gray-400 hover:text-white hover:bg-gaming-border'
@@ -427,26 +461,40 @@ const TournamentsTab = ({ tournaments, loading }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTournaments.map((tournament, index) => (
-            <div key={index} className="card-gaming p-6">
+          {filteredTournaments.map((tournament) => (
+            <motion.div
+              key={tournament._id}
+              whileHover={{ scale: 1.02 }}
+              onClick={() => navigate(`/tournaments/${tournament._id}`)}
+              className="card-gaming p-5 cursor-pointer hover:border-gaming-gold/50 transition-colors"
+            >
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-lg font-bold text-white">{tournament.name}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  tournament.status === 'upcoming' ? 'bg-blue-500/20 text-blue-400' :
-                  tournament.status === 'ongoing' ? 'bg-green-500/20 text-green-400' :
-                  'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {tournament.status}
+                <div className="flex-1 min-w-0 mr-2">
+                  <h3 className="text-white font-bold truncate">{tournament.name}</h3>
+                  <p className="text-gray-500 text-xs mt-0.5">{tournament.gameType?.toUpperCase()} • {tournament.mode || 'Team'}</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColors[tournament.status] || 'bg-gray-500/20 text-gray-400'}`}>
+                  {statusLabels[tournament.status] || tournament.status}
                 </span>
               </div>
-              <p className="text-gray-400 text-sm mb-4">{tournament.game}</p>
-              <div className="flex justify-between items-center">
-                <span className="text-gaming-gold font-bold">
-                  {tournament.placement || 'Registered'}
+              {tournament.teamName && (
+                <div className="text-xs text-gaming-gold mb-2 flex items-center space-x-1">
+                  <FiUsers className="w-3 h-3" />
+                  <span>{tournament.teamName}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-gaming-border">
+                <span className="text-gaming-gold font-bold text-sm">
+                  {tournament.prizePool ? `₹${tournament.prizePool.toLocaleString()}` : 'Free'}
                 </span>
-                <span className="text-sm text-gray-400">{tournament.date}</span>
+                {tournament.startDate && (
+                  <span className="text-xs text-gray-400 flex items-center space-x-1">
+                    <FiCalendar className="w-3 h-3" />
+                    <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
+                  </span>
+                )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -1183,6 +1231,11 @@ const ChallengesTab = ({ challenges, loading, toast, onRefresh }) => {
       )}
     </div>
   );
+};
+
+// Settings Tab Component - Uses reusable ProfileSettingsForm
+const SettingsTab = () => {
+  return <ProfileSettingsForm embedded={true} />;
 };
 
 export default ProfilePage;

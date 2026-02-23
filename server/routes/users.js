@@ -62,27 +62,35 @@ router.get('/count', async (req, res) => {
 });
 
 // @route   GET /api/users/players
-// @desc    Get all players with search and filter
+// @desc    Get all players with search and filter (with pagination)
 // @access  Private
 router.get('/players', auth, async (req, res) => {
   try {
-    const { search, game } = req.query;
+    const { search, game, fresh, page = 1, limit = 20 } = req.query;
     const currentUserId = req.user.userId;
     const redisService = require('../services/redisService');
 
-    // Create cache key based on search and game filters
-    const cacheKey = `players:${currentUserId}:${search || 'all'}:${game || 'all'}`;
+    // Parse pagination params
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    const cacheKey = `players:v4:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
+
+    // Try to get from cache only if not requesting fresh data
+    if (!fresh) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        console.log(`✅ Cache hit for key: ${cacheKey}`);
+        return res.json({
+          success: true,
+          data: cachedData,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      console.log(`🔄 Fresh data requested, bypassing cache for key: ${cacheKey}`);
     }
 
     let query = { _id: { $ne: currentUserId }, isActive: true };
@@ -102,33 +110,46 @@ router.get('/players', auth, async (req, res) => {
       query.favoriteGame = game;
     }
 
+    // Get total count for pagination
+    const totalPlayers = await User.countDocuments(query);
+
     const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games')
-      .limit(50)
+      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
+      .skip(skip)
+      .limit(limitNum)
       .lean();
     
-    console.log(`Found ${players.length} players for user ${currentUserId}`);
+    console.log(`Found ${players.length} players (page ${pageNum}, total: ${totalPlayers})`);
 
-    // Check friend request status for each player
+    // 🚀 OPTIMIZATION: Batch fetch all friend requests at once instead of one by one
     const FriendRequest = require('../models/FriendRequest');
-    const playersWithStats = await Promise.all(players.map(async (player) => {
+    const playerIds = players.map(p => p._id);
+    
+    // Get all pending friend requests from current user to these players in ONE query
+    const existingRequests = await FriendRequest.find({
+      sender: currentUserId,
+      recipient: { $in: playerIds },
+      status: 'pending'
+    }).select('recipient').lean();
+    
+    // Create a Set for O(1) lookup
+    const requestedPlayerIds = new Set(
+      existingRequests.map(req => req.recipient.toString())
+    );
+
+    // Map players with stats - NO database queries in loop
+    const playersWithStats = players.map((player) => {
       // Check if already friends - ensure friends is an array
       const friendsArray = Array.isArray(player.friends) ? player.friends : [];
       const isFriend = friendsArray.some(
         friendId => friendId.toString() === currentUserId
       );
 
-      // Check if friend request already sent
-      const existingRequest = await FriendRequest.findOne({
-        sender: currentUserId,
-        recipient: player._id,
-        status: 'pending'
-      });
-
-      console.log(`Player: ${player.username}, friends: ${friendsArray.length}, isFriend: ${isFriend}, requestSent: ${!!existingRequest}`);
+      // Check if friend request already sent using Set (O(1) lookup)
+      const friendRequestSent = requestedPlayerIds.has(player._id.toString());
 
       return {
-        _id: player._id, // Use _id instead of id for consistency
+        _id: player._id,
         id: player._id,
         username: player.username,
         email: player.email,
@@ -139,19 +160,36 @@ router.get('/players', auth, async (req, res) => {
         favoriteGame: player.favoriteGame,
         bio: player.bio,
         country: player.country,
-        winRate: Math.floor(Math.random() * 40) + 30, // Mock win rate
-        friendRequestSent: !!existingRequest,
+        winRate: Math.floor(Math.random() * 40) + 30,
+        friendRequestSent: friendRequestSent,
         isFriend: isFriend,
-        games: player.games || (player.favoriteGame ? [player.favoriteGame] : []), // Use games array from DB
+        games: player.games || (player.favoriteGame ? [player.favoriteGame] : []),
         wins: player.tournamentsWon || 0,
-        rank: player.currentRank || 'Unranked'
+        rank: player.currentRank || 'Unranked',
+        gameIds: player.gameIds || {},
+        bgmiIgnName: player.gameIds?.bgmi?.ign || player.bgmiIgnName || '',
+        bgmiUid: player.gameIds?.bgmi?.uid || player.bgmiUid || '',
+        freeFireIgnName: player.gameIds?.freefire?.ign || player.freeFireIgnName || '',
+        freeFireUid: player.gameIds?.freefire?.uid || player.freeFireUid || '',
+        valorantId: player.gameIds?.valorant || '',
+        steamId: player.gameIds?.steam || ''
       };
-    }));
+    });
 
-    const responseData = { players: playersWithStats };
+    const responseData = { 
+      players: playersWithStats,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalPlayers / limitNum),
+        totalPlayers: totalPlayers,
+        playersPerPage: limitNum,
+        hasNextPage: pageNum < Math.ceil(totalPlayers / limitNum),
+        hasPrevPage: pageNum > 1
+      }
+    };
 
-    // Cache the response for 5 minutes
-    await redisService.set(cacheKey, responseData, 300);
+    // Cache the response for 10 minutes (increased from 5)
+    await redisService.set(cacheKey, responseData, 600);
 
     res.json({
       success: true,
@@ -268,6 +306,28 @@ router.post('/friend-request', auth, async (req, res) => {
     });
 
     await notification.save();
+
+    // Invalidate cache for both sender and recipient
+    const redisService = require('../services/redisService');
+    
+    // Invalidate sender's player cache
+    try {
+      const senderKeys = await redisService.keys(`players:v2:${senderId}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries for sender ${senderId}`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating sender cache:', cacheError);
+    }
+    
+    // Invalidate recipient's friend requests cache so they see it immediately
+    try {
+      await redisService.delete(`friend-requests:${recipientId}`);
+      console.log(`🗑️ Invalidated friend requests cache for recipient ${recipientId}`);
+    } catch (cacheError) {
+      console.error('Error invalidating recipient cache:', cacheError);
+    }
 
     console.log(`📨 Friend request from ${sender.username} to ${recipient.username}`);
 
@@ -417,21 +477,26 @@ router.get('/friends', auth, async (req, res) => {
 router.get('/friend-requests', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
+    const { fresh } = req.query;
     const redisService = require('../services/redisService');
 
     // Create cache key
     const cacheKey = `friend-requests:${userId}`;
 
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    // Try to get from cache only if not requesting fresh data
+    if (!fresh) {
+      const cachedData = await redisService.get(cacheKey);
+      if (cachedData) {
+        console.log(`Cache hit for key: ${cacheKey}`);
+        return res.json({
+          success: true,
+          data: cachedData,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      console.log(`🔄 Fresh data requested, bypassing cache for key: ${cacheKey}`);
     }
 
     const requests = await FriendRequest.find({
@@ -478,6 +543,81 @@ router.get('/friend-requests', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to fetch friend requests',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/users/friend-requests/sent
+// @desc    Get sent friend requests
+// @access  Private
+router.get('/friend-requests/sent', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    // Create cache key
+    const cacheKey = `friend-requests-sent:${userId}`;
+
+    // Try to get from cache
+    const cachedData = await redisService.get(cacheKey);
+    if (cachedData) {
+      console.log(`Cache hit for key: ${cacheKey}`);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const requests = await FriendRequest.find({
+      sender: userId,
+      status: 'pending'
+    })
+    .populate('recipient', 'username email avatarUrl level currentRank')
+    .sort({ createdAt: -1 });
+
+    const formattedRequests = requests.map(req => ({
+      _id: req._id,
+      id: req._id,
+      recipient: {
+        _id: req.recipient._id,
+        id: req.recipient._id,
+        username: req.recipient.username,
+        email: req.recipient.email,
+        avatarUrl: req.recipient.avatarUrl,
+        level: req.recipient.level,
+        currentRank: req.recipient.currentRank
+      },
+      createdAt: req.createdAt.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      }),
+      message: req.message
+    }));
+
+    const responseData = { requests: formattedRequests };
+
+    // Cache for 2 minutes
+    await redisService.set(cacheKey, responseData, 120);
+
+    res.json({
+      success: true,
+      data: responseData,
+      cached: false,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching sent friend requests:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch sent friend requests',
         timestamp: new Date().toISOString()
       }
     });
@@ -541,11 +681,23 @@ router.post('/friend-request/:requestId/accept', auth, async (req, res) => {
       $addToSet: { friends: userId }
     });
 
-    // Invalidate cache for both users
+    // Invalidate cache for both users - clear all player list variations
     await redisService.delete(`friend-requests:${userId}`);
     await redisService.delete(`friend-requests:${friendRequest.sender}`);
-    await redisService.delete(`players:${userId}:all:all`);
-    await redisService.delete(`players:${friendRequest.sender}:all:all`);
+    
+    // Clear all player cache variations for both users
+    try {
+      const userKeys = await redisService.keys(`players:v2:${userId}:*`);
+      const senderKeys = await redisService.keys(`players:v2:${friendRequest.sender}:*`);
+      const allKeys = [...(userKeys || []), ...(senderKeys || [])];
+      
+      if (allKeys.length > 0) {
+        await Promise.all(allKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${allKeys.length} player cache entries after accepting friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
 
     console.log(`Friend request accepted: ${friendRequest.sender} <-> ${userId}`);
 
@@ -605,8 +757,19 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
     friendRequest.status = 'rejected';
     await friendRequest.save();
 
-    // Invalidate cache
+    // Invalidate cache for both users
     await redisService.delete(`friend-requests:${userId}`);
+    
+    // Clear player cache for sender so their UI updates
+    try {
+      const senderKeys = await redisService.keys(`players:v2:${friendRequest.sender}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries after rejecting friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
 
     console.log(`Friend request rejected: ${friendRequest.sender} -> ${userId}`);
 
@@ -629,64 +792,312 @@ router.post('/friend-request/:requestId/reject', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/users/friend-request/:requestId/cancel
+// @desc    Cancel friend request (sender only)
+// @access  Private
+router.post('/friend-request/:requestId/cancel', auth, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    const friendRequest = await FriendRequest.findById(requestId);
+
+    if (!friendRequest) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'REQUEST_NOT_FOUND',
+          message: 'Friend request not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Only sender can cancel
+    if (friendRequest.sender.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You can only cancel your own friend requests',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Can only cancel pending requests
+    if (friendRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: 'Can only cancel pending requests',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Delete the request
+    await FriendRequest.findByIdAndDelete(requestId);
+
+    // Invalidate cache for sender
+    await redisService.delete(`friend-requests-sent:${userId}`);
+    
+    try {
+      const senderKeys = await redisService.keys(`players:v2:${userId}:*`);
+      if (senderKeys && senderKeys.length > 0) {
+        await Promise.all(senderKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${senderKeys.length} player cache entries after cancelling friend request`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
+
+    console.log(`Friend request cancelled: ${userId} -> ${friendRequest.recipient}`);
+
+    res.json({
+      success: true,
+      message: 'Friend request cancelled',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error cancelling friend request:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to cancel friend request',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/users/unfriend/:friendId
+// @desc    Remove friend
+// @access  Private
+router.post('/unfriend/:friendId', auth, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+    const userId = req.user.userId;
+    const redisService = require('../services/redisService');
+
+    if (!friendId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MISSING_FRIEND_ID',
+          message: 'Friend ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (userId === friendId) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_REQUEST',
+          message: 'Cannot unfriend yourself',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Check if they are actually friends
+    const user = await User.findById(userId);
+    const friend = await User.findById(friendId);
+
+    if (!friend) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: 'User not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const isFriend = user.friends.some(id => id.toString() === friendId);
+    if (!isFriend) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NOT_FRIENDS',
+          message: 'You are not friends with this user',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Remove from both users' friend lists
+    await User.findByIdAndUpdate(userId, {
+      $pull: { friends: friendId }
+    });
+
+    await User.findByIdAndUpdate(friendId, {
+      $pull: { friends: userId }
+    });
+
+    // Invalidate cache for both users
+    try {
+      const userKeys = await redisService.keys(`players:v2:${userId}:*`);
+      const friendKeys = await redisService.keys(`players:v2:${friendId}:*`);
+      const allKeys = [...(userKeys || []), ...(friendKeys || [])];
+      
+      if (allKeys.length > 0) {
+        await Promise.all(allKeys.map(key => redisService.delete(key)));
+        console.log(`🗑️ Invalidated ${allKeys.length} player cache entries after unfriending`);
+      }
+    } catch (cacheError) {
+      console.error('Error invalidating cache:', cacheError);
+    }
+
+    console.log(`Unfriended: ${user.username} <-> ${friend.username}`);
+
+    res.json({
+      success: true,
+      message: 'Friend removed successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error unfriending:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to remove friend',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/users/players/public
-// @desc    Get all players (public - no auth required)
+// @desc    Get all players (public - no auth required) - Search by IGN name or BGMI UID only (with pagination)
 // @access  Public
 router.get('/players/public', async (req, res) => {
+  console.log('🎯 /api/users/players/public route hit!');
+  console.log('📥 Query params:', req.query);
+  
   try {
-    const { search, game } = req.query;
+    const { search, page = 1, limit = 20 } = req.query;
 
-    let query = {};  // Remove isActive filter - show all users
+    // Parse pagination params
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-    // Global search - search in username, email, bio, country
-    if (search) {
-      query.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { bio: { $regex: search, $options: 'i' } },
-        { country: { $regex: search, $options: 'i' } }
+    // First, let's check how many users have BGMI data
+    const totalUsersWithBGMI = await User.countDocuments({
+      $or: [
+        { bgmiIgnName: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi.ign': { $exists: true, $ne: '' } }
+      ]
+    });
+    console.log('📊 Total users with BGMI IGN:', totalUsersWithBGMI);
+
+    const totalUsersWithUID = await User.countDocuments({
+      $or: [
+        { bgmiUid: { $exists: true, $ne: '' } },
+        { 'gameIds.bgmi.uid': { $exists: true, $ne: '' } }
+      ]
+    });
+    console.log('📊 Total users with BGMI UID:', totalUsersWithUID);
+
+    let query = {};
+
+    // Only search by IGN name (bgmiIgnName) or BGMI UID
+    // Both fields must exist for player to be searchable
+    if (search && search.trim().length > 0) {
+      const searchTerm = search.trim();
+      
+      console.log('🔍 Searching for:', searchTerm);
+      
+      query.$and = [
+        {
+          $or: [
+            { bgmiIgnName: { $regex: searchTerm, $options: 'i' } },
+            { 'gameIds.bgmi.ign': { $regex: searchTerm, $options: 'i' } },
+            { 'gameIds.bgmi.uid': { $regex: searchTerm, $options: 'i' } },
+            { bgmiUid: { $regex: searchTerm, $options: 'i' } }
+          ]
+        },
+        // Both IGN and UID must be present (check both storage locations)
+        {
+          $or: [
+            { bgmiIgnName: { $exists: true, $ne: '' } },
+            { 'gameIds.bgmi.ign': { $exists: true, $ne: '' } }
+          ]
+        },
+        {
+          $or: [
+            { 'gameIds.bgmi.uid': { $exists: true, $ne: '' } },
+            { bgmiUid: { $exists: true, $ne: '' } }
+          ]
+        }
       ];
+    } else {
+      // If no search query provided, return empty array
+      console.log('⚠️ No search query provided, returning empty results');
+      return res.json({
+        success: true,
+        data: {
+          players: [],
+          pagination: {
+            currentPage: pageNum,
+            totalPages: 0,
+            totalPlayers: 0,
+            playersPerPage: limitNum,
+            hasNextPage: false,
+            hasPrevPage: false
+          }
+        }
+      });
     }
 
-    // Filter by game (check in games array)
-    if (game && game !== 'all') {
-      query.games = game;
-    }
+    console.log('🔍 BGMI players query:', JSON.stringify(query, null, 2));
 
-    console.log('🔍 Public players query:', query);
+    // Get total count for pagination
+    const totalPlayers = await User.countDocuments(query);
 
     const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame games bio country createdAt')
-      .limit(50)
+      .select('username bgmiIgnName bgmiUid avatarUrl gameIds')
+      .skip(skip)
+      .limit(limitNum)
       .lean();
     
-    console.log(`✅ Found ${players.length} players`);
+    console.log(`✅ Found ${players.length} BGMI players matching search (page ${pageNum}, total: ${totalPlayers})`);
 
     // Format response
     const formattedPlayers = players.map(player => ({
       _id: player._id,
       username: player.username,
-      email: player.email,
-      avatar: player.avatarUrl,
-      level: player.level || 1,
-      rank: player.currentRank || 'Unranked',
-      wins: player.tournamentsWon || 0,
-      games: player.games || [],
-      favoriteGame: player.favoriteGame,
-      bio: player.bio,
-      country: player.country,
-      joinedAt: player.createdAt
+      bgmiIgnName: player.gameIds?.bgmi?.ign || player.bgmiIgnName || '',
+      bgmiUid: player.gameIds?.bgmi?.uid || player.bgmiUid || '',
+      avatar: player.avatarUrl
     }));
 
     res.json({
       success: true,
       data: {
         players: formattedPlayers,
-        total: formattedPlayers.length
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalPlayers / limitNum),
+          totalPlayers: totalPlayers,
+          playersPerPage: limitNum,
+          hasNextPage: pageNum < Math.ceil(totalPlayers / limitNum),
+          hasPrevPage: pageNum > 1
+        }
       }
     });
   } catch (error) {
-    console.error('Error fetching public players:', error);
+    console.error('Error fetching public BGMI players:', error);
     res.status(500).json({
       success: false,
       error: {

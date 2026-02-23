@@ -62,9 +62,9 @@ const Navbar = () => {
   const navLinks = [
     { to: '/', label: 'HOME' },
     { to: '/games', label: 'GAMES' },
-    { to: '/bgmi', label: 'BGMI' },
+    // { to: '/bgmi', label: 'BGMI' },
     { to: '/tournaments', label: 'TOURNAMENTS' },
-    { to: '/teams', label: 'PARTY FINDER' },
+    { to: '/teams', label: 'FRIENDS' },
     { to: '/leaderboard', label: 'LEADERBOARD' },
   ];
 
@@ -90,7 +90,7 @@ const Navbar = () => {
         { to: '/admin/images', label: 'Banners' },
         { to: '/admin/games', label: 'Games' },
         { to: '/admin/tournaments', label: 'Tournaments' },
-        { to: '/admin/bgmi-registrations', label: 'BGMI Registrations' }
+        { to: '/admin/bgmi-registrations', label: 'Registrations' }
       );
     }
     

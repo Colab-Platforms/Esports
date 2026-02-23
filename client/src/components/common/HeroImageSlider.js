@@ -65,25 +65,56 @@ const HeroImageSlider = () => {
       // Create slides from uploaded homepage slides
       const heroSlides = [];
       
-      // Add homepage slides (1-5)
+      // Add homepage slides (1-5) with unique content
+      const slideContent = [
+        {
+          title: 'COLAB ESPORTS',
+          subtitle: 'Ultimate Gaming Platform',
+          description: 'Join thousands of gamers competing for glory and prizes',
+          cta: { text: 'Join Now', link: '/register' }
+        },
+        {
+          title: 'EPIC TOURNAMENTS',
+          subtitle: 'Compete & Win Big',
+          description: 'Battle in exciting tournaments with amazing prize pools',
+          cta: { text: 'View Tournaments', link: '/tournaments' }
+        },
+        {
+          title: 'BUILD YOUR TEAM',
+          subtitle: 'Play Together, Win Together',
+          description: 'Create or join teams and dominate the competition',
+          cta: { text: 'Create Team', link: '/teams' }
+        },
+        {
+          title: 'TRACK YOUR STATS',
+          subtitle: 'Monitor Your Progress',
+          description: 'View detailed statistics and climb the leaderboards',
+          cta: { text: 'View Stats', link: '/profile' }
+        },
+        {
+          title: 'EARN REWARDS',
+          subtitle: 'Play, Win, Withdraw',
+          description: 'Compete in tournaments and earn real rewards',
+          cta: { text: 'Start Earning', link: '/wallet' }
+        }
+      ];
+
       for (let i = 1; i <= 5; i++) {
         const slideKey = `homepage-slide-${i}`;
         const slideImage = currentSiteImages[slideKey];
+        const content = slideContent[i - 1];
         
         if (slideImage?.imageUrl) {
           heroSlides.push({
             id: slideKey,
             type: 'custom',
-            title: 'COLAB ESPORTS',
-            subtitle: `Slide ${i}`,
-            description: 'Join thousands of gamers competing for glory and prizes',
+            title: content.title,
+            subtitle: content.subtitle,
+            description: content.description,
             image: slideImage.imageUrl,
             responsiveUrls: slideImage.responsiveUrls,
             imageKey: slideKey,
-            cta: {
-              text: 'Explore Now',
-              link: '/tournaments'
-            }
+            cta: content.cta
           });
         }
       }
@@ -218,26 +249,114 @@ const HeroImageSlider = () => {
               );
             })()}
           </div>
-          {/* No overlay - clean images */}
+          {/* Gradient Overlay - centered on mobile, left-aligned on desktop */}
+          <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
         </motion.div>
       </AnimatePresence>
 
-      {/* No text overlay - just images */}
+      {/* Text Content Overlay with Animations */}
+      <div className="absolute inset-0 z-10 flex items-center justify-center md:justify-start">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto md:mx-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 sm:space-y-6 text-center md:text-left"
+              >
+                {/* Subtitle with typing animation */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                  className="overflow-hidden"
+                >
+                  <motion.p 
+                    className="text-gaming-neon text-base sm:text-lg md:text-xl font-semibold tracking-wider uppercase hero-subtitle-glow"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.8 }}
+                  >
+                    {currentSlideData.subtitle.split('').map((char, index) => (
+                      <motion.span
+                        key={index}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 + index * 0.03, duration: 0.1 }}
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
+                  </motion.p>
+                </motion.div>
+
+                {/* Title with slide-in animation */}
+                <motion.h1
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4, duration: 0.6 }}
+                  className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-tight"
+                >
+                  {currentSlideData.title.split(' ').map((word, wordIndex) => (
+                    <motion.span
+                      key={wordIndex}
+                      className="inline-block mr-3 sm:mr-4"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + wordIndex * 0.1, duration: 0.5 }}
+                    >
+                      {word}
+                    </motion.span>
+                  ))}
+                </motion.h1>
+
+                {/* Description with fade-in animation */}
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.8, duration: 0.6 }}
+                  className="text-gray-200 text-lg sm:text-xl md:text-2xl max-w-xl leading-relaxed mx-auto md:mx-0"
+                >
+                  {currentSlideData.description}
+                </motion.p>
+
+                {/* CTA Button with scale animation */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1, duration: 0.5, type: 'spring', stiffness: 200 }}
+                  className="pt-2 sm:pt-4 flex justify-center md:justify-start"
+                >
+                  <a
+                    href={currentSlideData.cta.link}
+                    className="inline-block px-8 sm:px-10 py-4 sm:py-5 bg-gaming-neon hover:bg-gaming-gold text-black font-bold text-base sm:text-lg md:text-xl rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-gaming-neon/50"
+                  >
+                    {currentSlideData.cta.text}
+                  </a>
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
 
       {/* Navigation Controls */}
       {slides.length > 1 && (
         <>
-          {/* Previous/Next Buttons */}
+          {/* Previous/Next Buttons - Hidden on mobile */}
           <button
             onClick={prevSlide}
-            className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
+            className="hidden md:block absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
           >
             <FiChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           
           <button
             onClick={nextSlide}
-            className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
+            className="hidden md:block absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
           >
             <FiChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>

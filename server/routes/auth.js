@@ -328,27 +328,27 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
-    const { username, email, phone, password } = req.body;
+    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
 
-    // Basic validation
-    if (!username || !email || !phone || !password) {
+    // Basic validation - fullName, email, phone, and password are required
+    if (!fullName || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
         error: {
           code: 'MISSING_FIELDS',
-          message: 'All fields are required',
+          message: 'Full name, email, phone, and password are required',
           timestamp: new Date().toISOString()
         }
       });
     }
 
-    // Phone validation - Indian mobile numbers
-    if (!/^[6-9]\d{9}$/.test(phone)) {
+    // Full name validation
+    if (fullName.length < 3) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'INVALID_PHONE',
-          message: 'Please enter a valid 10-digit Indian mobile number',
+          code: 'INVALID_FULLNAME',
+          message: 'Full name must be at least 3 characters',
           timestamp: new Date().toISOString()
         }
       });
@@ -366,30 +366,51 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       });
     }
 
-    // Username validation
-    if (username.length < 3) {
+    // Phone validation - Indian mobile numbers
+    if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'INVALID_USERNAME',
-          message: 'Username must be at least 3 characters',
+          code: 'INVALID_PHONE',
+          message: 'Please enter a valid 10-digit Indian mobile number',
           timestamp: new Date().toISOString()
         }
       });
     }
 
+    // Generate unique username from full name
+    const generateUsername = (fullName) => {
+      // Convert to lowercase, replace spaces with underscore, remove special chars
+      const baseUsername = fullName
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '')
+        .substring(0, 20); // Limit to 20 chars
+      
+      // Add random 4-digit number for uniqueness
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      return `${baseUsername}_${randomNum}`;
+    };
+
+    const generatedUsername = generateUsername(fullName);
+    console.log('✅ Generated username:', generatedUsername);
+
     console.log('✅ Basic validation passed');
 
     // Check if user already exists
     console.log('🔍 Checking for existing user...');
+    
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }, { phone }]
+      $or: [
+        { email: email.toLowerCase() },
+        { phone }
+      ]
     });
 
     if (existingUser) {
-      console.log('❌ User already exists:', existingUser.email);
-      let field = 'email';
-      if (existingUser.username === username) field = 'username';
+      console.log('❌ User already exists:', existingUser.email || existingUser.phone);
+      let field = 'phone';
+      if (existingUser.email === email.toLowerCase()) field = 'email';
       if (existingUser.phone === phone) field = 'phone';
       
       return res.status(400).json({
@@ -406,12 +427,49 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
 
     // Create new user
     console.log('👤 Creating new user...');
-    const user = new User({
-      username,
+    const userData = {
+      fullName,
+      username: generatedUsername,
       email,
       phone,
-      passwordHash: password // Will be hashed by pre-save middleware
-    });
+      passwordHash: password, // Will be hashed by pre-save middleware
+      gameIds: {
+        steam: '',
+        bgmi: { ign: '', uid: '' },
+        freefire: { ign: '', uid: '' },
+        valorant: ''
+      }
+    };
+
+    // Add game-specific data if provided
+    if (bgmiIgnName || bgmiUid) {
+      userData.gameIds.bgmi = {
+        ign: bgmiIgnName || '',
+        uid: bgmiUid || ''
+      };
+      // Also save to legacy fields for backward compatibility
+      userData.bgmiIgnName = bgmiIgnName || '';
+      userData.bgmiUid = bgmiUid || '';
+      console.log('🎮 BGMI data added:', { ign: bgmiIgnName, uid: bgmiUid });
+    }
+    
+    if (freeFireIgnName || freeFireUid) {
+      userData.gameIds.freefire = {
+        ign: freeFireIgnName || '',
+        uid: freeFireUid || ''
+      };
+      // Also save to legacy fields for backward compatibility
+      userData.freeFireIgnName = freeFireIgnName || '';
+      userData.freeFireUid = freeFireUid || '';
+      console.log('🔥 Free Fire data added:', { ign: freeFireIgnName, uid: freeFireUid });
+    }
+    
+    if (gameIds && gameIds.steam) {
+      userData.gameIds.steam = gameIds.steam;
+      console.log('🎮 Steam ID added:', gameIds.steam);
+    }
+
+    const user = new User(userData);
 
     console.log('💾 Saving user to database...');
     await user.save();
@@ -428,13 +486,14 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         token,
         user: {
           id: user._id,
+          fullName: user.fullName,
           username: user.username,
           email: user.email,
           phone: user.phone,
           avatarUrl: user.avatarUrl,
           bio: user.bio,
           country: user.country,
-          state: user.state,  // ✅ Added missing state field
+          state: user.state,
           favoriteGame: user.favoriteGame,
           profileVisibility: user.profileVisibility,
           socialAccounts: user.socialAccounts,
@@ -446,6 +505,10 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           totalEarnings: user.totalEarnings,
           tournamentsWon: user.tournamentsWon,
           gameIds: user.gameIds,
+          bgmiIgnName: user.bgmiIgnName,
+          bgmiUid: user.bgmiUid,
+          freeFireIgnName: user.freeFireIgnName,
+          freeFireUid: user.freeFireUid,
           createdAt: user.createdAt
         }
       },
@@ -453,7 +516,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    console.log('🎉 Registration successful for:', username);
+    console.log('🎉 Registration successful for:', fullName, `(${generatedUsername})`);
 
   } catch (error) {
     console.error('❌ Registration error:', error);
@@ -682,7 +745,7 @@ router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
     
-    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName } = req.body;
+    const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid } = req.body;
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -732,8 +795,63 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
-    // Allow empty strings for bgmiIgnName - don't fall back to old value
-    if (bgmiIgnName !== undefined) user.bgmiIgnName = bgmiIgnName;
+    
+    // Update game IDs with new structure
+    if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
+      if (!user.gameIds) user.gameIds = {};
+      
+      // Convert old string format to new object format
+      if (typeof user.gameIds.bgmi === 'string') {
+        const oldBgmiId = user.gameIds.bgmi;
+        user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
+        console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+      }
+      
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+        user.gameIds.bgmi = { ign: '', uid: '' };
+      }
+      
+      user.gameIds.bgmi.ign = bgmiIgnName !== undefined ? bgmiIgnName : (user.gameIds.bgmi.ign || '');
+      user.gameIds.bgmi.uid = bgmiUid !== undefined ? bgmiUid : (user.gameIds.bgmi.uid || '');
+      
+      // Mark nested object as modified for Mongoose
+      user.markModified('gameIds.bgmi');
+      
+      // Also update legacy fields for backward compatibility
+      user.bgmiIgnName = user.gameIds.bgmi.ign;
+      user.bgmiUid = user.gameIds.bgmi.uid;
+      
+      console.log('🎮 BGMI data updated:', user.gameIds.bgmi);
+      console.log('🎮 Legacy fields updated:', { bgmiIgnName: user.bgmiIgnName, bgmiUid: user.bgmiUid });
+    }
+    
+    if (freeFireIgnName !== undefined || freeFireUid !== undefined) {
+      if (!user.gameIds) user.gameIds = {};
+      
+      // Convert old string format to new object format
+      if (typeof user.gameIds.freefire === 'string') {
+        const oldFreefireId = user.gameIds.freefire;
+        user.gameIds.freefire = { ign: '', uid: oldFreefireId };
+        console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+      }
+      
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+        user.gameIds.freefire = { ign: '', uid: '' };
+      }
+      
+      user.gameIds.freefire.ign = freeFireIgnName !== undefined ? freeFireIgnName : (user.gameIds.freefire.ign || '');
+      user.gameIds.freefire.uid = freeFireUid !== undefined ? freeFireUid : (user.gameIds.freefire.uid || '');
+      
+      // Mark nested object as modified for Mongoose
+      user.markModified('gameIds.freefire');
+      
+      // Also update legacy fields for backward compatibility
+      user.freeFireIgnName = user.gameIds.freefire.ign;
+      user.freeFireUid = user.gameIds.freefire.uid;
+      
+      console.log('🔥 Free Fire data updated:', user.gameIds.freefire);
+      console.log('🔥 Legacy fields updated:', { freeFireIgnName: user.freeFireIgnName, freeFireUid: user.freeFireUid });
+    }
     
     // Update social accounts
     if (socialAccounts !== undefined) {
@@ -745,17 +863,82 @@ router.put('/profile', auth, async (req, res) => {
       };
     }
 
-    // Update game IDs - Allow empty strings to clear values
+    // Update game IDs - Handle steam and other games
     if (gameIds !== undefined) {
-      user.gameIds = {
-        steam: gameIds.steam !== undefined ? gameIds.steam : (user.gameIds?.steam || ''),
-        bgmi: gameIds.bgmi !== undefined ? gameIds.bgmi : (user.gameIds?.bgmi || '')
-      };
+      if (!user.gameIds) user.gameIds = {};
+      
+      if (gameIds.steam !== undefined) {
+        user.gameIds.steam = gameIds.steam;
+      }
+      
+      // Handle bgmi if passed as object in gameIds
+      if (gameIds.bgmi !== undefined) {
+        // Convert old string format to new object format
+        if (typeof user.gameIds.bgmi === 'string') {
+          const oldBgmiId = user.gameIds.bgmi;
+          user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
+          console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+        }
+        
+        if (typeof gameIds.bgmi === 'object') {
+          if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+            user.gameIds.bgmi = { ign: '', uid: '' };
+          }
+          user.gameIds.bgmi = {
+            ign: gameIds.bgmi.ign || user.gameIds.bgmi?.ign || '',
+            uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
+          };
+          
+          // Mark nested object as modified for Mongoose
+          user.markModified('gameIds.bgmi');
+          
+          user.bgmiIgnName = user.gameIds.bgmi.ign;
+          user.bgmiUid = user.gameIds.bgmi.uid;
+          
+          console.log('🎮 BGMI updated via gameIds:', user.gameIds.bgmi);
+        }
+      }
+      
+      // Handle freefire if passed as object in gameIds
+      if (gameIds.freefire !== undefined) {
+        // Convert old string format to new object format
+        if (typeof user.gameIds.freefire === 'string') {
+          const oldFreefireId = user.gameIds.freefire;
+          user.gameIds.freefire = { ign: '', uid: oldFreefireId };
+          console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+        }
+        
+        if (typeof gameIds.freefire === 'object') {
+          if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+            user.gameIds.freefire = { ign: '', uid: '' };
+          }
+          user.gameIds.freefire = {
+            ign: gameIds.freefire.ign || user.gameIds.freefire?.ign || '',
+            uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
+          };
+          
+          // Mark nested object as modified for Mongoose
+          user.markModified('gameIds.freefire');
+          
+          user.freeFireIgnName = user.gameIds.freefire.ign;
+          user.freeFireUid = user.gameIds.freefire.uid;
+          
+          console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
+        }
+      }
     }
 
     await user.save();
-    
-    console.log('✅ Profile updated successfully for user:', user.username);
+
+    try {
+      const redisService = require('../services/redisService');
+      // Clear this user's own teams cache
+      await redisService.delete(`teams:v2:my-teams:${user._id}`);
+      // Clear ALL player-list caches across all viewers — any cached list could contain this user's stale game IDs
+      await redisService.deletePattern('players:v2:*');
+    } catch (cacheErr) {
+      console.error('Cache invalidation failed:', cacheErr);
+    }
 
     // Return updated user data
     const updatedUser = {
@@ -766,7 +949,7 @@ router.put('/profile', auth, async (req, res) => {
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       country: user.country,
-      state: user.state,  // ✅ Added missing state field
+      state: user.state,
       favoriteGame: user.favoriteGame,
       profileVisibility: user.profileVisibility,
       socialAccounts: user.socialAccounts,
@@ -779,6 +962,9 @@ router.put('/profile', auth, async (req, res) => {
       tournamentsWon: user.tournamentsWon,
       gameIds: user.gameIds,
       bgmiIgnName: user.bgmiIgnName,
+      bgmiUid: user.bgmiUid,
+      freeFireIgnName: user.freeFireIgnName,
+      freeFireUid: user.freeFireUid,
       steamProfile: user.steamProfile,
       createdAt: user.createdAt
     };

@@ -13,7 +13,8 @@ import {
   FiX,
   FiEye,
   FiCheckCircle,
-  FiRefreshCw
+  FiRefreshCw,
+  FiUserMinus
 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
@@ -33,6 +34,13 @@ const TeamsPage = () => {
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openChallengeMenu, setOpenChallengeMenu] = useState(null);
+  const [friendFilter, setFriendFilter] = useState('all'); // 'all', 'friends', 'requested'
+  const [myFriends, setMyFriends] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPlayers, setTotalPlayers] = useState(0);
+  const playersPerPage = 20;
 
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
@@ -51,13 +59,22 @@ const TeamsPage = () => {
   useEffect(() => {
     if (activeTab === 'players') {
       fetchPlayers();
+      if (isAuthenticated) {
+        fetchMyFriends();
+        fetchSentRequests();
+      }
     } else if (activeTab === 'friends') {
       fetchFriendRequests();
     } else if (activeTab === 'teams') {
       fetchMyTeams();
       fetchTeamInvitations();
     }
-  }, [activeTab, selectedGame, searchQuery]);
+  }, [activeTab, selectedGame, searchQuery, currentPage]);
+
+  // Reset to page 1 when filters change (but not when page changes)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedGame, searchQuery, friendFilter]);
 
   // Close challenge menu when clicking outside
   useEffect(() => {
@@ -119,7 +136,10 @@ const TeamsPage = () => {
       const config = isAuthenticated ? {
         params: {
           search: searchQuery,
-          game: selectedGame !== 'all' ? selectedGame : undefined
+          game: selectedGame !== 'all' ? selectedGame : undefined,
+          page: currentPage,
+          limit: playersPerPage,
+          fresh: 'true' // Always fetch fresh data to avoid cache issues
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -127,26 +147,39 @@ const TeamsPage = () => {
       } : {
         params: {
           search: searchQuery,
-          game: selectedGame !== 'all' ? selectedGame : undefined
+          game: selectedGame !== 'all' ? selectedGame : undefined,
+          page: currentPage,
+          limit: playersPerPage
         }
       };
       
       const response = await axios.get(endpoint, config);
       
       if (response.data.success) {
-        console.log('Fetched players:', response.data.data.players.length);
-        console.log('Players data:', response.data.data.players);
+        const { players, pagination } = response.data.data;
+        console.log('Fetched players:', players.length);
+        console.log('Pagination:', pagination);
         console.log('Cached:', response.data.cached);
+        
         // Log friend status for each player
-        response.data.data.players.forEach(p => {
+        players.forEach(p => {
           console.log(`Player: ${p.username}, isFriend: ${p.isFriend}, friendRequestSent: ${p.friendRequestSent}`);
         });
-        setPlayers(response.data.data.players || []);
+        
+        setPlayers(players || []);
+        
+        // Update pagination state from backend response
+        if (pagination) {
+          setTotalPages(pagination.totalPages);
+          setTotalPlayers(pagination.totalPlayers);
+        }
       }
     } catch (error) {
       console.error('Error fetching players:', error);
       // Show error to user
       setPlayers([]);
+      setTotalPages(1);
+      setTotalPlayers(0);
     } finally {
       setLoading(false);
     }
@@ -172,6 +205,9 @@ const TeamsPage = () => {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/users/friend-requests`, {
+        params: {
+          fresh: 'true' // Always fetch fresh data to avoid cache issues
+        },
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -186,6 +222,46 @@ const TeamsPage = () => {
       console.error('Error fetching friend requests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMyFriends = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/users/friends`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success || response.data.friends) {
+        const friendsList = response.data.friends || response.data.data?.friends || [];
+        setMyFriends(friendsList);
+        console.log('Fetched friends:', friendsList.length);
+      }
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+      setMyFriends([]);
+    }
+  };
+
+  const fetchSentRequests = async () => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/users/friend-requests/sent`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success || response.data.data) {
+        const requests = response.data.data?.requests || [];
+        setSentRequests(requests);
+        console.log('Fetched sent requests:', requests.length);
+      }
+    } catch (error) {
+      console.error('Error fetching sent requests:', error);
+      setSentRequests([]);
     }
   };
 
@@ -331,6 +407,87 @@ const TeamsPage = () => {
     }
   };
 
+  const cancelFriendRequest = async (playerId) => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      
+      // First find the request ID
+      const requestsResponse = await axios.get(`${API_URL}/api/users/friend-requests/sent`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const sentRequest = requestsResponse.data.data?.requests?.find(
+        req => req.recipient._id === playerId || req.recipient.id === playerId
+      );
+      
+      if (!sentRequest) {
+        toast.error('Friend request not found');
+        return;
+      }
+      
+      const response = await axios.post(
+        `${API_URL}/api/users/friend-request/${sentRequest._id}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        toast.success('Friend request cancelled', {
+          duration: 2000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #FFD700'
+          }
+        });
+        
+        // Update local state
+        setPlayers(players.map(p => 
+          (p._id === playerId || p.id === playerId) ? { ...p, friendRequestSent: false } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error cancelling friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to cancel request');
+    }
+  };
+
+  const unfriend = async (playerId) => {
+    if (!window.confirm('Are you sure you want to unfriend this player?')) {
+      return;
+    }
+    
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.post(
+        `${API_URL}/api/users/unfriend/${playerId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        toast.success('Friend removed', {
+          duration: 2000,
+          position: 'top-center',
+          style: {
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #ef4444'
+          }
+        });
+        
+        // Update local state
+        setPlayers(players.map(p => 
+          (p._id === playerId || p.id === playerId) ? { ...p, isFriend: false } : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error unfriending:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to unfriend');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gaming-dark py-4 md:py-8">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
@@ -368,7 +525,7 @@ const TeamsPage = () => {
             {/* Search and Filters */}
             <div className="card-gaming p-4 md:p-6">
               <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
                   {/* Search */}
                   <div className="relative">
                     <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -379,6 +536,21 @@ const TeamsPage = () => {
                       placeholder="Search players by username..."
                       className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none text-sm md:text-base"
                     />
+                  </div>
+
+                  {/* Friend Filter */}
+                  <div className="relative">
+                    <FiUsers className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <select
+                      value={friendFilter}
+                      onChange={(e) => setFriendFilter(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:border-gaming-gold focus:outline-none text-sm md:text-base"
+                      disabled={!isAuthenticated}
+                    >
+                      <option value="all">All Players</option>
+                      <option value="friends">My Friends</option>
+                      <option value="requested">Requested Friends</option>
+                    </select>
                   </div>
 
                   {/* Game Filter */}
@@ -400,7 +572,13 @@ const TeamsPage = () => {
                 
                 {/* Refresh Button */}
                 <button
-                  onClick={fetchPlayers}
+                  onClick={() => {
+                    fetchPlayers();
+                    if (isAuthenticated) {
+                      fetchMyFriends();
+                      fetchSentRequests();
+                    }
+                  }}
                   disabled={loading}
                   className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center justify-center md:justify-start space-x-2 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                   title="Refresh players list"
@@ -430,100 +608,230 @@ const TeamsPage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gaming-border">
-                      {players.map((player) => (
-                        <tr key={player._id} className="hover:bg-gaming-charcoal/50 transition-colors">
-                          <td className="px-2 md:px-4 py-3">
-                            <div className="flex items-center space-x-2 md:space-x-3">
-                              <UserAvatar user={player} size="sm" />
-                              <span className="text-white font-medium text-xs md:text-base truncate">{player.username}</span>
-                            </div>
-                          </td>
-                          <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base truncate">{player.email || 'N/A'}</td>
-                          <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.level || 1}</td>
-                          <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gaming-neon text-xs md:text-base">{player.rank || 'Unranked'}</td>
-                          <td className="hidden lg:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.wins || 0}</td>
-                          <td className="hidden lg:table-cell px-2 md:px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {(player.games || []).slice(0, 3).map(game => (
-                                <span key={game} className="px-2 py-0.5 bg-gaming-neon/20 text-gaming-neon text-xs rounded">
-                                  {game.toUpperCase()}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-2 md:px-4 py-3">
-                            <div className="flex justify-end space-x-1 md:space-x-2">
-                              <button
-                                onClick={() => navigate(`/player/${player.username}`)}
-                                className="px-2 md:px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm rounded transition-colors"
-                                title="View Profile"
-                              >
-                                <FiEye className="w-3 h-3 md:w-4 md:h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
-                                disabled={player.friendRequestSent || player.isFriend}
-                                className={`px-2 md:px-3 py-1 text-xs md:text-sm rounded transition-colors ${
-                                  player.isFriend
-                                    ? 'bg-green-600/30 text-green-400 cursor-not-allowed border border-green-500/50'
-                                    : player.friendRequestSent
-                                    ? 'bg-yellow-600/30 text-yellow-400 cursor-not-allowed border border-yellow-500/50'
-                                    : 'bg-gaming-gold hover:bg-yellow-500 text-black'
-                                }`}
-                                title={player.isFriend ? 'Friends' : player.friendRequestSent ? 'Request Pending' : 'Add Friend'}
-                              >
-                                {player.isFriend ? <FiCheckCircle className="w-3 h-3 md:w-4 md:h-4" /> : player.friendRequestSent ? <FiCheck className="w-3 h-3 md:w-4 md:h-4" /> : <FiUserPlus className="w-3 h-3 md:w-4 md:h-4" />}
-                              </button>
-                              
-                              {/* Challenge Button with Dropdown */}
-                              <div className="relative challenge-menu-container">
+                      {(() => {
+                        // Apply friend filter (frontend filtering for friend status)
+                        let filteredPlayers = players;
+                        
+                        if (friendFilter === 'friends' && isAuthenticated) {
+                          const friendIds = myFriends.map(f => f._id || f.id);
+                          filteredPlayers = players.filter(p => friendIds.includes(p._id || p.id));
+                        } else if (friendFilter === 'requested' && isAuthenticated) {
+                          const requestedIds = sentRequests.map(r => r.recipient?._id || r.recipient?.id);
+                          filteredPlayers = players.filter(p => requestedIds.includes(p._id || p.id));
+                        }
+                        
+                        // No need to slice here - backend already sent paginated data
+                        return filteredPlayers.map((player) => (
+                          <tr key={player._id} className="hover:bg-gaming-charcoal/50 transition-colors">
+                            <td className="px-2 md:px-4 py-3">
+                              <div className="flex items-center space-x-2 md:space-x-3">
+                                <UserAvatar user={player} size="sm" />
+                                <span className="text-white font-medium text-xs md:text-base truncate">{player.username}</span>
+                              </div>
+                            </td>
+                            <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base truncate">{player.email || 'N/A'}</td>
+                            <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.level || 1}</td>
+                            <td className="hidden md:table-cell px-2 md:px-4 py-3 text-gaming-neon text-xs md:text-base">{player.rank || 'Unranked'}</td>
+                            <td className="hidden lg:table-cell px-2 md:px-4 py-3 text-gray-300 text-xs md:text-base">{player.wins || 0}</td>
+                            <td className="hidden lg:table-cell px-2 md:px-4 py-3">
+                              <div className="flex flex-wrap gap-1">
+                                {(player.games || []).slice(0, 3).map(game => (
+                                  <span key={game} className="px-2 py-0.5 bg-gaming-neon/20 text-gaming-neon text-xs rounded">
+                                    {game.toUpperCase()}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-2 md:px-4 py-3">
+                              <div className="flex justify-end space-x-1 md:space-x-2">
                                 <button
-                                  onClick={() => setOpenChallengeMenu(openChallengeMenu === player._id ? null : player._id)}
-                                  className="px-2 md:px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-xs md:text-sm rounded transition-colors"
-                                  title="Challenge"
+                                  onClick={() => navigate(`/player/${player.username}`)}
+                                  className="px-2 md:px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm rounded transition-colors"
+                                  title="View Profile"
                                 >
-                                  <FiTarget className="w-3 h-3 md:w-4 md:h-4" />
+                                  <FiEye className="w-3 h-3 md:w-4 md:h-4" />
                                 </button>
                                 
-                                {/* Dropdown Menu */}
-                                {openChallengeMenu === player._id && (
-                                  <div className="absolute right-0 mt-2 w-40 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
-                                    <button
-                                      onClick={() => {
-                                        setOpenChallengeMenu(null);
-                                        handleActionWithLogin(() => sendChallenge(player._id || player.id, 'bgmi'));
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
-                                    >
-                                      <span>🎮</span>
-                                      <span>BGMI</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setOpenChallengeMenu(null);
-                                        handleActionWithLogin(() => sendChallenge(player._id || player.id, 'cs2'));
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
-                                    >
-                                      <span>🔫</span>
-                                      <span>CS2</span>
-                                    </button>
-                                  </div>
+                                {/* Friend Status Button */}
+                                {player.isFriend ? (
+                                  <button
+                                    onClick={() => handleActionWithLogin(unfriend, player._id || player.id)}
+                                    className="px-2 md:px-3 py-1 bg-red-600/80 hover:bg-red-700 text-white text-xs md:text-sm rounded transition-colors"
+                                    title="Unfriend"
+                                  >
+                                    <FiUserMinus className="w-3 h-3 md:w-4 md:h-4" />
+                                  </button>
+                                ) : player.friendRequestSent ? (
+                                  <button
+                                    onClick={() => handleActionWithLogin(cancelFriendRequest, player._id || player.id)}
+                                    className="px-2 md:px-3 py-1 bg-yellow-600/80 hover:bg-yellow-700 text-white text-xs md:text-sm rounded transition-colors"
+                                    title="Cancel Request"
+                                  >
+                                    <FiX className="w-3 h-3 md:w-4 md:h-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleActionWithLogin(sendFriendRequest, player._id || player.id)}
+                                    className="px-2 md:px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black text-xs md:text-sm rounded transition-colors"
+                                    title="Add Friend"
+                                  >
+                                    <FiUserPlus className="w-3 h-3 md:w-4 md:h-4" />
+                                  </button>
                                 )}
+                                
+                                {/* Challenge Button with Dropdown */}
+                                <div className="relative challenge-menu-container">
+                                  <button
+                                    onClick={() => setOpenChallengeMenu(openChallengeMenu === player._id ? null : player._id)}
+                                    className="px-2 md:px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-xs md:text-sm rounded transition-colors"
+                                    title="Challenge"
+                                  >
+                                    <FiTarget className="w-3 h-3 md:w-4 md:h-4" />
+                                  </button>
+                                  
+                                  {/* Dropdown Menu */}
+                                  {openChallengeMenu === player._id && (
+                                    <div className="absolute right-0 mt-2 w-40 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
+                                      <button
+                                        onClick={() => {
+                                          setOpenChallengeMenu(null);
+                                          handleActionWithLogin(() => sendChallenge(player._id || player.id, 'bgmi'));
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
+                                      >
+                                        <span>🎮</span>
+                                        <span>BGMI</span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setOpenChallengeMenu(null);
+                                          handleActionWithLogin(() => sendChallenge(player._id || player.id, 'cs2'));
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
+                                      >
+                                        <span>🔫</span>
+                                        <span>CS2</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
-                {players.length === 0 && (
-                  <div className="text-center py-12">
-                    <FiUsers className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-400">No players found</p>
+                {(() => {
+                  let filteredPlayers = players;
+                  if (friendFilter === 'friends' && isAuthenticated) {
+                    const friendIds = myFriends.map(f => f._id || f.id);
+                    filteredPlayers = players.filter(p => friendIds.includes(p._id || p.id));
+                  } else if (friendFilter === 'requested' && isAuthenticated) {
+                    const requestedIds = sentRequests.map(r => r.recipient?._id || r.recipient?.id);
+                    filteredPlayers = players.filter(p => requestedIds.includes(p._id || p.id));
+                  }
+                  
+                  return filteredPlayers.length === 0 && (
+                    <div className="text-center py-12">
+                      <FiUsers className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400">
+                        {friendFilter === 'friends' ? 'No friends found' : 
+                         friendFilter === 'requested' ? 'No requested friends found' : 
+                         'No players found'}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
+              <div className="card-gaming p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-400">
+                  Showing {((currentPage - 1) * playersPerPage) + 1} to {Math.min(currentPage * playersPerPage, totalPlayers)} of {totalPlayers} players
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                      
+                      if (endPage - startPage < maxVisiblePages - 1) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+                      
+                      if (startPage > 1) {
+                        pages.push(
+                          <button
+                            key={1}
+                            onClick={() => setCurrentPage(1)}
+                            className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark transition-colors"
+                          >
+                            1
+                          </button>
+                        );
+                        if (startPage > 2) {
+                          pages.push(<span key="ellipsis1" className="text-gray-400 px-2">...</span>);
+                        }
+                      }
+                      
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i)}
+                            className={`px-3 py-1 rounded-lg transition-colors ${
+                              currentPage === i
+                                ? 'bg-gaming-gold text-black font-medium'
+                                : 'bg-gaming-charcoal border border-gaming-border text-white hover:bg-gaming-dark'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        );
+                      }
+                      
+                      if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                          pages.push(<span key="ellipsis2" className="text-gray-400 px-2">...</span>);
+                        }
+                        pages.push(
+                          <button
+                            key={totalPages}
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark transition-colors"
+                          >
+                            {totalPages}
+                          </button>
+                        );
+                      }
+                      
+                      return pages;
+                    })()}
                   </div>
-                )}
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 bg-gaming-charcoal border border-gaming-border rounded-lg text-white hover:bg-gaming-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -532,6 +840,19 @@ const TeamsPage = () => {
         {/* Friend Requests Tab */}
         {activeTab === 'friends' && (
           <div className="space-y-6">
+            {/* Refresh Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={fetchFriendRequests}
+                disabled={loading}
+                className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh friend requests"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
             {loading ? (
               <div className="text-center py-12 text-gray-400">Loading requests...</div>
             ) : (
@@ -566,6 +887,9 @@ const TeamsPage = () => {
               fetchTeamInvitations();
             }}
             token={token}
+            currentUser={user}
+            isAuthenticated={isAuthenticated}
+            navigate={navigate}
           />
         )}
 

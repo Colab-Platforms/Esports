@@ -12,7 +12,7 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     required: [true, 'User ID is required']
   },
   
-  // Team Details (4 players per team for BGMI)
+  // Team Details (4-5 players per team for BGMI: 3 required + 1 optional substitute)
   teamName: {
     type: String,
     required: [true, 'Team name is required'],
@@ -30,17 +30,24 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     },
     bgmiId: {
       type: String,
-      required: [true, 'Team leader BGMI ID is required'],
+      trim: true
+    },
+    freeFireId: {
+      type: String,
       trim: true
     },
     phone: {
       type: String,
       required: [true, 'Team leader phone is required'],
       match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
+    },
+    isSubstitute: {
+      type: Boolean,
+      default: false
     }
   },
   
-  // Team Members (3 additional players)
+  // Team Members (3-4 additional players: 3 required + 1 optional substitute)
   teamMembers: [{
     name: {
       type: String,
@@ -49,8 +56,15 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     },
     bgmiId: {
       type: String,
-      required: [true, 'Team member BGMI ID is required'],
       trim: true
+    },
+    freeFireId: {
+      type: String,
+      trim: true
+    },
+    isSubstitute: {
+      type: Boolean,
+      default: false
     }
   }],
   
@@ -59,6 +73,13 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'images_uploaded', 'verified', 'rejected'],
     default: 'pending'
+  },
+
+  // Team reference (set when registering via a saved Team)
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null
   },
   
   // Group Assignment (for tournaments with grouping enabled)
@@ -132,6 +153,7 @@ tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 }, { unique: tru
 // Indexes for efficient queries
 tournamentRegistrationSchema.index({ tournamentId: 1, status: 1 });
 tournamentRegistrationSchema.index({ userId: 1 });
+tournamentRegistrationSchema.index({ teamId: 1, status: 1 });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
 
@@ -170,21 +192,58 @@ tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
 });
 
 // Pre-save middleware to update tournament participant count
-tournamentRegistrationSchema.pre('save', function(next) {
-  // Ensure exactly 3 team members (plus leader = 4 total)
-  if (this.teamMembers.length !== 3) {
-    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
+tournamentRegistrationSchema.pre('save', async function(next) {
+  // Ensure 3-4 team members (plus leader = 4-5 total)
+  if (this.teamMembers.length < 3 || this.teamMembers.length > 4) {
+    return next(new Error('Team must have 3-4 members (plus leader = 4-5 total players)'));
   }
   
-  // Collect all BGMI IDs to check for duplicates
-  const allBgmiIds = [this.teamLeader.bgmiId, ...this.teamMembers.map(m => m.bgmiId)];
-  const uniqueBgmiIds = [...new Set(allBgmiIds)];
+  // Get tournament to check game type
+  const Tournament = require('./Tournament');
+  const tournament = await Tournament.findById(this.tournamentId);
   
-  if (allBgmiIds.length !== uniqueBgmiIds.length) {
-    return next(new Error('All team members must have unique BGMI IDs'));
+  if (!tournament) {
+    return next(new Error('Tournament not found'));
   }
   
-  // No phone number validation for team members needed
+  // Validate unique IDs based on game type
+  if (tournament.gameType === 'bgmi') {
+    // Collect all BGMI IDs to check for duplicates
+    const allBgmiIds = [this.teamLeader.bgmiId, ...this.teamMembers.map(m => m.bgmiId)].filter(Boolean);
+    const uniqueBgmiIds = [...new Set(allBgmiIds)];
+    
+    if (allBgmiIds.length !== uniqueBgmiIds.length) {
+      return next(new Error('All team members must have unique BGMI IDs'));
+    }
+    
+    // Ensure all members have BGMI IDs
+    if (!this.teamLeader.bgmiId) {
+      return next(new Error('Team leader BGMI ID is required for BGMI tournaments'));
+    }
+    for (const member of this.teamMembers) {
+      if (!member.bgmiId) {
+        return next(new Error('All team members must have BGMI IDs for BGMI tournaments'));
+      }
+    }
+  } else if (tournament.gameType === 'freefire') {
+    // Collect all Free Fire IDs to check for duplicates
+    const allFreeFireIds = [this.teamLeader.freeFireId, ...this.teamMembers.map(m => m.freeFireId)].filter(Boolean);
+    const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
+    
+    if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
+      return next(new Error('All team members must have unique Free Fire IDs'));
+    }
+    
+    // Ensure all members have Free Fire IDs
+    if (!this.teamLeader.freeFireId) {
+      return next(new Error('Team leader Free Fire ID is required for Free Fire tournaments'));
+    }
+    for (const member of this.teamMembers) {
+      if (!member.freeFireId) {
+        return next(new Error('All team members must have Free Fire IDs for Free Fire tournaments'));
+      }
+    }
+  }
   
   next();
 });

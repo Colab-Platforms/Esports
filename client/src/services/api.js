@@ -55,16 +55,20 @@ class ApiService {
           throw new Error(`Invalid response format. Status: ${response.status}`);
         }
         
-        // Handle token expiry
-        if (response.status === 401 && data.error?.code === 'TOKEN_EXPIRED') {
+        // Handle token expiry or invalid token
+        if (response.status === 401 && (
+          data.error?.code === 'TOKEN_EXPIRED' || 
+          data.error?.code === 'INVALID_TOKEN'
+        )) {
           // Clear auth data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           
-          // Redirect to login
-          window.location.href = '/login?expired=true';
+          // Redirect to login with appropriate message
+          const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
+          window.location.href = `/login?${reason}=true`;
           
-          throw new Error('Session expired. Please login again.');
+          throw new Error(data.error?.message || 'Session expired. Please login again.');
         }
         
         if (!response.ok) {
@@ -87,7 +91,14 @@ class ApiService {
   }
 
   async get(endpoint, options = {}) {
-    return this.request(endpoint, { method: 'GET', ...options });
+    // Handle query parameters
+    let url = endpoint;
+    if (options.params) {
+      const queryString = new URLSearchParams(options.params).toString();
+      url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryString}`;
+      delete options.params; // Remove params from options as we've added them to URL
+    }
+    return this.request(url, { method: 'GET', ...options });
   }
 
   async post(endpoint, data, options = {}) {
@@ -138,6 +149,10 @@ class ApiService {
 
   async disconnectSteam() {
     return this.post('/api/steam/disconnect');
+  }
+
+  async getUserTournaments() {
+    return this.get('/api/tournaments/my-tournaments');
   }
 
   // Profile API

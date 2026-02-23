@@ -26,6 +26,7 @@ const io = new Server(server, {
       if (!origin) return callback(null, true);
       
       const allowedOrigins = [
+        'http://192.168.1.109:3000',
         'http://localhost:3000',
         'https://esports-62sh.vercel.app',
         'https://esports-eciq.vercel.app',
@@ -277,6 +278,16 @@ try {
   console.error('❌ Error stack:', error.stack);
 }
 app.use('/api/bgmi-images', require('./routes/bgmiImageUpload'));
+
+console.log('🔄 Loading Free Fire Registration routes...');
+try {
+  const freeFireRoutes = require('./routes/freeFireRegistration');
+  app.use('/api/freefire-registration', freeFireRoutes);
+  console.log('✅ Free Fire Registration routes loaded successfully');
+} catch (error) {
+  console.error('❌ Failed to load Free Fire Registration routes:', error);
+  console.error('❌ Error details:', error.message);
+}
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
 app.use('/api/servers', require('./routes/servers'));
@@ -454,7 +465,7 @@ app.get('/', (req, res) => {
 });
 
 
-// Import tournament scheduler
+// Import tournament schedulers
 const tournamentScheduler = require('./utils/tournamentScheduler');
 
 // Start server

@@ -10,32 +10,50 @@ const auth = require('../middleware/auth');
 // @access  Private
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, tag, game, logo, description, maxMembers, privacy } = req.body;
+    const { name, tag, game, logo, description, maxMembers, privacy, memberIds } = req.body;
     const userId = req.user.userId;
-    const redisService = require('../services/redisService');
 
-    // Check if user already has a team for this game
-    const existingTeam = await Team.findOne({
-      game,
-      $or: [
-        { captain: userId },
-        { 'members.userId': userId }
-      ],
-      isActive: true
-    });
+    const members = [{
+      userId,
+      role: 'captain',
+      joinedAt: new Date()
+    }];
 
-    if (existingTeam) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'ALREADY_IN_TEAM',
-          message: `You are already in a ${game.toUpperCase()} team`,
-          timestamp: new Date().toISOString()
-        }
-      });
+    if (memberIds && Array.isArray(memberIds) && memberIds.length > 0) {
+      const effectiveMax = maxMembers || 5;
+      if (memberIds.length + 1 > effectiveMax) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TOO_MANY_MEMBERS',
+            message: `Cannot add ${memberIds.length} members. Max team size is ${effectiveMax} (including captain).`,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      const users = await User.find({ _id: { $in: memberIds } });
+      if (users.length !== memberIds.length) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_MEMBERS',
+            message: 'One or more selected users do not exist',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+
+      for (const memberId of memberIds) {
+        if (memberId.toString() === userId.toString()) continue;
+        members.push({
+          userId: memberId,
+          role: 'member',
+          joinedAt: new Date()
+        });
+      }
     }
 
-    // Create team
     const team = new Team({
       name,
       tag,
@@ -43,21 +61,14 @@ router.post('/', auth, async (req, res) => {
       logo,
       description,
       captain: userId,
-      members: [{
-        userId,
-        role: 'captain',
-        joinedAt: new Date()
-      }],
+      members,
       maxMembers: maxMembers || 5,
       privacy: privacy || 'public'
     });
 
     await team.save();
-    await team.populate('captain', 'username avatarUrl');
-    await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache
-    await redisService.delete(`teams:my-teams:${userId}`);
+    await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
+    await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
 
     res.status(201).json({
       success: true,
@@ -130,29 +141,13 @@ router.get('/', async (req, res) => {
 router.get('/my-teams', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const redisService = require('../services/redisService');
-
-    // Create cache key
-    const cacheKey = `teams:my-teams:${userId}`;
-
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`✅ Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
-    }
 
     const teams = await Team.find({
       'members.userId': userId,
       isActive: true
     })
-      .populate('captain', 'username avatarUrl')
-      .populate('members.userId', 'username avatarUrl')
+      .populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
+      .populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
       .sort({ createdAt: -1 });
 
     console.log(`Found ${teams.length} teams for user ${userId}`);
@@ -161,9 +156,6 @@ router.get('/my-teams', auth, async (req, res) => {
     });
 
     const responseData = { teams };
-
-    // Cache for 5 minutes
-    await redisService.set(cacheKey, responseData, 300);
 
     res.json({
       success: true,
@@ -254,26 +246,100 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    // Update allowed fields
-    const { name, tag, logo, description, privacy } = req.body;
+    const { name, memberIds, membersGameInfo, captainGameInfo } = req.body;
     
     if (name) team.name = name;
-    if (tag) team.tag = tag;
-    if (logo !== undefined) team.logo = logo;
-    if (description !== undefined) team.description = description;
-    if (privacy) team.privacy = privacy;
+
+    // Update member profiles with provided game info
+    if (membersGameInfo && Array.isArray(membersGameInfo)) {
+      await Promise.all(membersGameInfo.map(async (info) => {
+        if (!info.userId) return;
+        const update = {};
+        if (info.ign !== undefined || info.uid !== undefined) {
+          if (team.game === 'bgmi') {
+            // Set the whole object to avoid "Cannot create field on string" errors from legacy "" values
+            const existing = await User.findById(info.userId).select('gameIds bgmiIgnName bgmiUid').lean();
+            const existingBgmi = typeof existing?.gameIds?.bgmi === 'object' ? existing.gameIds.bgmi : {};
+            update['gameIds.bgmi'] = {
+              ign: info.ign !== undefined ? info.ign : (existingBgmi.ign || existing?.bgmiIgnName || ''),
+              uid: info.uid !== undefined ? info.uid : (existingBgmi.uid || existing?.bgmiUid || '')
+            };
+            if (info.ign !== undefined) update.bgmiIgnName = info.ign;
+            if (info.uid !== undefined) update.bgmiUid = info.uid;
+          } else if (team.game === 'freefire') {
+            const existing = await User.findById(info.userId).select('gameIds freeFireIgnName freeFireUid').lean();
+            const existingFf = typeof existing?.gameIds?.freefire === 'object' ? existing.gameIds.freefire : {};
+            update['gameIds.freefire'] = {
+              ign: info.ign !== undefined ? info.ign : (existingFf.ign || existing?.freeFireIgnName || ''),
+              uid: info.uid !== undefined ? info.uid : (existingFf.uid || existing?.freeFireUid || '')
+            };
+            if (info.ign !== undefined) update.freeFireIgnName = info.ign;
+            if (info.uid !== undefined) update.freeFireUid = info.uid;
+          }
+        }
+        if (info.steamId !== undefined) update['gameIds.steam'] = info.steamId;
+        if (info.valorantId !== undefined) update['gameIds.valorant'] = info.valorantId;
+        if (Object.keys(update).length > 0) {
+          await User.findByIdAndUpdate(info.userId, { $set: update });
+        }
+      }));
+    }
+
+    // Update captain's profile if captainGameInfo provided
+    if (captainGameInfo) {
+      const captainId = team.captain?._id || team.captain;
+      const update = {};
+      if (team.game === 'bgmi') {
+        const existing = await User.findById(captainId).select('gameIds bgmiIgnName bgmiUid').lean();
+        const existingBgmi = typeof existing?.gameIds?.bgmi === 'object' ? existing.gameIds.bgmi : {};
+        update['gameIds.bgmi'] = {
+          ign: captainGameInfo.ign !== undefined ? captainGameInfo.ign : (existingBgmi.ign || existing?.bgmiIgnName || ''),
+          uid: captainGameInfo.uid !== undefined ? captainGameInfo.uid : (existingBgmi.uid || existing?.bgmiUid || '')
+        };
+        if (captainGameInfo.ign !== undefined) update.bgmiIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid !== undefined) update.bgmiUid = captainGameInfo.uid;
+      } else if (team.game === 'freefire') {
+        const existing = await User.findById(captainId).select('gameIds freeFireIgnName freeFireUid').lean();
+        const existingFf = typeof existing?.gameIds?.freefire === 'object' ? existing.gameIds.freefire : {};
+        update['gameIds.freefire'] = {
+          ign: captainGameInfo.ign !== undefined ? captainGameInfo.ign : (existingFf.ign || existing?.freeFireIgnName || ''),
+          uid: captainGameInfo.uid !== undefined ? captainGameInfo.uid : (existingFf.uid || existing?.freeFireUid || '')
+        };
+        if (captainGameInfo.ign !== undefined) update.freeFireIgnName = captainGameInfo.ign;
+        if (captainGameInfo.uid !== undefined) update.freeFireUid = captainGameInfo.uid;
+      } else if (team.game === 'cs2' && captainGameInfo.steamId !== undefined) {
+        update['gameIds.steam'] = captainGameInfo.steamId;
+      } else if (team.game === 'valorant' && captainGameInfo.valorantId !== undefined) {
+        update['gameIds.valorant'] = captainGameInfo.valorantId;
+      }
+      if (Object.keys(update).length > 0) {
+        await User.findByIdAndUpdate(captainId, { $set: update });
+      }
+    }
+
+    if (memberIds && Array.isArray(memberIds)) {
+      const captainId = team.captain.toString();
+      const currentMemberIds = team.members.map(m => (m.userId?._id || m.userId).toString());
+      const newMemberIds = [captainId, ...memberIds.filter(id => id !== captainId)];
+
+      const removedIds = currentMemberIds.filter(id => !newMemberIds.includes(id));
+      const addedIds = newMemberIds.filter(id => !currentMemberIds.includes(id));
+
+      team.members = team.members.filter(m => {
+        const mid = (m.userId?._id || m.userId).toString();
+        return newMemberIds.includes(mid);
+      });
+
+      for (const addId of addedIds) {
+        team.members.push({ userId: addId, role: 'member', joinedAt: new Date() });
+      }
+
+      team.maxMembers = Math.max(team.maxMembers, team.members.length);
+    }
 
     await team.save();
-    await team.populate('captain', 'username avatarUrl');
-    await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache for all team members
-    const redisService = require('../services/redisService');
-    const memberIds = team.members.map(m => m.userId?._id || m.userId).filter(Boolean);
-    
-    for (const memberId of memberIds) {
-      await redisService.delete(`teams:my-teams:${memberId}`);
-    }
+    await team.populate('captain', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
+    await team.populate('members.userId', 'username avatarUrl gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid');
 
     res.json({
       success: true,
@@ -323,6 +389,31 @@ router.delete('/:id', auth, async (req, res) => {
           timestamp: new Date().toISOString()
         }
       });
+    }
+
+    // Block deletion if the team is registered in any active/ongoing tournament
+    const TournamentRegistration = require('../models/TournamentRegistration');
+    const Tournament = require('../models/Tournament');
+    const activeRegistration = await TournamentRegistration.findOne({
+      teamId: team._id,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    }).populate('tournamentId', 'name status');
+
+    if (activeRegistration) {
+      const t = activeRegistration.tournamentId;
+      const isOver = t && ['completed', 'cancelled', 'inactive'].includes(t.status);
+      if (!isOver) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'TEAM_IN_ACTIVE_TOURNAMENT',
+            message: t
+              ? `This team is registered in an active tournament "${t.name}". You can only delete the team after the tournament ends.`
+              : 'This team is registered in an active tournament. You can only delete the team after the tournament ends.',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
     }
 
     team.isActive = false;
@@ -379,10 +470,6 @@ router.post('/:id/leave', auth, async (req, res) => {
 
     team.removeMember(req.user.userId);
     await team.save();
-
-    // Invalidate cache for the user who left
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -556,21 +643,6 @@ router.post('/:id/invite', auth, async (req, res) => {
 // @access  Private
 router.get('/invitations/my-invitations', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
-    const cacheKey = `teams:invitations:${req.user.userId}`;
-
-    // Try to get from cache
-    const cachedData = await redisService.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for key: ${cacheKey}`);
-      return res.json({
-        success: true,
-        data: cachedData,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
-    }
-
     const invitations = await TeamInvitation.find({
       invitedUser: req.user.userId,
       status: 'pending'
@@ -583,9 +655,6 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
     const validInvitations = invitations.filter(inv => !inv.isExpired());
 
     const responseData = { invitations: validInvitations };
-
-    // Cache for 2 minutes (invitations change frequently)
-    await redisService.set(cacheKey, responseData, 120);
 
     res.json({
       success: true,
@@ -612,7 +681,6 @@ router.get('/invitations/my-invitations', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/accept', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id)
       .populate('teamId');
 
@@ -676,10 +744,6 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
     invitation.status = 'accepted';
     await invitation.save();
 
-    // Invalidate cache for the user
-    await redisService.delete(`teams:my-teams:${req.user.userId}`);
-    await redisService.delete(`teams:invitations:${req.user.userId}`);
-
     res.json({
       success: true,
       message: 'Joined team successfully',
@@ -705,7 +769,6 @@ router.post('/invitations/:id/accept', auth, async (req, res) => {
 // @access  Private
 router.post('/invitations/:id/reject', auth, async (req, res) => {
   try {
-    const redisService = require('../services/redisService');
     const invitation = await TeamInvitation.findById(req.params.id);
 
     if (!invitation) {
@@ -733,9 +796,6 @@ router.post('/invitations/:id/reject', auth, async (req, res) => {
 
     invitation.status = 'rejected';
     await invitation.save();
-
-    // Invalidate cache
-    await redisService.delete(`teams:invitations:${req.user.userId}`);
 
     res.json({
       success: true,
@@ -817,11 +877,6 @@ router.post('/:id/remove-member', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache for both the removed member and the team captain
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${memberId}`);
-    await redisService.delete(`teams:my-teams:${captainId}`);
 
     console.log(`✅ Member ${memberId} removed from team ${team.name}`);
 
@@ -931,10 +986,6 @@ router.post('/:id/add-member', auth, async (req, res) => {
     await team.save();
     await team.populate('captain', 'username avatarUrl');
     await team.populate('members.userId', 'username avatarUrl');
-
-    // Invalidate cache for the added member
-    const redisService = require('../services/redisService');
-    await redisService.delete(`teams:my-teams:${userId}`);
 
     console.log(`✅ Member ${userId} added to team ${team.name}`);
 

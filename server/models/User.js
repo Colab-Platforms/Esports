@@ -2,6 +2,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  fullName: {
+    type: String,
+    required: [true, 'Full name is required'],
+    trim: true,
+    minlength: [3, 'Full name must be at least 3 characters'],
+    maxlength: [50, 'Full name cannot exceed 50 characters']
+  },
   username: {
     type: String,
     required: [true, 'Username is required'],
@@ -55,9 +62,17 @@ const userSchema = new mongoose.Schema({
   },
   gameIds: {
     steam: { type: String, default: '' },
-    bgmi: { type: String, default: '' },
+    bgmi: {
+      ign: { type: String, default: '', trim: true, maxlength: [30, 'BGMI IGN cannot exceed 30 characters'] },
+      uid: { type: String, default: '', sparse: true }
+    },
+    freefire: {
+      ign: { type: String, default: '', trim: true, maxlength: [30, 'Free Fire IGN cannot exceed 30 characters'] },
+      uid: { type: String, default: '', sparse: true }
+    },
     valorant: { type: String, default: '' }
   },
+  // Legacy fields - kept for backward compatibility, will be deprecated
   bgmiIgnName: {
     type: String,
     default: '',
@@ -67,7 +82,18 @@ const userSchema = new mongoose.Schema({
   bgmiUid: {
     type: String,
     default: '',
-    sparse: true // Allow multiple users without bgmiUid
+    sparse: true
+  },
+  freeFireIgnName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [30, 'Free Fire IGN name cannot exceed 30 characters']
+  },
+  freeFireUid: {
+    type: String,
+    default: '',
+    sparse: true
   },
   steamProfile: {
     steamId: { type: String, default: '' },

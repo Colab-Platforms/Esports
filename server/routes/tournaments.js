@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const Tournament = require('../models/Tournament');
+const TournamentRegistration = require('../models/TournamentRegistration');
 const User = require('../models/User');
 const WalletService = require('../services/walletService');
 const redisService = require('../services/redisService');
@@ -404,6 +405,78 @@ router.get('/:id/eligible-teams', auth, async (req, res) => {
   }
 });
 
+router.get('/my-tournaments', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const participantTournaments = await Tournament.find({
+      'participants.userId': userId
+    }).select('name gameType mode status prizePool entryFee registrationDeadline startDate bannerImage').lean();
+
+    const registrations = await TournamentRegistration.find({ userId })
+      .select('tournamentId teamName status createdAt')
+      .populate('tournamentId', 'name gameType mode status prizePool entryFee registrationDeadline startDate bannerImage')
+      .lean();
+
+    const tournamentMap = new Map();
+
+    participantTournaments.forEach(t => {
+      tournamentMap.set(t._id.toString(), {
+        _id: t._id,
+        name: t.name,
+        gameType: t.gameType,
+        mode: t.mode,
+        status: t.status,
+        prizePool: t.prizePool,
+        entryFee: t.entryFee,
+        startDate: t.startDate,
+        bannerImage: t.bannerImage,
+        registrationStatus: 'registered'
+      });
+    });
+
+    registrations.forEach(r => {
+      if (!r.tournamentId) return;
+      const tid = r.tournamentId._id.toString();
+      if (!tournamentMap.has(tid)) {
+        tournamentMap.set(tid, {
+          _id: r.tournamentId._id,
+          name: r.tournamentId.name,
+          gameType: r.tournamentId.gameType,
+          mode: r.tournamentId.mode,
+          status: r.tournamentId.status,
+          prizePool: r.tournamentId.prizePool,
+          entryFee: r.tournamentId.entryFee,
+          startDate: r.tournamentId.startDate,
+          bannerImage: r.tournamentId.bannerImage,
+          teamName: r.teamName,
+          registrationStatus: r.status || 'registered'
+        });
+      } else {
+        const existing = tournamentMap.get(tid);
+        existing.teamName = r.teamName;
+        existing.registrationStatus = r.status || existing.registrationStatus;
+      }
+    });
+
+    const tournaments = Array.from(tournamentMap.values()).sort((a, b) => {
+      return new Date(b.startDate || 0) - new Date(a.startDate || 0);
+    });
+
+    res.json({
+      success: true,
+      data: tournaments,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching user tournaments:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_FAILED', message: 'Failed to fetch your tournaments', timestamp: new Date().toISOString() }
+    });
+  }
+});
+
 // @route   GET /api/tournaments/:id
 // @desc    Get tournament by ID
 // @access  Public
@@ -414,21 +487,21 @@ router.get('/:id', async (req, res) => {
     
     console.log('🔍 Fetching tournament:', tournamentId, 'Type:', typeof tournamentId);
     
-    // Check Redis cache first
     const cacheKey = `tournament:${tournamentId}`;
-    const cachedTournament = await redisService.get(cacheKey);
-    
-    if (cachedTournament) {
-      console.log('✅ Tournament found in cache');
-      return res.json({
-        success: true,
-        data: cachedTournament,
-        timestamp: new Date().toISOString(),
-        cached: true
-      });
+    const hasAuth = !!req.headers.authorization;
+
+    if (!hasAuth) {
+      const cachedTournament = await redisService.get(cacheKey);
+      if (cachedTournament) {
+        return res.json({
+          success: true,
+          data: cachedTournament,
+          timestamp: new Date().toISOString(),
+          cached: true
+        });
+      }
     }
     
-    // First fetch tournament without populate to check registration
     const tournament = await Tournament.findById(tournamentId);
 
     if (!tournament) {
@@ -442,7 +515,6 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    // Check if user is registered (BEFORE populate)
     let isUserRegistered = false;
     let roomDetails = null;
     
@@ -452,18 +524,21 @@ router.get('/:id', async (req, res) => {
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        console.log('🔍 Checking registration for user:', decoded.userId);
-        
         isUserRegistered = tournament.isUserRegistered(decoded.userId);
-        console.log('✅ Is user registered:', isUserRegistered);
         
-        // Include room details only if user is registered
+        if (!isUserRegistered) {
+          const bgmiOrFfReg = await TournamentRegistration.findOne({
+            tournamentId: tournament._id,
+            userId: decoded.userId
+          });
+          if (bgmiOrFfReg) isUserRegistered = true;
+        }
+        
         if (isUserRegistered) {
           roomDetails = tournament.roomDetails;
         }
       } catch (err) {
-        console.error('❌ Token verification error:', err.message);
-        // Token invalid, continue without auth
+        console.error('Token verification error:', err.message);
       }
     }
     
@@ -1507,6 +1582,7 @@ router.post('/:id/join-with-team', auth, [
     const registration = new TournamentRegistration({
       tournamentId: tournament._id,
       userId: req.user.userId,
+      teamId: team._id,
       teamName: team.name,
       teamLeader: {
         name: captain.username,

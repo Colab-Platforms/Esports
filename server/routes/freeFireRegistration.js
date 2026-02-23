@@ -9,31 +9,30 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Debug logging for route loading
-console.log('🎮 BGMI Registration routes loading...');
+console.log('🔥 Free Fire Registration routes loading...');
 
-// EMERGENCY TEST ROUTE - Add at the very beginning
+// EMERGENCY TEST ROUTE
 router.get('/emergency-test', (req, res) => {
   res.json({
     success: true,
-    message: 'EMERGENCY: BGMI Route is working!',
+    message: 'EMERGENCY: Free Fire Route is working!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// EMERGENCY ADMIN TEST - No auth middleware
+// EMERGENCY ADMIN TEST
 router.get('/admin/emergency-test', (req, res) => {
   res.json({
     success: true,
-    message: 'EMERGENCY: BGMI Admin Route is working!',
+    message: 'EMERGENCY: Free Fire Admin Route is working!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// @route   POST /api/bgmi-registration/:tournamentId/register
-// @desc    Register a 4-5 player team for BGMI tournament (3 required + 1 optional substitute)
+// @route   POST /api/freefire-registration/:tournamentId/register
+// @desc    Register a 4-player team for Free Fire tournament
 // @access  Private
 router.post('/:tournamentId/register', auth, [
   // Team Details Validation
@@ -47,28 +46,27 @@ router.post('/:tournamentId/register', auth, [
     .isLength({ min: 2, max: 50 })
     .withMessage('Team leader name must be 2-50 characters')
     .trim(),
-  body('teamLeader.bgmiId')
+  body('teamLeader.freeFireId')
     .isLength({ min: 3, max: 30 })
-    .withMessage('Team leader BGMI ID must be 3-30 characters')
+    .withMessage('Team leader Free Fire ID must be 3-30 characters')
     .trim(),
   body('teamLeader.phone')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
   
-  // Team Members Validation (3-4 members: 3 required + 1 optional substitute)
+  // Team Members Validation (exactly 3 members)
   body('teamMembers')
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 required + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members'),
   body('teamMembers.*.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
     .trim(),
-  body('teamMembers.*.bgmiId')
+  body('teamMembers.*.freeFireId')
     .isLength({ min: 3, max: 30 })
-    .withMessage('Team member BGMI ID must be 3-30 characters')
+    .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
 
-  
   // WhatsApp Number Validation
   body('whatsappNumber')
     .matches(/^[6-9]\d{9}$/)
@@ -77,7 +75,6 @@ router.post('/:tournamentId/register', auth, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.error('❌ Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         error: {
@@ -92,14 +89,7 @@ router.post('/:tournamentId/register', auth, [
     const { tournamentId } = req.params;
     const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
 
-    console.log('📝 Registration data received:', {
-      teamName,
-      teamLeader,
-      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId, isSubstitute: m.isSubstitute })),
-      whatsappNumber
-    });
-
-    // Check if tournament exists and is BGMI
+    // Check if tournament exists and is Free Fire
     const tournament = await Tournament.findById(tournamentId);
     if (!tournament) {
       return res.status(404).json({
@@ -112,12 +102,12 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    if (tournament.gameType !== 'bgmi') {
+    if (tournament.gameType !== 'freefire') {
       return res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_GAME_TYPE',
-          message: 'This endpoint is only for BGMI tournaments',
+          message: 'This endpoint is only for Free Fire tournaments',
           timestamp: new Date().toISOString()
         }
       });
@@ -135,7 +125,7 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Check for duplicate registration (same user, same tournament)
+    // Check for duplicate registration
     const existingRegistration = await TournamentRegistration.findOne({
       tournamentId,
       userId: req.user.userId
@@ -152,21 +142,19 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Validate unique BGMI IDs within the team
-    const allBgmiIds = [teamLeader.bgmiId, ...teamMembers.map(m => m.bgmiId)];
-    const uniqueBgmiIds = [...new Set(allBgmiIds)];
-    if (allBgmiIds.length !== uniqueBgmiIds.length) {
+    // Validate unique Free Fire IDs within the team
+    const allFreeFireIds = [teamLeader.freeFireId, ...teamMembers.map(m => m.freeFireId)];
+    const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
+    if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'DUPLICATE_BGMI_IDS',
-          message: 'All team members must have unique BGMI IDs',
+          code: 'DUPLICATE_FREEFIRE_IDS',
+          message: 'All team members must have unique Free Fire IDs',
           timestamp: new Date().toISOString()
         }
       });
     }
-
-    // No phone number validation for team members needed
 
     // Create registration
     const registration = new TournamentRegistration({
@@ -183,7 +171,6 @@ router.post('/:tournamentId/register', auth, [
 
     // Send WhatsApp "Registration Successful" message
     try {
-      // Create message record in database
       await WhatsAppMessage.createRegistrationSuccessMessage(
         registration._id,
         whatsappNumber,
@@ -191,7 +178,6 @@ router.post('/:tournamentId/register', auth, [
         tournament.name
       );
 
-      // Send WhatsApp message immediately
       const whatsappResult = await whatsappService.sendRegistrationSuccess(
         whatsappNumber,
         teamName,
@@ -205,26 +191,21 @@ router.post('/:tournamentId/register', auth, [
       }
     } catch (whatsappError) {
       console.error('❌ WhatsApp message creation failed:', whatsappError);
-      // Don't fail the registration if WhatsApp fails
     }
 
-    // Populate registration for response
     await registration.populate('tournamentId', 'name gameType mode');
     await registration.populate('userId', 'username email');
-
-    // Note: Old server integration removed for Railway deployment stability
 
     res.status(201).json({
       success: true,
       data: { registration },
-      message: '🎮 Team registered successfully! WhatsApp confirmation sent.',
+      message: '🔥 Team registered successfully! WhatsApp confirmation sent.',
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ BGMI registration error:', error);
+    console.error('❌ Free Fire registration error:', error);
     
-    // Handle duplicate key error (compound unique index)
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -248,9 +229,7 @@ router.post('/:tournamentId/register', auth, [
   }
 });
 
-// Moved this route to end of file to avoid conflict with /admin routes
-
-// @route   GET /api/bgmi-registration/my-registrations
+// @route   GET /api/freefire-registration/my-registrations
 // @desc    Get current user's registrations
 // @access  Private
 router.get('/my-registrations', auth, [
@@ -274,17 +253,14 @@ router.get('/my-registrations', auth, [
 
     const { status, page = 1, limit = 10 } = req.query;
 
-    // Build filters
     const filters = { userId: req.user.userId };
     if (status) filters.status = status;
 
-    // Get registrations with pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const registrations = await TournamentRegistration.getFilteredRegistrations(filters)
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count
     const total = await TournamentRegistration.countDocuments(filters);
 
     res.json({
@@ -314,7 +290,7 @@ router.get('/my-registrations', auth, [
   }
 });
 
-// @route   GET /api/bgmi-registration/:registrationId/status
+// @route   GET /api/freefire-registration/:registrationId/status
 // @desc    Get registration status
 // @access  Private
 router.get('/:registrationId/status', auth, async (req, res) => {
@@ -337,7 +313,6 @@ router.get('/:registrationId/status', auth, async (req, res) => {
       });
     }
 
-    // Check if user owns this registration or is admin
     const user = await User.findById(req.user.userId);
     const isOwner = registration.userId._id.toString() === req.user.userId;
     const isAdmin = user && ['admin', 'moderator'].includes(user.role);
@@ -372,14 +347,11 @@ router.get('/:registrationId/status', auth, async (req, res) => {
   }
 });
 
-// Moved this route to end of file to avoid conflict with /admin routes
-
-// @route   GET /api/bgmi-registration/admin/last-update
-// @desc    Get last update timestamp for real-time updates
+// @route   GET /api/freefire-registration/admin/last-update
+// @desc    Get last update timestamp
 // @access  Private (Admin)
 router.get('/admin/last-update', auth, async (req, res) => {
   try {
-    // Check if user is admin
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -391,19 +363,16 @@ router.get('/admin/last-update', auth, async (req, res) => {
       });
     }
 
-    // Get the most recent update time from registrations
     const lastRegistration = await TournamentRegistration
       .findOne({})
       .sort({ updatedAt: -1 })
       .select('updatedAt');
 
-    // Get the most recent WhatsApp message time
     const lastMessage = await WhatsAppMessage
       .findOne({})
       .sort({ createdAt: -1 })
       .select('createdAt');
 
-    // Return the most recent timestamp
     let lastUpdate = null;
     if (lastRegistration && lastMessage) {
       lastUpdate = lastRegistration.updatedAt > lastMessage.createdAt 
@@ -434,12 +403,11 @@ router.get('/admin/last-update', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/bgmi-registration/admin/assign-groups/:tournamentId
-// @desc    Assign groups to all registrations for a tournament
+// @route   POST /api/freefire-registration/admin/assign-groups/:tournamentId
+// @desc    Assign groups to all registrations
 // @access  Private (Admin)
 router.post('/admin/assign-groups/:tournamentId', auth, async (req, res) => {
   try {
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -454,8 +422,6 @@ router.post('/admin/assign-groups/:tournamentId', auth, async (req, res) => {
 
     const { tournamentId } = req.params;
 
-    // Get tournament to check if it's BGMI
-    const Tournament = require('../models/Tournament');
     const tournament = await Tournament.findById(tournamentId);
 
     if (!tournament) {
@@ -469,29 +435,26 @@ router.post('/admin/assign-groups/:tournamentId', auth, async (req, res) => {
       });
     }
 
-    // Only allow grouping for BGMI tournaments
-    if (tournament.gameType !== 'bgmi') {
+    if (tournament.gameType !== 'freefire') {
       return res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_GAME_TYPE',
-          message: 'Grouping is only available for BGMI tournaments',
+          message: 'Grouping is only available for Free Fire tournaments',
           timestamp: new Date().toISOString()
         }
       });
     }
 
-    // If grouping is not enabled, enable it with default settings
     if (!tournament.grouping || !tournament.grouping.enabled) {
       tournament.grouping = {
         enabled: true,
-        groupSize: 20 // Default group size
+        groupSize: 20
       };
       await tournament.save();
       console.log(`✅ Enabled grouping for tournament ${tournament.name} with default group size 20`);
     }
 
-    // Assign groups using the static method
     const result = await TournamentRegistration.assignGroups(tournamentId);
 
     res.json({
@@ -515,8 +478,8 @@ router.post('/admin/assign-groups/:tournamentId', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/bgmi-registration/admin/registrations
-// @desc    Get all BGMI registrations for admin dashboard
+// @route   GET /api/freefire-registration/admin/registrations
+// @desc    Get all Free Fire registrations for admin dashboard
 // @access  Private (Admin)
 router.get('/admin/registrations', auth, [
   query('status').optional().isIn(['pending', 'images_uploaded', 'verified', 'rejected', 'not_verified']),
@@ -528,7 +491,6 @@ router.get('/admin/registrations', auth, [
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
   try {
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -556,7 +518,6 @@ router.get('/admin/registrations', auth, [
 
     const { status, tournamentId, teamName, playerName, group, page = 1, limit = 20 } = req.query;
 
-    // Build MongoDB query directly
     const query = {};
     if (status) query.status = status;
     if (tournamentId) query.tournamentId = tournamentId;
@@ -569,7 +530,6 @@ router.get('/admin/registrations', auth, [
       ];
     }
 
-    // Get registrations with pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const registrations = await TournamentRegistration.find(query)
       .populate('tournamentId', 'name gameType mode grouping currentParticipants maxParticipants')
@@ -579,10 +539,8 @@ router.get('/admin/registrations', auth, [
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count for current filters
     const totalCount = await TournamentRegistration.countDocuments(query);
 
-    // Get stats based on current filters
     const stats = {
       total: totalCount,
       pending: await TournamentRegistration.countDocuments({ ...query, status: 'pending' }),
@@ -617,21 +575,6 @@ router.get('/admin/registrations', auth, [
 
   } catch (error) {
     console.error('❌ Get admin registrations error:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack,
-      userId: req.user?.userId,
-      query: req.query
-    });
-    
-    // Try simple query without populate
-    try {
-      const simpleRegistrations = await TournamentRegistration.find({}).limit(2);
-      console.log('✅ Simple query works, found:', simpleRegistrations.length, 'registrations');
-    } catch (simpleError) {
-      console.error('❌ Even simple query failed:', simpleError.message);
-    }
-    
     res.status(500).json({
       success: false,
       error: {
@@ -644,12 +587,11 @@ router.get('/admin/registrations', auth, [
   }
 });
 
-// @route   GET /api/bgmi-registration/admin/registrations/:registrationId
-// @desc    Get single BGMI registration for admin dashboard
+// @route   GET /api/freefire-registration/admin/registrations/:registrationId
+// @desc    Get single Free Fire registration
 // @access  Private (Admin)
 router.get('/admin/registrations/:registrationId', auth, async (req, res) => {
   try {
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -664,7 +606,6 @@ router.get('/admin/registrations/:registrationId', auth, async (req, res) => {
 
     const { registrationId } = req.params;
 
-    // Get single registration
     const registration = await TournamentRegistration.findById(registrationId)
       .populate('tournamentId', 'name gameType mode')
       .populate('userId', 'username email')
@@ -703,7 +644,7 @@ router.get('/admin/registrations/:registrationId', auth, async (req, res) => {
   }
 });
 
-// @route   PUT /api/bgmi-registration/admin/:registrationId/status
+// @route   PUT /api/freefire-registration/admin/:registrationId/status
 // @desc    Update registration status (Admin only)
 // @access  Private (Admin)
 router.put('/admin/:registrationId/status', auth, [
@@ -716,7 +657,6 @@ router.put('/admin/:registrationId/status', auth, [
     .withMessage('Rejection reason must be 5-200 characters')
 ], async (req, res) => {
   try {
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -759,11 +699,9 @@ router.put('/admin/:registrationId/status', auth, [
       });
     }
 
-    // Update registration status
     if (status === 'verified') {
       await registration.verify(req.user.userId);
       
-      // Send WhatsApp verification message
       try {
         console.log('🔄 Sending WhatsApp verification message to:', registration.whatsappNumber);
         
@@ -780,8 +718,6 @@ router.put('/admin/:registrationId/status', auth, [
           registration.tournamentId.name
         );
 
-        console.log('📱 WhatsApp API Response:', JSON.stringify(whatsappResult, null, 2));
-
         if (whatsappResult.success) {
           console.log('✅ WhatsApp verification message sent successfully');
         } else {
@@ -789,8 +725,6 @@ router.put('/admin/:registrationId/status', auth, [
         }
       } catch (whatsappError) {
         console.error('❌ WhatsApp verification message error:', whatsappError.message);
-        console.error('❌ WhatsApp error stack:', whatsappError.stack);
-        // Don't fail the verification if WhatsApp fails
       }
     } else if (status === 'rejected') {
       if (!rejectionReason) {
@@ -805,7 +739,6 @@ router.put('/admin/:registrationId/status', auth, [
       }
       await registration.reject(req.user.userId, rejectionReason);
       
-      // Send WhatsApp rejection message
       try {
         await WhatsAppMessage.createVerificationRejectedMessage(
           registration._id,
@@ -829,15 +762,12 @@ router.put('/admin/:registrationId/status', auth, [
         }
       } catch (whatsappError) {
         console.error('❌ WhatsApp rejection message error:', whatsappError);
-        // Don't fail the rejection if WhatsApp fails
       }
     } else if (status === 'pending') {
-      // Set registration to pending status
       registration.status = status;
-      registration.rejectionReason = rejectionReason || null; // Store reason if provided
+      registration.rejectionReason = rejectionReason || null;
       await registration.save();
       
-      // Send WhatsApp pending status message
       try {
         const whatsappResult = await whatsappService.sendPendingStatusMessage(
           registration.whatsappNumber,
@@ -853,15 +783,12 @@ router.put('/admin/:registrationId/status', auth, [
         }
       } catch (whatsappError) {
         console.error('❌ WhatsApp pending status message error:', whatsappError);
-        // Don't fail the status update if WhatsApp fails
       }
     } else if (status === 'not_verified') {
-      // Set registration to not verified status (same as rejected but different messaging)
-      registration.status = 'rejected'; // Store as rejected in DB
+      registration.status = 'rejected';
       registration.rejectionReason = rejectionReason || 'Not Verified by Admin';
       await registration.save();
       
-      // Send WhatsApp not verified message (same as rejection)
       try {
         const whatsappResult = await whatsappService.sendVerificationRejected(
           registration.whatsappNumber,
@@ -877,10 +804,8 @@ router.put('/admin/:registrationId/status', auth, [
         }
       } catch (whatsappError) {
         console.error('❌ WhatsApp not verified message error:', whatsappError);
-        // Don't fail the status update if WhatsApp fails
       }
     } else {
-      // For other status updates
       registration.status = status;
       if (status !== 'rejected' && status !== 'not_verified') {
         registration.rejectionReason = null;
@@ -888,7 +813,6 @@ router.put('/admin/:registrationId/status', auth, [
       await registration.save();
     }
 
-    // Populate for response
     await registration.populate('tournamentId', 'name gameType mode');
     await registration.populate('userId', 'username email');
     await registration.populate('verifiedBy', 'username');
@@ -913,7 +837,7 @@ router.put('/admin/:registrationId/status', auth, [
   }
 });
 
-// Debug endpoint to check registrations count
+// Debug endpoint
 router.get('/debug/registrations-count', auth, async (req, res) => {
   try {
     const total = await TournamentRegistration.countDocuments({});
@@ -933,25 +857,24 @@ router.get('/debug/registrations-count', auth, async (req, res) => {
   }
 });
 
-// Simple test endpoint to check if route is accessible
+// Simple test endpoint
 router.get('/test', (req, res) => {
   res.json({
     success: true,
-    message: 'BGMI Registration route is working',
+    message: 'Free Fire Registration route is working',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Test endpoint for admin route specifically
+// Test endpoint for admin route
 router.get('/admin/test', auth, async (req, res) => {
   try {
-    const User = require('../models/User');
     const user = await User.findById(req.user.userId);
     
     res.json({
       success: true,
-      message: 'BGMI Admin route is working',
+      message: 'Free Fire Admin route is working',
       user: {
         id: user._id,
         role: user.role || 'no role set',
@@ -964,7 +887,7 @@ router.get('/admin/test', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message,
-      message: 'BGMI Admin route test failed'
+      message: 'Free Fire Admin route test failed'
     });
   }
 });
@@ -1001,11 +924,10 @@ router.post('/make-admin', auth, async (req, res) => {
   }
 });
 
-// @route   PUT /api/bgmi-registration/admin/:registrationId
+// @route   PUT /api/freefire-registration/admin/:registrationId
 // @desc    Update registration (Admin only)
 // @access  Private (Admin)
 router.put('/admin/:registrationId', auth, [
-  // Validation middleware
   body('teamName')
     .optional()
     .isLength({ min: 3, max: 50 })
@@ -1016,10 +938,10 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 2, max: 50 })
     .withMessage('Team leader name must be 2-50 characters')
     .trim(),
-  body('teamLeader.bgmiId')
+  body('teamLeader.freeFireId')
     .optional()
     .isLength({ min: 3, max: 30 })
-    .withMessage('Team leader BGMI ID must be 3-30 characters')
+    .withMessage('Team leader Free Fire ID must be 3-30 characters')
     .trim(),
   body('teamLeader.phone')
     .optional()
@@ -1027,17 +949,17 @@ router.put('/admin/:registrationId', auth, [
     .withMessage('Team leader phone must be a valid Indian number'),
   body('teamMembers')
     .optional()
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 regular + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members'),
   body('teamMembers.*.name')
     .optional()
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
     .trim(),
-  body('teamMembers.*.bgmiId')
+  body('teamMembers.*.freeFireId')
     .optional()
     .isLength({ min: 3, max: 30 })
-    .withMessage('Team member BGMI ID must be 3-30 characters')
+    .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
   body('whatsappNumber')
     .optional()
@@ -1045,7 +967,6 @@ router.put('/admin/:registrationId', auth, [
     .withMessage('WhatsApp number must be a valid Indian number')
 ], async (req, res) => {
   try {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('❌ Validation errors:', errors.array());
@@ -1060,7 +981,6 @@ router.put('/admin/:registrationId', auth, [
       });
     }
 
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -1097,28 +1017,27 @@ router.put('/admin/:registrationId', auth, [
     console.log('- Team Name:', registration.teamName);
     console.log('- Team Members Count:', registration.teamMembers.length);
     
-    // Validate unique BGMI IDs if updating team data
+    // Validate unique Free Fire IDs if updating team data
     if (updateData.teamLeader || updateData.teamMembers) {
       const newTeamLeader = updateData.teamLeader || registration.teamLeader;
       const newTeamMembers = updateData.teamMembers || registration.teamMembers;
       
-      const allBgmiIds = [newTeamLeader.bgmiId, ...newTeamMembers.map(m => m.bgmiId)];
-      const uniqueBgmiIds = [...new Set(allBgmiIds)];
+      const allFreeFireIds = [newTeamLeader.freeFireId, ...newTeamMembers.map(m => m.freeFireId)];
+      const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
       
-      if (allBgmiIds.length !== uniqueBgmiIds.length) {
-        console.log('❌ Duplicate BGMI IDs found:', allBgmiIds);
+      if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
+        console.log('❌ Duplicate Free Fire IDs found:', allFreeFireIds);
         return res.status(400).json({
           success: false,
           error: {
-            code: 'DUPLICATE_BGMI_IDS',
-            message: 'All team members must have unique BGMI IDs',
+            code: 'DUPLICATE_FREEFIRE_IDS',
+            message: 'All team members must have unique Free Fire IDs',
             timestamp: new Date().toISOString()
           }
         });
       }
     }
     
-    // Update registration fields
     if (updateData.teamName) {
       console.log('📝 Updating team name:', updateData.teamName);
       registration.teamName = updateData.teamName;
@@ -1131,47 +1050,16 @@ router.put('/admin/:registrationId', auth, [
     
     if (updateData.teamMembers) {
       console.log('📝 Updating team members:', updateData.teamMembers.length, 'members');
-      
-      // Count regular members (excluding substitute)
-      const regularMembers = updateData.teamMembers.filter(m => !m.isSubstitute);
-      const substituteMembers = updateData.teamMembers.filter(m => m.isSubstitute);
-      
-      // Validate: Must have exactly 3 regular members
-      if (regularMembers.length !== 3) {
+      if (updateData.teamMembers.length !== 3) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have exactly 3 regular members (excluding substitute)',
+            message: 'Team must have exactly 3 members',
             timestamp: new Date().toISOString()
           }
         });
       }
-      
-      // Validate: Can have at most 1 substitute
-      if (substituteMembers.length > 1) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'TOO_MANY_SUBSTITUTES',
-            message: 'Team can have at most 1 substitute member',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Total members should be 3 or 4
-      if (updateData.teamMembers.length < 3 || updateData.teamMembers.length > 4) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have 3-4 members (3 regular + 1 optional substitute)',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
       registration.teamMembers = updateData.teamMembers;
     }
     
@@ -1184,7 +1072,6 @@ router.put('/admin/:registrationId', auth, [
     await registration.save();
     console.log('✅ Registration saved successfully');
 
-    // Populate for response
     await registration.populate('tournamentId', 'name gameType mode');
     await registration.populate('userId', 'username email');
 
@@ -1199,7 +1086,6 @@ router.put('/admin/:registrationId', auth, [
     console.error('❌ Update registration error:', error);
     console.error('❌ Error stack:', error.stack);
     
-    // Handle specific mongoose errors
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
@@ -1211,12 +1097,12 @@ router.put('/admin/:registrationId', auth, [
       });
     }
     
-    if (error.message?.includes('unique BGMI IDs')) {
+    if (error.message?.includes('unique Free Fire IDs')) {
       return res.status(400).json({
         success: false,
         error: {
-          code: 'DUPLICATE_BGMI_IDS',
-          message: 'All team members must have unique BGMI IDs',
+          code: 'DUPLICATE_FREEFIRE_IDS',
+          message: 'All team members must have unique Free Fire IDs',
           timestamp: new Date().toISOString()
         }
       });
@@ -1245,14 +1131,13 @@ router.put('/admin/:registrationId', auth, [
   }
 });
 
-// @route   DELETE /api/bgmi-registration/admin/:registrationId
+// @route   DELETE /api/freefire-registration/admin/:registrationId
 // @desc    Delete registration (Admin only)
 // @access  Private (Admin)
 router.delete('/admin/:registrationId', auth, async (req, res) => {
   try {
     console.log('🗑️ DELETE route hit:', req.params.registrationId);
     
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     console.log('👤 User role:', user?.role);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
@@ -1281,11 +1166,9 @@ router.delete('/admin/:registrationId', auth, async (req, res) => {
     }
 
     console.log('🔄 Deleting WhatsApp messages for registration:', registrationId);
-    // Delete associated WhatsApp messages
     await WhatsAppMessage.deleteMany({ registrationId });
 
     console.log('🔄 Deleting registration from database...');
-    // Delete the registration
     await TournamentRegistration.findByIdAndDelete(registrationId);
 
     console.log('✅ Registration deleted successfully');
@@ -1314,10 +1197,9 @@ router.delete('/admin/:registrationId', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/bgmi-registration/:tournamentId/registrations
+// @route   GET /api/freefire-registration/:tournamentId/registrations
 // @desc    Get all registrations for a tournament (Admin only)
 // @access  Private (Admin)
-// NOTE: This route is placed at the end to avoid conflict with /admin routes
 router.get('/:tournamentId/registrations', auth, [
   query('status').optional().isIn(['pending', 'images_uploaded', 'verified', 'rejected']),
   query('teamName').optional().isLength({ min: 1, max: 50 }),
@@ -1327,7 +1209,6 @@ router.get('/:tournamentId/registrations', auth, [
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
   try {
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -1356,17 +1237,6 @@ router.get('/:tournamentId/registrations', auth, [
     const { tournamentId } = req.params;
     const { status, teamName, playerName, phone, page = 1, limit = 20 } = req.query;
 
-    // Build filters
-    const filters = { tournamentId };
-    if (status) filters.status = status;
-    if (teamName) filters.teamName = teamName;
-    if (playerName) filters.playerName = playerName;
-    if (phone) filters.phone = phone;
-
-    // Get registrations with pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Use direct MongoDB query instead of getFilteredRegistrations
     const query = { tournamentId };
     if (status) query.status = status;
     if (teamName) query.teamName = new RegExp(teamName, 'i');
@@ -1384,6 +1254,7 @@ router.get('/:tournamentId/registrations', auth, [
       ];
     }
     
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     const registrations = await TournamentRegistration.find(query)
       .populate('tournamentId', 'name gameType mode')
       .populate('userId', 'username email')
@@ -1392,7 +1263,6 @@ router.get('/:tournamentId/registrations', auth, [
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Get total count
     const total = await TournamentRegistration.countDocuments(query);
 
     res.json({
@@ -1422,10 +1292,9 @@ router.get('/:tournamentId/registrations', auth, [
   }
 });
 
-// @route   DELETE /api/bgmi-registration/:registrationId
+// @route   DELETE /api/freefire-registration/:registrationId
 // @desc    Cancel registration (only if pending)
 // @access  Private
-// NOTE: This route is placed at the end to avoid conflict with /admin routes
 router.delete('/:registrationId', auth, async (req, res) => {
   try {
     const { registrationId } = req.params;
@@ -1442,7 +1311,6 @@ router.delete('/:registrationId', auth, async (req, res) => {
       });
     }
 
-    // Check if user owns this registration
     if (registration.userId.toString() !== req.user.userId) {
       return res.status(403).json({
         success: false,
@@ -1454,7 +1322,6 @@ router.delete('/:registrationId', auth, async (req, res) => {
       });
     }
 
-    // Only allow cancellation if status is pending
     if (registration.status !== 'pending') {
       return res.status(400).json({
         success: false,
@@ -1466,7 +1333,6 @@ router.delete('/:registrationId', auth, async (req, res) => {
       });
     }
 
-    // Delete registration
     await TournamentRegistration.findByIdAndDelete(registrationId);
 
     res.json({
@@ -1488,14 +1354,13 @@ router.delete('/:registrationId', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/bgmi-registration/check-user/:phone
-// @desc    Check if user is BGMI user (for old server)
+// @route   GET /api/freefire-registration/check-user/:phone
+// @desc    Check if user is Free Fire user
 // @access  Public
 router.get('/check-user/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
     
-    // Check if user has any BGMI registration
     const registration = await TournamentRegistration.findOne({
       $or: [
         { whatsappNumber: phone },
@@ -1505,28 +1370,27 @@ router.get('/check-user/:phone', async (req, res) => {
     
     res.json({
       success: true,
-      isBGMIUser: !!registration,
+      isFreeFireUser: !!registration,
       phone: phone
     });
     
   } catch (error) {
-    console.error('❌ Check BGMI user error:', error);
+    console.error('❌ Check Free Fire user error:', error);
     res.status(500).json({
       success: false,
-      isBGMIUser: false,
+      isFreeFireUser: false,
       error: error.message
     });
   }
 });
 
-// @route   GET /api/bgmi-registration/tournament/:tournamentId/teams
+// @route   GET /api/freefire-registration/tournament/:tournamentId/teams
 // @desc    Get all registered teams for a tournament (public view)
 // @access  Public
 router.get('/tournament/:tournamentId/teams', async (req, res) => {
   try {
     const { tournamentId } = req.params;
 
-    // Fetch all verified registrations for the tournament
     const teams = await TournamentRegistration.find({
       tournamentId,
       status: 'verified'
@@ -1557,7 +1421,7 @@ router.get('/tournament/:tournamentId/teams', async (req, res) => {
   }
 });
 
-// @route   PUT /api/bgmi-registration/admin/:registrationId/group
+// @route   PUT /api/freefire-registration/admin/:registrationId/group
 // @desc    Manually assign group to a registration (Admin only)
 // @access  Private (Admin)
 router.put('/admin/:registrationId/group', auth, [
@@ -1568,7 +1432,6 @@ router.put('/admin/:registrationId/group', auth, [
     .withMessage('Group must be in format G1, G2, G3, etc.')
 ], async (req, res) => {
   try {
-    // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -1582,7 +1445,6 @@ router.put('/admin/:registrationId/group', auth, [
       });
     }
 
-    // Check if user is admin
     const user = await User.findById(req.user.userId);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
       return res.status(403).json({
@@ -1600,7 +1462,6 @@ router.put('/admin/:registrationId/group', auth, [
 
     console.log(`🔄 Manually assigning group ${group} to registration ${registrationId}`);
 
-    // Find and update registration
     const registration = await TournamentRegistration.findByIdAndUpdate(
       registrationId,
       { group },
@@ -1643,5 +1504,5 @@ router.put('/admin/:registrationId/group', auth, [
   }
 });
 
-console.log('✅ BGMI Registration routes loaded successfully');
+console.log('✅ Free Fire Registration routes loaded successfully');
 module.exports = router;

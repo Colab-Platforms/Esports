@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone, FiChevronDown } from 'react-icons/fi';
+import { SiCounterstrike } from 'react-icons/si';
+import { IoGameController } from 'react-icons/io5';
 import toast from 'react-hot-toast';
 import secureRequest from '../../utils/secureRequest';
 
@@ -23,7 +25,7 @@ const RegisterPage = () => {
   const error = useSelector(selectAuthError);
   
   const [formData, setFormData] = useState({
-    username: '',
+    fullName: '',
     email: '',
     phone: '',
     password: '',
@@ -31,6 +33,7 @@ const RegisterPage = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showGameDropdown, setShowGameDropdown] = useState(false);
 
   // Clear error when component mounts
   useEffect(() => {
@@ -52,75 +55,78 @@ const RegisterPage = () => {
   };
 
   const validateForm = () => {
-    if (!formData.username || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
-      toast.error('Please fill in all fields');
-      return false;
-    }
+      if (!formData.fullName || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
+        toast.error('Please fill in all fields');
+        return false;
+      }
 
-    if (formData.username.length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return false;
-    }
+      if (formData.fullName.length < 3) {
+        toast.error('Full name must be at least 3 characters');
+        return false;
+      }
 
-    if (!/^[a-zA-Z0-9_ ]+$/.test(formData.username)) {
-      toast.error('Username can only contain letters, numbers, spaces, and underscores');
-      return false;
-    }
+      if (!/^[a-zA-Z\s]+$/.test(formData.fullName)) {
+        toast.error('Full name can only contain letters and spaces');
+        return false;
+      }
 
-    if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
-      toast.error('Please enter a valid email address');
-      return false;
-    }
+      if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
+        toast.error('Please enter a valid email address');
+        return false;
+      }
 
-    if (!/^(\+91)?[6-9]\d{9}$/.test(formData.phone)) {
-      toast.error('Please enter a valid Indian phone number (10 digits or +91 format)');
-      return false;
-    }
+      if (!/^(\+91)?[6-9]\d{9}$/.test(formData.phone)) {
+        toast.error('Please enter a valid Indian phone number (10 digits or +91 format)');
+        return false;
+      }
 
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return false;
-    }
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return false;
+      }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return false;
-    }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return false;
+      }
 
-    return true;
-  };
+      return true;
+    };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+      e.preventDefault();
 
-    dispatch(registerStart());
+      if (!validateForm()) return;
 
-    try {
-      // Use secure request utility to hide sensitive data
-      const data = await secureRequest.post('/api/auth/register', {
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password
-      });
+      dispatch(registerStart());
 
-      if (data.success) {
-        dispatch(registerSuccess(data.data));
-        toast.success(data.message || 'Registration successful!');
-        navigate('/dashboard');
-      } else {
-        dispatch(registerFailure(data.error));
+      try {
+        const requestData = {
+          username: formData.fullName, // Temporarily use fullName as username for production
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password
+        };
+
+        // Use secure request utility to hide sensitive data
+        const data = await secureRequest.post('/api/auth/register', requestData);
+
+        if (data.success) {
+          dispatch(registerSuccess(data.data));
+          toast.success('Sign up successful! Welcome to the arena! 🎮');
+          navigate('/dashboard');
+        } else {
+          dispatch(registerFailure(data.error));
+        }
+      } catch (error) {
+        console.error('Registration error:', error);
+        dispatch(registerFailure({
+          code: 'NETWORK_ERROR',
+          message: 'Network error. Please check your connection.'
+        }));
       }
-    } catch (error) {
-      console.error('Registration error:', error);
-      dispatch(registerFailure({
-        code: 'NETWORK_ERROR',
-        message: 'Network error. Please check your connection.'
-      }));
-    }
-  };
+    };
 
   return (
     <div className="h-screen bg-gaming-dark flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -170,23 +176,23 @@ const RegisterPage = () => {
           onSubmit={handleSubmit}
         >
           <div className="space-y-4">
-            {/* Username Field */}
+            {/* Full Name Field */}
             <div>
-              <label htmlFor="username" className="sr-only">
-                Username
+              <label htmlFor="fullName" className="sr-only">
+                Enter your Full Name :
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiUser className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id="username"
-                  name="username"
+                  id="fullName"
+                  name="fullName"
                   type="text"
                   required
                   className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
-                  placeholder="Username"
-                  value={formData.username}
+                  placeholder="Enter your Full Name"
+                  value={formData.fullName}
                   onChange={handleChange}
                 />
               </div>
@@ -303,9 +309,236 @@ const RegisterPage = () => {
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Terms and Conditions */}
+            {/* Game Selection Dropdown */}
+            <div>
+              {/* <label htmlFor="selectedGame" className="block text-sm font-medium text-gray-300 mb-2">
+                Select Your Game (Optional)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <IoGameController className="h-5 w-5 text-gray-400" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGameDropdown(!showGameDropdown)}
+                  className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200 text-left"
+                >
+                  {formData.selectedGame || 'Choose a game'}
+                </button>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <FiChevronDown className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${showGameDropdown ? 'rotate-180' : ''}`} />
+                </div> */}
+                
+                {/* Dropdown Menu */}
+                {/* {showGameDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute z-10 mt-2 w-full bg-gaming-charcoal border border-gaming-slate rounded-lg shadow-lg overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, selectedGame: '' });
+                        setShowGameDropdown(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-gray-400 hover:bg-gaming-slate hover:text-white transition-colors duration-200 flex items-center"
+                    >
+                      <IoGameController className="mr-3 h-5 w-5" />
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, selectedGame: 'BGMI', steamId: '', freeFireIgnName: '', freeFireUid: '' });
+                        setShowGameDropdown(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
+                    >
+                      <img 
+                        src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058" 
+                        alt="BGMI"
+                        className="w-6 h-6 rounded mr-3 object-cover"
+                      />
+                      BGMI (Battlegrounds Mobile India)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, selectedGame: 'Free Fire', steamId: '', bgmiIgnName: '', bgmiUid: '' });
+                        setShowGameDropdown(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
+                    >
+                      <span className="mr-3 text-xl">🔥</span>
+                      Free Fire
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, selectedGame: 'CS2', bgmiIgnName: '', bgmiUid: '', freeFireIgnName: '', freeFireUid: '' });
+                        setShowGameDropdown(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-slate transition-colors duration-200 flex items-center border-t border-gaming-slate"
+                    >
+                      <SiCounterstrike className="mr-3 h-5 w-5 text-orange-500" />
+                      CS2 (Counter-Strike 2)
+                    </button>
+                  </motion.div>
+                )}
+              </div> */}
+            </div>
+
+            {/* BGMI Fields - Show when BGMI is selected */}
+            {/* {formData.selectedGame === 'BGMI' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-4"
+              > */}
+                {/* BGMI IGN Name */}
+                {/* <div>
+                  <label htmlFor="bgmiIgnName" className="block text-sm font-medium text-gray-300 mb-2">
+                    BGMI IGN (In-Game Name)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiUser className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="bgmiIgnName"
+                      name="bgmiIgnName"
+                      type="text"
+                      required={formData.selectedGame === 'BGMI'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your BGMI IGN"
+                      value={formData.bgmiIgnName}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div> */}
+
+                {/* BGMI UID */}
+                {/* <div>
+                  <label htmlFor="bgmiUid" className="block text-sm font-medium text-gray-300 mb-2">
+                    BGMI UID (User ID)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <IoGameController className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="bgmiUid"
+                      name="bgmiUid"
+                      type="text"
+                      required={formData.selectedGame === 'BGMI'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your BGMI UID"
+                      value={formData.bgmiUid}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )} */}
+
+            {/* Free Fire Fields - Show when Free Fire is selected */}
+            {/* {formData.selectedGame === 'Free Fire' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-4"
+              > */}
+                {/* Free Fire IGN Name */}
+                {/* <div>
+                  <label htmlFor="freeFireIgnName" className="block text-sm font-medium text-gray-300 mb-2">
+                    Free Fire IGN (In-Game Name)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiUser className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="freeFireIgnName"
+                      name="freeFireIgnName"
+                      type="text"
+                      required={formData.selectedGame === 'Free Fire'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your Free Fire IGN"
+                      value={formData.freeFireIgnName}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div> */}
+
+                {/* Free Fire UID */}
+                {/* <div>
+                  <label htmlFor="freeFireUid" className="block text-sm font-medium text-gray-300 mb-2">
+                    Free Fire UID (User ID)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <IoGameController className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="freeFireUid"
+                      name="freeFireUid"
+                      type="text"
+                      required={formData.selectedGame === 'Free Fire'}
+                      className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                      placeholder="Enter your Free Fire UID"
+                      value={formData.freeFireUid}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )} */}
+
+            {/* CS2 Steam ID Field - Show when CS2 is selected */}
+            {/* {formData.selectedGame === 'CS2' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <label htmlFor="steamId" className="block text-sm font-medium text-gray-300 mb-2">
+                  Steam ID
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SiCounterstrike className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="steamId"
+                    name="steamId"
+                    type="text"
+                    required={formData.selectedGame === 'CS2'}
+                    className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-neon focus:border-transparent transition-all duration-200"
+                    placeholder="Enter your Steam ID"
+                    value={formData.steamId}
+                    onChange={handleChange}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  Find your Steam ID at{' '}
+                  <a 
+                    href="https://steamid.io/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-gaming-neon hover:text-gaming-neon-blue"
+                  >
+                    steamid.io
+                  </a>
+                </p>
+              </motion.div>
+            )} */}
+          </div>
+           
+          {/* Terms and  Conditions */}
           <div className="flex items-center">
             <input
               id="terms"

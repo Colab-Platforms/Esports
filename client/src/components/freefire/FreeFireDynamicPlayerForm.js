@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
 import api from '../../services/api';
-import PlayerField from './PlayerField';
+import FreeFirePlayerField from './FreeFirePlayerField';
 
-const BGMIDynamicPlayerForm = ({
+const FreeFireDynamicPlayerForm = ({
   teamSize,
   existingTeamMembers,
   onSubmit,
@@ -22,7 +22,7 @@ const BGMIDynamicPlayerForm = ({
       existingTeamMembers.slice(0, teamSize).forEach(member => {
         players.push({
           name: member.username || member.name || '',
-          bgmiId: member.gameId || member.bgmiId || '',
+          freeFireId: member.gameId || member.freeFireId || '',
           playerId: member._id || null,
           isAdded: false // Mark as original member
         });
@@ -33,7 +33,7 @@ const BGMIDynamicPlayerForm = ({
     if (players.length === 0) {
       players.push({
         name: '',
-        bgmiId: '',
+        freeFireId: '',
         playerId: null,
         isAdded: false
       });
@@ -55,16 +55,6 @@ const BGMIDynamicPlayerForm = ({
     if (!ign || !ign.trim()) {
       return 'IGN is required';
     }
-    // if (ign.length < 3) {
-    //   return 'IGN must be at least 3 characters';
-    // }
-    // if (ign.length > 20) {
-    //   return 'IGN cannot exceed 20 characters';
-    // }
-    // // Updated regex to allow letters, numbers, underscores, and spaces
-    // if (!/^[a-zA-Z0-9_ ]+$/.test(ign)) {
-    //   return 'IGN can only contain letters, numbers, underscores, and spaces';
-    // }
     return null;
   };
 
@@ -81,8 +71,8 @@ const BGMIDynamicPlayerForm = ({
 
   const checkDuplicateUIDs = (playersList) => {
     const uids = playersList
-      .filter(p => p.bgmiId && p.bgmiId.trim())
-      .map(p => p.bgmiId.trim());
+      .filter(p => p.freeFireId && p.freeFireId.trim())
+      .map(p => p.freeFireId.trim());
     
     const uniqueUids = new Set(uids);
     return uids.length !== uniqueUids.size;
@@ -92,10 +82,9 @@ const BGMIDynamicPlayerForm = ({
     const newErrors = {};
     let hasErrors = false;
 
-    // Check if we have exactly 4 players
-    if (players.length < 4) {
-      // This will be handled by parent component with snackbar
-      return { hasErrors: true, message: '4 players are required' };
+    // Check if we have exactly 3 players (Free Fire = 4 total with leader)
+    if (players.length < 3) {
+      return { hasErrors: true, message: '3 players are required' };
     }
 
     players.forEach((player, index) => {
@@ -109,13 +98,13 @@ const BGMIDynamicPlayerForm = ({
 
       // UID is required only if IGN is filled
       if (player.name && player.name.trim()) {
-        if (!player.bgmiId || !player.bgmiId.trim()) {
-          playerErrors.bgmiId = 'UID is required';
+        if (!player.freeFireId || !player.freeFireId.trim()) {
+          playerErrors.freeFireId = 'UID is required';
           hasErrors = true;
         } else {
-          const uidError = validateUID(player.bgmiId);
+          const uidError = validateUID(player.freeFireId);
           if (uidError) {
-            playerErrors.bgmiId = uidError;
+            playerErrors.freeFireId = uidError;
             hasErrors = true;
           }
         }
@@ -130,11 +119,11 @@ const BGMIDynamicPlayerForm = ({
     if (checkDuplicateUIDs(players)) {
       hasErrors = true;
       players.forEach((player, index) => {
-        if (player.bgmiId && player.bgmiId.trim()) {
+        if (player.freeFireId && player.freeFireId.trim()) {
           if (!newErrors[index]) {
             newErrors[index] = {};
           }
-          newErrors[index].bgmiId = 'Duplicate UID detected';
+          newErrors[index].freeFireId = 'Duplicate UID detected';
         }
       });
     }
@@ -156,8 +145,8 @@ const BGMIDynamicPlayerForm = ({
         const currentUserInList = {
           _id: currentUser._id,
           username: currentUser.username,
-          bgmiUid: currentUser.gameIds?.bgmi || currentUser.bgmiUid || '',
-          bgmiIgnName: currentUser.bgmiIgnName || '',
+          freeFireUid: currentUser.gameIds?.freefire?.uid || currentUser.freeFireUid || '',
+          freeFireIgnName: currentUser.gameIds?.freefire?.ign || currentUser.freeFireIgnName || '',
           avatarUrl: currentUser.avatarUrl
         };
         
@@ -179,17 +168,14 @@ const BGMIDynamicPlayerForm = ({
     fetchFriends();
   }, [fetchFriends]);
 
-  // Handle add from friends button - removed, now using dropdown
-  // Friend selection happens directly in PlayerField dropdown
-
   // Handle add player button - add only one player at a time
   const handleAddPlayer = useCallback(() => {
-    if (players.length < 4) {
+    if (players.length < 3) {
       setPlayers(prev => [
         ...prev,
         {
           name: '',
-          bgmiId: '',
+          freeFireId: '',
           playerId: null,
           isAdded: true
         }
@@ -225,7 +211,7 @@ const BGMIDynamicPlayerForm = ({
       const updated = [...prev];
       updated[playerIndex] = {
         ...updated[playerIndex],
-        bgmiId: value
+        freeFireId: value
       };
       return updated;
     });
@@ -288,7 +274,7 @@ const BGMIDynamicPlayerForm = ({
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({
-            bgmiUid: player.bgmiId,
+            freeFireUid: player.freeFireId,
             ignName: player.name,
             playerId: player.playerId
           })
@@ -352,9 +338,7 @@ const BGMIDynamicPlayerForm = ({
     }
   }, [players, validateForm, onSubmit]);
 
-  const isFormValid = Object.keys(errors).length === 0 && 
-                      players.every(p => p.name && p.name.trim() && p.bgmiId && p.bgmiId.trim());
-  const canAddMore = players.length < 4;
+  const canAddMore = players.length < 3;
 
   return (
     <div className="space-y-4">
@@ -364,8 +348,8 @@ const BGMIDynamicPlayerForm = ({
           👥 Team Players
         </h3>
         <div className="text-sm text-gray-400">
-          <span className="text-gaming-neon font-medium">{players.length}</span>
-          <span className="text-gray-500">/4 Players</span>
+          <span className="text-orange-500 font-medium">{players.length}</span>
+          <span className="text-gray-500">/3 Players</span>
         </div>
       </div>
 
@@ -375,7 +359,7 @@ const BGMIDynamicPlayerForm = ({
           {players.map((player, index) => (
             <div key={`player-${index}`} className="flex items-start gap-2">
               <div className="flex-1">
-                <PlayerField
+                <FreeFirePlayerField
                   playerNumber={index + 1}
                   player={player}
                   isRemovable={index >= teamSize}
@@ -398,7 +382,7 @@ const BGMIDynamicPlayerForm = ({
                   onClick={handleAddPlayer}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-3 py-2 bg-gaming-neon/10 border border-gaming-neon text-gaming-neon rounded-lg font-medium hover:bg-gaming-neon/20 transition-colors text-xs h-fit mt-8"
+                  className="px-3 py-2 bg-orange-500/10 border border-orange-500 text-orange-500 rounded-lg font-medium hover:bg-orange-500/20 transition-colors text-xs h-fit mt-8"
                   title="Add another player"
                 >
                   + Add
@@ -433,4 +417,4 @@ const BGMIDynamicPlayerForm = ({
   );
 };
 
-export default BGMIDynamicPlayerForm;
+export default FreeFireDynamicPlayerForm;
