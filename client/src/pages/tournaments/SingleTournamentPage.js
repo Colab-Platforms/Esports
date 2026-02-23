@@ -58,11 +58,13 @@ const SingleTournamentPage = () => {
 
   // Calculate visible tabs based on user role
   const visibleTabs = React.useMemo(() => {
-    if (!user) return tabs;
+    // If user is null (not logged in) or role is "user", show only GENERAL tab
+    if (!user || user.role === "user") {
+      return tabs.filter((tab) => tab.id === "general");
+    }
 
-    return user.role === "user"
-      ? tabs.filter((tab) => tab.id === "team")
-      : tabs;
+    // Admin/Designer/Moderator see all tabs (GENERAL + TEAMS)
+    return tabs;
   }, [user, tabs]);
 
   // Share tournament function
