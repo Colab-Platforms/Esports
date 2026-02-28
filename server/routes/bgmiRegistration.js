@@ -516,6 +516,8 @@ router.get('/admin/registrations', auth, [
   query('teamName').optional().isLength({ min: 1, max: 50 }),
   query('playerName').optional().isLength({ min: 1, max: 50 }),
   query('group').optional().isLength({ min: 1, max: 10 }),
+  query('startDate').optional().isISO8601(),
+  query('endDate').optional().isISO8601(),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
@@ -546,7 +548,7 @@ router.get('/admin/registrations', auth, [
       });
     }
 
-    const { status, tournamentId, teamName, playerName, group, page = 1, limit = 20 } = req.query;
+    const { status, tournamentId, teamName, playerName, group, startDate, endDate, page = 1, limit = 20 } = req.query;
 
     // Build MongoDB query directly
     const query = {};
@@ -559,6 +561,20 @@ router.get('/admin/registrations', auth, [
         { 'teamLeader.name': new RegExp(playerName, 'i') },
         { 'teamMembers.name': new RegExp(playerName, 'i') }
       ];
+    }
+
+    // Add date range filtering
+    if (startDate || endDate) {
+      query.registeredAt = {};
+      if (startDate) {
+        query.registeredAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Add 1 day to endDate to include the entire end date
+        const endDateObj = new Date(endDate);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        query.registeredAt.$lt = endDateObj;
+      }
     }
 
     // Get registrations with pagination
