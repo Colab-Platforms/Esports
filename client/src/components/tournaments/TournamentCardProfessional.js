@@ -1,20 +1,140 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import CountdownTimer from '../common/CountdownTimer';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { motion } from "framer-motion";
+import { createPortal } from "react-dom";
+import CountdownTimer from "../common/CountdownTimer";
+import SteamLinkingModal from "./SteamLinkingModal";
+import { selectAuth } from "../../store/slices/authSlice";
+import notificationService from "../../services/notificationService";
+import { getSteamAuthUrl } from "../../utils/apiConfig";
 
-const TournamentCardProfessional = ({ 
-  tournament, 
-  getModeIcon, 
-  getStatusColor, 
+const TournamentCardProfessional = ({
+  tournament,
+  getModeIcon,
+  getStatusColor,
   formatDate,
   showTimer = true,
-  gameType = 'bgmi',
-  hideBottomInfo = false
+  gameType = "bgmi",
+  hideBottomInfo = false,
 }) => {
   const navigate = useNavigate();
-  const isRegistrationClosed = tournament.status === 'registration_closed';
-  
+  const { isAuthenticated, user } = useSelector(selectAuth);
+  const [showSteamModal, setShowSteamModal] = useState(false);
+  const isRegistrationClosed = tournament.status === "registration_closed";
+
+  const handleSteamLink = React.useCallback(() => {
+    const userId = user?.id || user?._id;
+
+    if (!userId) {
+      notificationService.showCustomNotification(
+        "error",
+        "Error",
+        "Unable to get user ID"
+      );
+      return;
+    }
+
+    setShowSteamModal(false);
+
+    // Direct redirect to Steam OAuth
+    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournament._id}`);
+  }, [user, tournament._id]);
+
+    const handleJoinTournament = React.useCallback(async () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
+    // CS2 Tournament - Direct join with Steam check
+    if (tournament?.gameType === "cs2") {
+      try {
+        // Check if Steam is connected
+        const steamId = user?.gameIds?.steam || user?.steamProfile?.steamId;
+        const isSteamConnected = user?.steamProfile?.isConnected;
+
+        console.log("🎮 CS2 Direct Join - Steam Check:", {
+          steamId,
+          isSteamConnected,
+          user,
+        });
+
+        // If Steam not connected, show Steam linking modal
+        if (!steamId || !isSteamConnected) {
+          console.log("⚠️ Steam not connected - showing Steam modal");
+          setShowSteamModal(true);
+          return;
+        }
+
+        // Steam connected - directly join tournament
+        console.log("✅ Steam connected - joining tournament directly");
+
+        const token = localStorage.getItem("token");
+        const API_BASE_URL = process.env.REACT_APP_API_URL || "";
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/tournaments/${tournament._id}/join`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              gameId: steamId,
+              teamName: "",
+            }),
+          },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error?.message || "Failed to join tournament");
+        }
+
+        console.log("✅ Successfully joined CS2 tournament:", data);
+
+        // Trigger cache invalidation for homepage
+        window.dispatchEvent(
+          new CustomEvent("tournamentJoined", {
+            detail: {
+              tournamentId: tournament._id,
+              tournamentName: tournament.name,
+            },
+          }),
+        );
+
+        // Update localStorage timestamp for cache invalidation
+        localStorage.setItem("last_tournament_update", Date.now().toString());
+
+        // Show success notification
+        notificationService.showCustomNotification(
+          "success",
+          "Tournament Joined!",
+          `Successfully joined ${tournament.name}. Launching CS2...`,
+        );
+
+        // Launch CS2 directly - Steam will handle installation if needed
+        if (tournament.roomDetails?.cs2?.connectCommand) {
+          window.location.href = tournament.roomDetails.cs2.connectCommand;
+        }
+      } catch (error) {
+        console.error("❌ Failed to join CS2 tournament:", error);
+        notificationService.showCustomNotification(
+          "error",
+          "Join Failed",
+          `Failed to join tournament: ${error.message}`,
+        );
+      }
+      return;
+    }
+
+    // For non-CS2 tournaments, navigate to details page
+    navigate(`/tournaments/${tournament._id}`);
+  }, [isAuthenticated, tournament, user, navigate]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -22,25 +142,26 @@ const TournamentCardProfessional = ({
       transition={{ duration: 0.3 }}
       className="relative w-full aspect-[4/5] overflow-hidden border border-gaming-gold/70 hover:border-gaming-gold transition-all duration-300 group bg-gradient-to-br from-gaming-charcoal via-gaming-dark to-gaming-darker shadow-xl hover:shadow-gaming-gold/40"
       style={{
-        clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)'
+        clipPath:
+          "polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)",
       }}
     >
       {/* Background Image */}
       <div className="absolute inset-0">
         {tournament.bannerImage ? (
-          <img 
-            src={tournament.bannerImage} 
+          <img
+            src={tournament.bannerImage}
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        ) : gameType === 'cs2' ? (
-          <img 
+        ) : gameType === "cs2" ? (
+          <img
             src="https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <img 
+          <img
             src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -57,19 +178,21 @@ const TournamentCardProfessional = ({
             REGISTRATION CLOSED
           </div>
         )}
-        
+
         {/* Timer - Show if tournament hasn't started yet and showTimer is true */}
-        {showTimer && tournament?.startDate && new Date(tournament.startDate) > new Date() && (
-          <div className="px-3 py-1.5 backdrop-blur-md border border-gaming-gold/70 rounded-full text-xs font-display font-bold text-white">
-            <CountdownTimer 
-              targetDate={tournament.startDate}
-              format="compact"
-              size="sm"
-              showLabels={false}
-              className="text-white"
-            />
-          </div>
-        )}
+        {showTimer &&
+          tournament?.startDate &&
+          new Date(tournament.startDate) > new Date() && (
+            <div className="px-3 py-1.5 backdrop-blur-md border border-gaming-gold/70 rounded-full text-xs font-display font-bold text-white">
+              <CountdownTimer
+                targetDate={tournament.startDate}
+                format="compact"
+                size="sm"
+                showLabels={false}
+                className="text-white"
+              />
+            </div>
+          )}
       </div>
 
       {/* Content Container */}
@@ -77,17 +200,23 @@ const TournamentCardProfessional = ({
         {/* Top Section - Status Badge */}
         {!isRegistrationClosed && (
           <div className="flex justify-end">
-            <div className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}>
-              {tournament.status === 'completed' ? 'FINISHED' : tournament.status.replace('_', ' ').toUpperCase()}
+            <div
+              className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}
+            >
+              {tournament.status === "completed"
+                ? "FINISHED"
+                : tournament.status.replace("_", " ").toUpperCase()}
             </div>
           </div>
         )}
 
         {/* Middle Section - Tournament Name */}
         <div className="flex flex-col items-center justify-center text-center">
-          {gameType === 'cs2' && <h3 className="text-white font-display text-2xl font-bold mb-2 line-clamp-2 drop-shadow-lg tracking-wide">
-            {tournament.name}
-          </h3>}
+          {gameType === "cs2" && (
+            <h3 className="text-white font-display text-2xl font-bold mb-2 line-clamp-2 drop-shadow-lg tracking-wide">
+              {tournament.name}
+            </h3>
+          )}
           {/* <div className="text-gaming-gold font-display text-xs font-bold tracking-widest opacity-80">
             {tournament.mode?.toUpperCase() || 'SQUAD'}
           </div> */}
@@ -99,54 +228,144 @@ const TournamentCardProfessional = ({
             <>
               {/* Prize Pool & Entry Fee Row */}
               <div className="flex justify-between items-center text-xs">
-                {gameType !== 'cs2' && <div className="flex items-center space-x-1.5">
-                  <span className="text-gaming-gold font-display font-bold">PRIZE:</span>
-                  <span className="text-white font-display font-bold">₹{(tournament.prizePool / 1000).toFixed(0)}K</span>
-                </div>}
+                {gameType !== "cs2" && (
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-gaming-gold font-display font-bold">
+                      PRIZE:
+                    </span>
+                    <span className="text-white font-display font-bold">
+                      ₹{(tournament.prizePool / 1000).toFixed(0)}K
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-gaming-gold font-display font-bold">ENTRY:</span>
-                  <span className="text-white font-display font-bold">₹{tournament.entryFee}</span>
+                  <span className="text-gaming-gold font-display font-bold">
+                    ENTRY:
+                  </span>
+                  <span className="text-white font-display font-bold">
+                    ₹{tournament.entryFee}
+                  </span>
                 </div>
               </div>
 
               {/* Players & Registration Row */}
               <div className="flex justify-between items-center text-xs">
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-gaming-gold font-display font-bold">PLAYERS:</span>
-                  <span className="text-white font-display font-bold">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
+                  <span className="text-gaming-gold font-display font-bold">
+                    PLAYERS:
+                  </span>
+                  <span className="text-white font-display font-bold">
+                    {tournament.currentParticipants}/
+                    {tournament.maxParticipants}
+                  </span>
                 </div>
-                {gameType !== 'cs2' && <div className="flex items-center space-x-1.5">
-                  <span className="text-gaming-gold font-display font-bold">REG:</span>
-                  <span className="text-gaming-neon font-display font-bold">{Math.round((tournament.currentParticipants / tournament.maxParticipants) * 100)}%</span>
-                </div>}
+                {gameType !== "cs2" && (
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-gaming-gold font-display font-bold">
+                      REG:
+                    </span>
+                    <span className="text-gaming-neon font-display font-bold">
+                      {Math.round(
+                        (tournament.currentParticipants /
+                          tournament.maxParticipants) *
+                          100,
+                      )}
+                      %
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Divider Line */}
-              {gameType !== 'cs2' && <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />}
+              {gameType !== "cs2" && (
+                <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />
+              )}
 
               {/* Dates Row */}
-              {gameType !== 'cs2' && <div className="flex justify-between items-center text-xs">
-                <div>
-                  <div className="text-gaming-gold font-display font-bold text-xs">REG DEADLINE</div>
-                  <div className="text-white font-display text-xs">{formatDate(tournament.registrationDeadline).split(',')[0]}</div>
+              {gameType !== "cs2" && (
+                <div className="flex justify-between items-center text-xs">
+                  <div>
+                    <div className="text-gaming-gold font-display font-bold text-xs">
+                      REG DEADLINE
+                    </div>
+                    <div className="text-white font-display text-xs">
+                      {
+                        formatDate(tournament.registrationDeadline).split(
+                          ",",
+                        )[0]
+                      }
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gaming-gold font-display font-bold text-xs">
+                      STARTS
+                    </div>
+                    <div className="text-white font-display text-xs">
+                      {formatDate(tournament.startDate).split(",")[0]}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-gaming-gold font-display font-bold text-xs">STARTS</div>
-                  <div className="text-white font-display text-xs">{formatDate(tournament.startDate).split(',')[0]}</div>
-                </div>
-              </div>}
+              )}
             </>
           )}
 
-          {/* View Details Button - Glassy Effect */}
-          <button
-            onClick={() => navigate(`/tournaments/${tournament._id}`)}
-            className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
-          >
-            VIEW DETAILS →
-          </button>
+          {/* Buttons Section */}
+          {gameType === "cs2" ? (
+            <div className="space-y-2">
+              {/* JOIN SERVER Button */}
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate("/login");
+                  } else {
+                    handleJoinTournament();
+                  }
+                }}
+                disabled={
+                  tournament?.status !== "active"
+                }
+                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-sm rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${
+                  tournament?.status !== "active"
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
+                {!isAuthenticated
+                  ? "LOGIN TO JOIN"
+                  : tournament?.status === "active"
+                    ? "🎮 JOIN SERVER"
+                    : "SERVER INACTIVE"}
+              </button>
+
+              {/* VIEW DETAILS Button */}
+              <button
+                onClick={() => navigate(`/tournaments/${tournament._id}`)}
+                className="w-full py-2 px-3 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+              >
+                VIEW DETAILS →
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate(`/tournaments/${tournament._id}`)}
+              className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+            >
+              VIEW DETAILS →
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Steam Linking Modal - Rendered outside card using Portal */}
+      {showSteamModal && createPortal(
+        <SteamLinkingModal
+          isOpen={showSteamModal}
+          onClose={() => setShowSteamModal(false)}
+          onConfirm={handleSteamLink}
+          tournamentName={tournament?.name || 'CS2 Tournament'}
+        />,
+        document.body
+      )}
     </motion.div>
   );
 };

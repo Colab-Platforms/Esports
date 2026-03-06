@@ -1,204 +1,259 @@
 const express = require('express');
 const router = express.Router();
-const WalletService = require('../services/walletService');
-const PaymentService = require('../services/paymentService');
+const Wallet = require('../models/Wallet');
 const auth = require('../middleware/auth');
 
-// Get wallet details
+// @route   GET /api/wallet
+// @desc    Get user's wallet balance and recent transactions
+// @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const wallet = await WalletService.getWallet(req.user.id);
-    const stats = await WalletService.getWalletStats(req.user.id);
+    const userId = req.user.userId;
+
+    let wallet = await Wallet.findOne({ userId });
+
+    // Create wallet if doesn't exist
+    if (!wallet) {
+      wallet = new Wallet({ userId });
+      await wallet.save();
+    }
+
+    // Get recent 10 transactions
+    const recentTransactions = wallet.transactions
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 10);
+    
+    // Calculate last 7 days + today + next 2 days = 9 days total
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Past 6 days + today + future 2 days
+    for (let i = 6; i >= -2; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      // Check if claimed on this date (only for past/today)
+      const claimed = i >= 0 ? (wallet.dailyLoginHistory?.some(entry => {
+        const entryDate = new Date(entry.date);
+        entryDate.setHours(0, 0, 0, 0);
+        return entryDate.getTime() === date.getTime();
+      }) || false) : false;
+      
+      const isFuture = i < 0;
+      const isToday = i === 0;
+      
+      days.push({
+        date: date.toISOString(),
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNumber: date.getDate(),
+        claimed: claimed,
+        isToday: isToday,
+        isFuture: isFuture,
+        isPast: i > 0
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        wallet,
-        stats
+        balance: wallet.balance,
+        totalEarned: wallet.totalEarned,
+        totalSpent: wallet.totalSpent,
+        streak: wallet.streak,
+        lastDailyLogin: wallet.lastDailyLogin,
+        last7Days: days.filter(d => !d.isFuture), // Keep backward compatibility
+        days: days, // New field with all 9 days
+        recentTransactions
       },
-      message: 'Wallet details retrieved successfully'
+      timestamp: new Date().toISOString()
     });
+
   } catch (error) {
+    console.error('Error fetching wallet:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch wallet',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
-// Get transaction history
+// @route   GET /api/wallet/transactions
+// @desc    Get paginated transaction history
+// @access  Private
 router.get('/transactions', auth, async (req, res) => {
   try {
+    const userId = req.user.userId;
     const { page = 1, limit = 20, type } = req.query;
-    
-    const result = await WalletService.getTransactionHistory(
-      req.user.id,
-      parseInt(page),
-      parseInt(limit),
-      type
-    );
 
-    res.json({
-      success: true,
-      data: result,
-      message: 'Transaction history retrieved successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+    const wallet = await Wallet.findOne({ userId });
 
-// Create deposit order
-router.post('/deposit/create-order', auth, async (req, res) => {
-  try {
-    const { amount } = req.body;
-
-    if (!amount || amount < 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'Minimum deposit amount is ₹10'
+    if (!wallet) {
+      return res.json({
+        success: true,
+        data: {
+          transactions: [],
+          pagination: {
+            currentPage: 1,
+            totalPages: 0,
+            totalTransactions: 0
+          }
+        }
       });
     }
 
-    if (amount > 50000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Maximum deposit amount is ₹50,000'
-      });
+    let transactions = wallet.transactions;
+
+    // Filter by type if provided
+    if (type) {
+      transactions = transactions.filter(t => t.type === type);
     }
 
-    const order = await PaymentService.createDepositOrder(req.user.id, amount);
+    // Sort by date (newest first)
+    transactions.sort((a, b) => b.createdAt - a.createdAt);
 
-    res.json({
-      success: true,
-      data: order,
-      message: 'Deposit order created successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+    // Pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
 
-// Verify payment
-router.post('/deposit/verify', auth, async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing payment verification data'
-      });
-    }
-
-    const result = await PaymentService.verifyPayment({
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
-    });
-
-    res.json({
-      success: true,
-      data: result,
-      message: 'Payment verified and wallet updated successfully'
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Handle payment failure
-router.post('/deposit/failed', auth, async (req, res) => {
-  try {
-    const { orderId, reason } = req.body;
-
-    await PaymentService.handleFailedPayment(orderId, reason);
-
-    res.json({
-      success: true,
-      message: 'Payment failure handled successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Create withdrawal request
-router.post('/withdraw', auth, async (req, res) => {
-  try {
-    const { amount, bankDetails } = req.body;
-
-    if (!amount || !bankDetails) {
-      return res.status(400).json({
-        success: false,
-        message: 'Amount and bank details are required'
-      });
-    }
-
-    const { accountNumber, ifscCode, accountHolderName, bankName } = bankDetails;
-
-    if (!accountNumber || !ifscCode || !accountHolderName || !bankName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Complete bank details are required'
-      });
-    }
-
-    const transaction = await PaymentService.createWithdrawalRequest(
-      req.user.id,
-      amount,
-      bankDetails
-    );
-
-    res.json({
-      success: true,
-      data: transaction,
-      message: 'Withdrawal request created successfully. It will be processed within 24-48 hours.'
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// Check balance for tournament entry
-router.post('/check-balance', auth, async (req, res) => {
-  try {
-    const { amount } = req.body;
-
-    const hasSufficientBalance = await WalletService.hasSufficientBalance(
-      req.user.id,
-      amount
-    );
+    const paginatedTransactions = transactions.slice(startIndex, endIndex);
 
     res.json({
       success: true,
       data: {
-        hasSufficientBalance,
-        requiredAmount: amount
+        transactions: paginatedTransactions,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(transactions.length / limitNum),
+          totalTransactions: transactions.length,
+          hasNextPage: endIndex < transactions.length,
+          hasPrevPage: pageNum > 1
+        }
       },
-      message: hasSufficientBalance 
-        ? 'Sufficient balance available' 
-        : 'Insufficient balance'
+      timestamp: new Date().toISOString()
     });
+
   } catch (error) {
+    console.error('Error fetching transactions:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch transactions',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/wallet/daily-login
+// @desc    Claim daily login reward
+// @access  Private
+router.post('/daily-login', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { CoinConfig } = require('../models/CoinConfig');
+
+    let wallet = await Wallet.findOne({ userId });
+
+    if (!wallet) {
+      wallet = new Wallet({ userId });
+    }
+
+    // Check if already claimed today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (wallet.lastDailyLogin && wallet.lastDailyLogin >= today) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'ALREADY_CLAIMED',
+          message: 'Daily reward already claimed today',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Calculate streak - check if last login was yesterday
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (wallet.lastDailyLogin && wallet.lastDailyLogin >= yesterday && wallet.lastDailyLogin < today) {
+      // Consecutive day - increment streak
+      wallet.streak = (wallet.streak || 0) + 1;
+    } else {
+      // Streak broken or first time - reset to 1
+      wallet.streak = 1;
+    }
+
+    console.log('🔥 Streak updated:', wallet.streak);
+
+    // Get daily login reward amount from config
+    const config = await CoinConfig.findOne({ key: 'daily_login_reward' });
+    const rewardAmount = config ? config.value : 10;
+
+    // Add coins
+    await wallet.addCoins(
+      rewardAmount,
+      'earn',
+      'Daily Login Reward',
+      { source: 'daily_login' }
+    );
+
+    wallet.lastDailyLogin = new Date();
+    
+    // Add to daily login history
+    if (!wallet.dailyLoginHistory) {
+      wallet.dailyLoginHistory = [];
+    }
+    
+    // Add today's login
+    wallet.dailyLoginHistory.push({
+      date: new Date(),
+      claimed: true,
+      coinsEarned: rewardAmount
+    });
+    
+    // Keep only last 30 days of history
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    wallet.dailyLoginHistory = wallet.dailyLoginHistory.filter(
+      entry => entry.date >= thirtyDaysAgo
+    );
+    
+    await wallet.save();
+
+    res.json({
+      success: true,
+      data: {
+        coinsEarned: rewardAmount,
+        newBalance: wallet.balance,
+        streak: wallet.streak
+      },
+      message: `You earned ${rewardAmount} Colab Coins! 🔥 ${wallet.streak} day streak!`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error claiming daily reward:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to claim daily reward',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });

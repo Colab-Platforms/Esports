@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FiMenu, 
-  FiX, 
-  FiLogOut, 
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FiMenu,
+  FiX,
+  FiLogOut,
   FiSettings,
   FiDollarSign,
   FiGrid,
-  FiUser
-} from 'react-icons/fi';
+  FiUser,
+  FiUsers,
+} from "react-icons/fi";
 
-import { selectAuth, logout } from '../../store/slices/authSlice';
-import NotificationPanel from '../notifications/NotificationPanel';
-import UserAvatar from '../common/UserAvatar';
+import { selectAuth, logout } from "../../store/slices/authSlice";
+import NotificationPanel from "../notifications/NotificationPanel";
+import UserAvatar from "../common/UserAvatar";
+
 // import ThemeToggle from '../common/ThemeToggle';
 
 const Navbar = () => {
@@ -28,7 +30,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     dispatch(logout());
-    navigate('/');
+    navigate("/");
     setIsProfileMenuOpen(false);
   };
 
@@ -41,8 +43,8 @@ const Navbar = () => {
   };
 
   const isActiveLink = (path) => {
-    if (path === '/') {
-      return location.pathname === '/';
+    if (path === "/") {
+      return location.pathname === "/";
     }
     return location.pathname.startsWith(path);
   };
@@ -50,50 +52,61 @@ const Navbar = () => {
   // Close controls menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isControlsMenuOpen && !event.target.closest('.controls-dropdown')) {
+      if (isControlsMenuOpen && !event.target.closest(".controls-dropdown")) {
         setIsControlsMenuOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isControlsMenuOpen]);
 
   const navLinks = [
-    { to: '/', label: 'HOME' },
-    { to: '/games', label: 'GAMES' },
+    { to: "/", label: "HOME" },
+    { to: "/games", label: "GAMES" },
     // { to: '/bgmi', label: 'BGMI' },
-    { to: '/tournaments', label: 'TOURNAMENTS' },
-    { to: '/teams', label: 'FRIENDS' },
-    { to: '/leaderboard', label: 'LEADERBOARD' },
+    { to: "/tournaments", label: "TOURNAMENTS" },
+    { to: "/teams", label: "FRIENDS" },
+    { to: "/leaderboard", label: "LEADERBOARD" },
+    { to: "/store", label: "STORE" },
   ];
 
-  // Check if user has admin/designer access
+  // Check if user has admin/designer/moderator access
   const hasControlAccess = () => {
-    return user && (user.role === 'admin' || user.role === 'designer');
+    return user && ["admin", "designer", "moderator"].includes(user.role);
   };
 
   // Get control panel links based on user role
   const getControlLinks = () => {
     if (!user) return [];
-    
+
     const links = [];
-    
+
     // Designer sees only Banner Management
-    if (user.role === 'designer') {
-      links.push({ to: '/admin/images', label: 'Banners' });
+    if (user.role === "designer") {
+      links.push({ to: "/admin/images", label: "Banners" });
     }
-    
-    // Admin sees everything
-    if (user.role === 'admin') {
+
+    // Moderator sees registrations and tournaments
+    if (user.role === "moderator") {
       links.push(
-        { to: '/admin/images', label: 'Banners' },
-        { to: '/admin/games', label: 'Games' },
-        { to: '/admin/tournaments', label: 'Tournaments' },
-        { to: '/admin/bgmi-registrations', label: 'Registrations' }
+        { to: "/admin/tournaments", label: "Tournaments" },
+        { to: "/admin/bgmi-registrations", label: "Registrations" },
       );
     }
-    
+
+    // Admin sees everything
+    if (user.role === "admin") {
+      links.push(
+        { to: "/admin/images", label: "Banners" },
+        { to: "/admin/games", label: "Games" },
+        { to: "/admin/tournaments", label: "Tournaments" },
+        { to: "/admin/bgmi-registrations", label: "Registrations" },
+        { to: "/admin/coin-config", label: "Coin Config" },
+        { to: "/admin/store", label: "Store Items" },
+      );
+    }
+
     return links;
   };
 
@@ -109,49 +122,59 @@ const Navbar = () => {
           <Link to="/" className="flex items-center space-x-3">
             {/* Mobile/Tablet: Only Infinity Logo (up to 1024px) */}
             <div className="lg:hidden w-10 h-10 flex items-center justify-center">
-              <img 
-                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+              <img
+                src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
                 alt="Infinity Logo"
                 className="w-full h-full object-contain"
-                style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                style={{
+                  filter: "hue-rotate(45deg) saturate(1.5) brightness(1.2)",
+                }}
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "block";
                 }}
               />
-              <span className="hidden text-yellow-400 font-bold text-lg">∞</span>
+              <span className="hidden text-yellow-400 font-bold text-lg">
+                ∞
+              </span>
             </div>
-            
+
             {/* Desktop: Infinity Logo + Text Logo (1024px+) */}
             <div className="hidden lg:flex items-center space-x-3">
               <div className="w-12 h-12 flex items-center justify-center">
-                <img 
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
                   alt="Infinity Logo"
                   className="w-full h-full object-contain"
-                  style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                  style={{
+                    filter: "hue-rotate(45deg) saturate(1.5) brightness(1.2)",
+                  }}
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "block";
                   }}
                 />
-                <span className="hidden text-yellow-400 font-bold text-lg">∞</span>
+                <span className="hidden text-yellow-400 font-bold text-lg">
+                  ∞
+                </span>
               </div>
               <div className="h-8 flex items-center">
-                <img 
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Logo_Text.png?v=1766727294" 
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Logo_Text.png?v=1766727294"
                   alt="Colab Esports Text"
                   className="h-full object-contain"
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "flex";
                   }}
                 />
                 <div className="hidden flex-col">
                   <span className="text-xl font-gaming font-bold text-theme-accent">
                     Colab Esports
                   </span>
-                  <span className="text-xs font-body text-theme-text-muted -mt-1">Gaming Platform</span>
+                  <span className="text-xs font-body text-theme-text-muted -mt-1">
+                    Gaming Platform
+                  </span>
                 </div>
               </div>
             </div>
@@ -165,14 +188,14 @@ const Navbar = () => {
                 to={link.to}
                 className={`font-display font-semibold transition-colors duration-200 ${
                   isActiveLink(link.to)
-                    ? 'text-theme-accent border-b-2 border-theme-accent pb-1'
-                    : 'text-theme-text-secondary hover:text-theme-accent'
+                    ? "text-theme-accent border-b-2 border-theme-accent pb-1"
+                    : "text-theme-text-secondary hover:text-theme-accent"
                 }`}
               >
                 {link.label}
               </Link>
             ))}
-            
+
             {/* Controls Dropdown for Admin/Designer */}
             {hasControlAccess() && (
               <div className="relative controls-dropdown">
@@ -181,8 +204,18 @@ const Navbar = () => {
                   className="font-display font-semibold transition-colors duration-200 flex items-center space-x-1 text-gaming-gold hover:text-gaming-gold/80"
                 >
                   <span>CONTROLS</span>
-                  <svg className={`w-4 h-4 transition-transform ${isControlsMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <svg
+                    className={`w-4 h-4 transition-transform ${isControlsMenuOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </button>
 
@@ -204,19 +237,20 @@ const Navbar = () => {
               </div>
             )}
 
-            {isAuthenticated && authenticatedLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`font-display font-semibold transition-colors duration-200 ${
-                  isActiveLink(link.to)
-                    ? 'text-theme-accent border-b-2 border-theme-accent pb-1'
-                    : 'text-theme-text-secondary hover:text-theme-accent'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {isAuthenticated &&
+              authenticatedLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`font-display font-semibold transition-colors duration-200 ${
+                    isActiveLink(link.to)
+                      ? "text-theme-accent border-b-2 border-theme-accent pb-1"
+                      : "text-theme-text-secondary hover:text-theme-accent"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
           </div>
 
           {/* Desktop Auth Section - Shows from 1280px+ */}
@@ -225,9 +259,20 @@ const Navbar = () => {
               <div className="flex items-center space-x-4">
                 {/* Theme Toggle */}
                 {/* <ThemeToggle size="sm" /> */}
-                
-                {/* Notifications */}
+
+               
+                <Link
+                  to="/wallet"
+                  className="flex items-center space-x-1 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                  // onClick={() => setIsProfileMenuOpen(false)}
+                >
+                  <FiDollarSign className="w-4 h-4" />
+                  <span>CC</span>
+                </Link>
+
+                 {/* Notifications */}
                 <NotificationPanel />
+                
 
                 {/* Wallet removed - free tournaments only */}
 
@@ -237,15 +282,19 @@ const Navbar = () => {
                     onClick={toggleProfileMenu}
                     className="flex items-center space-x-3 p-2 rounded-lg hover:bg-theme-bg-hover transition-colors duration-200"
                   >
-                    <UserAvatar 
-                      user={user} 
-                      size="sm" 
+                    <UserAvatar
+                      user={user}
+                      size="sm"
                       showStatus={true}
                       showLevel={true}
                     />
                     <div className="text-left">
-                      <div className="text-sm font-display font-medium text-theme-text-primary">{user?.username}</div>
-                      <div className="text-xs font-body text-theme-text-muted">Level {user?.level || 1}</div>
+                      <div className="text-sm font-display font-medium text-theme-text-primary">
+                        {user?.username}
+                      </div>
+                      <div className="text-xs font-body text-theme-text-muted">
+                        Level {user?.level || 1}
+                      </div>
                     </div>
                   </button>
 
@@ -265,7 +314,25 @@ const Navbar = () => {
                           <FiUser className="w-4 h-4" />
                           <span>My Profile</span>
                         </Link>
-                        
+
+                        {/* <Link
+                          to="/wallet"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          <FiDollarSign className="w-4 h-4" />
+                          <span>CC</span>
+                        </Link> */}
+
+                        {/* <Link
+                          to="/referral"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        >
+                          <FiUsers className="w-4 h-4" />
+                          <span>Referrals</span>
+                        </Link> */}
+
                         <Link
                           to="/profile/settings"
                           className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
@@ -274,9 +341,10 @@ const Navbar = () => {
                           <FiSettings className="w-4 h-4" />
                           <span>Profile Settings</span>
                         </Link>
-                        
-                        {/* Admin Link - Only for admin users */}
-                        {user?.role === 'admin' && (
+
+                        {/* Admin Panel Link - Only for admin/moderator users */}
+                        {(user?.role === "admin" ||
+                          user?.role === "moderator") && (
                           <Link
                             to="/admin"
                             className="flex items-center space-x-2 px-4 py-2 text-sm text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
@@ -286,7 +354,7 @@ const Navbar = () => {
                             <span>Admin Panel</span>
                           </Link>
                         )}
-                        
+
                         <button
                           onClick={handleLogout}
                           className="flex items-center space-x-2 px-4 py-2 text-sm text-theme-text-secondary hover:text-red-400 hover:bg-theme-bg-hover transition-colors duration-200 w-full text-left"
@@ -323,7 +391,11 @@ const Navbar = () => {
             onClick={toggleMobileMenu}
             className="xl:hidden p-2 text-theme-text-secondary hover:text-theme-accent transition-colors duration-200"
           >
-            {isMobileMenuOpen ? <FiX className="w-6 h-6" /> : <FiMenu className="w-6 h-6" />}
+            {isMobileMenuOpen ? (
+              <FiX className="w-6 h-6" />
+            ) : (
+              <FiMenu className="w-6 h-6" />
+            )}
           </button>
         </div>
       </div>
@@ -345,29 +417,35 @@ const Navbar = () => {
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
-            initial={{ x: '-100%' }}
+            initial={{ x: "-100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'tween', duration: 0.3 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "tween", duration: 0.3 }}
             className="fixed top-0 left-0 h-screen w-80 max-w-[85vw] bg-theme-bg-card border-r border-theme-border z-50 xl:hidden overflow-y-auto shadow-2xl"
           >
             {/* Mobile Menu Header */}
             <div className="flex items-center justify-between p-4 border-b border-theme-border">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 flex items-center justify-center">
-                  <img 
-                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294" 
+                  <img
+                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Without_Text_Infinity_Logo.png?v=1766727294"
                     alt="Infinity Logo"
                     className="w-full h-full object-contain"
-                    style={{ filter: 'hue-rotate(45deg) saturate(1.5) brightness(1.2)' }}
+                    style={{
+                      filter: "hue-rotate(45deg) saturate(1.5) brightness(1.2)",
+                    }}
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "block";
                     }}
                   />
-                  <span className="hidden text-yellow-400 font-bold text-sm">∞</span>
+                  <span className="hidden text-yellow-400 font-bold text-sm">
+                    ∞
+                  </span>
                 </div>
-                <span className="hidden text-lg font-gaming font-bold text-theme-accent">Colab Esports</span>
+                <span className="hidden text-lg font-gaming font-bold text-theme-accent">
+                  Colab Esports
+                </span>
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -385,8 +463,12 @@ const Navbar = () => {
                   <div className="flex items-center space-x-3 mb-4">
                     <UserAvatar user={user} size="md" showStatus={true} />
                     <div>
-                      <div className="text-theme-text-primary font-semibold">{user?.username}</div>
-                      <div className="text-xs text-theme-text-muted">Level {user?.level || 1}</div>
+                      <div className="text-theme-text-primary font-semibold">
+                        {user?.username}
+                      </div>
+                      <div className="text-xs text-theme-text-muted">
+                        Level {user?.level || 1}
+                      </div>
                     </div>
                   </div>
                   {/* Wallet balance removed - free tournaments only */}
@@ -408,12 +490,14 @@ const Navbar = () => {
                     to={link.to}
                     className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
                       isActiveLink(link.to)
-                        ? 'bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent'
-                        : 'text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover'
+                        ? "bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent"
+                        : "text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover"
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <span className="font-display font-semibold">{link.label}</span>
+                    <span className="font-display font-semibold">
+                      {link.label}
+                    </span>
                   </Link>
                 ))}
 
@@ -429,12 +513,14 @@ const Navbar = () => {
                         to={link.to}
                         className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
                           isActiveLink(link.to)
-                            ? 'bg-gaming-gold/10 text-gaming-gold border-l-4 border-gaming-gold'
-                            : 'text-gaming-gold/70 hover:text-gaming-gold hover:bg-gaming-gold/5'
+                            ? "bg-gaming-gold/10 text-gaming-gold border-l-4 border-gaming-gold"
+                            : "text-gaming-gold/70 hover:text-gaming-gold hover:bg-gaming-gold/5"
                         }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <span className="font-semibold uppercase">{link.label}</span>
+                        <span className="font-semibold uppercase">
+                          {link.label}
+                        </span>
                       </Link>
                     ))}
                   </>
@@ -451,16 +537,18 @@ const Navbar = () => {
                         to={link.to}
                         className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
                           isActiveLink(link.to)
-                            ? 'bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent'
-                            : 'text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover'
+                            ? "bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent"
+                            : "text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover"
                         }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <link.icon className="w-5 h-5" />
-                        <span className="font-display font-semibold">{link.label}</span>
+                        <span className="font-display font-semibold">
+                          {link.label}
+                        </span>
                       </Link>
                     ))}
-                    
+
                     {/* My Profile Link */}
                     <Link
                       to="/profile"
@@ -468,9 +556,21 @@ const Navbar = () => {
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <FiUser className="w-5 h-5" />
-                      <span className="font-display font-semibold">My Profile</span>
+                      <span className="font-display font-semibold">
+                        My Profile
+                      </span>
                     </Link>
-                    
+
+                    {/* Wallet Link */}
+                    <Link
+                      to="/wallet"
+                      className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <FiDollarSign className="w-5 h-5" />
+                      <span className="font-display font-semibold">Wallet</span>
+                    </Link>
+
                     {/* Profile Settings Link */}
                     <Link
                       to="/profile/settings"
@@ -478,21 +578,25 @@ const Navbar = () => {
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <FiSettings className="w-5 h-5" />
-                      <span className="font-display font-semibold">Profile Settings</span>
+                      <span className="font-display font-semibold">
+                        Profile Settings
+                      </span>
                     </Link>
-                    
-                    {/* Admin Panel Link - Only for admin users */}
-                    {user?.role === 'admin' && (
+
+                    {/* Admin Panel Link - Only for admin/moderator users */}
+                    {(user?.role === "admin" || user?.role === "moderator") && (
                       <Link
                         to="/admin"
                         className="flex items-center space-x-3 px-3 py-3 rounded-lg text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <FiGrid className="w-5 h-5" />
-                        <span className="font-display font-semibold">Admin Panel</span>
+                        <span className="font-display font-semibold">
+                          Admin Panel
+                        </span>
                       </Link>
                     )}
-                    
+
                     {/* Logout Button */}
                     <button
                       onClick={handleLogout}
@@ -511,7 +615,9 @@ const Navbar = () => {
                     </div>
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-theme-text-muted text-sm">Theme</span>
+                        <span className="text-theme-text-muted text-sm">
+                          Theme
+                        </span>
                         {/* <ThemeToggle size="sm" /> */}
                       </div>
                     </div>
@@ -527,7 +633,9 @@ const Navbar = () => {
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg bg-theme-accent hover:bg-theme-accent-hover text-white font-semibold transition-all duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <span className="font-display font-semibold">Sign Up</span>
+                      <span className="font-display font-semibold">
+                        Sign Up
+                      </span>
                     </Link>
                   </>
                 )}
