@@ -40,6 +40,10 @@ const LeaderboardPage = () => {
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
   const [bgmiLoading, setBgmiLoading] = useState(false);
 
+  // FreeFire specific state
+  const [freeFireScoreboards, setFreeFireScoreboards] = useState([]);
+  const [freeFireLoading, setFreeFireLoading] = useState(false);
+
   useEffect(() => {
     if (selectedGame === 'cs2') {
       // Fetch CS2 leaderboard data
@@ -47,6 +51,9 @@ const LeaderboardPage = () => {
     } else if (selectedGame === 'bgmi') {
       // Fetch BGMI scoreboards instead of regular leaderboard
       fetchBgmiScoreboards();
+    } else if (selectedGame === 'freefire') {
+      // Fetch FreeFire scoreboards
+      fetchFreeFireScoreboards();
     } else {
       // Fetch regular leaderboard data for other games
       dispatch(fetchLeaderboard({
@@ -102,6 +109,39 @@ const LeaderboardPage = () => {
       setBgmiScoreboards([]);
     } finally {
       setBgmiLoading(false);
+    }
+  };
+
+  const fetchFreeFireScoreboards = async () => {
+    try {
+      setFreeFireLoading(true);
+      
+      // Direct fetch without axios to avoid rate limiting
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await fetch(`${API_URL}/api/tournaments/freefire/scoreboards`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.data.scoreboards) {
+        setFreeFireScoreboards(data.data.scoreboards);
+      } else {
+        setFreeFireScoreboards([]);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching FreeFire scoreboards:', err);
+      setFreeFireScoreboards([]);
+    } finally {
+      setFreeFireLoading(false);
     }
   };
 
@@ -172,7 +212,7 @@ const LeaderboardPage = () => {
     return <GameIcon gameType={game} size="sm" style="cdn" />;
   };
 
-  if (loading.leaderboard || cs2Loading) {
+  if (loading.leaderboard || cs2Loading || bgmiLoading || freeFireLoading) {
     return (
       <div className="min-h-screen bg-theme-bg-primary flex items-center justify-center">
         <div className="text-center">
@@ -226,7 +266,7 @@ const LeaderboardPage = () => {
         <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6 mb-6">
           <h2 className="text-xl font-bold text-theme-text-primary mb-4">Select Game</h2>
           <div className="flex flex-wrap gap-4">
-            {['bgmi', 'cs2'].map((game) => (
+            {['bgmi', 'freefire', 'cs2'].map((game) => (
               <button
                 key={game}
                 onClick={() => handleGameChange(game)}
@@ -237,7 +277,7 @@ const LeaderboardPage = () => {
                 }`}
               >
                 <span className="text-lg">{getGameIcon(game)}</span>
-                <span className="uppercase">{game}</span>
+                <span className="uppercase">{game === 'freefire' ? 'Free Fire' : game}</span>
               </button>
             ))}
           </div>
@@ -296,8 +336,8 @@ const LeaderboardPage = () => {
           </div>
         )}
 
-        {/* Leaderboard Type Tabs - Hide for CS2 and BGMI */}
-        {selectedGame !== 'cs2' && selectedGame !== 'bgmi' && (
+        {/* Leaderboard Type Tabs - Hide for CS2, BGMI, and FreeFire */}
+        {selectedGame !== 'cs2' && selectedGame !== 'bgmi' && selectedGame !== 'freefire' && (
           <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6 mb-6">
             <div className="flex flex-wrap gap-2">
               {[
@@ -332,6 +372,8 @@ const LeaderboardPage = () => {
                     ? '⚡ CS2 Player Rankings' 
                     : selectedGame === 'bgmi'
                     ? '🏆 BGMI Tournament Results'
+                    : selectedGame === 'freefire'
+                    ? '🔥 Free Fire Tournament Results'
                     : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Rankings`
                   }
                 </h2>
@@ -340,6 +382,8 @@ const LeaderboardPage = () => {
                     ? `${cs2Leaderboard.length} players (${cs2Leaderboard.filter(p => p.isRegistered).length} registered)` 
                     : selectedGame === 'bgmi'
                     ? `${bgmiScoreboards.length} tournament results`
+                    : selectedGame === 'freefire'
+                    ? `${freeFireScoreboards.length} tournament results`
                     : `${pagination.total} players`
                   }
                 </div>
@@ -602,6 +646,103 @@ const LeaderboardPage = () => {
                         </div>
                         
 
+                      </motion.div>
+                    ))}
+                  </div>
+                  )}
+                </div>
+              ) : selectedGame === 'freefire' ? (
+                // FreeFire Tournament Results Gallery - ISOLATED SECTION
+                <div className="freefire-section" style={{backgroundColor: '#dc262620', border: '2px solid #ef4444', padding: '20px', borderRadius: '10px'}}>
+                  
+                  {freeFireScoreboards.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-4">🔥</div>
+                    <h3 className="text-xl font-bold text-theme-text-primary mb-2">No Tournament Results Yet</h3>
+                    <p className="text-theme-text-secondary mb-4">
+                      Free Fire tournament results will appear here after competitions are completed.
+                    </p>
+                    <button
+                      onClick={() => window.location.href = '/tournaments'}
+                      className="px-6 py-3 bg-theme-accent text-white font-bold rounded-lg hover:bg-theme-accent/80 transition-colors"
+                    >
+                      Browse Tournaments
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {freeFireScoreboards.map((scoreboard, index) => (
+                      <motion.div
+                        key={scoreboard._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="bg-theme-bg-hover rounded-lg overflow-hidden border border-theme-border hover:border-theme-accent/50 transition-all group cursor-pointer"
+                      >
+                        <div className="flex flex-col md:flex-row">
+                          {/* Image Section */}
+                          <div className="md:w-1/3">
+                            <img
+                              src={scoreboard.imageUrl}
+                              alt={scoreboard.description}
+                              className="w-full h-48 md:h-32 object-cover group-hover:opacity-80 transition-opacity cursor-pointer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(scoreboard.imageUrl, '_blank');
+                              }}
+                            />
+                          </div>
+                          
+                          {/* Details Section */}
+                          <div className="flex-1 p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex-1">
+                                <h4 className="text-lg font-bold text-theme-text-primary mb-1 group-hover:text-theme-accent transition-colors">
+                                  {scoreboard.tournament.name}
+                                </h4>
+                                <p className="text-sm text-theme-text-secondary mb-2">
+                                  {scoreboard.description}
+                                </p>
+                                
+                                <div className="flex flex-wrap items-center gap-4 text-xs text-theme-text-muted">
+                                  <div className="flex items-center space-x-1">
+                                    <GameIcon gameType="freefire" size="sm" />
+                                    <span className="uppercase font-medium">Free Fire</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-1">
+                                    <FaTrophy className="text-theme-accent" />
+                                    <span>
+                                      Ended: {new Date(scoreboard.tournament.endDate).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-1">
+                                    <span>📅</span>
+                                    <span>
+                                      Uploaded: {new Date(scoreboard.uploadedAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-3 sm:mt-0 sm:ml-4 flex flex-col items-end">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                                  scoreboard.tournament.status === 'completed' 
+                                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                                    : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                }`}>
+                                  {scoreboard.tournament.status === 'completed' ? '✅ Completed' : '🔄 Active'}
+                                </span>
+                                
+                                <div className="mt-2 text-xs text-theme-text-muted">
+                                  #{index + 1}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
