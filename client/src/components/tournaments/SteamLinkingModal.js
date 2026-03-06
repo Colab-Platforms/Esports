@@ -23,35 +23,35 @@ const SteamLinkingModal = ({ isOpen, onClose, onConfirm, tournamentName }) => {
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative bg-gaming-card border-2 border-gaming-gold rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+          className="relative bg-gaming-card border-2 border-gaming-gold rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto"
         >
           {/* Header with Steam Gradient */}
-          <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 p-6 relative overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 p-4 sm:p-6 relative overflow-hidden">
             <div className="absolute inset-0 opacity-20">
               <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')]"></div>
             </div>
             
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/20 rounded-lg transition-colors z-10"
             >
               <FiX className="h-5 w-5 text-white" />
             </button>
             
 
-            <div className="relative flex items-center space-x-4">
-              <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                <SiSteam className="h-10 w-10 text-blue-600" />
+            <div className="relative flex items-center space-x-3 sm:space-x-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <SiSteam className="h-8 w-8 sm:h-10 sm:w-10 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Link Steam Account</h2>
-                <p className="text-blue-100 text-sm">Required for CS2 Tournaments</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Link Steam Account</h2>
+                <p className="text-blue-100 text-xs sm:text-sm">Required for CS2 Tournaments</p>
               </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Tournament Info */}
             <div className="bg-gaming-slate border border-gaming-border rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
@@ -115,18 +115,18 @@ const SteamLinkingModal = ({ isOpen, onClose, onConfirm, tournamentName }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
               <button
                 onClick={onClose}
-                className="flex-1 px-6 py-3 bg-gaming-slate hover:bg-gaming-border text-white rounded-lg font-semibold transition-colors"
+                className="w-full sm:flex-1 px-6 py-3 bg-gaming-slate hover:bg-gaming-border text-white rounded-lg font-semibold transition-colors min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 onClick={onConfirm}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-blue-500/50 flex items-center justify-center space-x-2"
+                className="w-full sm:flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-blue-500/50 flex items-center justify-center space-x-2 min-h-[44px]"
               >
-                <SiSteam className="h-5 w-5" />
+                <SiSteam className="h-5 w-5 " />
                 <span>Connect Steam</span>
                 <FiExternalLink className="h-4 w-4" />
               </button>
