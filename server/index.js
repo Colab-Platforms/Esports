@@ -250,10 +250,15 @@ app.use('/api/teams', require('./routes/teams'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/challenges', require('./routes/challenges'));
 app.use('/api/tournaments', require('./routes/tournaments'));
+app.use('/api/tournaments', require('./routes/tournamentRewards')); // Reward distribution routes
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/bgmi-matches', require('./routes/bgmiMatches'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
+app.use('/api/referral', require('./routes/referral'));
+app.use('/api/store', require('./routes/store'));
+// Register more specific admin routes BEFORE general admin route
+app.use('/api/admin/coin', require('./routes/adminCoin'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/security', require('./routes/security'));
 app.use('/api/cs2', require('./routes/cs2Logs'));

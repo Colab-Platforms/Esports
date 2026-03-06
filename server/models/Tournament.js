@@ -322,7 +322,107 @@ const tournamentSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
-  }]
+  }],
+  
+  // Reward Distribution (Phase 1: Manual Distribution)
+  rewardDistribution: {
+    winners: [{
+      teamId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true
+      },
+      position: {
+        type: String,
+        required: true // e.g., "1st", "2nd", "3rd", "4th", "5th"
+      },
+      amount: {
+        type: Number,
+        required: true,
+        min: 0
+      }
+    }],
+    participationReward: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    rewardsDistributed: {
+      type: Boolean,
+      default: false
+    },
+    distributedAt: {
+      type: Date,
+      default: null
+    },
+    distributedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    recipients: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      teamId: {
+        type: mongoose.Schema.Types.ObjectId
+      },
+      amount: {
+        type: Number
+      },
+      position: {
+        type: String // "1st", "2nd", "3rd", etc. or "participation"
+      },
+      transactionId: {
+        type: String
+      }
+    }]
+  },
+  
+  // Video Upload (Phase 2: Video Upload & Local Storage)
+  videoUpload: {
+    filename: {
+      type: String,
+      default: null
+    },
+    originalName: {
+      type: String,
+      default: null
+    },
+    filePath: {
+      type: String,
+      default: null
+    },
+    fileSize: {
+      type: Number,
+      default: 0 // in bytes
+    },
+    mimeType: {
+      type: String,
+      default: null
+    },
+    uploadedAt: {
+      type: Date,
+      default: null
+    },
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    processed: {
+      type: Boolean,
+      default: false
+    },
+    processedAt: {
+      type: Date,
+      default: null
+    },
+    extractedData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    }
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

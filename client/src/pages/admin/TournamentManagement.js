@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm, Controller } from 'react-hook-form';
-import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock, FiGift } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -9,6 +10,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const TournamentManagement = () => {
+  const navigate = useNavigate();
   const [tournaments, setTournaments] = useState([]);
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -551,23 +553,51 @@ const TournamentManagement = () => {
                     <FiCalendar className="h-4 w-4 mr-2" />
                     <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
                   </div>
+                  {tournament.rewardDistribution?.rewardsDistributed && (
+                    <div className="flex items-center text-sm text-green-400">
+                      <FiGift className="h-4 w-4 mr-2" />
+                      <span>Rewards Distributed ✓</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEdit(tournament)}
-                    className="flex-1 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <FiEdit2 className="h-4 w-4" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(tournament._id, tournament)}
-                    className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <FiTrash2 className="h-4 w-4" />
-                    <span>Delete</span>
-                  </button>
+                <div className="space-y-2">
+                  {/* Distribute Rewards Button - Show for completed tournaments */}
+                  {(tournament.status === 'completed' || tournament.status === 'active') && (
+                    <button
+                      onClick={() => navigate(`/admin/tournaments/${tournament._id}/rewards`)}
+                      className={`w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 ${
+                        tournament.rewardDistribution?.rewardsDistributed
+                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                          : 'bg-gaming-gold/20 text-gaming-gold hover:bg-gaming-gold/30'
+                      }`}
+                    >
+                      <FiGift className="h-4 w-4" />
+                      <span>
+                        {tournament.rewardDistribution?.rewardsDistributed 
+                          ? 'View Rewards' 
+                          : 'Distribute Rewards'}
+                      </span>
+                    </button>
+                  )}
+                  
+                  {/* Edit and Delete Buttons */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(tournament)}
+                      className="flex-1 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <FiEdit2 className="h-4 w-4" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(tournament._id, tournament)}
+                      className="flex-1 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <FiTrash2 className="h-4 w-4" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
