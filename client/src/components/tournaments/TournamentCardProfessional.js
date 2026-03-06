@@ -142,13 +142,50 @@ const TournamentCardProfessional = ({
             </>
           )}
 
-          {/* View Details Button - Glassy Effect */}
-          <button
-            onClick={() => navigate(`/tournaments/${tournament._id}`)}
-            className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
-          >
-            VIEW DETAILS →
-          </button>
+          {/* Buttons Section */}
+          {gameType === "cs2" ? (
+            <div className="space-y-2">
+              {/* JOIN SERVER Button */}
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate("/login");
+                  } else {
+                    // handleJoinTournament();
+                  }
+                }}
+                disabled={
+                  tournament?.status !== "active"
+                }
+                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-sm rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${
+                  tournament?.status !== "active"
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
+                {!isAuthenticated
+                  ? "LOGIN TO JOIN"
+                  : tournament?.status === "active"
+                    ? "JOIN SERVER"
+                    : "SERVER INACTIVE"}
+              </button>
+
+              {/* VIEW DETAILS Button */}
+              <button
+                onClick={() => navigate(`/tournaments/${tournament._id}`)}
+                className="w-full py-2 px-3 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+              >
+                VIEW DETAILS →
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate(`/tournaments/${tournament._id}`)}
+              className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+            >
+              VIEW DETAILS →
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
