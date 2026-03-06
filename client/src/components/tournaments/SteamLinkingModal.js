@@ -37,6 +37,7 @@ const SteamLinkingModal = ({ isOpen, onClose, onConfirm, tournamentName }) => {
             >
               <FiX className="h-5 w-5 text-white" />
             </button>
+            
 
             <div className="relative flex items-center space-x-4">
               <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-lg">
