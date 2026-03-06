@@ -125,8 +125,8 @@ const SteamLinkingModal = ({ isOpen, onClose, onConfirm, tournamentName }) => {
                 onClick={onConfirm}
                 className="w-full sm:flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-blue-500/50 flex items-center justify-center space-x-2 min-h-[44px]"
               >
-                <SiSteam className="h-5 w-5" />
-                <span>Connect Steam</span>
+                <SiSteam className="h-5 w-5 " />
+                <span>Connect Steam'ssss</span>
                 <FiExternalLink className="h-4 w-4" />
               </button>
             </div>
