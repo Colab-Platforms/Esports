@@ -30,7 +30,7 @@ const TournamentCardProfessional = ({
       notificationService.showCustomNotification(
         "error",
         "Error",
-        "Unable to get user ID",
+        "Unable to get user ID"
       );
       return;
     }
