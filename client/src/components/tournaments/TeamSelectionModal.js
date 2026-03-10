@@ -331,7 +331,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                         <span className="text-[10px] bg-gaming-gold/20 text-gaming-gold px-1.5 py-0.5 rounded font-bold">LEADER</span>
                                       )}
                                     </div>
-                                    <button
+                                    {/* <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -346,7 +346,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                       className={`p-1.5 rounded transition-colors ${isEditing ? 'bg-gaming-gold/20 text-gaming-gold' : 'text-gray-500 hover:text-gaming-gold'}`}
                                     >
                                       <FiEdit2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    </button> */}
                                   </div>
 
                                   {isEditing ? (
