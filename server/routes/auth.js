@@ -328,7 +328,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     
-    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
+    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds, referralCode } = req.body;
 
     // Basic validation - fullName, email, phone, and password are required
     if (!fullName || !email || !phone || !password) {
@@ -474,6 +474,57 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     console.log('💾 Saving user to database...');
     await user.save();
     console.log('✅ User saved successfully');
+
+    // Give welcome bonus coins
+    try {
+      const Wallet = require('../models/Wallet');
+      const { CoinConfig } = require('../models/CoinConfig');
+      
+      // Get welcome bonus amount from config
+      const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
+      const welcomeBonus = config ? config.value : 50; // Default 50 coins
+      
+      // Create wallet and add welcome bonus
+      let wallet = new Wallet({ userId: user._id });
+      await wallet.addCoins(
+        welcomeBonus,
+        'bonus',
+        'Welcome Bonus - Thank you for joining!',
+        { source: 'registration' }
+      );
+      await wallet.save();
+      
+      console.log(`🎁 Welcome bonus of ${welcomeBonus} coins credited to user:`, user.username);
+    } catch (coinError) {
+      console.error('❌ Failed to credit welcome bonus:', coinError);
+      // Don't fail registration if coin credit fails
+    }
+
+    // Handle referral code if provided
+    if (referralCode) {
+      try {
+        const Referral = require('../models/Referral');
+        
+        const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
+        
+        if (referral) {
+          // Add to referred users
+          referral.referredUsers.push({
+            userId: user._id,
+            status: 'pending'
+          });
+          referral.totalReferrals += 1;
+          await referral.save();
+          
+          console.log(`🎁 Referral code applied: ${referralCode} for user:`, user.username);
+        } else {
+          console.log(`⚠️ Invalid referral code: ${referralCode}`);
+        }
+      } catch (referralError) {
+        console.error('❌ Failed to apply referral code:', referralError);
+        // Don't fail registration if referral fails
+      }
+    }
 
     // Generate token
     console.log('🔑 Generating JWT token...');
