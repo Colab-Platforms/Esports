@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone, FiChevronDown } from 'react-icons/fi';
-import { SiCounterstrike } from 'react-icons/si';
-import { IoGameController } from 'react-icons/io5';
+import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import secureRequest from '../../utils/secureRequest';
 
@@ -16,6 +14,8 @@ import {
   selectAuthError,
   clearError 
 } from '../../store/slices/authSlice';
+
+import { updateWalletBalance } from '../../store/slices/walletSlice';
 
 const RegisterPage = () => {
   const dispatch = useDispatch();
@@ -34,7 +34,8 @@ const RegisterPage = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showGameDropdown, setShowGameDropdown] = useState(false);
+
+
 
   // Clear error when component mounts
   useEffect(() => {
@@ -115,8 +116,30 @@ const RegisterPage = () => {
 
         if (data.success) {
           dispatch(registerSuccess(data.data));
-          toast.success('Sign up successful! Welcome to the arena! 🎮');
-          navigate('/dashboard');
+          
+          // Check if welcome bonus was credited
+          if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
+            // Update wallet balance in Redux
+            dispatch(updateWalletBalance({
+              balance: data.data.welcomeBonus.amount,
+              totalEarned: data.data.welcomeBonus.amount
+            }));
+            
+            // Store welcome bonus data in localStorage for home page
+            localStorage.setItem('welcomeBonus', JSON.stringify({
+              amount: data.data.welcomeBonus.amount,
+              message: data.data.welcomeBonus.message,
+              userName: data.data.user.fullName,
+              timestamp: Date.now()
+            }));
+            
+            toast.success('Registration successful! 🎮');
+            navigate('/');
+          } else {
+            // No welcome bonus, show regular success and redirect
+            toast.success('Sign up successful! Welcome to the arena! 🎮');
+            navigate('/');
+          }
         } else {
           dispatch(registerFailure(data.error));
         }
@@ -677,6 +700,8 @@ const RegisterPage = () => {
           </div>
         </motion.form>
       </motion.div>
+
+
     </div>
   );
 };
