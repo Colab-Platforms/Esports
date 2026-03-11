@@ -329,6 +329,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                         >
                           <FiEdit3 className="w-3.5 h-3.5" />
                         </button>
+                        {/* changes */}
                         <button
                           type="button"
                           onClick={() => handleRemoveMember(member._id)}
