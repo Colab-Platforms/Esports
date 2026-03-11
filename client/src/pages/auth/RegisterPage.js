@@ -29,7 +29,8 @@ const RegisterPage = () => {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -559,6 +560,31 @@ const RegisterPage = () => {
                 </p>
               </motion.div>
             )} */}
+          </div>
+
+          {/* Referral Code Field (Optional) */}
+          <div>
+            <label htmlFor="referralCode" className="block text-sm font-medium text-gray-300 mb-2">
+              Referral Code (Optional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gaming-gold font-bold text-lg">🎁</span>
+              </div>
+              <input
+                id="referralCode"
+                name="referralCode"
+                type="text"
+                className="appearance-none relative block w-full px-12 py-3 border border-gaming-slate placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:ring-gaming-gold focus:border-transparent transition-all duration-200 uppercase"
+                placeholder="Enter referral code (optional)"
+                value={formData.referralCode}
+                onChange={(e) => setFormData({...formData, referralCode: e.target.value.toUpperCase()})}
+                maxLength={8}
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Have a referral code? Enter it to get bonus coins! 🪙
+            </p>
           </div>
            
           {/* Terms and  Conditions */}

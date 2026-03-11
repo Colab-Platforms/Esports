@@ -16,6 +16,7 @@ import {
 import { selectAuth, logout } from "../../store/slices/authSlice";
 import NotificationPanel from "../notifications/NotificationPanel";
 import UserAvatar from "../common/UserAvatar";
+import api from "../../services/api";
 
 // import ThemeToggle from '../common/ThemeToggle';
 
@@ -27,6 +28,33 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isControlsMenuOpen, setIsControlsMenuOpen] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
+
+  // Fetch wallet balance
+  useEffect(() => {
+    const fetchWalletBalance = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await api.get('/api/wallet');
+          console.log('🪙 Wallet API Response:', response.data);
+          if (response.data) {
+            // const balance = response.data.balance;
+            console.log('💰 Coin Balance:', response.data.balance);
+            setCoinBalance(response.data.balance);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching wallet balance:', error.message);
+          console.error('Error details:', error.response?.data);
+        }
+      }
+    };
+
+    fetchWalletBalance();
+    
+    // Refresh balance every 30 seconds
+    const interval = setInterval(fetchWalletBalance, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -263,11 +291,13 @@ const Navbar = () => {
                
                 <Link
                   to="/wallet"
-                  className="flex items-center space-x-1 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
-                  // onClick={() => setIsProfileMenuOpen(false)}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200 rounded-lg"
                 >
-                  <FiDollarSign className="w-4 h-4" />
-                  <span>CC</span>
+                  <div className="flex items-center justify-center w-6 h-6 bg-gaming-gold/20 rounded">
+                    <span className="text-gaming-gold font-bold text-xs">{coinBalance}</span>
+                    {console.log("your CoinBalance is:" , coinBalance)}
+                  </div>
+                  <span className="font-semibold">CC</span>
                 </Link>
 
                  {/* Notifications */}
@@ -567,7 +597,9 @@ const Navbar = () => {
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <FiDollarSign className="w-5 h-5" />
+                      <div className="flex items-center justify-center w-8 h-8 bg-gaming-gold/20 rounded-lg">
+                        <span className="text-gaming-gold font-bold text-sm">{coinBalance || '0'}</span>
+                      </div>
                       <span className="font-display font-semibold">Wallet</span>
                     </Link>
 

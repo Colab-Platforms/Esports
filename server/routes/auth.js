@@ -512,6 +512,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     if (referralCode) {
       try {
         const Referral = require('../models/Referral');
+        const Wallet = require('../models/Wallet');
         
         const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
         
@@ -519,12 +520,46 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           // Add to referred users
           referral.referredUsers.push({
             userId: user._id,
-            status: 'pending'
+            status: 'completed',
+            coinsEarned: 30,
+            completedAt: new Date()
           });
           referral.totalReferrals += 1;
+          referral.successfulReferrals += 1;
+          referral.totalCoinsEarned += 50;
           await referral.save();
           
-          console.log(`🎁 Referral code applied: ${referralCode} for user:`, user.username);
+          // Award 30 coins to new user
+          let newUserWallet = await Wallet.findOne({ userId: user._id });
+          if (!newUserWallet) {
+            newUserWallet = new Wallet({ userId: user._id });
+          }
+          newUserWallet.balance += 30;
+          newUserWallet.totalEarned += 30;
+          newUserWallet.transactions.push({
+            type: 'credit',
+            amount: 30,
+            description: `Referral bonus - Welcome gift`,
+            category: 'referral'
+          });
+          await newUserWallet.save();
+          
+          // Award 50 coins to referrer
+          let referrerWallet = await Wallet.findOne({ userId: referral.userId });
+          if (!referrerWallet) {
+            referrerWallet = new Wallet({ userId: referral.userId });
+          }
+          referrerWallet.balance += 50;
+          referrerWallet.totalEarned += 50;
+          referrerWallet.transactions.push({
+            type: 'credit',
+            amount: 50,
+            description: `Referral bonus - ${user.username} joined`,
+            category: 'referral'
+          });
+          await referrerWallet.save();
+          
+          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+30 coins), Referrer: (+50 coins)`);
         } else {
           console.log(`⚠️ Invalid referral code: ${referralCode}`);
         }
