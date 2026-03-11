@@ -62,7 +62,7 @@ router.get('/count', async (req, res) => {
 });
 
 // @route   GET /api/users/players
-// @desc    Get all players with search and filter (with pagination)
+// @desc    Get all players with search by username, IGN, and UID (with pagination)
 // @access  Private
 router.get('/players', auth, async (req, res) => {
   try {
@@ -95,13 +95,14 @@ router.get('/players', auth, async (req, res) => {
 
     let query = { _id: { $ne: currentUserId }, isActive: true };
 
-    // Global search - search in username, email, bio, country
+    // Search in username, BGMI IGN/UID, and Free Fire IGN/UID only
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { bio: { $regex: search, $options: 'i' } },
-        { country: { $regex: search, $options: 'i' } }
+        { bgmiIgnName: { $regex: search, $options: 'i' } },
+        { bgmiUid: { $regex: search, $options: 'i' } },
+        { freeFireIgnName: { $regex: search, $options: 'i' } },
+        { freeFireUid: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -113,11 +114,64 @@ router.get('/players', auth, async (req, res) => {
     // Get total count for pagination
     const totalPlayers = await User.countDocuments(query);
 
-    const players = await User.find(query)
-      .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    let players;
+    
+    if (search) {
+      // Use aggregation pipeline for smart sorting when searching
+      const searchRegex = new RegExp(search, 'i');
+      const startsWithRegex = new RegExp(`^${search}`, 'i');
+      
+      players = await User.aggregate([
+        { $match: query },
+        {
+          $addFields: {
+            // Priority scoring: starts with search term gets higher score
+            searchScore: {
+              $sum: [
+                { $cond: [{ $regexMatch: { input: "$username", regex: startsWithRegex } }, 100, 0] },
+                { $cond: [{ $regexMatch: { input: "$bgmiIgnName", regex: startsWithRegex } }, 90, 0] },
+                { $cond: [{ $regexMatch: { input: "$freeFireIgnName", regex: startsWithRegex } }, 90, 0] },
+                { $cond: [{ $regexMatch: { input: "$username", regex: searchRegex } }, 50, 0] },
+                { $cond: [{ $regexMatch: { input: "$bgmiIgnName", regex: searchRegex } }, 40, 0] },
+                { $cond: [{ $regexMatch: { input: "$bgmiUid", regex: searchRegex } }, 30, 0] },
+                { $cond: [{ $regexMatch: { input: "$freeFireIgnName", regex: searchRegex } }, 40, 0] },
+                { $cond: [{ $regexMatch: { input: "$freeFireUid", regex: searchRegex } }, 30, 0] }
+              ]
+            }
+          }
+        },
+        { $sort: { searchScore: -1, username: 1 } },
+        { $skip: skip },
+        { $limit: limitNum },
+        {
+          $project: {
+            username: 1,
+            email: 1,
+            avatarUrl: 1,
+            level: 1,
+            currentRank: 1,
+            tournamentsWon: 1,
+            favoriteGame: 1,
+            bio: 1,
+            country: 1,
+            friends: 1,
+            games: 1,
+            gameIds: 1,
+            bgmiIgnName: 1,
+            bgmiUid: 1,
+            freeFireIgnName: 1,
+            freeFireUid: 1
+          }
+        }
+      ]);
+    } else {
+      // Regular query without search
+      players = await User.find(query)
+        .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
+        .skip(skip)
+        .limit(limitNum)
+        .lean();
+    }
     
     console.log(`Found ${players.length} players (page ${pageNum}, total: ${totalPlayers})`);
 
