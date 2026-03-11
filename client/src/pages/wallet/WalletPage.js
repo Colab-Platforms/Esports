@@ -37,14 +37,22 @@ const WalletPage = () => {
   const fetchReferralCode = async () => {
     try {
       const response = await api.get('/api/referral/my-code');
-      if (response.data.success) {
-        setReferralCode(response.data.data.referralCode);
-        setReferralLink(response.data.data.referralLink);
+      console.log('🎁 Referral API Response:', response);
+      console.log('🎁 Response Data:', response.data);
+      
+      if (response.success) {
+        console.log('✅ Success! Code:', response.data.referralCode);
+        setReferralCode(response.data.referralCode);
+        setReferralLink(response.data.referralLink);
         setShowReferralModal(true);
+      } else {
+        console.warn('⚠️ Response not successful:', response.data);
+        alert('Failed to fetch referral code');
       }
     } catch (error) {
-      console.error('Error fetching referral code:', error);
-      alert('Failed to fetch referral code');
+      console.error('❌ Error fetching referral code:', error);
+      console.error('Error response:', error.response?.data);
+      alert('Failed to fetch referral code'); 
     }
   };
 
