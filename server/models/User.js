@@ -262,6 +262,15 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date,
     default: null
+  },
+  // Welcome bonus tracking
+  welcomeBonusReceived: {
+    type: Boolean,
+    default: false
+  },
+  welcomeBonusDate: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true,

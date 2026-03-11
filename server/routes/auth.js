@@ -476,25 +476,33 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     console.log('✅ User saved successfully');
 
     // Give welcome bonus coins
+    let welcomeBonusAmount = 0;
+    let welcomeBonusSuccess = false;
     try {
       const Wallet = require('../models/Wallet');
       const { CoinConfig } = require('../models/CoinConfig');
       
-      // Get welcome bonus amount from config
+      // Get welcome bonus amount from config, default to 100 coins
       const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
-      const welcomeBonus = config ? config.value : 50; // Default 50 coins
+      welcomeBonusAmount = config ? config.value : 100; // Default 100 coins
       
       // Create wallet and add welcome bonus
       let wallet = new Wallet({ userId: user._id });
       await wallet.addCoins(
-        welcomeBonus,
+        welcomeBonusAmount,
         'bonus',
-        'Welcome Bonus - Thank you for joining!',
+        'Welcome Bonus - Thank you for joining Colab Esports!',
         { source: 'registration' }
       );
       await wallet.save();
       
-      console.log(`🎁 Welcome bonus of ${welcomeBonus} coins credited to user:`, user.username);
+      // Update user to mark welcome bonus as received
+      user.welcomeBonusReceived = true;
+      user.welcomeBonusDate = new Date();
+      await user.save();
+      
+      welcomeBonusSuccess = true;
+      console.log(`🎁 Welcome bonus of ${welcomeBonusAmount} coins credited to user:`, user.username);
     } catch (coinError) {
       console.error('❌ Failed to credit welcome bonus:', coinError);
       // Don't fail registration if coin credit fails
@@ -561,6 +569,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           freeFireIgnName: user.freeFireIgnName,
           freeFireUid: user.freeFireUid,
           createdAt: user.createdAt
+        },
+        welcomeBonus: {
+          success: welcomeBonusSuccess,
+          amount: welcomeBonusAmount,
+          message: welcomeBonusSuccess ? `Welcome to Colab Esports! You have earned ${welcomeBonusAmount} coins. Check out your wallet!` : null
         }
       },
       message: '🎉 Welcome to Colab Esports! Your gaming journey begins now.',
@@ -568,6 +581,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     });
 
     console.log('🎉 Registration successful for:', fullName, `(${generatedUsername})`);
+    console.log('🎁 Welcome bonus data being sent:', {
+      success: welcomeBonusSuccess,
+      amount: welcomeBonusAmount,
+      message: welcomeBonusSuccess ? `Welcome to Colab Esports! You have earned ${welcomeBonusAmount} coins. Check out your wallet!` : null
+    });
 
   } catch (error) {
     console.error('❌ Registration error:', error);

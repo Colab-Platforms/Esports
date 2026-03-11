@@ -110,7 +110,7 @@ router.post('/coin-config/init', auth, adminAuth, async (req, res) => {
   try {
     const defaultConfigs = [
       { key: 'daily_login_reward', value: 10, description: 'Daily login bonus', category: 'earning' },
-      { key: 'welcome_bonus', value: 50, description: 'Welcome bonus for new users', category: 'bonus' },
+      { key: 'welcome_bonus', value: 100, description: 'Welcome bonus for new users', category: 'bonus' },
       { key: 'tournament_win_reward', value: 100, description: 'Reward for winning tournament', category: 'tournament' },
       { key: 'tournament_participation', value: 20, description: 'Reward for participating in tournament', category: 'tournament' },
       { key: 'referral_reward', value: 50, description: 'Reward for successful referral', category: 'referral' },

@@ -17,6 +17,9 @@ import {
   clearError 
 } from '../../store/slices/authSlice';
 
+import WelcomeBonusModal from '../../components/common/WelcomeBonusModal';
+import { updateWalletBalance } from '../../store/slices/walletSlice';
+
 const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -34,6 +37,15 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showGameDropdown, setShowGameDropdown] = useState(false);
+  
+  // Welcome bonus modal state
+  const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
+  const [welcomeBonusData, setWelcomeBonusData] = useState(null);
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔍 Modal state changed:', { showWelcomeBonus, welcomeBonusData });
+  }, [showWelcomeBonus, welcomeBonusData]);
 
   // Clear error when component mounts
   useEffect(() => {
@@ -113,9 +125,33 @@ const RegisterPage = () => {
         const data = await secureRequest.post('/api/auth/register', requestData);
 
         if (data.success) {
+          console.log('🎉 Registration successful, response:', data);
           dispatch(registerSuccess(data.data));
-          toast.success('Sign up successful! Welcome to the arena! 🎮');
-          navigate('/dashboard');
+          
+          // Check if welcome bonus was credited
+          if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
+            console.log('✅ Welcome bonus found:', data.data.welcomeBonus);
+            
+            // Update wallet balance in Redux
+            dispatch(updateWalletBalance({
+              balance: data.data.welcomeBonus.amount,
+              totalEarned: data.data.welcomeBonus.amount
+            }));
+            
+            setWelcomeBonusData({
+              amount: data.data.welcomeBonus.amount,
+              message: data.data.welcomeBonus.message,
+              userName: data.data.user.fullName
+            });
+            setShowWelcomeBonus(true);
+            console.log('🎁 Setting showWelcomeBonus to true');
+          } else {
+            console.log('❌ No welcome bonus found');
+            console.log('Welcome bonus data:', data.data.welcomeBonus);
+            // No welcome bonus, show regular success and redirect
+            toast.success('Sign up successful! Welcome to the arena! 🎮');
+            navigate('/dashboard');
+          }
         } else {
           dispatch(registerFailure(data.error));
         }
@@ -651,6 +687,34 @@ const RegisterPage = () => {
           </div>
         </motion.form>
       </motion.div>
+
+      {/* Welcome Bonus Modal */}
+      <WelcomeBonusModal
+        isOpen={showWelcomeBonus}
+        onClose={() => setShowWelcomeBonus(false)}
+        bonusAmount={welcomeBonusData?.amount || 100}
+        userName={welcomeBonusData?.userName || 'Player'}
+      />
+
+      {/* Debug: Test Welcome Bonus Modal */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={() => {
+              console.log('🧪 Test button clicked');
+              setWelcomeBonusData({
+                amount: 100,
+                message: 'Test welcome bonus',
+                userName: 'Test User'
+              });
+              setShowWelcomeBonus(true);
+            }}
+            className="bg-gaming-gold text-black px-4 py-2 rounded-lg font-bold text-sm hover:bg-yellow-600 transition-colors"
+          >
+            🧪 Test Modal
+          </button>
+        </div>
+      )}
     </div>
   );
 };
