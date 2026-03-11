@@ -36,7 +36,7 @@ const WalletPage = () => {
 
   const fetchReferralCode = async () => {
     try {
-      const response = await api.get('/referral/my-code');
+      const response = await api.get('/api/referral/my-code');
       if (response.data.success) {
         setReferralCode(response.data.data.referralCode);
         setReferralLink(response.data.data.referralLink);
