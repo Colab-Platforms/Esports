@@ -317,7 +317,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                         )}
                       </div>
                       <div className="flex items-center space-x-1 shrink-0">
-                        <button
+                        {/* <button
                           type="button"
                           onClick={() => setEditingMember(editingMember === member._id ? null : member._id)}
                           className={`p-1.5 rounded transition-colors ${
@@ -328,8 +328,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                           title="Edit game info"
                         >
                           <FiEdit3 className="w-3.5 h-3.5" />
-                        </button>
-                        {/* changes */}
+                        </button> */}
                         <button
                           type="button"
                           onClick={() => handleRemoveMember(member._id)}
