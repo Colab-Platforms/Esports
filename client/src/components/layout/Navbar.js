@@ -66,7 +66,7 @@ const Navbar = () => {
     { to: "/games", label: "GAMES" },
     // { to: '/bgmi', label: 'BGMI' },
     { to: "/tournaments", label: "TOURNAMENTS" },
-    { to: "/teams", label: "FRIENDS" },
+    { to: "/teams", label: "CONNECTIONS" },
     { to: "/leaderboard", label: "LEADERBOARD" },
     { to: "/store", label: "STORE" },
   ];

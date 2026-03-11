@@ -9,11 +9,6 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
   const [showCoins, setShowCoins] = useState(false);
   const [coinCount, setCoinCount] = useState(0);
 
-  // Debug props
-  useEffect(() => {
-    console.log('🎁 WelcomeBonusModal props:', { isOpen, bonusAmount, userName });
-  }, [isOpen, bonusAmount, userName]);
-
   // Animate coin counter
   useEffect(() => {
     if (isOpen && showCoins) {
@@ -51,14 +46,6 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
     }, 300); // Small delay for smooth transition
   };
 
-  const handleContinue = () => {
-    toast.success('🎮 Welcome to the arena! Let\'s get started!');
-    onClose();
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 300); // Small delay for smooth transition
-  };
-
   // Floating coins animation
   const FloatingCoin = ({ delay = 0 }) => (
     <motion.div
@@ -87,13 +74,13 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+          >
           <motion.div
             initial={{ scale: 0.5, opacity: 0, y: 50 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -226,13 +213,6 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
                   <FiDollarSign className="w-5 h-5" />
                   <span>Check Your Wallet</span>
                   <FiArrowRight className="w-4 h-4" />
-                </button>
-                
-                <button
-                  onClick={handleContinue}
-                  className="w-full bg-gaming-charcoal/50 hover:bg-gaming-charcoal border border-gaming-border hover:border-gaming-gold text-white font-gaming py-3 px-6 rounded-lg transition-all duration-300"
-                >
-                  Continue to Dashboard
                 </button>
               </motion.div>
 
