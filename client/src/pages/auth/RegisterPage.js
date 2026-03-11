@@ -108,7 +108,8 @@ const RegisterPage = () => {
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
-          password: formData.password
+          password: formData.password,
+          referralCode: formData.referralCode || undefined // Add referral code if provided
         };
 
         // Use secure request utility to hide sensitive data
