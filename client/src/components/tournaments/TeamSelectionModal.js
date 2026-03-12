@@ -63,6 +63,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const [loading, setLoading] = useState(true);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || '');
   const [memberEdits, setMemberEdits] = useState({});
   const [editingMemberId, setEditingMemberId] = useState(null);
@@ -167,24 +168,41 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
 
   const handleCreateTeam = async (teamData) => {
     const { captainGameInfo, ...payload } = teamData;
+    const isUpdating = !!editingTeam;
+    
     try {
-      const response = await axios.post(`${API_URL}/api/teams`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
+      let response;
+      if (isUpdating) {
+        // Update existing team
+        response = await axios.put(`${API_URL}/api/teams/${editingTeam._id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Team updated!', {
+          duration: 2000, position: 'top-center',
+          style: { background: '#1a1a2e', color: '#fff', border: '1px solid #FFD700' }
+        });
+      } else {
+        // Create new team
+        response = await axios.post(`${API_URL}/api/teams`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         toast.success('Team created!', {
           duration: 2000, position: 'top-center',
           style: { background: '#1a1a2e', color: '#fff', border: '1px solid #FFD700' }
         });
+      }
+      
+      if (response.data.success) {
         setShowCreateModal(false);
-        const newTeamId = response.data.data.team?._id;
+        setEditingTeam(null);
+        const teamId = isUpdating ? editingTeam._id : response.data.data.team?._id;
         // Update captain's profile with game info, then re-fetch with fresh populated data
         await updateCaptainProfile(payload.game, captainGameInfo);
-        await fetchTeams(newTeamId);
+        await fetchTeams(teamId);
       }
     } catch (error) {
-      console.error('Error creating team:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to create team', {
+      console.error(`Error ${isUpdating ? 'updating' : 'creating'} team:`, error);
+      toast.error(error.response?.data?.error?.message || `Failed to ${isUpdating ? 'update' : 'create'} team`, {
         duration: 3000, position: 'top-center'
       });
     }
@@ -212,11 +230,15 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   if (showCreateModal) {
     return (
       <CreateTeamModal
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingTeam(null);
+        }}
         onCreate={handleCreateTeam}
         token={token}
         fixedGame={gameType}
         currentUser={user}
+        editTeam={editingTeam}
       />
     );
   }
@@ -268,12 +290,26 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-3 flex-1">
                           <div className="w-10 h-10 bg-gaming-gold/20 rounded-lg flex items-center justify-center">
                             <FiUsers className="w-5 h-5 text-gaming-gold" />
                           </div>
-                          <div>
-                            <h3 className="text-white font-bold">{team.name}</h3>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h3 className="text-white font-bold">{team.name}</h3>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTeam(team);
+                                  setShowCreateModal(true);
+                                }}
+                                className="p-1 text-gray-400 hover:text-gaming-gold transition-colors"
+                                title="Edit team members"
+                              >
+                                <FiEdit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                             <p className="text-gray-400 text-xs">{team.members?.length}/{team.maxMembers} Members</p>
                           </div>
                         </div>
@@ -310,6 +346,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                             <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-2">
                               Team Roster — {fields.nameLabel} / {fields.idLabel}
                             </p>
+                            
                             {team.members?.map((member) => {
                               if (!member.userId) return null;
                               const memberId = member.userId._id || member.userId;
@@ -331,7 +368,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                         <span className="text-[10px] bg-gaming-gold/20 text-gaming-gold px-1.5 py-0.5 rounded font-bold">LEADER</span>
                                       )}
                                     </div>
-                                    <button
+                                    {/* <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -346,7 +383,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                       className={`p-1.5 rounded transition-colors ${isEditing ? 'bg-gaming-gold/20 text-gaming-gold' : 'text-gray-500 hover:text-gaming-gold'}`}
                                     >
                                       <FiEdit2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    </button> */}
                                   </div>
 
                                   {isEditing ? (

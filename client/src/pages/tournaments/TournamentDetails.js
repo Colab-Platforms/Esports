@@ -290,7 +290,7 @@ const TournamentDetails = ({
               >
                 General
               </button>
-              <button
+              {user?.role === 'admin' && <button
                 onClick={() => setActiveTab('teams')}
                 className={`px-4 py-3 font-medium transition-colors border-b-2 ${
                   activeTab === 'teams'
@@ -299,7 +299,7 @@ const TournamentDetails = ({
                 }`}
               >
                 Teams
-              </button>
+              </button>}
               {/* Chat button commented out for future implementation */}
               {/* <button
                 onClick={() => setActiveTab('chat')}

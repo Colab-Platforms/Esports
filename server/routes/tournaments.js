@@ -2483,6 +2483,93 @@ router.get('/bgmi/scoreboards', async (req, res) => {
   }
 });
 
+// @route   GET /api/tournaments/freefire/scoreboards
+// @desc    Get all FreeFire tournament scoreboards (public)
+// @access  Public
+router.get('/freefire/scoreboards', async (req, res) => {
+  try {
+    console.log('📥 FreeFire Scoreboards API called');
+    const { limit = 10 } = req.query;
+    console.log('📊 Requested limit:', limit);
+    
+    // Check Redis cache first
+    const cacheKey = `freefire:scoreboards:${limit}`;
+    const cachedScoreboards = await redisService.get(cacheKey);
+    
+    if (cachedScoreboards) {
+      console.log('✅ FreeFire scoreboards found in cache');
+      return res.json({
+        success: true,
+        data: cachedScoreboards,
+        timestamp: new Date().toISOString(),
+        cached: true
+      });
+    }
+    
+    // Find all FreeFire tournaments with scoreboards
+    const tournaments = await Tournament.find({
+      gameType: 'freefire',
+      'scoreboards.0': { $exists: true } // Only tournaments with at least one scoreboard
+    })
+    .select('name gameType status endDate scoreboards')
+    .populate('scoreboards.uploadedBy', 'username')
+    .sort({ 'scoreboards.uploadedAt': -1 }); // Sort by latest scoreboard upload
+    
+    // Flatten all scoreboards from all tournaments
+    const allScoreboards = [];
+    
+    tournaments.forEach(tournament => {
+      tournament.scoreboards.forEach(scoreboard => {
+        allScoreboards.push({
+          _id: scoreboard._id,
+          imageUrl: scoreboard.imageUrl,
+          description: scoreboard.description,
+          uploadedAt: scoreboard.uploadedAt,
+          tournament: {
+            id: tournament._id,
+            name: tournament.name,
+            gameType: tournament.gameType,
+            status: tournament.status,
+            endDate: tournament.endDate
+          },
+          uploadedBy: scoreboard.uploadedBy
+        });
+      });
+    });
+    
+    // Sort by upload date (newest first) and limit results
+    const sortedScoreboards = allScoreboards
+      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+      .slice(0, parseInt(limit));
+    
+    const responseData = {
+      scoreboards: sortedScoreboards,
+      count: sortedScoreboards.length,
+      total: allScoreboards.length
+    };
+    
+    // Cache the response (5 minutes TTL - shorter for scoreboards since they change frequently)
+    await redisService.set(cacheKey, responseData, 300);
+    
+    res.json({
+      success: true,
+      data: responseData,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error fetching FreeFire scoreboards:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FREEFIRE_SCOREBOARDS_FETCH_FAILED',
+        message: 'Failed to fetch FreeFire scoreboards',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 // @route   GET /api/tournaments/user/scoreboards
 // @desc    Get scoreboards for tournaments where user participated
 // @access  Private

@@ -153,7 +153,7 @@ const SingleTournamentPage = () => {
         console.log('🔍 Fetching tournament:', id);
 
         const data = await secureRequest.get(`/api/tournaments/${id}`);
-        console.log('✅ Tournament data received:', data);
+        console.log('✅ Tournament data received:', data);  
 
         if (data.success) {
           const tournamentData = data.data.tournament;
@@ -1033,7 +1033,7 @@ const SingleTournamentPage = () => {
         {/* Top Navigation Bar */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            to="/games"
+            to="/tournaments"
             className="p-2 hover:bg-white/10 rounded-lg transition-colors duration-200 backdrop-blur-sm"
           >
             <FiArrowLeft className="h-5 w-5 text-white" />
@@ -1155,7 +1155,7 @@ const SingleTournamentPage = () => {
                 </div> */}
 
                 {/* Participants */}
-                <div className="flex items-center space-x-3 md:space-x-4">
+                {user?.role === 'admin' && <div className="flex items-center space-x-3 md:space-x-4">
                   <div className="w-10 md:w-12 h-10 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
                     <FiUsers className="h-5 md:h-6 w-5 md:w-6 text-white" />
                   </div>
@@ -1163,7 +1163,7 @@ const SingleTournamentPage = () => {
                     <div className="text-gray-400 text-xs uppercase tracking-wide font-body">Participants</div>
                     <div className="text-white font-bold text-lg md:text-xl font-display">{tournament?.currentParticipants || 0} / {tournament?.maxParticipants || 100}</div>
                   </div>
-                </div>
+                </div>}
 
                 {/* Timeline - Registration & Tournament Start */}
                 <div className="flex items-center space-x-3 md:space-x-4">
