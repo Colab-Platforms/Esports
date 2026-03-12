@@ -1,23 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiDollarSign, FiX, FiArrowRight } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Player' }) => {
+const WelcomeBonusModal = ({ 
+  isOpen, 
+  onClose, 
+  bonusAmount = 100, 
+  userName = 'Player',
+  referralBonus = null // { received: false, amount: 0, referralCode: null }
+}) => {
   const navigate = useNavigate();
   const [showCoins, setShowCoins] = useState(false);
   const [coinCount, setCoinCount] = useState(0);
+  
+  // Calculate total bonus amount
+  const totalBonusAmount = bonusAmount + (referralBonus?.received ? referralBonus.amount : 0);
+  const hasReferralBonus = referralBonus?.received && referralBonus.amount > 0;
 
   // Animate coin counter
   useEffect(() => {
     if (isOpen && showCoins) {
       let start = 0;
-      const increment = bonusAmount / 50; // Animate over 50 steps
+      const increment = totalBonusAmount / 50; // Animate over 50 steps
       const timer = setInterval(() => {
         start += increment;
-        if (start >= bonusAmount) {
-          setCoinCount(bonusAmount);
+        if (start >= totalBonusAmount) {
+          setCoinCount(totalBonusAmount);
           clearInterval(timer);
         } else {
           setCoinCount(Math.floor(start));
@@ -26,7 +36,7 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
 
       return () => clearInterval(timer);
     }
-  }, [isOpen, showCoins, bonusAmount]);
+  }, [isOpen, showCoins, totalBonusAmount]);
 
   // Show coins animation after modal opens
   useEffect(() => {
@@ -150,7 +160,7 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
                 className="mb-8"
               >
                 <div className="bg-gaming-charcoal/50 border border-gaming-gold/30 rounded-xl p-6 backdrop-blur-sm">
-                  <div className="flex items-center justify-center space-x-3 mb-3">
+                  <div className="flex items-center justify-center space-x-3 mb-4">
                     <motion.div
                       animate={{ rotate: showCoins ? 360 : 0 }}
                       transition={{ duration: 1, delay: 0.8 }}
@@ -179,20 +189,75 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
                     </div>
                   </div>
                   
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.2 }}
-                    className="text-gaming-gold font-medium text-sm"
-                  >
-                    🎁 Welcome Bonus Credited!
-                  </motion.p>
+                  {/* Bonus Breakdown */}
+                  <div className="space-y-2 mb-4">
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 1.2 }}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-gaming-gold flex items-center space-x-2">
+                        <span>🎁</span>
+                        <span>Welcome Bonus</span>
+                      </span>
+                      <span className="text-white font-medium">+{bonusAmount}</span>
+                    </motion.div>
+                    
+                    {hasReferralBonus && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1.4 }}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <span className="text-gaming-neon flex items-center space-x-2">
+                          <span>🤝</span>
+                          <span>Referral Bonus</span>
+                        </span>
+                        <span className="text-white font-medium">+{referralBonus.amount}</span>
+                      </motion.div>
+                    )}
+                    
+                    {hasReferralBonus && (
+                      <div className="border-t border-gaming-border/30 pt-2">
+                        <div className="flex items-center justify-between text-sm font-bold">
+                          <span className="text-gaming-gold">Total Bonus</span>
+                          <span className="text-gaming-gold">+{totalBonusAmount}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 1.4 }}
-                    className="text-gray-400 text-xs mt-2"
+                    transition={{ delay: hasReferralBonus ? 1.6 : 1.2 }}
+                    className="text-gaming-gold font-medium text-sm text-center"
+                  >
+                    {hasReferralBonus ? (
+                      <>🎉 Welcome & Referral Bonuses Credited!</>
+                    ) : (
+                      <>🎁 Welcome Bonus Credited!</>
+                    )}
+                  </motion.p>
+                  
+                  {hasReferralBonus && referralBonus.referralCode && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.8 }}
+                      className="text-gaming-neon text-xs mt-2 text-center"
+                    >
+                      Thanks for using referral code: <span className="font-bold">{referralBonus.referralCode}</span>
+                    </motion.p>
+                  )}
+                  
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: hasReferralBonus ? 2.0 : 1.4 }}
+                    className="text-gray-400 text-xs mt-2 text-center"
                   >
                     Use these coins in our store or save them for future tournaments
                   </motion.p>
@@ -203,7 +268,7 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.6 }}
+                transition={{ delay: hasReferralBonus ? 2.2 : 1.6 }}
                 className="space-y-3"
               >
                 <button
@@ -220,10 +285,10 @@ const WelcomeBonusModal = ({ isOpen, onClose, bonusAmount = 100, userName = 'Pla
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 2 }}
+                transition={{ delay: hasReferralBonus ? 2.4 : 2 }}
                 className="mt-6 text-xs text-gray-500"
               >
-                <p>💡 Tip: Earn more coins by participating in tournaments!</p>
+                <p>💡 Tip: {hasReferralBonus ? 'Share your referral code to earn more coins!' : 'Earn more coins by participating in tournaments!'}</p>
               </motion.div>
             </div>
 

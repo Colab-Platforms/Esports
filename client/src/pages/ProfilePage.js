@@ -611,29 +611,6 @@ const TeamsTab = ({ teams, loading, toast }) => {
     }
   };
 
-  const sendChallenge = async (playerId, game) => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      await axios.post(
-        `${API_URL}/api/challenges`,
-        { 
-          opponentId: playerId, 
-          game,
-          matchDetails: {
-            scheduledTime: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
-          }
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Show success toast
-      toast.success(`${game.toUpperCase()} challenge sent successfully!`);
-    } catch (error) {
-      console.error('Error sending challenge:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to send challenge');
-    }
-  };
-
   const acceptFriendRequest = async (requestId) => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -743,7 +720,6 @@ const TeamsTab = ({ teams, loading, toast }) => {
                   <th className="text-left p-4 text-gray-400 font-medium">Rank</th>
                   <th className="text-left p-4 text-gray-400 font-medium">Game</th>
                   <th className="text-left p-4 text-gray-400 font-medium">Wins</th>
-                  <th className="text-right p-4 text-gray-400 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -763,22 +739,6 @@ const TeamsTab = ({ teams, loading, toast }) => {
                       <span className="text-gray-400">{friend.favoriteGame?.toUpperCase() || '-'}</span>
                     </td>
                     <td className="p-4 text-white">{friend.tournamentsWon || 0}</td>
-                    <td className="p-4">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => sendChallenge(friend.id, 'bgmi')}
-                          className="px-3 py-1 bg-gaming-neon hover:bg-gaming-neon/80 text-black rounded text-sm font-medium"
-                        >
-                          BGMI
-                        </button>
-                        <button
-                          onClick={() => sendChallenge(friend.id, 'cs2')}
-                          className="px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black rounded text-sm font-medium"
-                        >
-                          CS2
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -867,8 +827,7 @@ const TeamsTab = ({ teams, loading, toast }) => {
 };
 
 // Player Card Component
-const PlayerCard = ({ player, onSendFriendRequest, onSendChallenge, isPending = false }) => {
-  const [showChallengeMenu, setShowChallengeMenu] = useState(false);
+const PlayerCard = ({ player, onSendFriendRequest, isPending = false }) => {
 
   return (
     <motion.div
@@ -929,41 +888,6 @@ const PlayerCard = ({ player, onSendFriendRequest, onSendChallenge, isPending = 
               : 'Add Friend'}
           </span>
         </button>
-
-        <div className="relative">
-          <button
-            onClick={() => setShowChallengeMenu(!showChallengeMenu)}
-            className="p-2 bg-gaming-neon hover:bg-gaming-neon/80 text-black rounded-lg transition-colors"
-          >
-            <FiAward className="w-5 h-5" />
-          </button>
-
-          {showChallengeMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50">
-              <div className="p-2">
-                <p className="text-xs text-gray-400 px-2 py-1">Challenge to:</p>
-                <button
-                  onClick={() => {
-                    onSendChallenge(player.id, 'bgmi');
-                    setShowChallengeMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-white hover:bg-gaming-dark rounded"
-                >
-                  BGMI Match
-                </button>
-                <button
-                  onClick={() => {
-                    onSendChallenge(player.id, 'cs2');
-                    setShowChallengeMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-white hover:bg-gaming-dark rounded"
-                >
-                  CS2 Match
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </motion.div>
   );
@@ -1019,217 +943,6 @@ const FriendRequestCard = ({ request, onAccept, onReject }) => {
         </button>
       </div>
     </motion.div>
-  );
-};
-
-// Challenges Tab Component
-const ChallengesTab = ({ challenges, loading, toast, onRefresh }) => {
-  const [filter, setFilter] = useState('all');
-  const { token } = useSelector(selectAuth);
-
-  const filterOptions = [
-    { value: 'all', label: 'All Challenges' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'accepted', label: 'Accepted' },
-    { value: 'completed', label: 'Completed' }
-  ];
-
-  const filteredChallenges = challenges.filter(challenge => {
-    if (filter === 'all') return true;
-    return challenge.status === filter;
-  });
-
-  const handleAcceptChallenge = async (challengeId) => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      await axios.post(
-        `${API_URL}/api/challenges/${challengeId}/accept`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Challenge accepted! Waiting for room details from challenger.');
-      onRefresh();
-    } catch (error) {
-      toast.error(error.response?.data?.error?.message || 'Failed to accept challenge');
-    }
-  };
-
-  const handleAddRoomDetails = async (challengeId) => {
-    const roomId = prompt('Enter Room ID:');
-    const password = prompt('Enter Password:');
-    
-    if (!roomId || !password) {
-      toast.error('Room ID and Password are required');
-      return;
-    }
-
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      await axios.post(
-        `${API_URL}/api/challenges/${challengeId}/room-details`,
-        { roomId, password },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Room details added! Opponent notified.');
-      onRefresh();
-    } catch (error) {
-      toast.error(error.response?.data?.error?.message || 'Failed to add room details');
-    }
-  };
-
-  const handleDeclineChallenge = async (challengeId) => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      await axios.post(
-        `${API_URL}/api/challenges/${challengeId}/decline`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.info('Challenge declined');
-      onRefresh();
-    } catch (error) {
-      toast.error(error.response?.data?.error?.message || 'Failed to decline challenge');
-    }
-  };
-
-  if (loading) {
-    return <div className="text-center py-8 text-gray-400">Loading challenges...</div>;
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-white">My Challenges</h2>
-        
-        {/* Filter Buttons */}
-        <div className="flex space-x-2">
-          {filterOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === option.value
-                  ? 'bg-gaming-gold text-black'
-                  : 'bg-gaming-charcoal text-gray-400 hover:text-white hover:bg-gaming-border'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      {filteredChallenges.length === 0 ? (
-        <div className="text-center py-12">
-          <FiAward className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400">
-            {filter === 'all' 
-              ? 'No challenges yet. Challenge your friends!' 
-              : `No ${filter} challenges.`}
-          </p>
-        </div>
-      ) : (
-        <div className="card-gaming overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gaming-border">
-                <th className="text-left p-4 text-gray-400 font-medium">Game</th>
-                <th className="text-left p-4 text-gray-400 font-medium">Opponent</th>
-                <th className="text-left p-4 text-gray-400 font-medium">Status</th>
-                <th className="text-left p-4 text-gray-400 font-medium">Room Details</th>
-                <th className="text-left p-4 text-gray-400 font-medium">Date</th>
-                <th className="text-right p-4 text-gray-400 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredChallenges.map((challenge) => (
-                <tr key={challenge.id} className="border-b border-gaming-border hover:bg-gaming-dark/50 transition-colors">
-                  <td className="p-4">
-                    <span className="text-white font-bold">{challenge.game.toUpperCase()}</span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center space-x-2">
-                      <UserAvatar 
-                        user={challenge.isChallenger ? challenge.opponent : challenge.challenger} 
-                        size="sm" 
-                      />
-                      <div>
-                        <p className="text-white text-sm">
-                          {challenge.isChallenger ? challenge.opponent.username : challenge.challenger.username}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          {challenge.isChallenger ? 'Challenged' : 'Challenger'}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      challenge.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                      challenge.status === 'accepted' ? 'bg-green-500/20 text-green-400' :
-                      challenge.status === 'completed' ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-gray-500/20 text-gray-400'
-                    }`}>
-                      {challenge.status}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    {challenge.matchDetails.roomId ? (
-                      <div className="text-xs">
-                        <p className="text-white">ID: {challenge.matchDetails.roomId}</p>
-                        <p className="text-gray-400">Pass: {challenge.matchDetails.password}</p>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 text-xs">-</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-gray-400 text-xs">
-                    {new Date(challenge.createdAt).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric'
-                    })}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-end space-x-2">
-                      {challenge.status === 'pending' && !challenge.isChallenger && (
-                        <>
-                          <button
-                            onClick={() => handleAcceptChallenge(challenge.id)}
-                            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleDeclineChallenge(challenge.id)}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium"
-                          >
-                            Decline
-                          </button>
-                        </>
-                      )}
-                      {challenge.status === 'pending' && challenge.isChallenger && (
-                        <span className="text-sm text-gray-400">Waiting...</span>
-                      )}
-                      {challenge.status === 'accepted' && challenge.isChallenger && !challenge.matchDetails.roomId && (
-                        <button
-                          onClick={() => handleAddRoomDetails(challenge.id)}
-                          className="px-3 py-1 bg-gaming-gold hover:bg-yellow-500 text-black rounded text-sm font-medium"
-                        >
-                          Add Room
-                        </button>
-                      )}
-                      {challenge.status === 'accepted' && !challenge.isChallenger && !challenge.matchDetails.roomId && (
-                        <span className="text-sm text-gray-400">Waiting...</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
   );
 };
 

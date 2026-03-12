@@ -1363,11 +1363,10 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg font-gaming">Connect, compete, and conquer together</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             {[
               { icon: <img src={getCdnIcon('social', 'friends')} height={70} width={70} alt="Friends System" />, title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
-              { icon: <img src={getCdnIcon('social', 'teams')} height={70} width={70} alt="Team Management" />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
-              { icon: <img src={getCdnIcon('social', 'challenges')} height={70} width={70} alt="Challenges" />, title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'bg-gradient-to-b from-purple-500 to-pink-500' }
+              { icon: <img src={getCdnIcon('social', 'teams')} height={70} width={70} alt="Team Management" />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' }
             ].map((item, idx) => (
               <motion.div
                 key={item.title}
@@ -1862,6 +1861,7 @@ const CompleteLandingPage = () => {
         onClose={() => setShowWelcomeBonus(false)}
         bonusAmount={welcomeBonusData?.amount || 100}
         userName={welcomeBonusData?.userName || 'Player'}
+        referralBonus={welcomeBonusData?.referralBonus || null}
       />
     </div>
   );

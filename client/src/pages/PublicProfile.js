@@ -13,7 +13,6 @@ const PublicProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [showChallengeMenu, setShowChallengeMenu] = useState(false);
   const [friendStatus, setFriendStatus] = useState(null); // 'friends', 'pending', 'received', or null
   const [tournamentHistory, setTournamentHistory] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
@@ -25,18 +24,6 @@ const PublicProfile = () => {
     fetchPlayerProfile();
     checkAuth();
   }, [username]);
-
-  // Close challenge menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showChallengeMenu && !event.target.closest('.challenge-dropdown')) {
-        setShowChallengeMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showChallengeMenu]);
 
   const checkAuth = () => {
     const token = localStorage.getItem('token');
@@ -153,32 +140,6 @@ const PublicProfile = () => {
     }
   };
 
-  const handleChallenge = (game) => {
-    if (!isAuthenticated) {
-      toast.error('Please login to send challenges', {
-        duration: 3000,
-        position: 'top-center'
-      });
-      setTimeout(() => {
-        navigate('/login', { state: { from: `/player/${username}` } });
-      }, 1000);
-      return;
-    }
-    
-    setShowChallengeMenu(false);
-    
-    // TODO: Implement challenge functionality
-    toast.success(`${game.toUpperCase()} Challenge sent! ⚔️`, {
-      duration: 3000,
-      position: 'top-center',
-      style: {
-        background: '#1a1a2e',
-        color: '#fff',
-        border: '1px solid #00f0ff'
-      }
-    });
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
@@ -277,37 +238,6 @@ const PublicProfile = () => {
                   <span>Add Friend</span>
                 </button>
               )}
-              
-              {/* Challenge Button with Dropdown */}
-              <div className="relative challenge-dropdown">
-                <button
-                  onClick={() => setShowChallengeMenu(!showChallengeMenu)}
-                  className="w-full px-6 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-                >
-                  <FiTarget className="w-4 h-4" />
-                  <span>Challenge</span>
-                </button>
-
-                {/* Challenge Dropdown Menu */}
-                {showChallengeMenu && (
-                  <div className="absolute top-full mt-2 w-full bg-gaming-charcoal border border-gaming-border rounded-lg shadow-2xl z-[9999] overflow-hidden">
-                    <button
-                      onClick={() => handleChallenge('bgmi')}
-                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2"
-                    >
-                      <span className="text-lg">🎮</span>
-                      <span>BGMI Match</span>
-                    </button>
-                    <button
-                      onClick={() => handleChallenge('cs2')}
-                      className="w-full px-4 py-3 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2"
-                    >
-                      <span className="text-lg">🔫</span>
-                      <span>CS2 Match</span>
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </motion.div>

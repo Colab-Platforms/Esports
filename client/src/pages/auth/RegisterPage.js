@@ -120,10 +120,13 @@ const RegisterPage = () => {
           
           // Check if welcome bonus was credited
           if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
+            // Calculate total bonus amount (welcome + referral)
+            const totalBonusAmount = data.data.welcomeBonus.amount + (data.data.referralBonus?.received ? data.data.referralBonus.amount : 0);
+            
             // Update wallet balance in Redux
             dispatch(updateWalletBalance({
-              balance: data.data.welcomeBonus.amount,
-              totalEarned: data.data.welcomeBonus.amount
+              balance: totalBonusAmount,
+              totalEarned: totalBonusAmount
             }));
             
             // Store welcome bonus data in localStorage for home page
@@ -131,6 +134,7 @@ const RegisterPage = () => {
               amount: data.data.welcomeBonus.amount,
               message: data.data.welcomeBonus.message,
               userName: data.data.user.fullName,
+              referralBonus: data.data.referralBonus || null,
               timestamp: Date.now()
             }));
             

@@ -541,18 +541,20 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
             console.log(`💼 Creating new wallet for user: ${user.username}`);
             newUserWallet = new Wallet({ userId: user._id });
           }
-          newUserWallet.balance += 30;
-          newUserWallet.totalEarned += 30;
-          newUserWallet.transactions.push({
-            type: 'referral',
-            amount: 30,
-            description: `Referral bonus - Welcome gift`,
-            metadata: {
-              source: 'referral'
-            }
-          });
+          await newUserWallet.addCoins(
+            30,
+            'referral',
+            'Referral bonus - Welcome gift',
+            { source: 'referral' }
+          );
           await newUserWallet.save();
           console.log(`💰 Awarded 30 coins to new user: ${user.username}`);
+          
+          // Update user to mark referral bonus as received
+          user.referralBonusReceived = true;
+          user.referralBonusDate = new Date();
+          user.referralCode = referralCode.toUpperCase();
+          await user.save();
           
           // Award 50 coins to referrer
           let referrerWallet = await Wallet.findOne({ userId: referral.userId });
@@ -560,16 +562,12 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
             console.log(`💼 Creating new wallet for referrer`);
             referrerWallet = new Wallet({ userId: referral.userId });
           }
-          referrerWallet.balance += 50;
-          referrerWallet.totalEarned += 50;
-          referrerWallet.transactions.push({
-            type: 'referral',
-            amount: 50,
-            description: `Referral bonus - ${user.username} joined`,
-            metadata: {
-              source: 'referral'
-            }
-          });
+          await referrerWallet.addCoins(
+            50,
+            'referral',
+            `Referral bonus - ${user.username} joined`,
+            { source: 'referral' }
+          );
           await referrerWallet.save();
           console.log(`💰 Awarded 50 coins to referrer`);
           
@@ -623,6 +621,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           success: welcomeBonusSuccess,
           amount: welcomeBonusAmount,
           message: welcomeBonusSuccess ? `Welcome to Colab Esports! You have earned ${welcomeBonusAmount} coins. Check out your wallet!` : null
+        },
+        referralBonus: {
+          received: user.referralBonusReceived || false,
+          amount: user.referralBonusReceived ? 30 : 0,
+          referralCode: user.referralCode || null
         }
       },
       message: '🎉 Welcome to Colab Esports! Your gaming journey begins now.',

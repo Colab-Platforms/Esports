@@ -271,6 +271,19 @@ const userSchema = new mongoose.Schema({
   welcomeBonusDate: {
     type: Date,
     default: null
+  },
+  // Referral bonus tracking
+  referralBonusReceived: {
+    type: Boolean,
+    default: false
+  },
+  referralBonusDate: {
+    type: Date,
+    default: null
+  },
+  referralCode: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true,

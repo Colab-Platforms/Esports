@@ -8,7 +8,6 @@ import {
   FiUsers,
   FiUserPlus,
   FiFilter,
-  FiTarget,
   FiCheck,
   FiX,
   FiEye,
@@ -33,7 +32,6 @@ const TeamsPage = () => {
   const [teamInvitations, setTeamInvitations] = useState([]);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [openChallengeMenu, setOpenChallengeMenu] = useState(null);
   const [friendFilter, setFriendFilter] = useState('all'); // 'all', 'friends', 'requested'
   const [myFriends, setMyFriends] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
@@ -45,8 +43,7 @@ const TeamsPage = () => {
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
     { id: 'friends', label: 'Friend Requests', icon: FiUserPlus },
-    { id: 'teams', label: 'My Teams', icon: FiUsers },
-    { id: 'challenges', label: 'Challenges', icon: FiTarget }
+    { id: 'teams', label: 'My Teams', icon: FiUsers }
   ];
 
   const games = [
@@ -75,18 +72,6 @@ const TeamsPage = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedGame, searchQuery, friendFilter]);
-
-  // Close challenge menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (openChallengeMenu && !event.target.closest('.challenge-menu-container')) {
-        setOpenChallengeMenu(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openChallengeMenu]);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
@@ -371,42 +356,6 @@ const TeamsPage = () => {
     }
   };
 
-  const sendChallenge = async (playerId, game) => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.post(
-        `${API_URL}/api/users/challenge`,
-        { 
-          opponentId: playerId,
-          game: game
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (response.data.success) {
-        toast.success('Challenge sent! ⚔️', {
-          duration: 3000,
-          position: 'top-center',
-          style: {
-            background: '#1a1a2e',
-            color: '#fff',
-            border: '1px solid #00f0ff'
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error sending challenge:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to send challenge', {
-        duration: 3000,
-        position: 'top-center'
-      });
-    }
-  };
-
   const cancelFriendRequest = async (playerId) => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -497,7 +446,7 @@ const TeamsPage = () => {
             Teams & Players
           </h1>
           <p className="text-xs md:text-sm text-gray-400">
-            Find players, send friend requests, and challenge opponents
+            Find players, send friend requests, and connect with teammates
           </p>
         </div>
 
@@ -679,42 +628,6 @@ const TeamsPage = () => {
                                   </button>
                                 )}
                                 
-                                {/* Challenge Button with Dropdown */}
-                                <div className="relative challenge-menu-container">
-                                  <button
-                                    onClick={() => setOpenChallengeMenu(openChallengeMenu === player._id ? null : player._id)}
-                                    className="px-2 md:px-3 py-1 bg-gaming-neon hover:bg-gaming-neon-blue text-white text-xs md:text-sm rounded transition-colors"
-                                    title="Challenge"
-                                  >
-                                    <FiTarget className="w-3 h-3 md:w-4 md:h-4" />
-                                  </button>
-                                  
-                                  {/* Dropdown Menu */}
-                                  {openChallengeMenu === player._id && (
-                                    <div className="absolute right-0 mt-2 w-40 bg-gaming-charcoal border border-gaming-border rounded-lg shadow-xl z-50 overflow-hidden">
-                                      <button
-                                        onClick={() => {
-                                          setOpenChallengeMenu(null);
-                                          handleActionWithLogin(() => sendChallenge(player._id || player.id, 'bgmi'));
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
-                                      >
-                                        <span>🎮</span>
-                                        <span>BGMI</span>
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setOpenChallengeMenu(null);
-                                          handleActionWithLogin(() => sendChallenge(player._id || player.id, 'cs2'));
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-white hover:bg-gaming-dark transition-colors flex items-center space-x-2 text-sm"
-                                      >
-                                        <span>🔫</span>
-                                        <span>CS2</span>
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
                               </div>
                             </td>
                           </tr>
@@ -891,22 +804,6 @@ const TeamsPage = () => {
             isAuthenticated={isAuthenticated}
             navigate={navigate}
           />
-        )}
-
-        {/* Challenges Tab */}
-        {activeTab === 'challenges' && (
-          <div className="space-y-6">
-            <div className="card-gaming p-8 text-center">
-              <FiTarget className="w-16 h-16 text-gaming-neon mx-auto mb-4" />
-              <h3 className="text-white text-xl font-bold mb-2">Challenges Coming Soon!</h3>
-              <p className="text-gray-400 mb-4">
-                Challenge your friends to epic battles. This feature is under development.
-              </p>
-              <div className="inline-flex items-center space-x-2 px-4 py-2 bg-gaming-neon/20 text-gaming-neon rounded-lg">
-                <span className="text-sm">🎮 Stay tuned for updates!</span>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </div>
