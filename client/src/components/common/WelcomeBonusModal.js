@@ -48,6 +48,20 @@ const WelcomeBonusModal = ({
     }
   }, [isOpen]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   const handleCheckWallet = () => {
     toast.success('🎉 Welcome to Colab Esports! Your coins are ready!');
     onClose();
@@ -89,7 +103,11 @@ const WelcomeBonusModal = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.target === e.currentTarget && onClose()}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                onClose();
+              }
+            }}
           >
           <motion.div
             initial={{ scale: 0.5, opacity: 0, y: 50 }}
@@ -117,14 +135,20 @@ const WelcomeBonusModal = ({
 
             {/* Close Button */}
             <button
-              onClick={onClose}
-              className="absolute top-4 right-4 z-10 p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              className="absolute top-4 right-4 z-20 p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 cursor-pointer"
+              type="button"
+              aria-label="Close modal"
             >
               <FiX className="w-5 h-5" />
             </button>
 
             {/* Content */}
-            <div className="relative z-10 p-8 text-center">
+            <div className="relative z-10 p-8 pt-12 text-center">
               {/* Welcome Icon */}
               <motion.div
                 initial={{ scale: 0 }}

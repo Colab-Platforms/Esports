@@ -98,6 +98,59 @@ router.get('/test-email', async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/validate-referral/:code
+// @desc    Validate referral code
+// @access  Public
+router.get('/validate-referral/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    if (!code || code.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_CODE',
+          message: 'Referral code must be at least 3 characters'
+        }
+      });
+    }
+
+    // Find user with this referral code
+    const referrer = await User.findOne({ 
+      referralCode: code.toUpperCase() 
+    }).select('fullName username referralCode');
+
+    if (!referrer) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'CODE_NOT_FOUND',
+          message: 'Referral code not found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        isValid: true,
+        referrerName: referrer.fullName || referrer.username,
+        referralCode: referrer.referralCode
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Referral validation error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to validate referral code'
+      }
+    });
+  }
+});
+
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email
 // @access  Public
