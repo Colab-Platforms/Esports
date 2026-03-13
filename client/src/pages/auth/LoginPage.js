@@ -270,7 +270,7 @@ const LoginPage = () => {
                 try {
                   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
                   // Check if OAuth is configured before redirecting
-                  const response = await fetch(`${API_URL}/api/auth/google/callback`, {
+                  const response = await fetch(`${API_URL}/api/auth/google`, {
                     method: 'GET',
                     redirect: 'manual' // Don't follow redirects
                   });
@@ -282,11 +282,11 @@ const LoginPage = () => {
                   }
                   
                   // If no error, proceed with OAuth
-                  window.location.href = `${API_URL}/api/auth/google/callback`;
+                  window.location.href = `${API_URL}/api/auth/google`;
                 } catch (error) {
                   console.error('OAuth check error:', error);
                   // Fallback to direct redirect
-                  window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/google/callback`;
+                  window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/auth/google`;
                 }
               }}
               className="w-full inline-flex justify-center py-2 px-4 border border-gaming-slate rounded-lg shadow-sm bg-gaming-charcoal text-sm font-medium text-white hover:bg-gaming-slate transition-all duration-200"
