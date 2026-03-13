@@ -44,6 +44,7 @@ import PublicProfile from './pages/PublicProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
+import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
@@ -720,6 +721,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <TournamentManagement />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+
+            <Route 
+              path="/admin/claims" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ClaimsManager />
                   </motion.div>
                 </AdminRoute>
               } 

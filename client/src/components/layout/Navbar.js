@@ -120,6 +120,7 @@ const Navbar = () => {
       links.push(
         { to: "/admin/tournaments", label: "Tournaments" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
+        { to: "/admin/claims", label: "Claims Manager" },
       );
     }
 
@@ -130,6 +131,7 @@ const Navbar = () => {
         { to: "/admin/games", label: "Games" },
         { to: "/admin/tournaments", label: "Tournaments" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
+        { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/coin-config", label: "Coin Config" },
         { to: "/admin/store", label: "Store Items" },
       );

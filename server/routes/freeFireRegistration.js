@@ -156,6 +156,64 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
+    // ✅ NEW: Check if any player is already registered in another team for this tournament
+    const conflictingPlayers = [];
+    
+    // Get all existing registrations for this tournament
+    const existingRegistrations = await TournamentRegistration.find({
+      tournamentId,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    });
+
+    // Check team leader
+    for (const existingReg of existingRegistrations) {
+      if (existingReg.teamLeader.freeFireId === teamLeader.freeFireId) {
+        conflictingPlayers.push({
+          freeFireId: teamLeader.freeFireId,
+          playerName: teamLeader.name,
+          existingTeam: existingReg.teamName,
+          role: 'Team Leader'
+        });
+      }
+      
+      // Check team members
+      for (const newMember of teamMembers) {
+        if (existingReg.teamLeader.freeFireId === newMember.freeFireId) {
+          conflictingPlayers.push({
+            freeFireId: newMember.freeFireId,
+            playerName: newMember.name,
+            existingTeam: existingReg.teamName,
+            role: 'Team Member'
+          });
+        }
+        
+        for (const existingMember of existingReg.teamMembers) {
+          if (existingMember.freeFireId === newMember.freeFireId) {
+            conflictingPlayers.push({
+              freeFireId: newMember.freeFireId,
+              playerName: newMember.name,
+              existingTeam: existingReg.teamName,
+              role: 'Team Member'
+            });
+          }
+        }
+      }
+    }
+
+    // If conflicts found, reject registration
+    if (conflictingPlayers.length > 0) {
+      console.warn('⚠️ Player conflict detected:', conflictingPlayers);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'PLAYER_ALREADY_REGISTERED',
+          message: 'One or more players are already registered in another team for this tournament',
+          conflictingPlayers: conflictingPlayers,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     // Create registration
     const registration = new TournamentRegistration({
       tournamentId,
