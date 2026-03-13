@@ -234,14 +234,40 @@ router.post('/daily-login', auth, async (req, res) => {
     
     await wallet.save();
 
+    // Check if streak is a multiple of 7 (7, 14, 21, 28, etc.)
+    let streakBonusCoins = 0;
+    let streakMilestone = 0;
+    
+    if (wallet.streak > 0 && wallet.streak % 7 === 0) {
+      streakMilestone = wallet.streak;
+      console.log(`🎉 ${streakMilestone}-day streak completed! Awarding 30 bonus coins`);
+      streakBonusCoins = 30;
+      
+      // Award 30 coins for every 7-day milestone
+      await wallet.addCoins(
+        streakBonusCoins,
+        'bonus',
+        `${streakMilestone}-Day Streak Bonus`,
+        { source: 'streak_bonus', streakDays: streakMilestone }
+      );
+      
+      await wallet.save();
+    }
+
     res.json({
       success: true,
       data: {
         coinsEarned: rewardAmount,
+        streakBonusCoins: streakBonusCoins,
+        totalCoinsEarned: rewardAmount + streakBonusCoins,
         newBalance: wallet.balance,
-        streak: wallet.streak
+        streak: wallet.streak,
+        streakCompleted: streakBonusCoins > 0,
+        streakMilestone: streakMilestone
       },
-      message: `You earned ${rewardAmount} Colab Coins! 🔥 ${wallet.streak} day streak!`,
+      message: streakBonusCoins > 0 
+        ? `🎉 ${streakMilestone}-Day Streak Complete! You earned ${rewardAmount} coins + ${streakBonusCoins} bonus coins!`
+        : `You earned ${rewardAmount} Colab Coins! 🔥 ${wallet.streak} day streak!`,
       timestamp: new Date().toISOString()
     });
 
@@ -252,6 +278,74 @@ router.post('/daily-login', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to claim daily reward',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/wallet/deduct-coins
+// @desc    Deduct coins from wallet for store purchases
+// @access  Private
+router.post('/deduct-coins', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { amount, description, category } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_AMOUNT',
+          message: 'Amount must be greater than 0',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    let wallet = await Wallet.findOne({ userId });
+
+    if (!wallet) {
+      wallet = new Wallet({ userId });
+      await wallet.save();
+    }
+
+    if (wallet.balance < amount) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_BALANCE',
+          message: `Insufficient coins. You need ${amount - wallet.balance} more coins.`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Deduct coins
+    await wallet.deductCoins(
+      amount,
+      description || 'Store Purchase',
+      { source: category || 'store_purchase' }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        newBalance: wallet.balance,
+        amountDeducted: amount,
+        description: description || 'Store Purchase'
+      },
+      message: `Successfully deducted ${amount} coins`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error deducting coins:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: error.message || 'Failed to deduct coins',
         timestamp: new Date().toISOString()
       }
     });

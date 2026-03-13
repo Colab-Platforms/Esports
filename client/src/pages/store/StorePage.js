@@ -1,239 +1,358 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
-import { FiShoppingCart, FiDollarSign, FiPackage, FiCheck } from 'react-icons/fi';
+import { FiX, FiCheck } from 'react-icons/fi';
 import { selectAuth } from '../../store/slices/authSlice';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const StorePage = () => {
-  const { user } = useSelector(selectAuth);
-  const [items, setItems] = useState([]);
+  const [activeTab, setActiveTab] = useState('uc');
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [purchasing, setPurchasing] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [playerID, setPlayerID] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [claims, setClaims] = useState([]);
+  const [storeItems, setStoreItems] = useState({
+    uc: [],
+    cosmetics: [],
+    passes: []
+  });
 
-  const categories = [
-    { id: 'all', label: 'All Items', icon: '🎁' },
-    { id: 'avatar', label: 'Avatars', icon: '👤' },
-    { id: 'badge', label: 'Badges', icon: '🏆' },
-    { id: 'theme', label: 'Themes', icon: '🎨' },
-    { id: 'boost', label: 'Boosts', icon: '⚡' },
-    { id: 'other', label: 'Other', icon: '📦' }
-  ];
+  const categoryLabels = {
+    uc: '💎 UC Packs',
+    cosmetics: '🎨 Cosmetics',
+    passes: '🎫 Game Passes'
+  };
 
   useEffect(() => {
-    fetchStoreItems();
     fetchWallet();
-  }, [selectedCategory]);
+    fetchStoreItems();
+  }, []);
 
   const fetchStoreItems = async () => {
     try {
-      setLoading(true);
-      const params = selectedCategory !== 'all' ? { category: selectedCategory } : {};
-      const response = await api.get('/api/store', { params });
-      if (response.success) {
-        setItems(response.data.items);
-      }
+      const ucResponse = await api.get('/api/store?category=uc');
+      const cosmeticsResponse = await api.get('/api/store?category=cosmetics');
+      const passesResponse = await api.get('/api/store?category=passes');
+
+      setStoreItems({
+        uc: ucResponse.success ? ucResponse.data.items : [],
+        cosmetics: cosmeticsResponse.success ? cosmeticsResponse.data.items : [],
+        passes: passesResponse.success ? passesResponse.data.items : []
+      });
     } catch (error) {
       console.error('Error fetching store items:', error);
-    } finally {
-      setLoading(false);
+      // Fallback to empty arrays if backend fails
+      setStoreItems({ uc: [], cosmetics: [], passes: [] });
     }
   };
 
   const fetchWallet = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/api/wallet');
       if (response.success) {
         setWallet(response.data);
       }
     } catch (error) {
       console.error('Error fetching wallet:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePurchase = async (itemId, itemName, price) => {
-    if (!window.confirm(`Purchase ${itemName} for ${price} Colab Coins?`)) {
+  const handleClaimItem = (item) => {
+    setSelectedItem(item);
+    setPlayerID('');
+    setShowModal(true);
+  };
+
+  const handleConfirmClaim = async () => {
+    if (!playerID.trim()) {
+      toast.error('Please enter your Player ID');
+      return;
+    }
+
+    if ((wallet?.balance || 0) < selectedItem.price) {
+      toast.error('Insufficient coins');
       return;
     }
 
     try {
-      setPurchasing(itemId);
-      const response = await api.post(`/api/store/buy/${itemId}`);
+      setClaiming(true);
+      
+      // Use store buy endpoint
+      const response = await api.post(`/api/store/buy/${selectedItem._id}`, {
+        playerID
+      });
+
       if (response.success) {
-        alert(`✅ ${response.message}`);
-        fetchWallet();
-        fetchStoreItems();
+        // Add to claims
+        const newClaim = {
+          id: Date.now(),
+          item: selectedItem,
+          playerID,
+          timestamp: new Date(),
+          coins: selectedItem.price
+        };
+        setClaims([newClaim, ...claims]);
+        
+        // Update wallet
+        setWallet(prev => ({
+          ...prev,
+          balance: response.data.newBalance
+        }));
+
+        toast.success(`✅ ${selectedItem.name} claimed for ${playerID}!`);
+        setShowModal(false);
+        setSelectedItem(null);
       }
     } catch (error) {
-      alert(error.response?.data?.error?.message || 'Failed to purchase item');
+      toast.error(error.response?.data?.error?.message || 'Failed to claim item');
     } finally {
-      setPurchasing(null);
+      setClaiming(false);
     }
   };
 
+  const currentItems = storeItems[activeTab] || [];
+
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
+    <div className="min-h-screen bg-theme-bg-primary py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-gaming font-bold text-white mb-2">
+            <h1 className="text-4xl font-bold text-theme-text-primary mb-2">
               🛍️ Colab Store
             </h1>
-            <p className="text-gray-400">
+            <p className="text-theme-text-secondary">
               Redeem your Colab Coins for exclusive items
             </p>
           </div>
 
           {/* Balance Display */}
-          <div className="card-gaming p-4">
-            <div className="flex items-center space-x-3">
-              <FiDollarSign className="text-gaming-gold w-6 h-6" />
-              <div>
-                <p className="text-sm text-gray-400">Your Balance</p>
-                <p className="text-2xl font-bold text-white">
-                  {wallet?.balance || 0}
-                </p>
-              </div>
-            </div>
+          <div className="bg-theme-bg-card border border-theme-border rounded-lg p-6">
+            <p className="text-theme-text-muted text-sm mb-2">Your Balance</p>
+            <p className="text-3xl font-bold text-theme-accent">
+              {wallet?.balance || 0} CC
+            </p>
           </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="flex items-center space-x-4 mb-8">
-          <Link
-            to="/wallet"
-            className="px-4 py-2 bg-gaming-charcoal hover:bg-gaming-border text-white rounded-lg transition-colors"
-          >
-            View Wallet
-          </Link>
-          <Link
-            to="/store/orders"
-            className="px-4 py-2 bg-gaming-charcoal hover:bg-gaming-border text-white rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <FiPackage className="w-4 h-4" />
-            <span>My Orders</span>
-          </Link>
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          {categories.map((category) => (
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8 border-b border-theme-border">
+          {Object.entries(categoryLabels).map(([key, label]) => (
             <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                selectedCategory === category.id
-                  ? 'bg-gaming-gold text-black'
-                  : 'bg-gaming-charcoal text-gray-400 hover:text-white hover:bg-gaming-border'
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === key
+                  ? 'text-theme-accent border-b-2 border-theme-accent'
+                  : 'text-theme-text-secondary hover:text-theme-text-primary'
               }`}
             >
-              <span className="mr-2">{category.icon}</span>
-              {category.label}
+              {label}
             </button>
           ))}
         </div>
 
-        {/* Store Items Grid */}
+        {/* Items Grid */}
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading items...</div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-400 mb-4">No items available</p>
-            <p className="text-sm text-gray-500">Check back later for new items!</p>
-          </div>
+          <div className="text-center py-12 text-theme-text-secondary">Loading items...</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((item, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {currentItems.map((item, index) => (
               <motion.div
-                key={item._id}
+                key={item.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="card-gaming overflow-hidden hover:border-gaming-gold/50 transition-colors"
+                className={`bg-theme-bg-card border-2 rounded-lg p-6 transition-all ${
+                  item.featured
+                    ? 'border-theme-accent shadow-lg shadow-theme-accent/20'
+                    : 'border-theme-border hover:border-theme-accent/50'
+                }`}
               >
-                {/* Item Image */}
-                {item.image && (
-                  <div className="h-48 bg-gaming-charcoal flex items-center justify-center">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                )}
-
-                <div className="p-6">
-                  {/* Category Badge */}
-                  <span className="inline-block px-3 py-1 bg-gaming-neon/20 text-gaming-neon text-xs rounded-full mb-3">
-                    {item.category}
-                  </span>
-
-                  {/* Item Name */}
-                  <h3 className="text-xl font-bold text-white mb-2">
-                    {item.name}
-                  </h3>
-
-                  {/* Description */}
-                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                    {item.description}
-                  </p>
-
-                  {/* Stock Info */}
-                  {item.stock !== -1 && (
-                    <p className="text-sm text-gray-500 mb-4">
-                      {item.stock > 0 ? (
-                        <span>Stock: {item.stock} left</span>
-                      ) : (
-                        <span className="text-red-400">Out of Stock</span>
-                      )}
-                    </p>
+                {/* Badges */}
+                <div className="flex gap-2 mb-4">
+                  {item.metadata?.featured && (
+                    <span className="px-3 py-1 bg-theme-accent/20 text-theme-accent text-xs font-bold rounded">
+                      ⭐ Featured
+                    </span>
                   )}
+                  {item.metadata?.badge && (
+                    <span className={`px-3 py-1 text-xs font-bold rounded ${
+                      item.metadata.badge === 'Best Value'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {item.metadata.badge === 'Best Value' ? '💰' : '🔥'} {item.metadata.badge}
+                    </span>
+                  )}
+                </div>
 
-                  {/* Price & Purchase */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gaming-border">
-                    <div className="flex items-center space-x-2">
-                      <FiDollarSign className="text-gaming-gold" />
-                      <span className="text-2xl font-bold text-white">
-                        {item.price}
-                      </span>
-                    </div>
+                {/* Item Info */}
+                <h3 className="text-xl font-bold text-theme-text-primary mb-2">
+                  {item.name}
+                </h3>
+                <p className="text-theme-text-secondary text-sm mb-4">
+                  {item.description || item.metadata?.type || 'Store Item'}
+                </p>
 
-                    <button
-                      onClick={() => handlePurchase(item._id, item.name, item.price)}
-                      disabled={
-                        purchasing === item._id ||
-                        (item.stock !== -1 && item.stock <= 0) ||
-                        (wallet?.balance || 0) < item.price
-                      }
-                      className="btn-gaming flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {purchasing === item._id ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Buying...</span>
-                        </>
-                      ) : (wallet?.balance || 0) < item.price ? (
-                        <>
-                          <span>Insufficient Coins</span>
-                        </>
-                      ) : (
-                        <>
-                          <FiShoppingCart className="w-4 h-4" />
-                          <span>Buy Now</span>
-                        </>
-                      )}
-                    </button>
+                {/* Price */}
+                <div className="flex items-center justify-between pt-4 border-t border-theme-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-theme-accent">
+                      {item.price}
+                    </span>
+                    <span className="text-theme-text-muted">CC</span>
                   </div>
+
+                  <button
+                    onClick={() => handleClaimItem(item)}
+                    disabled={(wallet?.balance || 0) < item.price}
+                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                      (wallet?.balance || 0) < item.price
+                        ? 'bg-theme-bg-hover text-theme-text-muted cursor-not-allowed'
+                        : 'bg-theme-accent text-black hover:bg-theme-accent/80'
+                    }`}
+                  >
+                    Claim
+                  </button>
                 </div>
               </motion.div>
             ))}
           </div>
         )}
+
+        {/* Claims Tracker */}
+        {claims.length > 0 && (
+          <div className="bg-theme-bg-card border border-theme-border rounded-lg p-6">
+            <h2 className="text-xl font-bold text-theme-text-primary mb-4">
+              📋 Claims Tracker (Session)
+            </h2>
+            <div className="space-y-3">
+              {claims.map((claim) => (
+                <div
+                  key={claim.id}
+                  className="flex items-center justify-between p-4 bg-theme-bg-hover rounded-lg"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <FiCheck className="text-green-400 w-5 h-5" />
+                    <div>
+                      <p className="font-semibold text-theme-text-primary">
+                        {claim.item.name}
+                      </p>
+                      <p className="text-sm text-theme-text-secondary">
+                        Player ID: {claim.playerID}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-theme-accent">-{claim.coins} CC</p>
+                    <p className="text-xs text-theme-text-muted">
+                      {claim.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Claim Modal */}
+      <AnimatePresence>
+        {showModal && selectedItem && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-theme-bg-card border border-theme-border rounded-lg max-w-md w-full p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-theme-text-primary">
+                  Claim Item
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-theme-text-secondary hover:text-theme-text-primary"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Item Details */}
+              <div className="bg-theme-bg-hover rounded-lg p-4 mb-6">
+                <p className="text-theme-text-secondary text-sm mb-1">Item</p>
+                <p className="text-xl font-bold text-theme-text-primary mb-3">
+                  {selectedItem.name}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-theme-text-secondary">Cost:</span>
+                  <span className="text-lg font-bold text-theme-accent">
+                    {selectedItem.price} CC
+                  </span>
+                </div>
+              </div>
+
+              {/* Player ID Input */}
+              <div className="mb-6">
+                <label className="block text-theme-text-secondary text-sm mb-2">
+                  Enter Your Player ID (UID)
+                </label>
+                <input
+                  type="text"
+                  value={playerID}
+                  onChange={(e) => setPlayerID(e.target.value)}
+                  placeholder="Your in-game UID"
+                  className="w-full px-4 py-2 bg-theme-bg-hover border border-theme-border rounded-lg text-theme-text-primary placeholder-theme-text-muted focus:outline-none focus:border-theme-accent"
+                />
+              </div>
+
+              {/* Error Message */}
+              {(wallet?.balance || 0) < selectedItem.price && (
+                <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+                  <p className="text-red-400 text-sm">
+                    ❌ Insufficient coins. You need {selectedItem.price - (wallet?.balance || 0)} more coins.
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 bg-theme-bg-hover text-theme-text-primary rounded-lg font-semibold hover:bg-theme-border transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmClaim}
+                  disabled={claiming || (wallet?.balance || 0) < selectedItem.price}
+                  className="flex-1 px-4 py-2 bg-theme-accent text-black rounded-lg font-semibold hover:bg-theme-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {claiming ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      Claiming...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck className="w-4 h-4" />
+                      Confirm
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -19,7 +19,7 @@ const storeItemSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['avatar', 'badge', 'theme', 'boost', 'other'],
+    enum: ['uc', 'cosmetics', 'passes', 'avatar', 'badge', 'theme', 'boost', 'other'],
     default: 'other'
   },
   stock: {

@@ -19,10 +19,29 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  playerID: {
+    type: String,
+    required: true
+  },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'cancelled', 'refunded'],
-    default: 'completed'
+    enum: ['pending', 'fulfilled', 'failed', 'completed', 'cancelled', 'refunded'],
+    default: 'pending'
+  },
+  claimStatus: {
+    type: String,
+    enum: ['pending', 'fulfilled', 'failed'],
+    default: 'pending'
+  },
+  fulfilledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  fulfilledAt: {
+    type: Date
+  },
+  failureReason: {
+    type: String
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed

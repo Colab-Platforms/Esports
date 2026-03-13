@@ -132,7 +132,12 @@ const WalletPage = () => {
       setClaiming(true);
       const response = await api.post("/api/wallet/daily-login");
       if (response.success) {
-        alert(`🎉 ${response.message}`);
+        // Show special notification for 7-day, 14-day, 21-day, etc. milestones
+        if (response.data.streakCompleted) {
+          alert(`🎉🎉🎉 ${response.message}\n\nYou earned:\n✅ ${response.data.coinsEarned} coins (Daily)\n🏆 ${response.data.streakBonusCoins} coins (${response.data.streakMilestone}-Day Bonus)\n\nTotal: ${response.data.totalCoinsEarned} coins!`);
+        } else {
+          alert(`🎉 ${response.message}`);
+        }
         setClaimedToday(true); // Mark as claimed
         fetchWallet();
         fetchTransactions();
@@ -294,7 +299,8 @@ const WalletPage = () => {
         </div>
 
         {/* Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Current Balance */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -310,6 +316,7 @@ const WalletPage = () => {
             </p>
             <p className="text-gaming-gold text-sm">Colab Coins</p>
           </motion.div>
+
 
           {/* Total Earned */}
           {/* <motion.div
@@ -346,65 +353,85 @@ const WalletPage = () => {
           </motion.div> */}
 
           {/* Streak */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="card-gaming p-6 col-span-2 relative overflow-hidden"
-          >
-            {/* Background Glow Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-yellow-500/10 animate-pulse" />
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.1 }}
+  whileHover={{ scale: 1.02 }}
+  className="relative card-gaming p-6 col-span-2 overflow-hidden"
+>
 
-            <div className="relative flex items-center justify-between">
-              {/* Left - Streak Info */}
-              <div>
-                <p className="text-gray-400 text-sm mb-1">7-Day Login Activity</p>
-                <div className="flex items-end space-x-2">
-                  <span className="text-5xl font-bold text-white">
-                    {last7Days.filter(d => d.claimed).length}
-                  </span>
-                  <span className="text-orange-400 font-semibold mb-1">
-                    / 7 DAYS
-                  </span>
-                </div>
+  {/* glowing background */}
+  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-yellow-500/10 blur-2xl"></div>
 
-                {/* Streak Milestone Message */}
-                <p className="text-sm mt-2">
-                  {last7Days.filter(d => d.claimed).length === 7
-                    ? "🎉 Perfect Week!"
-                    : last7Days.filter(d => d.claimed).length >= 5
-                      ? "⚡ Almost There!"
-                      : last7Days.filter(d => d.claimed).length >= 3
-                        ? "🔥 Keep Going!"
-                        : "🎯 Start Your Streak!"}
-                </p>
+  <div className="relative flex items-center justify-between">
 
-                {/* Explanation */}
-                <p className="text-xs text-gray-500 mt-3">
-                  💡 Days claimed in the last 7 days. Check the circles below!
-                </p>
-              </div>
+    {/* LEFT SIDE */}
+    <div>
 
-              {/* Right - Flame Icon */}
-              <div className="text-8xl animate-bounce">🔥</div>
-            </div>
+      <p className="text-gray-400 text-sm mb-1">
+        7 Day Login Streak
+      </p>
 
-            {/* Streak Progress Bar (shows progress to 7 days) */}
-            <div className="relative mt-4">
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>Progress to perfect week</span>
-                <span>{last7Days.filter(d => d.claimed).length} / 7 days</span>
-              </div>
-              <div className="w-full bg-gaming-dark rounded-full h-2">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(last7Days.filter(d => d.claimed).length / 7) * 100}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-2 rounded-full bg-gradient-to-r from-orange-500 to-yellow-400"
-                />
-              </div>
-            </div>
-          </motion.div>
+      <div className="flex items-end space-x-2">
+        <span className="text-6xl font-extrabold text-white">
+          {last7Days.filter(d => d.claimed).length}
+        </span>
+
+        <span className="text-orange-400 font-semibold mb-2">
+          / 7
+        </span>
+      </div>
+
+      {/* motivational label */}
+      <p className="text-sm mt-2 text-orange-400 font-semibold">
+        {last7Days.filter(d => d.claimed).length >= 6
+          ? "🔥 Legendary Streak"
+          : last7Days.filter(d => d.claimed).length >= 4
+          ? "⚡ Hot Streak"
+          : last7Days.filter(d => d.claimed).length >= 2
+          ? "🚀 Building Momentum"
+          : "🎯 Start Your Streak"}
+      </p>
+
+    </div>
+
+    {/* RIGHT SIDE ICON */}
+    <motion.div
+      animate={{ scale: [1, 1.15, 1] }}
+      transition={{ duration: 2, repeat: Infinity }}
+      className="text-8xl"
+    >
+      🔥
+    </motion.div>
+
+  </div>
+
+
+  {/* PROGRESS BAR */}
+  <div className="mt-6">
+
+    <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <span>Weekly Progress</span>
+      <span>{last7Days.filter(d => d.claimed).length}/7</span>
+    </div>
+
+    <div className="w-full bg-gaming-dark rounded-full h-3 overflow-hidden">
+
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{
+          width: `${(last7Days.filter(d => d.claimed).length / 7) * 100}%`
+        }}
+        transition={{ duration: 1 }}
+        className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-300"
+      />
+
+    </div>
+
+  </div>
+
+</motion.div>
         </div>
 
         {/* Daily Reward */}

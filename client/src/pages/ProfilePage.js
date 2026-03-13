@@ -834,7 +834,7 @@ const PlayerCard = ({ player, onSendFriendRequest, isPending = false }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="card-gaming p-6"
-      style={{ position: 'relative', zIndex: showChallengeMenu ? 100 : 1 }}
+      // style={{ position: 'relative', zIndex: showChallengeMenu ? 100 : 1 }}
     >
       <div className="flex items-start space-x-4 mb-4">
         <UserAvatar user={player} size="lg" />

@@ -45,6 +45,18 @@ router.post('/buy/:itemId', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { itemId } = req.params;
+    const { playerID } = req.body;
+
+    if (!playerID || !playerID.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PLAYER_ID',
+          message: 'Player ID is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
     // Get item
     const item = await StoreItem.findById(itemId);
@@ -115,13 +127,15 @@ router.post('/buy/:itemId', auth, async (req, res) => {
       await item.save();
     }
 
-    // Create order
+    // Create order with pending status
     const order = new Order({
       userId,
       itemId: item._id,
       itemName: item.name,
       price: item.price,
-      status: 'completed',
+      playerID: playerID.trim(),
+      status: 'pending',
+      claimStatus: 'pending',
       metadata: item.metadata
     });
     await order.save();
@@ -132,7 +146,7 @@ router.post('/buy/:itemId', auth, async (req, res) => {
         order,
         newBalance: wallet.balance
       },
-      message: 'Item purchased successfully!',
+      message: 'Item claimed! Admin will fulfill your order shortly.',
       timestamp: new Date().toISOString()
     });
 
@@ -191,6 +205,189 @@ router.get('/orders', auth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to fetch orders',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/store/admin/claims
+// @desc    Get all pending claims for admin
+// @access  Private (Admin only)
+router.get('/admin/claims', auth, async (req, res) => {
+  try {
+    const { page = 1, limit = 8, status = 'all' } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    let query = {};
+    if (status !== 'all') {
+      query.claimStatus = status;
+    }
+
+    const totalClaims = await Order.countDocuments(query);
+
+    const claims = await Order.find(query)
+      .populate('userId', 'username email')
+      .populate('itemId', 'name category metadata')
+      .populate('fulfilledBy', 'username')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        claims,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalClaims / limitNum),
+          totalClaims,
+          hasNextPage: pageNum < Math.ceil(totalClaims / limitNum),
+          hasPrevPage: pageNum > 1
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fetching claims:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fetch claims',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   PUT /api/store/admin/claims/:claimId/fulfill
+// @desc    Mark a claim as fulfilled
+// @access  Private (Admin only)
+router.put('/admin/claims/:claimId/fulfill', auth, async (req, res) => {
+  try {
+    const { claimId } = req.params;
+    const adminId = req.user.userId;
+
+    const claim = await Order.findById(claimId);
+
+    if (!claim) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'CLAIM_NOT_FOUND',
+          message: 'Claim not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (claim.claimStatus !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: `Cannot fulfill claim with status: ${claim.claimStatus}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    claim.claimStatus = 'fulfilled';
+    claim.status = 'completed';
+    claim.fulfilledBy = adminId;
+    claim.fulfilledAt = new Date();
+    await claim.save();
+
+    res.json({
+      success: true,
+      data: { claim },
+      message: 'Claim marked as fulfilled',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fulfilling claim:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to fulfill claim',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   PUT /api/store/admin/claims/:claimId/fail
+// @desc    Mark a claim as failed
+// @access  Private (Admin only)
+router.put('/admin/claims/:claimId/fail', auth, async (req, res) => {
+  try {
+    const { claimId } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user.userId;
+
+    const claim = await Order.findById(claimId);
+
+    if (!claim) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'CLAIM_NOT_FOUND',
+          message: 'Claim not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (claim.claimStatus !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_STATUS',
+          message: `Cannot fail claim with status: ${claim.claimStatus}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    claim.claimStatus = 'failed';
+    claim.status = 'cancelled';
+    claim.fulfilledBy = adminId;
+    claim.fulfilledAt = new Date();
+    claim.failureReason = reason || 'No reason provided';
+    await claim.save();
+
+    // Refund coins if failed
+    const wallet = await Wallet.findOne({ userId: claim.userId });
+    if (wallet) {
+      await wallet.addCoins(
+        claim.price,
+        'refund',
+        `Refund for failed claim: ${claim.itemName}`,
+        { source: 'claim_refund', claimId: claim._id }
+      );
+    }
+
+    res.json({
+      success: true,
+      data: { claim },
+      message: 'Claim marked as failed and coins refunded',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error failing claim:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to mark claim as failed',
         timestamp: new Date().toISOString()
       }
     });
