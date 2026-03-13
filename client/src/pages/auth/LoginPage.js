@@ -282,7 +282,7 @@ const LoginPage = () => {
                   }
                   
                   // If no error, proceed with OAuth
-                  window.location.href = `${API_URL}/api/auth/google`;
+                  window.location.href = `${API_URL}/api/auth/google/callback`;
                 } catch (error) {
                   console.error('OAuth check error:', error);
                   // Fallback to direct redirect
