@@ -1501,6 +1501,7 @@ const AdminBGMIRegistrations = () => {
         {showImageModal && selectedRegistration && (
           <ImageVerificationModal
             registration={selectedRegistration}
+            tournaments={tournaments}
             onClose={() => {
               setShowImageModal(false);
               setSelectedRegistration(null);
@@ -1550,6 +1551,7 @@ const AdminBGMIRegistrations = () => {
 // Image Verification Modal Component with WhatsApp Chat
 const ImageVerificationModal = ({ 
   registration, 
+  tournaments,
   onClose, 
   onStatusUpdate, 
   getStatusBadge, 
@@ -2403,7 +2405,6 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
       }
       
       // Determine which API to call based on the registration's tournament
-      const tournament = tournaments.find(t => t._id === registration.tournamentId._id || t._id === registration.tournamentId);
       let baseApiUrl;
       if (tournament && (tournament.gameType === 'freefire' || tournament.gameType === 'FreeFire')) {
         baseApiUrl = '/api/freefire-registration/admin';
