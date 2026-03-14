@@ -321,6 +321,33 @@ class ImageService {
       };
     }
   }
+
+  // Update text overlay for site image
+  async updateTextOverlay(key, textOverlayData) {
+    try {
+      const response = await axios.put(
+        `${API_URL}/api/site-images/${key}/text`,
+        { textOverlay: textOverlayData },
+        {
+          headers: this.getAuthHeaders()
+        }
+      );
+
+      // Clear cache after update
+      this.clearCache();
+
+      return {
+        success: true,
+        data: response.data.data.image
+      };
+    } catch (error) {
+      console.error(`❌ Error updating text overlay for ${key}:`, error);
+      return {
+        success: false,
+        error: error.response?.data?.error?.message || 'Failed to update text overlay'
+      };
+    }
+  }
 }
 
 export default new ImageService();

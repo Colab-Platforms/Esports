@@ -66,6 +66,7 @@ router.get('/', async (req, res) => {
         description: image.description,
         imageUrl: image.imageUrl,
         responsiveUrls: image.responsiveUrls || {},
+        textOverlay: image.textOverlay || {},
         category: image.category,
         dimensions: image.dimensions,
         updatedBy: image.updatedBy?.username || 'System',
@@ -105,7 +106,7 @@ router.get('/', async (req, res) => {
 router.put('/:key', auth, designerAuth, async (req, res) => {
   try {
     const { key } = req.params;
-    const { imageUrl, responsiveUrls, name, description, category, dimensions } = req.body;
+    const { imageUrl, responsiveUrls, name, description, category, dimensions, textOverlay } = req.body;
     const userId = req.user.userId;
 
     // Get existing image to check if we're just updating
@@ -155,6 +156,20 @@ router.put('/:key', auth, designerAuth, async (req, res) => {
       }
     }
 
+    // Add or merge textOverlay if provided
+    if (textOverlay !== undefined) {
+      if (existingImage && existingImage.textOverlay) {
+        // Merge with existing textOverlay
+        updateData.textOverlay = {
+          ...existingImage.textOverlay,
+          ...textOverlay
+        };
+      } else {
+        // Set new textOverlay
+        updateData.textOverlay = textOverlay;
+      }
+    }
+
     // Update or create image
     const image = await SiteImage.findOneAndUpdate(
       { key },
@@ -177,7 +192,8 @@ router.put('/:key', auth, designerAuth, async (req, res) => {
           name: image.name,
           description: image.description,
           imageUrl: image.imageUrl,
-          responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
+          responsiveUrls: image.responsiveUrls || {},
+          textOverlay: image.textOverlay || {},
           category: image.category,
           dimensions: image.dimensions,
           updatedBy: image.updatedBy.username,
@@ -195,6 +211,95 @@ router.put('/:key', auth, designerAuth, async (req, res) => {
       error: {
         code: 'SERVER_ERROR',
         message: 'Failed to update image',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   PUT /api/site-images/:key/text
+// @desc    Update text overlay for site image
+// @access  Designer/Admin
+router.put('/:key/text', auth, designerAuth, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { textOverlay } = req.body;
+    const userId = req.user.userId;
+
+    // Validate textOverlay data
+    if (!textOverlay || typeof textOverlay !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_TEXT_OVERLAY',
+          message: 'Valid textOverlay object is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get existing image
+    const existingImage = await SiteImage.findOne({ key });
+    if (!existingImage) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'IMAGE_NOT_FOUND',
+          message: 'Image not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Merge with existing textOverlay
+    const updatedTextOverlay = {
+      ...existingImage.textOverlay,
+      ...textOverlay
+    };
+
+    // Update image with new text overlay
+    const image = await SiteImage.findOneAndUpdate(
+      { key },
+      { 
+        textOverlay: updatedTextOverlay,
+        updatedBy: userId
+      },
+      { 
+        new: true, 
+        runValidators: true
+      }
+    ).populate('updatedBy', 'username');
+
+    console.log(`📝 Text overlay updated: ${key} by ${image.updatedBy.username}`);
+
+    res.json({
+      success: true,
+      data: {
+        image: {
+          id: image._id,
+          key: image.key,
+          name: image.name,
+          description: image.description,
+          imageUrl: image.imageUrl,
+          responsiveUrls: image.responsiveUrls || {},
+          textOverlay: image.textOverlay || {},
+          category: image.category,
+          dimensions: image.dimensions,
+          updatedBy: image.updatedBy.username,
+          updatedAt: image.updatedAt
+        }
+      },
+      message: 'Text overlay updated successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating text overlay:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to update text overlay',
         timestamp: new Date().toISOString()
       }
     });
@@ -232,7 +337,8 @@ router.get('/:key', async (req, res) => {
           name: image.name,
           description: image.description,
           imageUrl: image.imageUrl,
-          responsiveUrls: image.responsiveUrls || {},  // ✅ Added!
+          responsiveUrls: image.responsiveUrls || {},
+          textOverlay: image.textOverlay || {},
           category: image.category,
           dimensions: image.dimensions,
           updatedBy: image.updatedBy?.username || 'System',
