@@ -23,30 +23,74 @@ const LoginPage = () => {
   const isLoading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
   
-  const [formData, setFormData] = useState({
-    identifier: '',
-    password: ''
+  const [formData, setFormData] = useState(() => {
+    // Load saved form data from localStorage (except password for security)
+    const savedData = localStorage.getItem('loginFormData');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        return {
+          identifier: parsed.identifier || '',
+          password: '' // Never save password
+        };
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+    return {
+      identifier: '',
+      password: ''
+    };
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    const saved = localStorage.getItem('rememberMe');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // Clear error when component mounts
   useEffect(() => {
     dispatch(clearError());
   }, [dispatch]);
 
-  // Show error toast
+  // Clear form data when user successfully logs out (optional cleanup)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Only clear if user is not authenticated and didn't check remember me
+      if (!rememberMe) {
+        localStorage.removeItem('loginFormData');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [rememberMe]);
+
+  // Show error toast and focus password field on error
   useEffect(() => {
     if (error) {
       toast.error(error.message || 'Login failed');
+      // Focus password field after error so user can quickly correct it
+      const passwordField = document.getElementById('password');
+      if (passwordField) {
+        setTimeout(() => passwordField.focus(), 100);
+      }
     }
   }, [error]);
 
   const handleChange = (e) => {
-    setFormData({
+    const newFormData = {
       ...formData,
       [e.target.name]: e.target.value
-    });
+    };
+    setFormData(newFormData);
+    
+    // Save identifier to localStorage (but not password for security)
+    if (e.target.name === 'identifier') {
+      localStorage.setItem('loginFormData', JSON.stringify({
+        identifier: e.target.value
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -70,11 +114,15 @@ const LoginPage = () => {
         dispatch(loginSuccess(data.data));
         toast.success(data.message || 'Login successful!');
         
+        // Clear saved form data on successful login
+        localStorage.removeItem('loginFormData');
+        
         // Redirect to intended page or dashboard
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       } else {
         dispatch(loginFailure(data.error));
+        // Don't clear form data on failure - let user edit and retry
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -207,7 +255,11 @@ const LoginPage = () => {
                 name="remember-me"
                 type="checkbox"
                 checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setRememberMe(checked);
+                  localStorage.setItem('rememberMe', JSON.stringify(checked));
+                }}
                 className="h-4 w-4 text-gaming-neon focus:ring-gaming-neon border-gaming-slate rounded bg-gaming-charcoal"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-400">
