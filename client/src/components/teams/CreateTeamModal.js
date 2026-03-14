@@ -210,7 +210,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Game *</label>
-            {(fixedGame || isEdit) ? (
+            {fixedGame ? (
               <div className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white">
                 {currentGame.name}
               </div>
