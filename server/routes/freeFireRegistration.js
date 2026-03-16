@@ -125,10 +125,11 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Check for duplicate registration
+    // Check for duplicate registration (only block active registrations, not rejected ones)
     const existingRegistration = await TournamentRegistration.findOne({
       tournamentId,
-      userId: req.user.userId
+      userId: req.user.userId,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
     });
 
     if (existingRegistration) {
@@ -151,6 +152,56 @@ router.post('/:tournamentId/register', auth, [
         error: {
           code: 'DUPLICATE_FREEFIRE_IDS',
           message: 'All team members must have unique Free Fire IDs',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // ✅ Check if any player is already registered in another team for this tournament
+    const conflictingPlayers = [];
+    
+    // Get all existing registrations for this tournament (exclude current user's own registration)
+    const existingRegistrations = await TournamentRegistration.find({
+      tournamentId,
+      userId: { $ne: req.user.userId },
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    });
+
+    // Collect all new player IDs (leader + members)
+    const leaderFF = teamLeader.freeFireId?.trim();
+    const newPlayerIds = [
+      { freeFireId: leaderFF, name: teamLeader.name, role: 'Team Leader' },
+      ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' }))
+    ].filter(p => p.freeFireId); // skip empty IDs
+
+    for (const existingReg of existingRegistrations) {
+      const existingLeaderFF = existingReg.teamLeader.freeFireId?.trim();
+      const existingMemberFFs = existingReg.teamMembers
+        .map(m => m.freeFireId?.trim())
+        .filter(Boolean);
+      const allExistingFFs = [existingLeaderFF, ...existingMemberFFs].filter(Boolean);
+
+      for (const newPlayer of newPlayerIds) {
+        if (allExistingFFs.includes(newPlayer.freeFireId)) {
+          conflictingPlayers.push({
+            freeFireId: newPlayer.freeFireId,
+            playerName: newPlayer.name,
+            existingTeam: existingReg.teamName,
+            role: newPlayer.role
+          });
+        }
+      }
+    }
+
+    // If conflicts found, reject registration
+    if (conflictingPlayers.length > 0) {
+      console.warn('⚠️ Player conflict detected:', conflictingPlayers);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'PLAYER_ALREADY_REGISTERED',
+          message: 'One or more players are already registered in another team for this tournament',
+          conflictingPlayers: conflictingPlayers,
           timestamp: new Date().toISOString()
         }
       });
@@ -834,6 +885,59 @@ router.put('/admin/:registrationId/status', auth, [
         timestamp: new Date().toISOString()
       }
     });
+  }
+});
+
+// Debug endpoint — list all registrations for a specific tournament
+router.get('/debug/tournament/:tournamentId/registrations', auth, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const registrations = await TournamentRegistration.find({ tournamentId })
+      .select('teamName status userId teamLeader.freeFireId teamLeader.name teamMembers registeredAt')
+      .lean();
+    res.json({
+      success: true,
+      total: registrations.length,
+      registrations: registrations.map(r => ({
+        id: r._id,
+        teamName: r.teamName,
+        status: r.status,
+        userId: r.userId,
+        leader: { name: r.teamLeader?.name, freeFireId: r.teamLeader?.freeFireId },
+        members: r.teamMembers?.map(m => ({ name: m.name, freeFireId: m.freeFireId })),
+        registeredAt: r.registeredAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug endpoint — delete ALL registrations for a tournament (admin only, for cleanup)
+router.delete('/debug/tournament/:tournamentId/clear', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ success: false, error: 'Admin only' });
+    }
+    const result = await TournamentRegistration.deleteMany({ tournamentId: req.params.tournamentId });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug endpoint — delete a specific registration by ID (for cleanup)
+router.delete('/debug/registration/:registrationId', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ success: false, error: 'Admin only' });
+    }
+    const result = await TournamentRegistration.findByIdAndDelete(req.params.registrationId);
+    res.json({ success: true, deleted: !!result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
