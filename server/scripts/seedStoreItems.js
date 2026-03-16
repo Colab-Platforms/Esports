@@ -5,138 +5,140 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const StoreItem = require('../models/StoreItem');
 
 const storeItems = [
-  // UC Packs
+  // BGMI UC Packs
   {
     name: '60 UC',
-    description: 'Get 60 UC for your favorite games',
+    description: 'Get 60 UC for BGMI',
     category: 'uc',
+    game: 'bgmi',
     price: 50,
     stock: -1,
     isActive: true,
-    metadata: {
-      uc: 60,
-      featured: false,
-      badge: null
-    }
+    metadata: { uc: 60, featured: false, badge: null }
   },
   {
     name: '600 UC',
-    description: 'Get 600 UC - Best Value!',
+    description: 'Get 600 UC for BGMI - Best Value!',
     category: 'uc',
+    game: 'bgmi',
     price: 400,
     stock: -1,
     isActive: true,
-    metadata: {
-      uc: 600,
-      featured: true,
-      badge: 'Best Value'
-    }
+    metadata: { uc: 600, featured: true, badge: 'Best Value' }
   },
   {
     name: '1800 UC',
-    description: 'Get 1800 UC - Hot Deal!',
+    description: 'Get 1800 UC for BGMI - Hot Deal!',
     category: 'uc',
+    game: 'bgmi',
     price: 1000,
     stock: -1,
     isActive: true,
-    metadata: {
-      uc: 1800,
-      featured: true,
-      badge: 'Hot'
-    }
+    metadata: { uc: 1800, featured: true, badge: 'Hot' }
   },
   {
     name: '3600 UC',
-    description: 'Get 3600 UC - Maximum Value',
+    description: 'Get 3600 UC for BGMI - Maximum Value',
     category: 'uc',
+    game: 'bgmi',
     price: 1800,
     stock: -1,
     isActive: true,
-    metadata: {
-      uc: 3600,
-      featured: false,
-      badge: null
-    }
+    metadata: { uc: 3600, featured: false, badge: null }
   },
-  // Cosmetics
+  // FreeFire Diamond Packs
   {
-    name: 'Dragon Skin',
-    description: 'Legendary weapon skin with dragon design',
-    category: 'cosmetics',
-    price: 200,
+    name: '100 Diamonds',
+    description: 'Get 100 Diamonds for Free Fire',
+    category: 'uc',
+    game: 'freefire',
+    price: 50,
     stock: -1,
     isActive: true,
-    metadata: {
-      type: 'Weapon Skin',
-      featured: false,
-      badge: null
-    }
+    metadata: { uc: 100, featured: false, badge: null }
   },
   {
-    name: 'Elite Avatar',
-    description: 'Premium avatar frame for your profile',
-    category: 'cosmetics',
-    price: 150,
-    stock: -1,
-    isActive: true,
-    metadata: {
-      type: 'Avatar Frame',
-      featured: true,
-      badge: 'Hot'
-    }
-  },
-  {
-    name: 'Neon Skin',
-    description: 'Futuristic neon weapon skin',
-    category: 'cosmetics',
+    name: '500 Diamonds',
+    description: 'Get 500 Diamonds for Free Fire - Best Value!',
+    category: 'uc',
+    game: 'freefire',
     price: 250,
     stock: -1,
     isActive: true,
-    metadata: {
-      type: 'Weapon Skin',
-      featured: true,
-      badge: 'Best Value'
-    }
+    metadata: { uc: 500, featured: true, badge: 'Best Value' }
   },
   {
-    name: 'Pro Avatar',
-    description: 'Professional avatar frame for esports players',
+    name: '1000 Diamonds',
+    description: 'Get 1000 Diamonds for Free Fire - Hot Deal!',
+    category: 'uc',
+    game: 'freefire',
+    price: 450,
+    stock: -1,
+    isActive: true,
+    metadata: { uc: 1000, featured: true, badge: 'Hot' }
+  },
+  // BGMI Cosmetics
+  {
+    name: 'Dragon Skin',
+    description: 'Legendary BGMI weapon skin with dragon design',
     category: 'cosmetics',
+    game: 'bgmi',
+    price: 200,
+    stock: -1,
+    isActive: true,
+    metadata: { type: 'Weapon Skin', featured: false, badge: null }
+  },
+  {
+    name: 'Neon Skin',
+    description: 'Futuristic neon BGMI weapon skin',
+    category: 'cosmetics',
+    game: 'bgmi',
+    price: 250,
+    stock: -1,
+    isActive: true,
+    metadata: { type: 'Weapon Skin', featured: true, badge: 'Best Value' }
+  },
+  // FreeFire Cosmetics
+  {
+    name: 'FF Elite Avatar',
+    description: 'Premium avatar frame for Free Fire profile',
+    category: 'cosmetics',
+    game: 'freefire',
+    price: 150,
+    stock: -1,
+    isActive: true,
+    metadata: { type: 'Avatar Frame', featured: true, badge: 'Hot' }
+  },
+  {
+    name: 'FF Pro Avatar',
+    description: 'Professional avatar frame for Free Fire esports players',
+    category: 'cosmetics',
+    game: 'freefire',
     price: 180,
     stock: -1,
     isActive: true,
-    metadata: {
-      type: 'Avatar Frame',
-      featured: false,
-      badge: null
-    }
+    metadata: { type: 'Avatar Frame', featured: false, badge: null }
   },
-  // Game Passes
+  // Platform-wide Passes
   {
     name: 'Season Pass',
-    description: 'Unlock all season rewards and exclusive items',
+    description: 'Unlock all season rewards and exclusive items across all games',
     category: 'passes',
+    game: 'all',
     price: 500,
     stock: -1,
     isActive: true,
-    metadata: {
-      type: 'Season Pass',
-      featured: true,
-      badge: 'Hot'
-    }
+    metadata: { type: 'Season Pass', featured: true, badge: 'Hot' }
   },
   {
     name: 'Tournament Pass',
-    description: 'Get exclusive tournament rewards and bonuses',
+    description: 'Get exclusive tournament rewards and bonuses for all games',
     category: 'passes',
+    game: 'all',
     price: 300,
     stock: -1,
     isActive: true,
-    metadata: {
-      type: 'Tournament Pass',
-      featured: false,
-      badge: null
-    }
+    metadata: { type: 'Tournament Pass', featured: false, badge: null }
   }
 ];
 

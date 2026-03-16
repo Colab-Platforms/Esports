@@ -1,25 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSelector } from 'react-redux';
-import { FiX, FiCheck } from 'react-icons/fi';
-import { selectAuth } from '../../store/slices/authSlice';
+import { useNavigate } from 'react-router-dom';
+import { FiX, FiCheck, FiAlertCircle, FiUser } from 'react-icons/fi';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
+const GAME_FILTERS = [
+  { key: 'all', label: '🎮 All' },
+  { key: 'bgmi', label: '🟡 BGMI' },
+  { key: 'freefire', label: '🔴 Free Fire' },
+];
+
+const GAME_BADGE = {
+  bgmi: { label: 'BGMI', color: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40' },
+  freefire: { label: 'Free Fire', color: 'bg-red-500/20 text-red-400 border border-red-500/40' },
+  all: { label: 'All Games', color: 'bg-blue-500/20 text-blue-400 border border-blue-500/40' },
+};
+
+// Extract UID from profile based on game type
+const getUidFromProfile = (profile, game) => {
+  if (!profile) return '';
+  if (game === 'bgmi')     return profile.gameIds?.bgmi?.uid     || profile.bgmiUid     || '';
+  if (game === 'freefire') return profile.gameIds?.freefire?.uid || profile.freeFireUid || '';
+  return '';
+};
+
 const StorePage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('uc');
+  const [gameFilter, setGameFilter] = useState('all');
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
+
+  // Modal states
   const [selectedItem, setSelectedItem] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [modalState, setModalState] = useState(null); // 'uid_missing' | 'confirm'
   const [playerID, setPlayerID] = useState('');
   const [claiming, setClaiming] = useState(false);
+
   const [claims, setClaims] = useState([]);
-  const [storeItems, setStoreItems] = useState({
-    uc: [],
-    cosmetics: [],
-    passes: []
-  });
+  const [storeItems, setStoreItems] = useState({ uc: [], cosmetics: [], passes: [] });
 
   const categoryLabels = {
     uc: '💎 UC Packs',
@@ -30,14 +51,23 @@ const StorePage = () => {
   useEffect(() => {
     fetchWallet();
     fetchStoreItems();
+    fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await api.get('/api/users/me');
+      if (response.success) setUserProfile(response.data.user);
+    } catch (e) {
+      console.error('Error fetching profile:', e);
+    }
+  };
 
   const fetchStoreItems = async () => {
     try {
       const ucResponse = await api.get('/api/store?category=uc');
       const cosmeticsResponse = await api.get('/api/store?category=cosmetics');
       const passesResponse = await api.get('/api/store?category=passes');
-
       setStoreItems({
         uc: ucResponse.success ? ucResponse.data.items : [],
         cosmetics: cosmeticsResponse.success ? cosmeticsResponse.data.items : [],
@@ -45,7 +75,6 @@ const StorePage = () => {
       });
     } catch (error) {
       console.error('Error fetching store items:', error);
-      // Fallback to empty arrays if backend fails
       setStoreItems({ uc: [], cosmetics: [], passes: [] });
     }
   };
@@ -54,9 +83,7 @@ const StorePage = () => {
     try {
       setLoading(true);
       const response = await api.get('/api/wallet');
-      if (response.success) {
-        setWallet(response.data);
-      }
+      if (response.success) setWallet(response.data);
     } catch (error) {
       console.error('Error fetching wallet:', error);
     } finally {
@@ -64,10 +91,30 @@ const StorePage = () => {
     }
   };
 
+  // Main claim button handler — detects game, checks UID
   const handleClaimItem = (item) => {
     setSelectedItem(item);
     setPlayerID('');
-    setShowModal(true);
+
+    // For game-specific items, auto-detect UID from profile
+    if (item.game === 'bgmi' || item.game === 'freefire') {
+      const uid = getUidFromProfile(userProfile, item.game);
+      if (!uid) {
+        setModalState('uid_missing');
+      } else {
+        setPlayerID(uid);
+        setModalState('confirm');
+      }
+    } else {
+      // 'all' items — let user type their ID
+      setModalState('confirm');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setModalState(null);
+    setSelectedItem(null);
+    setPlayerID('');
   };
 
   const handleConfirmClaim = async () => {
@@ -75,40 +122,24 @@ const StorePage = () => {
       toast.error('Please enter your Player ID');
       return;
     }
-
     if ((wallet?.balance || 0) < selectedItem.price) {
       toast.error('Insufficient coins');
       return;
     }
-
     try {
       setClaiming(true);
-      
-      // Use store buy endpoint
-      const response = await api.post(`/api/store/buy/${selectedItem._id}`, {
-        playerID
-      });
-
+      const response = await api.post(`/api/store/buy/${selectedItem._id}`, { playerID });
       if (response.success) {
-        // Add to claims
-        const newClaim = {
+        setClaims(prev => [{
           id: Date.now(),
           item: selectedItem,
           playerID,
           timestamp: new Date(),
           coins: selectedItem.price
-        };
-        setClaims([newClaim, ...claims]);
-        
-        // Update wallet
-        setWallet(prev => ({
-          ...prev,
-          balance: response.data.newBalance
-        }));
-
+        }, ...prev]);
+        setWallet(prev => ({ ...prev, balance: response.data.newBalance }));
         toast.success(`✅ ${selectedItem.name} claimed for ${playerID}!`);
-        setShowModal(false);
-        setSelectedItem(null);
+        handleCloseModal();
       }
     } catch (error) {
       toast.error(error.response?.data?.error?.message || 'Failed to claim item');
@@ -117,7 +148,9 @@ const StorePage = () => {
     }
   };
 
-  const currentItems = storeItems[activeTab] || [];
+  const currentItems = (storeItems[activeTab] || []).filter(
+    item => gameFilter === 'all' || item.game === gameFilter || item.game === 'all'
+  );
 
   return (
     <div className="min-h-screen bg-theme-bg-primary py-8">
@@ -143,7 +176,7 @@ const StorePage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-theme-border">
+        <div className="flex gap-4 mb-4 border-b border-theme-border">
           {Object.entries(categoryLabels).map(([key, label]) => (
             <button
               key={key}
@@ -155,6 +188,23 @@ const StorePage = () => {
               }`}
             >
               {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Game Filter */}
+        <div className="flex gap-2 mb-8">
+          {GAME_FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setGameFilter(f.key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                gameFilter === f.key
+                  ? 'bg-theme-accent text-black'
+                  : 'bg-theme-bg-hover text-theme-text-secondary hover:text-theme-text-primary'
+              }`}
+            >
+              {f.label}
             </button>
           ))}
         </div>
@@ -177,7 +227,13 @@ const StorePage = () => {
                 }`}
               >
                 {/* Badges */}
-                <div className="flex gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {/* Game badge */}
+                  {item.game && GAME_BADGE[item.game] && (
+                    <span className={`px-2 py-0.5 text-xs font-bold rounded ${GAME_BADGE[item.game].color}`}>
+                      {GAME_BADGE[item.game].label}
+                    </span>
+                  )}
                   {item.metadata?.featured && (
                     <span className="px-3 py-1 bg-theme-accent/20 text-theme-accent text-xs font-bold rounded">
                       ⭐ Featured
@@ -266,7 +322,7 @@ const StorePage = () => {
 
       {/* Claim Modal */}
       <AnimatePresence>
-        {showModal && selectedItem && (
+        {modalState && selectedItem && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -274,81 +330,115 @@ const StorePage = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-theme-bg-card border border-theme-border rounded-lg max-w-md w-full p-6"
             >
+              {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-theme-text-primary">
-                  Claim Item
+                  {modalState === 'uid_missing' ? '⚠️ UID Not Set' : 'Claim Item'}
                 </h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-theme-text-secondary hover:text-theme-text-primary"
-                >
+                <button onClick={handleCloseModal} className="text-theme-text-secondary hover:text-theme-text-primary">
                   <FiX className="w-6 h-6" />
                 </button>
               </div>
 
-              {/* Item Details */}
-              <div className="bg-theme-bg-hover rounded-lg p-4 mb-6">
-                <p className="text-theme-text-secondary text-sm mb-1">Item</p>
-                <p className="text-xl font-bold text-theme-text-primary mb-3">
-                  {selectedItem.name}
-                </p>
+              {/* Item summary */}
+              <div className="bg-theme-bg-hover rounded-lg p-4 mb-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-theme-text-secondary">Cost:</span>
-                  <span className="text-lg font-bold text-theme-accent">
-                    {selectedItem.price} CC
-                  </span>
+                  <div>
+                    <p className="text-xl font-bold text-theme-text-primary">{selectedItem.name}</p>
+                    {selectedItem.game && GAME_BADGE[selectedItem.game] && (
+                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-bold rounded ${GAME_BADGE[selectedItem.game].color}`}>
+                        {GAME_BADGE[selectedItem.game].label}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-2xl font-bold text-theme-accent">{selectedItem.price} CC</span>
                 </div>
               </div>
 
-              {/* Player ID Input */}
-              <div className="mb-6">
-                <label className="block text-theme-text-secondary text-sm mb-2">
-                  Enter Your Player ID (UID)
-                </label>
-                <input
-                  type="text"
-                  value={playerID}
-                  onChange={(e) => setPlayerID(e.target.value)}
-                  placeholder="Your in-game UID"
-                  className="w-full px-4 py-2 bg-theme-bg-hover border border-theme-border rounded-lg text-theme-text-primary placeholder-theme-text-muted focus:outline-none focus:border-theme-accent"
-                />
-              </div>
-
-              {/* Error Message */}
-              {(wallet?.balance || 0) < selectedItem.price && (
-                <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-                  <p className="text-red-400 text-sm">
-                    ❌ Insufficient coins. You need {selectedItem.price - (wallet?.balance || 0)} more coins.
-                  </p>
-                </div>
+              {/* UID Missing state */}
+              {modalState === 'uid_missing' && (
+                <>
+                  <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg mb-5">
+                    <FiAlertCircle className="text-red-400 w-5 h-5 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-red-400 font-semibold text-sm mb-1">
+                        {selectedItem.game === 'bgmi' ? 'BGMI UID not set' : 'Free Fire UID not set'}
+                      </p>
+                      <p className="text-theme-text-secondary text-sm">
+                        You need to set your {selectedItem.game === 'bgmi' ? 'BGMI' : 'Free Fire'} UID in your profile before claiming this item.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={handleCloseModal} className="flex-1 px-4 py-2 bg-theme-bg-hover text-theme-text-primary rounded-lg font-semibold hover:bg-theme-border transition-colors">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => navigate('/profile')}
+                      className="flex-1 px-4 py-2 bg-theme-accent text-black rounded-lg font-semibold hover:bg-theme-accent/80 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FiUser className="w-4 h-4" />
+                      Go to Profile
+                    </button>
+                  </div>
+                </>
               )}
 
-              {/* Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 bg-theme-bg-hover text-theme-text-primary rounded-lg font-semibold hover:bg-theme-border transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmClaim}
-                  disabled={claiming || (wallet?.balance || 0) < selectedItem.price}
-                  className="flex-1 px-4 py-2 bg-theme-accent text-black rounded-lg font-semibold hover:bg-theme-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {claiming ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                      Claiming...
-                    </>
-                  ) : (
-                    <>
-                      <FiCheck className="w-4 h-4" />
-                      Confirm
-                    </>
+              {/* Confirm state */}
+              {modalState === 'confirm' && (
+                <>
+                  {/* UID field */}
+                  <div className="mb-5">
+                    <label className="block text-theme-text-secondary text-sm mb-2">
+                      {selectedItem.game === 'bgmi' ? 'BGMI UID' : selectedItem.game === 'freefire' ? 'Free Fire UID' : 'Player ID (UID)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={playerID}
+                      onChange={(e) => setPlayerID(e.target.value)}
+                      readOnly={selectedItem.game === 'bgmi' || selectedItem.game === 'freefire'}
+                      placeholder="Your in-game UID"
+                      className={`w-full px-4 py-2 border rounded-lg text-black focus:outline-none focus:border-theme-accent ${
+                        selectedItem.game === 'bgmi' || selectedItem.game === 'freefire'
+                          ? 'bg-theme-bg-hover/50 border-theme-border cursor-not-allowed opacity-80'
+                          : 'bg-theme-bg-hover border-theme-border'
+                      }`}
+                    />
+                    {(selectedItem.game === 'bgmi' || selectedItem.game === 'freefire') && (
+                      <p className="text-xs text-theme-text-muted mt-1 flex items-center gap-1">
+                        <FiCheck className="text-green-400 w-3 h-3" />
+                        Auto-filled from your profile
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Insufficient balance warning */}
+                  {(wallet?.balance || 0) < selectedItem.price && (
+                    <div className="mb-5 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                      <p className="text-red-400 text-sm">
+                        ❌ Insufficient coins. You need {selectedItem.price - (wallet?.balance || 0)} more CC.
+                      </p>
+                    </div>
                   )}
-                </button>
-              </div>
+
+                  <div className="flex gap-3">
+                    <button onClick={handleCloseModal} className="flex-1 px-4 py-2 bg-theme-bg-hover text-theme-text-primary rounded-lg font-semibold hover:bg-theme-border transition-colors">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmClaim}
+                      disabled={claiming || (wallet?.balance || 0) < selectedItem.price}
+                      className="flex-1 px-4 py-2 bg-theme-accent text-black rounded-lg font-semibold hover:bg-theme-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    >
+                      {claiming ? (
+                        <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> Claiming...</>
+                      ) : (
+                        <><FiCheck className="w-4 h-4" /> Confirm Claim</>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

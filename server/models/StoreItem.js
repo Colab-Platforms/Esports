@@ -22,6 +22,11 @@ const storeItemSchema = new mongoose.Schema({
     enum: ['uc', 'cosmetics', 'passes', 'avatar', 'badge', 'theme', 'boost', 'other'],
     default: 'other'
   },
+  game: {
+    type: String,
+    enum: ['bgmi', 'freefire', 'all'],
+    default: 'all'
+  },
   stock: {
     type: Number,
     default: -1 // -1 means unlimited
