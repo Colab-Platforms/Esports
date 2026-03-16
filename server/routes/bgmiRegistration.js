@@ -135,10 +135,11 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Check for duplicate registration (same user, same tournament)
+    // Check for duplicate registration (same user, same tournament - only active registrations)
     const existingRegistration = await TournamentRegistration.findOne({
       tournamentId,
-      userId: req.user.userId
+      userId: req.user.userId,
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
     });
 
     if (existingRegistration) {
@@ -166,46 +167,42 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // ✅ NEW: Check if any player is already registered in another team for this tournament
+    // ✅ Check if any player is already registered in another team for this tournament
     const conflictingPlayers = [];
     
-    // Get all existing registrations for this tournament
+    // Get all existing registrations for this tournament (exclude current user's own registration)
     const existingRegistrations = await TournamentRegistration.find({
       tournamentId,
+      userId: { $ne: req.user.userId },
       status: { $in: ['pending', 'images_uploaded', 'verified'] }
     });
 
-    // Check team leader
+    console.log(`🔍 BGMI conflict check: tournamentId=${tournamentId}, found ${existingRegistrations.length} other registrations`);
+
+    // Collect all new player IDs (leader + members)
+    const leaderBG = teamLeader.bgmiId?.trim();
+    const newPlayerIds = [
+      { bgmiId: leaderBG, name: teamLeader.name, role: 'Team Leader' },
+      ...teamMembers.map(m => ({ bgmiId: m.bgmiId?.trim(), name: m.name, role: 'Team Member' }))
+    ].filter(p => p.bgmiId); // skip empty IDs
+
+    console.log(`🔍 New players to check:`, newPlayerIds.map(p => p.bgmiId));
+
     for (const existingReg of existingRegistrations) {
-      if (existingReg.teamLeader.bgmiId === teamLeader.bgmiId) {
-        conflictingPlayers.push({
-          bgmiId: teamLeader.bgmiId,
-          playerName: teamLeader.name,
-          existingTeam: existingReg.teamName,
-          role: 'Team Leader'
-        });
-      }
-      
-      // Check team members
-      for (const newMember of teamMembers) {
-        if (existingReg.teamLeader.bgmiId === newMember.bgmiId) {
+      const existingLeaderBG = existingReg.teamLeader.bgmiId?.trim();
+      const existingMemberBGs = existingReg.teamMembers
+        .map(m => m.bgmiId?.trim())
+        .filter(Boolean);
+      const allExistingBGs = [existingLeaderBG, ...existingMemberBGs].filter(Boolean);
+
+      for (const newPlayer of newPlayerIds) {
+        if (allExistingBGs.includes(newPlayer.bgmiId)) {
           conflictingPlayers.push({
-            bgmiId: newMember.bgmiId,
-            playerName: newMember.name,
+            bgmiId: newPlayer.bgmiId,
+            playerName: newPlayer.name,
             existingTeam: existingReg.teamName,
-            role: 'Team Member'
+            role: newPlayer.role
           });
-        }
-        
-        for (const existingMember of existingReg.teamMembers) {
-          if (existingMember.bgmiId === newMember.bgmiId) {
-            conflictingPlayers.push({
-              bgmiId: newMember.bgmiId,
-              playerName: newMember.name,
-              existingTeam: existingReg.teamName,
-              role: 'Team Member'
-            });
-          }
         }
       }
     }
@@ -968,6 +965,56 @@ router.put('/admin/:registrationId/status', auth, [
         timestamp: new Date().toISOString()
       }
     });
+  }
+});
+
+// Debug — list all registrations for a tournament
+router.get('/debug/tournament/:tournamentId/registrations', auth, async (req, res) => {
+  try {
+    const registrations = await TournamentRegistration.find({ tournamentId: req.params.tournamentId }).lean();
+    res.json({
+      success: true,
+      total: registrations.length,
+      registrations: registrations.map(r => ({
+        id: r._id,
+        teamName: r.teamName,
+        status: r.status,
+        userId: r.userId,
+        leader: { name: r.teamLeader?.name, bgmiId: r.teamLeader?.bgmiId },
+        members: r.teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId })),
+        registeredAt: r.registeredAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug — delete ALL registrations for a tournament (admin only)
+router.delete('/debug/tournament/:tournamentId/clear', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ success: false, error: 'Admin only' });
+    }
+    const result = await TournamentRegistration.deleteMany({ tournamentId: req.params.tournamentId });
+    res.json({ success: true, deleted: result.deletedCount });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Debug — delete a single registration by ID (admin only)
+router.delete('/debug/registration/:registrationId', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return res.status(403).json({ success: false, error: 'Admin only' });
+    }
+    const result = await TournamentRegistration.findByIdAndDelete(req.params.registrationId);
+    res.json({ success: true, deleted: !!result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
