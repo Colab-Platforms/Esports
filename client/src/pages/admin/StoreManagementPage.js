@@ -15,17 +15,33 @@ const StoreManagementPage = () => {
     image: '',
     price: 0,
     category: 'other',
+    game: 'all',
     stock: -1,
     isActive: true
   });
 
   const categories = [
+    { value: 'uc', label: '💎 UC / Diamonds' },
+    { value: 'cosmetics', label: '🎨 Cosmetics' },
+    { value: 'passes', label: '🎫 Game Passes' },
     { value: 'avatar', label: 'Avatar' },
     { value: 'badge', label: 'Badge' },
     { value: 'theme', label: 'Theme' },
     { value: 'boost', label: 'Boost' },
     { value: 'other', label: 'Other' }
   ];
+
+  const gameOptions = [
+    { value: 'bgmi',     label: '🟡 BGMI' },
+    { value: 'freefire', label: '🔴 Free Fire' },
+    { value: 'all',      label: '🎮 All Games' },
+  ];
+
+  const gameBadge = {
+    bgmi:     { label: 'BGMI',      cls: 'bg-yellow-500/20 text-yellow-400' },
+    freefire: { label: 'Free Fire', cls: 'bg-red-500/20 text-red-400' },
+    all:      { label: 'All Games', cls: 'bg-blue-500/20 text-blue-400' },
+  };
 
   useEffect(() => {
     fetchItems();
@@ -72,6 +88,7 @@ const StoreManagementPage = () => {
         image: '',
         price: 0,
         category: 'other',
+        game: 'all',
         stock: -1,
         isActive: true
       });
@@ -90,6 +107,7 @@ const StoreManagementPage = () => {
       image: item.image || '',
       price: item.price,
       category: item.category,
+      game: item.game || 'all',
       stock: item.stock,
       isActive: item.isActive
     });
@@ -132,6 +150,7 @@ const StoreManagementPage = () => {
       image: '',
       price: 0,
       category: 'other',
+      game: 'all',
       stock: -1,
       isActive: true
     });
@@ -202,6 +221,22 @@ const StoreManagementPage = () => {
                     {categories.map((cat) => (
                       <option key={cat.value} value={cat.value}>
                         {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Game *</label>
+                  <select
+                    value={formData.game}
+                    onChange={(e) => setFormData({ ...formData, game: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold"
+                  >
+                    {gameOptions.map((g) => (
+                      <option key={g.value} value={g.value}>
+                        {g.label}
                       </option>
                     ))}
                   </select>
@@ -318,11 +353,16 @@ const StoreManagementPage = () => {
                 )}
 
                 <div className="p-6">
-                  {/* Category & Status */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="inline-block px-3 py-1 bg-gaming-neon/20 text-gaming-neon text-xs rounded-full">
+                  {/* Category, Game & Status */}
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="px-3 py-1 bg-gaming-neon/20 text-gaming-neon text-xs rounded-full">
                       {item.category}
                     </span>
+                    {item.game && gameBadge[item.game] && (
+                      <span className={`px-3 py-1 text-xs rounded-full font-semibold ${gameBadge[item.game].cls}`}>
+                        {gameBadge[item.game].label}
+                      </span>
+                    )}
                     {!item.isActive && (
                       <span className="text-xs text-red-400">Inactive</span>
                     )}

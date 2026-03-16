@@ -283,7 +283,7 @@ router.post('/store', auth, adminAuth, async (req, res) => {
     console.log('📦 Creating store item:', req.body);
     console.log('👤 User:', req.user?.username, 'Role:', req.user?.role);
     
-    const { name, description, image, price, category, stock, metadata } = req.body;
+    const { name, description, image, price, category, game, stock, metadata } = req.body;
 
     if (!name || !description || price === undefined) {
       console.log('❌ Missing required fields');
@@ -303,6 +303,7 @@ router.post('/store', auth, adminAuth, async (req, res) => {
       image,
       price,
       category: category || 'other',
+      game: game || 'all',
       stock: stock !== undefined ? stock : -1,
       metadata
     });
@@ -338,7 +339,7 @@ router.post('/store', auth, adminAuth, async (req, res) => {
 router.put('/store/:id', auth, adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, image, price, category, stock, isActive, metadata } = req.body;
+    const { name, description, image, price, category, game, stock, isActive, metadata } = req.body;
 
     const item = await StoreItem.findById(id);
 
@@ -358,6 +359,7 @@ router.put('/store/:id', auth, adminAuth, async (req, res) => {
     if (image !== undefined) item.image = image;
     if (price !== undefined) item.price = price;
     if (category) item.category = category;
+    if (game) item.game = game;
     if (stock !== undefined) item.stock = stock;
     if (isActive !== undefined) item.isActive = isActive;
     if (metadata) item.metadata = metadata;

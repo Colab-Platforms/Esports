@@ -92,7 +92,7 @@ const WalletPage = () => {
           setLast7Days(response.data.last7Days);
         }
         
-        // Check if already claimed today
+        // Check if already claimed today    
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -285,14 +285,9 @@ const WalletPage = () => {
               
               {/* Streak Count */}
               <div className="text-center mt-1">
-                {/* <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-400">
                   {last7Days.filter(d => d.claimed && !d.isFuture).length} / 7 Days Claimed
-                </span> */}
-                {/* {last7Days.some(d => d.isFuture) && (
-                  <span className="text-[10px] text-gray-500 block">
-                    + 2 upcoming days
-                  </span>
-                )} */}
+                </span>
               </div>
             </div>
           </div>
@@ -375,7 +370,7 @@ const WalletPage = () => {
 
       <div className="flex items-end space-x-2">
         <span className="text-6xl font-extrabold text-white">
-          {last7Days.filter(d => d.claimed).length}
+          {wallet?.streak || 0}
         </span>
 
         <span className="text-orange-400 font-semibold mb-2">
@@ -385,11 +380,11 @@ const WalletPage = () => {
 
       {/* motivational label */}
       <p className="text-sm mt-2 text-orange-400 font-semibold">
-        {last7Days.filter(d => d.claimed).length >= 6
+        {(wallet?.streak || 0) >= 6
           ? "🔥 Legendary Streak"
-          : last7Days.filter(d => d.claimed).length >= 4
+          : (wallet?.streak || 0) >= 4
           ? "⚡ Hot Streak"
-          : last7Days.filter(d => d.claimed).length >= 2
+          : (wallet?.streak || 0) >= 2
           ? "🚀 Building Momentum"
           : "🎯 Start Your Streak"}
       </p>
@@ -413,7 +408,7 @@ const WalletPage = () => {
 
     <div className="flex justify-between text-xs text-gray-400 mb-1">
       <span>Weekly Progress</span>
-      <span>{last7Days.filter(d => d.claimed).length}/7</span>
+      <span>{wallet?.streak || 0}/7</span>
     </div>
 
     <div className="w-full bg-gaming-dark rounded-full h-3 overflow-hidden">
@@ -421,7 +416,7 @@ const WalletPage = () => {
       <motion.div
         initial={{ width: 0 }}
         animate={{
-          width: `${(last7Days.filter(d => d.claimed).length / 7) * 100}%`
+          width: `${((wallet?.streak || 0) / 7) * 100}%`
         }}
         transition={{ duration: 1 }}
         className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-300"
