@@ -121,6 +121,7 @@ const Navbar = () => {
         { to: "/admin/tournaments", label: "Tournaments" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },
+        { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
     }
 
@@ -134,6 +135,7 @@ const Navbar = () => {
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/coin-config", label: "Coin Config" },
         { to: "/admin/store", label: "Store Items" },
+        { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
     }
 

@@ -3,6 +3,7 @@ const { body, validationResult, query } = require('express-validator');
 const Tournament = require('../models/Tournament');
 const TournamentRegistration = require('../models/TournamentRegistration');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const WalletService = require('../services/walletService');
 const redisService = require('../services/redisService');
 const auth = require('../middleware/auth');
@@ -2677,6 +2678,318 @@ router.get('/:id/scoreboards', async (req, res) => {
       error: {
         code: 'SCOREBOARDS_FETCH_FAILED',
         message: 'Failed to fetch scoreboards',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   GET /api/tournaments/:id/teams
+// @desc    Get all teams registered for a tournament
+// @access  Private (Admin only)
+router.get('/:id/teams', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get all registrations for this tournament
+    const registrations = await TournamentRegistration.find({
+      tournamentId: tournament._id
+    }).populate('userId');
+
+    // Get all teams for the registered users
+    const Team = require('../models/Team');
+    const teams = await Team.find({
+      _id: { $in: registrations.map(r => r.userId) }
+    }).populate('members.userId', 'username avatarUrl');
+
+    res.json({
+      success: true,
+      data: {
+        teams: teams.map(team => ({
+          _id: team._id,
+          name: team.name,
+          game: team.game,
+          memberCount: team.members.length,
+          members: team.members.map(m => ({
+            userId: m.userId._id,
+            username: m.userId.username,
+            role: m.role,
+            avatarUrl: m.userId.avatarUrl
+          }))
+        }))
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fetching tournament teams:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'TEAMS_FETCH_FAILED',
+        message: 'Failed to fetch teams',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/tournaments/:id/distribute-rewards
+// @desc    Distribute coins to tournament winners and participants
+// @access  Private (Admin only)
+router.post('/:id/distribute-rewards', auth, [
+  body('topFiveRewards')
+    .isObject()
+    .withMessage('Top five rewards must be an object'),
+  body('rewardAmounts')
+    .isObject()
+    .withMessage('Reward amounts must be an object'),
+  body('participationCoins')
+    .isInt({ min: 0 })
+    .withMessage('Participation coins must be a non-negative integer')
+], async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required to distribute rewards',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Please check your input data',
+          details: errors.array(),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const tournament = await Tournament.findById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'TOURNAMENT_NOT_FOUND',
+          message: 'Tournament not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const { topFiveRewards, rewardAmounts, participationCoins } = req.body;
+
+    // Validate that all 5 positions have team selections
+    const selectedPositions = Object.keys(topFiveRewards).length;
+    if (selectedPositions < 5) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INCOMPLETE_WINNERS',
+          message: `Please select all top 5 winners (${selectedPositions}/5 selected)`,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    console.log('🏆 Distributing rewards for tournament:', tournament.name);
+    console.log('📊 Top 5 Rewards:', topFiveRewards);
+    console.log('💰 Reward Amounts:', rewardAmounts);
+    console.log('👥 Participation Coins:', participationCoins);
+
+    // Get all registered teams for this tournament
+    const Team = require('../models/Team');
+    const registrations = await TournamentRegistration.find({
+      tournamentId: tournament._id
+    }).populate('userId');
+
+    if (registrations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'NO_REGISTRATIONS',
+          message: 'No teams registered for this tournament',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get all teams for this tournament
+    const teams = await Team.find({
+      _id: { $in: registrations.map(r => r.userId) }
+    }).populate('members.userId');
+
+    const distributionSummary = {
+      topFiveWinners: [],
+      participationTeams: [],
+      totalCoinsDistributed: 0,
+      transactionsCreated: 0
+    };
+
+    // Distribute rewards to top 5 winners
+    for (let position = 1; position <= 5; position++) {
+      const teamId = topFiveRewards[position];
+      const coins = rewardAmounts[position];
+
+      if (!teamId || !coins) continue;
+
+      const team = await Team.findById(teamId).populate('members.userId');
+      if (!team) {
+        console.warn(`⚠️ Team not found for position ${position}: ${teamId}`);
+        continue;
+      }
+
+      // Distribute coins to all team members
+      for (const member of team.members) {
+        const userId = member.userId._id;
+        
+        try {
+          // Get wallet and award coins
+          const wallet = await Wallet.findOne({ userId });
+          if (!wallet) {
+            console.warn(`⚠️ Wallet not found for user ${userId}`);
+            continue;
+          }
+
+          await wallet.addCoins(
+            coins,
+            'earn',
+            `Tournament Winner - Position ${position}`,
+            {
+              source: 'tournament_win',
+              referenceId: tournament._id,
+              referenceModel: 'Tournament'
+            }
+          );
+
+          console.log(`✅ Awarded ${coins} coins to ${member.userId.username} (Position ${position})`);
+          
+          distributionSummary.totalCoinsDistributed += coins;
+          distributionSummary.transactionsCreated++;
+        } catch (error) {
+          console.error(`❌ Failed to award coins to ${member.userId.username}:`, error.message);
+        }
+      }
+
+      distributionSummary.topFiveWinners.push({
+        position,
+        teamId: team._id,
+        teamName: team.name,
+        coinsPerMember: coins,
+        totalCoinsAwarded: coins * team.members.length,
+        memberCount: team.members.length
+      });
+    }
+
+    // Distribute participation coins to all other teams
+    const topFiveTeamIds = Object.values(topFiveRewards).filter(Boolean);
+    const participationTeams = teams.filter(team => !topFiveTeamIds.includes(team._id.toString()));
+
+    for (const team of participationTeams) {
+      // Distribute coins to all team members
+      for (const member of team.members) {
+        const userId = member.userId._id;
+        
+        try {
+          // Get wallet and award coins
+          const wallet = await Wallet.findOne({ userId });
+          if (!wallet) {
+            console.warn(`⚠️ Wallet not found for user ${userId}`);
+            continue;
+          }
+
+          await wallet.addCoins(
+            participationCoins,
+            'earn',
+            'Tournament Participation',
+            {
+              source: 'tournament_participation',
+              referenceId: tournament._id,
+              referenceModel: 'Tournament'
+            }
+          );
+
+          console.log(`✅ Awarded ${participationCoins} participation coins to ${member.userId.username}`);
+          
+          distributionSummary.totalCoinsDistributed += participationCoins;
+          distributionSummary.transactionsCreated++;
+        } catch (error) {
+          console.error(`❌ Failed to award participation coins to ${member.userId.username}:`, error.message);
+        }
+      }
+
+      distributionSummary.participationTeams.push({
+        teamId: team._id,
+        teamName: team.name,
+        coinsPerMember: participationCoins,
+        totalCoinsAwarded: participationCoins * team.members.length,
+        memberCount: team.members.length
+      });
+    }
+
+    // Mark tournament as rewards distributed
+    tournament.rewardsDistributed = true;
+    tournament.rewardsDistributedAt = new Date();
+    tournament.rewardsDistributedBy = req.user.userId;
+    await tournament.save();
+
+    console.log('✅ Rewards distributed successfully!');
+    console.log('📊 Distribution Summary:', distributionSummary);
+
+    res.json({
+      success: true,
+      message: '🎉 Rewards distributed successfully!',
+      data: {
+        tournament: {
+          id: tournament._id,
+          name: tournament.name
+        },
+        summary: distributionSummary
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error distributing rewards:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'DISTRIBUTION_FAILED',
+        message: 'Failed to distribute rewards',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         timestamp: new Date().toISOString()
       }
     });
