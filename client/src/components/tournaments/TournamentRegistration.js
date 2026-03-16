@@ -26,6 +26,7 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [conflictingPlayers, setConflictingPlayers] = useState([]);
   const [steamConnected, setSteamConnected] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [userSteamData, setUserSteamData] = useState(null);
@@ -333,7 +334,17 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Registration failed');
+        const errorData = data.error || {};
+        
+        // Check if this is a player conflict error
+        if (errorData.code === 'PLAYER_ALREADY_REGISTERED' && errorData.conflictingPlayers) {
+          setConflictingPlayers(errorData.conflictingPlayers);
+          setError(errorData.message);
+        } else {
+          setError(errorData.message || 'Registration failed');
+        }
+        
+        throw new Error(errorData.message || 'Registration failed');
       }
       
       // Success - redirect to tournament details
@@ -860,8 +871,29 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-              <div className="text-red-400 text-sm">{error}</div>
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 space-y-3">
+              <div className="text-red-400 text-sm font-semibold">{error}</div>
+              
+              {/* Conflicting Players Details */}
+              {conflictingPlayers && conflictingPlayers.length > 0 && (
+                <div className="space-y-2 mt-3 pt-3 border-t border-red-500/30">
+                  <p className="text-red-300 text-xs font-semibold">⚠️ Conflicting Players:</p>
+                  {conflictingPlayers.map((player, idx) => (
+                    <div key={idx} className="bg-red-500/5 rounded p-2 text-xs text-red-300">
+                      <div className="flex justify-between">
+                        <span className="font-semibold">{player.playerName}</span>
+                        <span className="text-red-400">({player.role})</span>
+                      </div>
+                      <div className="text-red-400 text-xs mt-1">
+                        ID: {player.bgmiId || player.freeFireId}
+                      </div>
+                      <div className="text-red-300 text-xs mt-1">
+                        Already in: <span className="font-semibold">{player.existingTeam}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
