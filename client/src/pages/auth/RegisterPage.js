@@ -46,6 +46,7 @@ const RegisterPage = () => {
       toast.error(error.message || 'Registration failed');
     }
   }, [error]);
+  
 
   const handleChange = (e) => {
     setFormData({

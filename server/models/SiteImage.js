@@ -25,6 +25,47 @@ const siteImageSchema = new mongoose.Schema({
     tablet: String,    // 1024x768
     mobile: String     // 750x1334
   },
+  // Text overlay for banners/sliders
+  textOverlay: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    title: {
+      type: String,
+      default: '',
+      maxlength: 100
+    },
+    subtitle: {
+      type: String,
+      default: '',
+      maxlength: 150
+    },
+    description: {
+      type: String,
+      default: '',
+      maxlength: 300
+    },
+    ctaText: {
+      type: String,
+      default: '',
+      maxlength: 50
+    },
+    ctaLink: {
+      type: String,
+      default: '',
+      maxlength: 200
+    },
+    textColor: {
+      type: String,
+      default: '#ffffff'
+    },
+    position: {
+      type: String,
+      enum: ['left', 'center', 'right'],
+      default: 'left'
+    }
+  },
   category: {
     type: String,
     enum: ['banner', 'hero', 'background', 'icon', 'logo', 'other'],
