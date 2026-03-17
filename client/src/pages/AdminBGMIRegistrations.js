@@ -155,6 +155,7 @@ const AdminBGMIRegistrations = () => {
         // 'Player 2 UID',
         'Player 3 IGN',
         // 'Player 3 UID',
+        'Substitute IGN',
         'Group',
         'Status'
       ];
@@ -173,6 +174,7 @@ const AdminBGMIRegistrations = () => {
           // `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[2]?.name || ''}"`,
           // `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
+          `"${reg.teamMembers?.find(m => m.isSubstitute)?.name || ''}"`,
           `"${reg.group || ''}"`,
           `"${reg.status || ''}"`
         ].join(','))
@@ -1154,6 +1156,7 @@ const AdminBGMIRegistrations = () => {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 1 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 2 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 3 IGN</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Substitute</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tournament</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
@@ -1189,6 +1192,11 @@ const AdminBGMIRegistrations = () => {
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {registration.teamMembers?.[2]?.name || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-sm text-white">
+                            {registration.teamMembers?.find(m => m.isSubstitute)?.name || '-'}
                           </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
@@ -1337,6 +1345,10 @@ const AdminBGMIRegistrations = () => {
                       <div>
                         <span className="text-gray-400">Player 3 IGN:</span>
                         <div className="text-white">{registration.teamMembers?.[2]?.name || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Substitute:</span>
+                        <div className="text-white">{registration.teamMembers?.find(m => m.isSubstitute)?.name || '-'}</div>
                       </div>
                       <div>
                         <span className="text-gray-400">Group:</span>

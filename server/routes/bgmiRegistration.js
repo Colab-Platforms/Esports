@@ -68,6 +68,21 @@ router.post('/:tournamentId/register', auth, [
     .withMessage('Team member BGMI ID must be 3-30 characters')
     .trim(),
 
+  // Optional Substitute Validation
+  body('substitute')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitute.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitute.bgmiId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute BGMI ID must be 3-30 characters')
+    .trim(),
   
   // WhatsApp Number Validation
   body('whatsappNumber')
@@ -90,12 +105,13 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
+    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
 
     console.log('📝 Registration data received:', {
       teamName,
       teamLeader,
       teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId, isSubstitute: m.isSubstitute })),
+      substitute: substitute ? { name: substitute.name, bgmiId: substitute.bgmiId } : null,
       whatsappNumber
     });
 
@@ -153,8 +169,12 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Validate unique BGMI IDs within the team
-    const allBgmiIds = [teamLeader.bgmiId, ...teamMembers.map(m => m.bgmiId)];
+    // Validate unique BGMI IDs within the team (including substitute)
+    const allBgmiIds = [
+      teamLeader.bgmiId,
+      ...teamMembers.map(m => m.bgmiId),
+      ...(substitute ? [substitute.bgmiId] : [])
+    ];
     const uniqueBgmiIds = [...new Set(allBgmiIds)];
     if (allBgmiIds.length !== uniqueBgmiIds.length) {
       return res.status(400).json({
@@ -179,11 +199,12 @@ router.post('/:tournamentId/register', auth, [
 
     console.log(`🔍 BGMI conflict check: tournamentId=${tournamentId}, found ${existingRegistrations.length} other registrations`);
 
-    // Collect all new player IDs (leader + members)
+    // Collect all new player IDs (leader + members + substitute)
     const leaderBG = teamLeader.bgmiId?.trim();
     const newPlayerIds = [
       { bgmiId: leaderBG, name: teamLeader.name, role: 'Team Leader' },
-      ...teamMembers.map(m => ({ bgmiId: m.bgmiId?.trim(), name: m.name, role: 'Team Member' }))
+      ...teamMembers.map(m => ({ bgmiId: m.bgmiId?.trim(), name: m.name, role: 'Team Member' })),
+      ...(substitute ? [{ bgmiId: substitute.bgmiId?.trim(), name: substitute.name, role: 'Substitute' }] : [])
     ].filter(p => p.bgmiId); // skip empty IDs
 
     console.log(`🔍 New players to check:`, newPlayerIds.map(p => p.bgmiId));
@@ -229,7 +250,9 @@ router.post('/:tournamentId/register', auth, [
       userId: req.user.userId,
       teamName,
       teamLeader,
-      teamMembers,
+      teamMembers: substitute 
+        ? [...teamMembers, { ...substitute, isSubstitute: true }]
+        : teamMembers,
       whatsappNumber,
       status: 'pending'
     });

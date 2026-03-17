@@ -673,6 +673,14 @@ const SingleTournamentPage = () => {
             }),
             whatsappNumber: phoneNumber || user?.phone || "",
           };
+          
+          console.log('🔥 Free Fire Registration Data:', JSON.stringify(registrationData, null, 2));
+          console.log('🔥 Leader Info:', leaderInfo);
+          console.log('🔥 Other Members:', otherMembers.map(m => ({ 
+            username: m.userId?.username, 
+            info: getInfo(m) 
+          })));
+          
           await api.post(
             `/api/freefire-registration/${tournament._id}/register`,
             registrationData,
@@ -733,8 +741,12 @@ const SingleTournamentPage = () => {
               const path = d.path || d.param || "";
               if (path.includes("teamLeader.bgmiId"))
                 return `Team Leader is missing BGMI UID`;
-              if (path.includes("teamLeader.name"))
+              if (path.includes("teamLeader.name") && tournament?.gameType === "bgmi")
                 return `Team Leader is missing BGMI IGN`;
+              if (path.includes("teamLeader.name") && (tournament?.gameType === "freefire" || tournament?.gameType === "ff"))
+                return `Team Leader is missing Free Fire IGN`;
+              if (path.includes("teamLeader.name"))
+                return `Team Leader is missing IGN`;
               if (path.includes("teamLeader.phone"))
                 return `Team Leader phone number is invalid`;
               if (path.includes("teamLeader.freeFireId"))
