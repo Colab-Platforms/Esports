@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { FiUpload, FiImage, FiMonitor, FiTablet, FiSmartphone, FiCheck, FiX, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
+import { FiUpload, FiImage, FiMonitor, FiTablet, FiSmartphone, FiCheck, FiX, FiRefreshCw, FiTrash2, FiType, FiEdit3 } from 'react-icons/fi';
 import { selectAuth } from '../../store/slices/authSlice';
 import imageService from '../../services/imageService';
 import ResponsiveImage from '../../components/common/ResponsiveImage';
@@ -17,6 +17,18 @@ const ImageManagement = () => {
   const [previewFile, setPreviewFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [games, setGames] = useState([]);
+  const [showTextOverlay, setShowTextOverlay] = useState(false);
+  const [editingTextOverlay, setEditingTextOverlay] = useState(null);
+  const [textOverlayData, setTextOverlayData] = useState({
+    enabled: false,
+    title: '',
+    subtitle: '',
+    description: '',
+    ctaText: '',
+    ctaLink: '',
+    textColor: '#ffffff',
+    position: 'left'
+  });
 
   // Check if user is designer or admin
   const canManage = user && (user.role === 'designer' || user.role === 'admin');
@@ -142,6 +154,18 @@ const ImageManagement = () => {
     setPreviewUrl('');
     setSelectedImage(null);
     setUploadMode('single');
+    setShowTextOverlay(false);
+    setEditingTextOverlay(null);
+    setTextOverlayData({
+      enabled: false,
+      title: '',
+      subtitle: '',
+      description: '',
+      ctaText: '',
+      ctaLink: '',
+      textColor: '#ffffff',
+      position: 'left'
+    });
   };
 
   const handleDeleteDevice = async (imageKey, device) => {
@@ -205,6 +229,72 @@ const ImageManagement = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleEditTextOverlay = (imageKey) => {
+    const image = images[imageKey];
+    const existingOverlay = image?.textOverlay || {};
+    
+    setEditingTextOverlay(imageKey);
+    setTextOverlayData({
+      enabled: existingOverlay.enabled || false,
+      title: existingOverlay.title || '',
+      subtitle: existingOverlay.subtitle || '',
+      description: existingOverlay.description || '',
+      ctaText: existingOverlay.ctaText || '',
+      ctaLink: existingOverlay.ctaLink || '',
+      textColor: existingOverlay.textColor || '#ffffff',
+      position: existingOverlay.position || 'left'
+    });
+    setShowTextOverlay(true);
+  };
+
+  const handleSaveTextOverlay = async () => {
+    if (!editingTextOverlay) return;
+
+    setUploading(true);
+    try {
+      const result = await imageService.updateTextOverlay(editingTextOverlay, textOverlayData);
+      
+      if (result.success) {
+        toast.success('Text overlay updated successfully!');
+        await fetchImages();
+        setShowTextOverlay(false);
+        setEditingTextOverlay(null);
+        setTextOverlayData({
+          enabled: false,
+          title: '',
+          subtitle: '',
+          description: '',
+          ctaText: '',
+          ctaLink: '',
+          textColor: '#ffffff',
+          position: 'left'
+        });
+      } else {
+        toast.error(result.error || 'Failed to update text overlay');
+      }
+    } catch (error) {
+      console.error('Text overlay update error:', error);
+      toast.error('Failed to update text overlay');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCancelTextOverlay = () => {
+    setShowTextOverlay(false);
+    setEditingTextOverlay(null);
+    setTextOverlayData({
+      enabled: false,
+      title: '',
+      subtitle: '',
+      description: '',
+      ctaText: '',
+      ctaLink: '',
+      textColor: '#ffffff',
+      position: 'left'
+    });
   };
 
   if (!canManage) {
@@ -680,6 +770,223 @@ const ImageManagement = () => {
           </div>
         </div>
 
+        {/* Text Overlay Editor Modal */}
+        {showTextOverlay && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gaming-card rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-800">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center">
+                  <FiType className="mr-2" />
+                  Edit Text Overlay - {editingTextOverlay}
+                </h3>
+                <button
+                  onClick={handleCancelTextOverlay}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Enable/Disable Toggle */}
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="overlay-enabled"
+                    checked={textOverlayData.enabled}
+                    onChange={(e) => setTextOverlayData(prev => ({ ...prev, enabled: e.target.checked }))}
+                    className="w-4 h-4 text-gaming-gold bg-gaming-dark border-gray-600 rounded focus:ring-gaming-gold focus:ring-2"
+                  />
+                  <label htmlFor="overlay-enabled" className="text-white font-medium">
+                    Enable Text Overlay
+                  </label>
+                </div>
+
+                {textOverlayData.enabled && (
+                  <>
+                    {/* Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={textOverlayData.title}
+                        onChange={(e) => setTextOverlayData(prev => ({ ...prev, title: e.target.value }))}
+                        className="w-full bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold"
+                        placeholder="Enter title text..."
+                      />
+                    </div>
+
+                    {/* Subtitle */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Subtitle
+                      </label>
+                      <input
+                        type="text"
+                        value={textOverlayData.subtitle}
+                        onChange={(e) => setTextOverlayData(prev => ({ ...prev, subtitle: e.target.value }))}
+                        className="w-full bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold"
+                        placeholder="Enter subtitle text..."
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={textOverlayData.description}
+                        onChange={(e) => setTextOverlayData(prev => ({ ...prev, description: e.target.value }))}
+                        rows={3}
+                        className="w-full bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold resize-none"
+                        placeholder="Enter description text..."
+                      />
+                    </div>
+
+                    {/* CTA Text */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Button Text
+                      </label>
+                      <input
+                        type="text"
+                        value={textOverlayData.ctaText}
+                        onChange={(e) => setTextOverlayData(prev => ({ ...prev, ctaText: e.target.value }))}
+                        className="w-full bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold"
+                        placeholder="Enter button text..."
+                      />
+                    </div>
+
+                    {/* CTA Link */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Button Link
+                      </label>
+                      <input
+                        type="text"
+                        value={textOverlayData.ctaLink}
+                        onChange={(e) => setTextOverlayData(prev => ({ ...prev, ctaLink: e.target.value }))}
+                        className="w-full bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold"
+                        placeholder="Enter button link (e.g., /tournaments)..."
+                      />
+                    </div>
+
+                    {/* Text Color */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Text Color
+                      </label>
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="color"
+                          value={textOverlayData.textColor}
+                          onChange={(e) => setTextOverlayData(prev => ({ ...prev, textColor: e.target.value }))}
+                          className="w-12 h-10 bg-gaming-dark border border-gray-700 rounded cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={textOverlayData.textColor}
+                          onChange={(e) => setTextOverlayData(prev => ({ ...prev, textColor: e.target.value }))}
+                          className="flex-1 bg-gaming-dark border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-gaming-gold"
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Text Position */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Text Position
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['left', 'center', 'right'].map(position => (
+                          <button
+                            key={position}
+                            onClick={() => setTextOverlayData(prev => ({ ...prev, position }))}
+                            className={`py-2 px-4 rounded-lg font-medium transition-colors capitalize ${
+                              textOverlayData.position === position
+                                ? 'bg-gaming-gold text-black'
+                                : 'bg-gaming-dark border border-gray-700 text-gray-300 hover:border-gray-600'
+                            }`}
+                          >
+                            {position}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Preview */}
+                {textOverlayData.enabled && (
+                  <div className="mt-6 p-4 bg-gaming-dark border border-gray-700 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-300 mb-3">Preview</h4>
+                    <div className="bg-black rounded-lg p-6 relative overflow-hidden min-h-[200px]">
+                      {/* Sample background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-900/50 to-purple-900/50"></div>
+                      
+                      {/* Text content */}
+                      <div className={`relative z-10 h-full flex items-center ${
+                        textOverlayData.position === 'center' ? 'justify-center text-center' :
+                        textOverlayData.position === 'right' ? 'justify-end text-right' :
+                        'justify-start text-left'
+                      }`}>
+                        <div className="space-y-2" style={{ color: textOverlayData.textColor }}>
+                          {textOverlayData.subtitle && (
+                            <p className="text-sm font-semibold opacity-90">
+                              {textOverlayData.subtitle}
+                            </p>
+                          )}
+                          {textOverlayData.title && (
+                            <h2 className="text-2xl font-bold">
+                              {textOverlayData.title}
+                            </h2>
+                          )}
+                          {textOverlayData.description && (
+                            <p className="text-sm opacity-80 max-w-md">
+                              {textOverlayData.description}
+                            </p>
+                          )}
+                          {textOverlayData.ctaText && (
+                            <div className="pt-2">
+                              <span className="inline-block px-4 py-2 bg-gaming-neon text-black text-sm font-bold rounded">
+                                {textOverlayData.ctaText}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex space-x-3 mt-6">
+                <button
+                  onClick={handleSaveTextOverlay}
+                  disabled={uploading}
+                  className="flex-1 flex items-center justify-center space-x-2 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                >
+                  <FiCheck className="w-5 h-5" />
+                  <span>{uploading ? 'Saving...' : 'Save Text Overlay'}</span>
+                </button>
+                <button
+                  onClick={handleCancelTextOverlay}
+                  disabled={uploading}
+                  className="flex-1 flex items-center justify-center space-x-2 py-3 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white rounded-lg font-medium transition-colors"
+                >
+                  <FiX className="w-5 h-5" />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Current Images */}
         <div className="bg-gaming-card rounded-lg p-6 border border-gray-800">
           <div className="flex items-center justify-between mb-4">
@@ -735,7 +1042,15 @@ const ImageManagement = () => {
                 return (
                   <div key={key} className="bg-gaming-dark rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors">
                     <div className="mb-3">
-                      <h3 className="text-white font-medium mb-1">{name}</h3>
+                      <h3 className="text-white font-medium mb-1 flex items-center justify-between">
+                        <span>{name}</span>
+                        {image?.textOverlay?.enabled && (
+                          <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded flex items-center">
+                            <FiType className="w-3 h-3 mr-1" />
+                            Text
+                          </span>
+                        )}
+                      </h3>
                       <p className="text-xs text-blue-400 mb-1">📍 {location}</p>
                       <p className="text-xs text-gray-500">Size: {recommended}</p>
                     </div>
@@ -847,14 +1162,23 @@ const ImageManagement = () => {
                           ⚠️ Upload required
                         </div>
                       )}
-                      {image && key.includes('banner') && (
-                        <button
-                          onClick={() => window.open('/', '_blank')}
-                          className="w-full mt-2 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center justify-center space-x-1"
-                        >
-                          <span>🏠</span>
-                          <span>View on Homepage</span>
-                        </button>
+                      {image && (key.includes('banner') || key.includes('slide') || key.includes('homepage')) && (
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleEditTextOverlay(key)}
+                            className="w-full py-1.5 px-3 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors flex items-center justify-center space-x-1"
+                          >
+                            <FiEdit3 className="w-3 h-3" />
+                            <span>Edit Text Overlay</span>
+                          </button>
+                          <button
+                            onClick={() => window.open('/', '_blank')}
+                            className="w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center justify-center space-x-1"
+                          >
+                            <span>🏠</span>
+                            <span>View on Homepage</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

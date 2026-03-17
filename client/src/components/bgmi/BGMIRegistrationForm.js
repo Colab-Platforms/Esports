@@ -21,8 +21,7 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
       phone: user?.phone || ''
     },
     teamMembers: [],
-    selectedLeaderIndex: null,
-    substitutes: {}
+    selectedLeaderIndex: null
   });
 
   useEffect(() => {
@@ -45,12 +44,9 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
     });
 
     if (preFilled.length > 0) {
-      const subs = {};
-      preFilled.forEach((_, i) => { subs[i] = false; });
       setFormData(prev => ({
         ...prev,
-        teamMembers: preFilled,
-        substitutes: subs
+        teamMembers: preFilled
       }));
     }
   }, [selectedTeam, user]);
@@ -84,19 +80,11 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
         return prev;
       }
 
-      // Check team size limit (5 players including leader)
-      if (prev.teamMembers.length >= 4) {
-        setSnackbar({ message: 'Team is full (5 players max)', type: 'warning' });
+      // Check team size limit (4 players including leader)
+      if (prev.teamMembers.length >= 3) {
+        setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
         return prev;
       }
-
-      const newMemberIndex = prev.teamMembers.length;
-      // Don't auto-mark as substitute - let user choose
-      const isSubstitute = false;
-
-      const newSubstitutes = { ...prev.substitutes };
-      // Don't auto-set substitute status
-      newSubstitutes[newMemberIndex] = isSubstitute;
 
       return {
         ...prev,
@@ -107,8 +95,7 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
             bgmiId: player.bgmiId,
             playerId: player.playerId
           }
-        ],
-        substitutes: newSubstitutes
+        ]
       };
     });
     setSnackbar({ message: `${player.name} added to team`, type: 'success' });
@@ -135,69 +122,9 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
   // Handle leader selection
   const handleSelectLeader = useCallback((index) => {
     setFormData(prev => {
-      // Check if this player is currently marked as substitute
-      if (prev.substitutes[index]) {
-        setSnackbar({ 
-          message: '❌ Substitute cannot be the team leader', 
-          type: 'error' 
-        });
-        return prev;
-      }
-      
-      // If selecting current user as leader (index -1), check if they're substitute
-      if (index === -1 && prev.substitutes[-1]) {
-        setSnackbar({ 
-          message: '❌ Substitute cannot be the team leader', 
-          type: 'error' 
-        });
-        return prev;
-      }
-      
-      // Clear substitute status when making someone leader
-      const newSubstitutes = { ...prev.substitutes };
-      if (index !== null) {
-        newSubstitutes[index] = false;
-      }
-      
       return {
         ...prev,
-        selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index,
-        substitutes: newSubstitutes
-      };
-    });
-  }, []);
-
-  // Handle substitute toggle - only one substitute allowed, always enabled
-  const handleToggleSubstitute = useCallback((index) => {
-    setFormData(prev => {
-      // Check if this player is currently selected as leader
-      if (prev.selectedLeaderIndex === index) {
-        setSnackbar({ 
-          message: '❌ Team leader cannot be a substitute', 
-          type: 'error' 
-        });
-        return prev;
-      }
-      
-      // Check if current user (index -1) is being marked as substitute
-      // but they are the default leader (selectedLeaderIndex is null)
-      if (index === -1 && prev.selectedLeaderIndex === null) {
-        setSnackbar({ 
-          message: '❌ Team leader cannot be a substitute', 
-          type: 'error' 
-        });
-        return prev;
-      }
-
-      // Always switch substitute to the clicked member
-      const newSubstitutes = {};
-      Object.keys(prev.substitutes).forEach(key => {
-        newSubstitutes[key] = false;
-      });
-      newSubstitutes[index] = true;
-      return {
-        ...prev,
-        substitutes: newSubstitutes
+        selectedLeaderIndex: prev.selectedLeaderIndex === index ? null : index
       };
     });
   }, []);
@@ -228,9 +155,9 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
       return false;
     }
 
-    // Team members validation - must have exactly 4 members (+ leader = 5 total)
-    if (formData.teamMembers.length < 4) {
-      setError(`Please add ${4 - formData.teamMembers.length} more player(s)`);
+    // Team members validation - must have exactly 3 members (+ leader = 4 total)
+    if (formData.teamMembers.length < 3) {
+      setError(`Please add ${3 - formData.teamMembers.length} more player(s)`);
       return false;
     }
 
@@ -355,33 +282,12 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
         teamLeader: {
           name: actualTeamLeader.name,
           bgmiId: actualTeamLeader.bgmiId,
-          phone: formData.teamLeader.phone,
-          isSubstitute: formData.substitutes[-1] || false
+          phone: formData.teamLeader.phone
         },
-        teamMembers: otherMembers.map((m, idx) => {
-          // Find the original index of this member in formData.teamMembers
-          let originalIndex;
-          if (formData.selectedLeaderIndex === null) {
-            // No leader selected - use index directly
-            originalIndex = idx;
-          } else {
-            // A member was selected as leader
-            // The otherMembers array has: [original leader, ...remaining members]
-            // So we need to map back to formData.teamMembers indices
-            if (idx === 0) {
-              // This is the original leader (not in formData.teamMembers)
-              originalIndex = -1; // Use -1 for original leader
-            } else {
-              // Adjust for the removed leader
-              originalIndex = idx <= formData.selectedLeaderIndex ? idx - 1 : idx - 1;
-            }
-          }
-          return {
-            name: m.name,
-            bgmiId: m.bgmiId,
-            isSubstitute: formData.substitutes[originalIndex] || false
-          };
-        }),
+        teamMembers: otherMembers.map((m) => ({
+          name: m.name,
+          bgmiId: m.bgmiId
+        })),
         whatsappNumber: formData.teamLeader.phone
       };
 
@@ -573,13 +479,8 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <label className="block text-sm font-medium text-gray-300">
-                  👥 Team Members ({(hasBgmiCredentials ? 1 : 0) + formData.teamMembers.length}/5)
+                  👥 Team Members ({(hasBgmiCredentials ? 1 : 0) + formData.teamMembers.length}/4)
                 </label>
-                {formData.teamMembers.length === 4 && (
-                  <label className="block text-sm font-medium text-yellow-400">
-                    🔄 Substitutes ({Object.values(formData.substitutes).filter(Boolean).length}/1)
-                  </label>
-                )}
               </div>
             </div>
 
@@ -615,19 +516,6 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
                   >
                     {formData.selectedLeaderIndex === null ? '✓ Leader' : 'Set Leader'}
                   </button>
-                  {formData.teamMembers.length === 4 && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSubstitute(-1)}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                        formData.substitutes[-1]
-                          ? 'bg-yellow-500/30 border border-yellow-500 text-yellow-400'
-                          : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-yellow-500/50'
-                      }`}
-                    >
-                      {formData.substitutes[-1] ? '✓ Sub' : 'Sub'}
-                    </button>
-                  )}
                 </div>
               </motion.div>
             )}
@@ -640,7 +528,6 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
               <div className="space-y-2">
                 {formData.teamMembers.map((member, index) => {
                   const isSelectedLeader = formData.selectedLeaderIndex === index;
-                  const isSubstitute = formData.substitutes[index];
                   return (
                     <motion.div
                       key={index}
@@ -674,19 +561,6 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
                         >
                           {isSelectedLeader ? '✓ Leader' : 'Set Leader'}
                         </button>
-                        {formData.teamMembers.length === 4 && (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSubstitute(index)}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                              isSubstitute
-                                ? 'bg-yellow-500/30 border border-yellow-500 text-yellow-400'
-                                : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-yellow-500/50'
-                            }`}
-                          >
-                            {isSubstitute ? '✓ Sub' : 'Sub'}
-                          </button>
-                        )}
                         <motion.button
                           type="button"
                           onClick={() => handleRemovePlayer(index)}

@@ -96,11 +96,24 @@ const AdminBGMIRegistrations = () => {
       let currentPage = 1;
       let hasMorePages = true;
 
+      // Determine which API to call based on selected tournament
+      let baseApiUrl;
+      if (filters.tournamentId) {
+        const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
+        if (selectedTournament && (selectedTournament.gameType === 'freefire' || selectedTournament.gameType === 'FreeFire')) {
+          baseApiUrl = '/api/freefire-registration/admin/registrations';
+        } else {
+          baseApiUrl = '/api/bgmi-registration/admin/registrations';
+        }
+      } else {
+        baseApiUrl = '/api/bgmi-registration/admin/registrations';
+      }
+
       while (hasMorePages) {
         const pageParams = new URLSearchParams(queryParams);
         pageParams.set('page', currentPage.toString());
         
-        const response = await api.get(`/api/bgmi-registration/admin/registrations?${pageParams}`);
+        const response = await api.get(`${baseApiUrl}?${pageParams}`);
         
         let pageRegistrations = [];
         if (response && response.success) {
@@ -179,7 +192,9 @@ const AdminBGMIRegistrations = () => {
       const date = new Date().toISOString().split('T')[0];
       const statusFilter = filters.status !== 'all' ? `_${filters.status}` : '';
       const tournamentFilter = filters.tournamentId ? `_${tournaments.find(t => t._id === filters.tournamentId)?.name || 'tournament'}` : '';
-      const filename = `bgmi_registrations_${date}${statusFilter}${tournamentFilter}.csv`;
+      const gameType = filters.tournamentId ? 
+        (tournaments.find(t => t._id === filters.tournamentId)?.gameType || 'game') : 'registrations';
+      const filename = `${gameType}_registrations_${date}${statusFilter}${tournamentFilter}.csv`;
       
       link.setAttribute('download', filename);
       link.style.visibility = 'hidden';
@@ -204,21 +219,21 @@ const AdminBGMIRegistrations = () => {
       const response = await api.get('/api/tournaments');
       
       if (response.data.success) {
-        // Fix case sensitivity - tournaments are stored as 'bgmi' (lowercase)
-        const bgmiTournaments = response.data.data.tournaments.filter(t => 
-          t.gameType === 'bgmi' || t.gameType === 'BGMI'
+        // Include both BGMI and Free Fire tournaments
+        const gameTournaments = response.data.data.tournaments.filter(t => 
+          t.gameType === 'bgmi' || t.gameType === 'BGMI' || t.gameType === 'freefire' || t.gameType === 'FreeFire'
         );
-        console.log('🔍 Found BGMI tournaments:', bgmiTournaments.length);
-        console.log('🔍 Tournament names:', bgmiTournaments.map(t => `${t.name} (${t.status})`));
-        setTournaments(bgmiTournaments);
+        console.log('🔍 Found BGMI & Free Fire tournaments:', gameTournaments.length);
+        console.log('🔍 Tournament names:', gameTournaments.map(t => `${t.name} (${t.gameType} - ${t.status})`));
+        setTournaments(gameTournaments);
       } else {
         // Try alternative response format
         if (response.data.tournaments) {
-          const bgmiTournaments = response.data.tournaments.filter(t => 
-            t.gameType === 'bgmi' || t.gameType === 'BGMI'
+          const gameTournaments = response.data.tournaments.filter(t => 
+            t.gameType === 'bgmi' || t.gameType === 'BGMI' || t.gameType === 'freefire' || t.gameType === 'FreeFire'
           );
-          console.log('🔍 Found BGMI tournaments (alt format):', bgmiTournaments.length);
-          setTournaments(bgmiTournaments);
+          console.log('🔍 Found BGMI & Free Fire tournaments (alt format):', gameTournaments.length);
+          setTournaments(gameTournaments);
         }
       }
     } catch (error) {
@@ -267,7 +282,22 @@ const AdminBGMIRegistrations = () => {
         queryParams.append('group', filters.group);
       }
 
-      const apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+      // Determine which API to call based on selected tournament
+      let apiUrl;
+      if (filters.tournamentId) {
+        // Find the selected tournament to determine its game type
+        const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
+        if (selectedTournament && (selectedTournament.gameType === 'freefire' || selectedTournament.gameType === 'FreeFire')) {
+          apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
+        } else {
+          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+        }
+      } else {
+        // If no tournament selected, default to BGMI for now
+        // TODO: In future, we might want to merge both APIs or create a unified endpoint
+        apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+      }
+      
       console.log('🔍 DEBUG: API URL:', apiUrl);
       
       const response = await api.get(apiUrl);
@@ -365,9 +395,25 @@ const AdminBGMIRegistrations = () => {
         payload.rejectionReason = rejectionReason.trim();
       }
 
+      // Determine which API to call based on the registration's tournament
+      const registration = registrations.find(r => r._id === registrationId);
+      let apiUrl;
+      if (registration && registration.tournamentId) {
+        const tournament = tournaments.find(t => t._id === registration.tournamentId._id || t._id === registration.tournamentId);
+        if (tournament && (tournament.gameType === 'freefire' || tournament.gameType === 'FreeFire')) {
+          apiUrl = `/api/freefire-registration/admin/${registrationId}/status`;
+        } else {
+          apiUrl = `/api/bgmi-registration/admin/${registrationId}/status`;
+        }
+      } else {
+        // Default to BGMI if we can't determine the tournament type
+        apiUrl = `/api/bgmi-registration/admin/${registrationId}/status`;
+      }
+
       console.log('🔄 Updating registration status:', { registrationId, newStatus, rejectionReason });
       console.log('📤 Payload being sent:', payload);
-      const response = await api.put(`/api/bgmi-registration/admin/${registrationId}/status`, payload);
+      console.log('🔗 Using API URL:', apiUrl);
+      const response = await api.put(apiUrl, payload);
       
       console.log('📥 API Response (direct JSON):', response);
       console.log('📥 Response success field:', response.success);
@@ -588,7 +634,17 @@ const AdminBGMIRegistrations = () => {
 
     try {
       setLoading(true);
-      const response = await api.post(`/api/bgmi-registration/admin/assign-groups/${filters.tournamentId}`);
+      
+      // Determine which API to call based on selected tournament
+      const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
+      let apiUrl;
+      if (selectedTournament && (selectedTournament.gameType === 'freefire' || selectedTournament.gameType === 'FreeFire')) {
+        apiUrl = `/api/freefire-registration/admin/assign-groups/${filters.tournamentId}`;
+      } else {
+        apiUrl = `/api/bgmi-registration/admin/assign-groups/${filters.tournamentId}`;
+      }
+      
+      const response = await api.post(apiUrl);
       
       if (response && response.success) {
         setSuccess(`✅ ${response.message}`);
@@ -711,8 +767,18 @@ const AdminBGMIRegistrations = () => {
       setError('');
       setSuccess('');
 
+      // Determine which API to call based on the registration's tournament
+      const tournament = tournaments.find(t => t._id === registration.tournamentId._id || t._id === registration.tournamentId);
+      let apiUrl;
+      if (tournament && (tournament.gameType === 'freefire' || tournament.gameType === 'FreeFire')) {
+        apiUrl = `/api/freefire-registration/admin/${registration._id}`;
+      } else {
+        apiUrl = `/api/bgmi-registration/admin/${registration._id}`;
+      }
+
       console.log('🔄 Sending delete request...');
-      const response = await api.delete(`/api/bgmi-registration/admin/${registration._id}`);
+      console.log('🔗 Using API URL:', apiUrl);
+      const response = await api.delete(apiUrl);
       
       console.log('📤 Delete API response:', response);
       
@@ -789,9 +855,9 @@ const AdminBGMIRegistrations = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center space-x-3">
                 <GameIcon gameType="bgmi" size="lg" />
-                <span>Admin Dashboard</span>
+                <span>Tournament Admin</span>
               </h1>
-              <p className="text-gray-400 text-sm md:text-base">Manage BGMI tournament registrations and scoreboards</p>
+              <p className="text-gray-400 text-sm md:text-base">Manage BGMI & Free Fire tournament registrations and scoreboards</p>
             </div>
             <div>
               {/* Buttons */}
@@ -949,7 +1015,7 @@ const AdminBGMIRegistrations = () => {
                 <option value="">All Tournaments</option>
                 {tournaments.map(tournament => (
                   <option key={tournament._id} value={tournament._id}>
-                    {tournament.name}
+                    {tournament.name} ({tournament.gameType?.toUpperCase() || 'BGMI'})
                   </option>
                 ))}
               </select>
@@ -1088,7 +1154,6 @@ const AdminBGMIRegistrations = () => {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 1 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 2 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 3 IGN</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Substitute</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tournament</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
@@ -1113,45 +1178,17 @@ const AdminBGMIRegistrations = () => {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
-                            {(() => {
-                              // Get all non-substitute members
-                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
-                              return regularMembers[0]?.name || 'N/A';
-                            })()}
+                            {registration.teamMembers?.[0]?.name || 'N/A'}
                           </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
-                            {(() => {
-                              // Get all non-substitute members
-                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
-                              return regularMembers[1]?.name || 'N/A';
-                            })()}
+                            {registration.teamMembers?.[1]?.name || 'N/A'}
                           </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
-                            {(() => {
-                              // Get all non-substitute members
-                              const regularMembers = registration.teamMembers?.filter(m => !m.isSubstitute) || [];
-                              return regularMembers[2]?.name || 'N/A';
-                            })()}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <div className="text-sm">
-                            {(() => {
-                              // Check if team leader is substitute
-                              if (registration.teamLeader?.isSubstitute) {
-                                return <span className="text-yellow-400 font-medium">🔄 {registration.teamLeader.name}</span>;
-                              }
-                              // Check if any team member is substitute
-                              const substitute = registration.teamMembers?.find(m => m.isSubstitute);
-                              if (substitute) {
-                                return <span className="text-yellow-400 font-medium">🔄 {substitute.name}</span>;
-                              }
-                              return <span className="text-gray-500">None</span>;
-                            })()}
+                            {registration.teamMembers?.[2]?.name || 'N/A'}
                           </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
@@ -1464,6 +1501,7 @@ const AdminBGMIRegistrations = () => {
         {showImageModal && selectedRegistration && (
           <ImageVerificationModal
             registration={selectedRegistration}
+            tournaments={tournaments}
             onClose={() => {
               setShowImageModal(false);
               setSelectedRegistration(null);
@@ -1513,6 +1551,7 @@ const AdminBGMIRegistrations = () => {
 // Image Verification Modal Component with WhatsApp Chat
 const ImageVerificationModal = ({ 
   registration, 
+  tournaments,
   onClose, 
   onStatusUpdate, 
   getStatusBadge, 
@@ -1539,8 +1578,17 @@ const ImageVerificationModal = ({
       setLoadingImages(true);
       console.log('🔄 Refreshing registration data...');
       
+      // Determine which API to call based on the registration's tournament
+      const tournament = tournaments.find(t => t._id === registration.tournamentId._id || t._id === registration.tournamentId);
+      let apiUrl;
+      if (tournament && (tournament.gameType === 'freefire' || tournament.gameType === 'FreeFire')) {
+        apiUrl = `/api/freefire-registration/admin/registrations/${registration._id}`;
+      } else {
+        apiUrl = `/api/bgmi-registration/admin/registrations/${registration._id}`;
+      }
+      
       // Fetch updated registration data
-      const response = await api.get(`/api/bgmi-registration/admin/registrations/${registration._id}`);
+      const response = await api.get(apiUrl);
       
       if (response.success && response.data) {
         const updatedRegistration = response.data.registration || response.data;
@@ -1854,9 +1902,9 @@ const ImageVerificationModal = ({
                   
                   {/* Team Members */}
                   {registration.teamMembers.map((member, index) => (
-                    <div key={index} className={`rounded p-1 border ${member.isSubstitute ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-gaming-slate/50 border-gray-600'}`}>
-                      <div className={`font-medium text-xs ${member.isSubstitute ? 'text-yellow-400' : 'text-gray-300'}`}>
-                        {member.isSubstitute ? '🔄 Sub' : `👤 M${index + 1}`}
+                    <div key={index} className="rounded p-1 border bg-gaming-slate/50 border-gray-600">
+                      <div className="font-medium text-xs text-gray-300">
+                        👤 M{index + 1}
                       </div>
                       <div className="text-white text-xs font-medium truncate">{member.name}</div>
                       <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
@@ -2331,20 +2379,9 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         return;
       }
       
-      // Count regular members (excluding substitute)
-      const regularMembers = formData.teamMembers.filter(m => !m.isSubstitute);
-      const substituteMembers = formData.teamMembers.filter(m => m.isSubstitute);
-      
-      // Validate: Must have exactly 3 regular members (substitute is optional, so total can be 3 or 4)
-      if (regularMembers.length !== 3) {
-        setError('Team must have exactly 3 regular members (excluding substitute)');
-        setLoading(false);
-        return;
-      }
-      
-      // Validate: Can have at most 1 substitute
-      if (substituteMembers.length > 1) {
-        setError('Team can have at most 1 substitute member');
+      // Validate: Must have exactly 3 team members
+      if (formData.teamMembers.length !== 3) {
+        setError('Team must have exactly 3 members');
         setLoading(false);
         return;
       }
@@ -2361,14 +2398,21 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
       // Ensure team members have required fields
       for (let i = 0; i < formData.teamMembers.length; i++) {
         if (!formData.teamMembers[i].name || !formData.teamMembers[i].bgmiId) {
-          const memberType = formData.teamMembers[i].isSubstitute ? 'Substitute' : `Member ${i + 1}`;
-          setError(`${memberType} information is incomplete`);
+          setError(`Member ${i + 1} information is incomplete`);
           setLoading(false);
           return;
         }
       }
       
-      const response = await api.put(`/api/bgmi-registration/admin/${registration._id}`, formData);
+      // Determine which API to call based on the registration's tournament
+      let baseApiUrl;
+      if (tournament && (tournament.gameType === 'freefire' || tournament.gameType === 'FreeFire')) {
+        baseApiUrl = '/api/freefire-registration/admin';
+      } else {
+        baseApiUrl = '/api/bgmi-registration/admin';
+      }
+      
+      const response = await api.put(`${baseApiUrl}/${registration._id}`, formData);
       
       console.log('📥 Update response:', response);
       
@@ -2379,7 +2423,7 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         if (formData.group && formData.group !== registration.group) {
           console.log(`🔄 Updating group to ${formData.group}...`);
           try {
-            const groupResponse = await api.put(`/api/bgmi-registration/admin/${registration._id}/group`, { group: formData.group });
+            const groupResponse = await api.put(`${baseApiUrl}/${registration._id}/group`, { group: formData.group });
             console.log(`✅ Group update response:`, groupResponse);
             if (groupResponse.success) {
               console.log(`✅ Group updated to ${formData.group}`);
@@ -2514,90 +2558,36 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
           {/* Team Members */}
           <div className="bg-gaming-charcoal rounded-lg p-6">
             <h3 className="text-lg font-bold text-gaming-neon mb-4">👥 Team Members</h3>
-            {formData.teamMembers.map((member, index) => {
-              // Find substitute member
-              const substituteIndex = formData.teamMembers.findIndex(m => m.isSubstitute);
-              const isCurrentSubstitute = member.isSubstitute;
-              const hasSubstitute = substituteIndex !== -1;
-              
-              return (
-                <div key={index} className={`mb-6 last:mb-0 p-4 rounded-lg border ${member.isSubstitute ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-gaming-slate/30 border-gaming-slate'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className={`text-md font-medium ${member.isSubstitute ? 'text-yellow-400' : 'text-white'}`}>
-                      {member.isSubstitute ? '🔄 Substitute Member' : `Member ${index + 1}`}
-                    </h4>
-                    
-                    {/* Switch Button - Show only for regular players when substitute exists */}
-                    {!isCurrentSubstitute && hasSubstitute && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Swap data between current player and substitute
-                          setFormData(prev => {
-                            const updatedMembers = [...prev.teamMembers];
-                            
-                            // Store current player data
-                            const currentPlayerData = {
-                              name: updatedMembers[index].name,
-                              bgmiId: updatedMembers[index].bgmiId
-                            };
-                            
-                            // Store substitute data
-                            const substituteData = {
-                              name: updatedMembers[substituteIndex].name,
-                              bgmiId: updatedMembers[substituteIndex].bgmiId
-                            };
-                            
-                            // Swap data (keeping isSubstitute flags same)
-                            updatedMembers[index] = {
-                              ...updatedMembers[index],
-                              name: substituteData.name,
-                              bgmiId: substituteData.bgmiId
-                            };
-                            
-                            updatedMembers[substituteIndex] = {
-                              ...updatedMembers[substituteIndex],
-                              name: currentPlayerData.name,
-                              bgmiId: currentPlayerData.bgmiId
-                            };
-                            
-                            return { ...prev, teamMembers: updatedMembers };
-                          });
-                        }}
-                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1"
-                        title="Switch with Substitute"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                        <span>Switch</span>
-                      </button>
-                    )}
+            {formData.teamMembers.map((member, index) => (
+              <div key={index} className="mb-6 last:mb-0 p-4 rounded-lg border bg-gaming-slate/30 border-gaming-slate">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-md font-medium text-white">
+                    Member {index + 1}
+                  </h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={member.name}
+                      onChange={(e) => handleInputChange('teamMembers', 'name', e.target.value, index)}
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    />
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
-                      <input
-                        type="text"
-                        value={member.name}
-                        onChange={(e) => handleInputChange('teamMembers', 'name', e.target.value, index)}
-                        className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
-                      <input
-                        type="text"
-                        value={member.bgmiId}
-                        onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
-                        className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                    <input
+                      type="text"
+                      value={member.bgmiId}
+                      onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                      className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    />
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           {/* WhatsApp Number */}

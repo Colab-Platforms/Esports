@@ -1237,41 +1237,13 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.teamMembers) {
       console.log('📝 Updating team members:', updateData.teamMembers.length, 'members');
       
-      // Count regular members (excluding substitute)
-      const regularMembers = updateData.teamMembers.filter(m => !m.isSubstitute);
-      const substituteMembers = updateData.teamMembers.filter(m => m.isSubstitute);
-      
-      // Validate: Must have exactly 3 regular members
-      if (regularMembers.length !== 3) {
+      // Validate: Must have exactly 3 team members
+      if (updateData.teamMembers.length !== 3) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have exactly 3 regular members (excluding substitute)',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Validate: Can have at most 1 substitute
-      if (substituteMembers.length > 1) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'TOO_MANY_SUBSTITUTES',
-            message: 'Team can have at most 1 substitute member',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Total members should be 3 or 4
-      if (updateData.teamMembers.length < 3 || updateData.teamMembers.length > 4) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have 3-4 members (3 regular + 1 optional substitute)',
+            message: 'Team must have exactly 3 members',
             timestamp: new Date().toISOString()
           }
         });

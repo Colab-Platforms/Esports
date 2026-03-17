@@ -65,8 +65,8 @@ const HeroImageSlider = () => {
       // Create slides from uploaded homepage slides
       const heroSlides = [];
       
-      // Add homepage slides (1-5) with unique content
-      const slideContent = [
+      // Default slide content (fallback)
+      const defaultSlideContent = [
         {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
@@ -102,19 +102,27 @@ const HeroImageSlider = () => {
       for (let i = 1; i <= 5; i++) {
         const slideKey = `homepage-slide-${i}`;
         const slideImage = currentSiteImages[slideKey];
-        const content = slideContent[i - 1];
+        const defaultContent = defaultSlideContent[i - 1];
         
         if (slideImage?.imageUrl) {
+          // Use text overlay from backend if available, otherwise use default
+          const textOverlay = slideImage.textOverlay || {};
+          
           heroSlides.push({
             id: slideKey,
             type: 'custom',
-            title: content.title,
-            subtitle: content.subtitle,
-            description: content.description,
+            title: textOverlay.enabled && textOverlay.title ? textOverlay.title : defaultContent.title,
+            subtitle: textOverlay.enabled && textOverlay.subtitle ? textOverlay.subtitle : defaultContent.subtitle,
+            description: textOverlay.enabled && textOverlay.description ? textOverlay.description : defaultContent.description,
             image: slideImage.imageUrl,
             responsiveUrls: slideImage.responsiveUrls,
             imageKey: slideKey,
-            cta: content.cta
+            cta: {
+              text: textOverlay.enabled && textOverlay.ctaText ? textOverlay.ctaText : defaultContent.cta.text,
+              link: textOverlay.enabled && textOverlay.ctaLink ? textOverlay.ctaLink : defaultContent.cta.link
+            },
+            textColor: textOverlay.textColor || '#ffffff',
+            position: textOverlay.position || 'left'
           });
         }
       }
@@ -133,7 +141,9 @@ const HeroImageSlider = () => {
           cta: {
             text: 'Join Now',
             link: '/register'
-          }
+          },
+          textColor: '#ffffff',
+          position: 'left'
         });
       }
       
@@ -156,7 +166,9 @@ const HeroImageSlider = () => {
           cta: {
             text: 'Get Started',
             link: '/register'
-          }
+          },
+          textColor: '#ffffff',
+          position: 'left'
         }
       ]);
     } finally {
@@ -257,7 +269,11 @@ const HeroImageSlider = () => {
       {/* Text Content Overlay with Animations */}
       <div className="absolute inset-0 z-10 flex items-center justify-center md:justify-start">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto md:mx-0">
+          <div className={`max-w-2xl mx-auto ${
+            currentSlideData.position === 'center' ? 'md:mx-auto text-center' :
+            currentSlideData.position === 'right' ? 'md:ml-auto md:text-right' :
+            'md:mx-0 md:text-left'
+          }`}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentSlide}
@@ -265,7 +281,12 @@ const HeroImageSlider = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className="space-y-4 sm:space-y-6 text-center md:text-left"
+                className={`space-y-4 sm:space-y-6 ${
+                  currentSlideData.position === 'center' ? 'text-center' :
+                  currentSlideData.position === 'right' ? 'text-right' :
+                  'text-center md:text-left'
+                }`}
+                style={{ color: currentSlideData.textColor }}
               >
                 {/* Subtitle with typing animation */}
                 <motion.div
@@ -328,7 +349,11 @@ const HeroImageSlider = () => {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1, duration: 0.5, type: 'spring', stiffness: 200 }}
-                  className="pt-2 sm:pt-4 flex justify-center md:justify-start"
+                  className={`pt-2 sm:pt-4 flex ${
+                    currentSlideData.position === 'center' ? 'justify-center' :
+                    currentSlideData.position === 'right' ? 'justify-center md:justify-end' :
+                    'justify-center md:justify-start'
+                  }`}
                 >
                   <a
                     href={currentSlideData.cta.link}
