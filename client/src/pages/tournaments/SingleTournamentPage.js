@@ -11,21 +11,27 @@ import {
   FiAward,
   FiInfo,
   FiKey,
-  FiCopy
-} from 'react-icons/fi';
-import { selectAuth } from '../../store/slices/authSlice';
-import SteamLinkingModal from '../../components/tournaments/SteamLinkingModal';
-import TeamSelectionModal from '../../components/tournaments/TeamSelectionModal';
-import api from '../../services/api';
-import GameIcon from '../../components/common/GameIcon';
-import { getRandomBanner } from '../../assets/tournamentBanners';
-import { getGameAsset } from '../../assets/gameAssets';
-import OptimizedImage from '../../components/common/OptimizedImage';
-import CountdownTimer from '../../components/common/CountdownTimer';
-import { getSteamAuthUrl } from '../../utils/apiConfig';
-import { getServerStats, getServerPlayers, getPlayerStats } from '../../utils/cs2ServerStatus';
-import notificationService from '../../services/notificationService';
-import secureRequest from '../../utils/secureRequest';
+  FiCopy,
+} from "react-icons/fi";
+import { selectAuth } from "../../store/slices/authSlice";
+import TournamentRegistration from "../../components/tournaments/TournamentRegistration";
+import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
+import BGMIRegistrationForm from "../../components/bgmi/BGMIRegistrationForm";
+import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
+import api from "../../services/api";
+import GameIcon from "../../components/common/GameIcon";
+import { getRandomBanner } from "../../assets/tournamentBanners";
+import { getGameAsset } from "../../assets/gameAssets";
+import OptimizedImage from "../../components/common/OptimizedImage";
+import CountdownTimer from "../../components/common/CountdownTimer";
+import { getSteamAuthUrl } from "../../utils/apiConfig";
+import {
+  getServerStats,
+  getServerPlayers,
+  getPlayerStats,
+} from "../../utils/cs2ServerStatus";
+import notificationService from "../../services/notificationService";
+import secureRequest from "../../utils/secureRequest";
 
 const SingleTournamentPage = () => {
   const { id } = useParams();
@@ -37,6 +43,7 @@ const SingleTournamentPage = () => {
   const [showTeamSelection, setShowTeamSelection] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
+
   const [tournament, setTournament] = useState(null);
   const [isUserRegistered, setIsUserRegistered] = useState(false);
   const [registeredTeams, setRegisteredTeams] = useState([]);
