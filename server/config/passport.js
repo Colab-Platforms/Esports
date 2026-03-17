@@ -30,7 +30,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('🔍 Google OAuth Profile:', profile);
-      console.log('📧 Email:', profile.emails[0].value);
+      console.log(' Callback URL used:', `${process.env.SERVER_URL}/api/auth/google/callback`);
+      
+      // Validate profile data
+      if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
+        return done(new Error('No email provided by Google'), null);
+      }
+      
+      const email = profile.emails[0].value;
+      console.log('📧 Email:', email);
       
       // Check if user already exists with this Google ID
       console.log('🔎 Checking for existing Google ID...');
@@ -42,38 +50,64 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
       }
       
       console.log('🔎 Checking for existing email...');
-      // Check if user exists with same email
-      user = await User.findOne({ email: profile.emails[0].value });
+      // Use direct MongoDB query to avoid Mongoose validation issues
+      const userDoc = await User.collection.findOne({ email: email });
       
-      if (user) {
-        console.log('🔗 User with email exists, linking Google account...');
-        // Link Google account to existing user
-        user.socialAccounts.google = {
-          id: profile.id,
-          email: profile.emails[0].value,
-          name: profile.displayName,
-          picture: profile.photos[0].value
-        };
-        await user.save();
-        console.log('✅ Google account linked to existing user:', user.username);
-        return done(null, user);
+      if (userDoc) {
+        console.log('🔗 User with email exists, fixing data and linking Google account...');
+        
+        // Direct MongoDB update to fix the schema issue
+        await User.collection.updateOne(
+          { _id: userDoc._id },
+          { 
+            $set: { 
+              'gameIds.bgmi': '',
+              'socialAccounts.google': {
+                id: profile.id,
+                email: email,
+                name: profile.displayName,
+                picture: profile.photos?.[0]?.value || '',
+                isConnected: true,
+                connectedAt: new Date()
+              }
+            }
+          }
+        );
+        
+        // Now fetch the clean user with Mongoose
+        const cleanUser = await User.findById(userDoc._id);
+        console.log('✅ Google account linked and data fixed for user:', cleanUser.username);
+        return done(null, cleanUser);
       }
       
       console.log('👤 Creating new user...');
-      // Create new user
-      const username = profile.displayName.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 1000);
-      console.log('📝 New username:', username);
+      
+      // Generate unique username
+      let baseUsername = profile.displayName.replace(/\s+/g, '').toLowerCase();
+      let username = baseUsername;
+      let counter = 1;
+      
+      // Ensure username uniqueness
+      while (await User.findOne({ username: username })) {
+        counter++;
+        username = baseUsername + counter;
+      }
+      
+      console.log('� New username:', username);
       
       const newUser = new User({
         username: username,
-        email: profile.emails[0].value,
-        avatarUrl: profile.photos[0].value,
+        fullName: profile.displayName,
+        email: email,
+        avatarUrl: profile.photos?.[0]?.value || '',
         socialAccounts: {
           google: {
             id: profile.id,
-            email: profile.emails[0].value,
+            email: email,
             name: profile.displayName,
-            picture: profile.photos[0].value
+            picture: profile.photos?.[0]?.value || '',
+            isConnected: true,
+            connectedAt: new Date()
           }
         },
         isEmailVerified: true, // Google emails are verified

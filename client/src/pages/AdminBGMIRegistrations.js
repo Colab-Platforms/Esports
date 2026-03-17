@@ -25,7 +25,9 @@ const AdminBGMIRegistrations = () => {
     tournamentId: '',
     teamName: '',
     playerName: '',
-    group: ''
+    group: '',
+    startDate: '',
+    endDate: ''
   });
 
   const [tournaments, setTournaments] = useState([]);
@@ -61,7 +63,7 @@ const AdminBGMIRegistrations = () => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName, filters.group]); // Only specific filter values
+  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName, filters.group, filters.startDate, filters.endDate]); // Only specific filter values
 
 
 
@@ -89,6 +91,12 @@ const AdminBGMIRegistrations = () => {
       }
       if (filters.group) {
         queryParams.append('group', filters.group);
+      }
+      if (filters.startDate) {
+        queryParams.append('startDate', filters.startDate);
+      }
+      if (filters.endDate) {
+        queryParams.append('endDate', filters.endDate);
       }
 
       // Fetch all pages to get complete data
@@ -265,6 +273,12 @@ const AdminBGMIRegistrations = () => {
       }
       if (filters.group) {
         queryParams.append('group', filters.group);
+      }
+      if (filters.startDate) {
+        queryParams.append('startDate', filters.startDate);
+      }
+      if (filters.endDate) {
+        queryParams.append('endDate', filters.endDate);
       }
 
       const apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
@@ -989,6 +1003,24 @@ const AdminBGMIRegistrations = () => {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Start Date</label>
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">End Date</label>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                className="w-full px-3 py-2 bg-gaming-charcoal border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Actions</label>
               <div className="flex space-x-2">
                 <button
@@ -998,7 +1030,9 @@ const AdminBGMIRegistrations = () => {
                       tournamentId: '',
                       teamName: '',
                       playerName: '',
-                      group: ''
+                      group: '',
+                      startDate: '',
+                      endDate: ''
                     });
                   }}
                   className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
