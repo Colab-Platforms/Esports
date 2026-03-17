@@ -47,11 +47,11 @@ const OAuthSuccess = () => {
             }));
             
             const providerName = provider === 'google' ? 'Google' : 'Steam';
-            toast.success(`🎉 Successfully logged in with ${providerName}!`);
+            toast.success(`🎉 Welcome back, ${user.username}!`);
             
-            console.log('🚀 Redirecting to dashboard...');
-            // Redirect to dashboard
-            navigate('/dashboard', { replace: true });
+            console.log('🚀 Redirecting to home page...');
+            // Redirect to home page instead of dashboard for better UX
+            navigate('/', { replace: true });
           } else {
             console.error('❌ Invalid response structure:', response);
             console.error('Expected response.data.user but got:', response.data);

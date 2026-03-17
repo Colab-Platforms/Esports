@@ -9,6 +9,8 @@ import { selectAuth } from "../../store/slices/authSlice";
 import notificationService from "../../services/notificationService";
 import { getSteamAuthUrl } from "../../utils/apiConfig";
 
+
+
 const TournamentCardProfessional = ({
   tournament,
   getModeIcon,
@@ -134,6 +136,7 @@ const TournamentCardProfessional = ({
     // For non-CS2 tournaments, navigate to details page
     navigate(`/tournaments/${tournament._id}`);
   }, [isAuthenticated, tournament, user, navigate]);
+  
 
   return (
     
@@ -251,7 +254,7 @@ const TournamentCardProfessional = ({
 
               {/* Players & Registration Row */}
               <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center space-x-1.5">
+                {user?.role === 'admin' && <div className="flex items-center space-x-1.5">
                   <span className="text-gaming-gold font-display font-bold">
                     PLAYERS:
                   </span>
@@ -259,7 +262,7 @@ const TournamentCardProfessional = ({
                     {tournament.currentParticipants}/
                     {tournament.maxParticipants}
                   </span>
-                </div>
+                </div>}
                 {gameType !== "cs2" && (
                   <div className="flex items-center space-x-1.5">
                     <span className="text-gaming-gold font-display font-bold">

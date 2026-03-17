@@ -1045,6 +1045,15 @@ router.get('/google/callback', (req, res, next) => {
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       const redirectUrl = `${CLIENT_URL}/auth/success?token=${token}&provider=google`;
       console.log('🔄 Redirecting to:', redirectUrl);
+      
+      // Set secure cookie as backup (optional)
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
       res.redirect(redirectUrl);
       
     } catch (error) {
