@@ -49,6 +49,7 @@ import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
 import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
+import WinnerRewardPanel from './pages/admin/WinnerRewardPanel';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -849,6 +850,22 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <StoreManagementPage />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/winner-rewards" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <WinnerRewardPanel />
                   </motion.div>
                 </AdminRoute>
               } 
