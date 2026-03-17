@@ -10,18 +10,21 @@ const auth = require('../middleware/auth');
 // @access  Private
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, tag, game, logo, description, maxMembers, privacy, memberIds } = req.body;
+    const { name, tag, game, logo, description, maxMembers, privacy, memberIds, membersGameInfo, substituteId, substituteGameInfo } = req.body;
     const userId = req.user.userId;
 
     const members = [{
       userId,
       role: 'captain',
-      joinedAt: new Date()
+      joinedAt: new Date(),
+      isSubstitute: false
     }];
 
     if (memberIds && Array.isArray(memberIds) && memberIds.length > 0) {
       const effectiveMax = maxMembers || 5;
-      if (memberIds.length + 1 > effectiveMax) {
+      const totalMembers = memberIds.length + (substituteId ? 1 : 0) + 1; // +1 for captain
+      
+      if (totalMembers > effectiveMax) {
         return res.status(400).json({
           success: false,
           error: {
@@ -32,8 +35,9 @@ router.post('/', auth, async (req, res) => {
         });
       }
 
-      const users = await User.find({ _id: { $in: memberIds } });
-      if (users.length !== memberIds.length) {
+      const allMemberIds = [...memberIds, ...(substituteId ? [substituteId] : [])];
+      const users = await User.find({ _id: { $in: allMemberIds } });
+      if (users.length !== allMemberIds.length) {
         return res.status(400).json({
           success: false,
           error: {
@@ -44,12 +48,24 @@ router.post('/', auth, async (req, res) => {
         });
       }
 
+      // Add regular members
       for (const memberId of memberIds) {
         if (memberId.toString() === userId.toString()) continue;
         members.push({
           userId: memberId,
           role: 'member',
-          joinedAt: new Date()
+          joinedAt: new Date(),
+          isSubstitute: false
+        });
+      }
+
+      // Add substitute if provided
+      if (substituteId && substituteId.toString() !== userId.toString()) {
+        members.push({
+          userId: substituteId,
+          role: 'member',
+          joinedAt: new Date(),
+          isSubstitute: true
         });
       }
     }
@@ -246,9 +262,10 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    const { name, memberIds, membersGameInfo, captainGameInfo } = req.body;
+    const { name, game, memberIds, membersGameInfo, substituteId, substituteGameInfo, captainGameInfo } = req.body;
     
     if (name) team.name = name;
+    if (game) team.game = game;
 
     // Update member profiles with provided game info
     if (membersGameInfo && Array.isArray(membersGameInfo)) {
@@ -319,8 +336,9 @@ router.put('/:id', auth, async (req, res) => {
 
     if (memberIds && Array.isArray(memberIds)) {
       const captainId = team.captain.toString();
+      const allMemberIds = [...memberIds, ...(substituteId ? [substituteId] : [])];
       const currentMemberIds = team.members.map(m => (m.userId?._id || m.userId).toString());
-      const newMemberIds = [captainId, ...memberIds.filter(id => id !== captainId)];
+      const newMemberIds = [captainId, ...allMemberIds.filter(id => id !== captainId)];
 
       const removedIds = currentMemberIds.filter(id => !newMemberIds.includes(id));
       const addedIds = newMemberIds.filter(id => !currentMemberIds.includes(id));
@@ -331,8 +349,21 @@ router.put('/:id', auth, async (req, res) => {
       });
 
       for (const addId of addedIds) {
-        team.members.push({ userId: addId, role: 'member', joinedAt: new Date() });
+        const isSubstitute = substituteId && addId === substituteId.toString();
+        team.members.push({ 
+          userId: addId, 
+          role: 'member', 
+          joinedAt: new Date(),
+          isSubstitute: isSubstitute
+        });
       }
+
+      // Update isSubstitute flag for existing members
+      team.members = team.members.map(m => {
+        const mid = (m.userId?._id || m.userId).toString();
+        const isSubstitute = substituteId && mid === substituteId.toString();
+        return { ...m, isSubstitute };
+      });
 
       team.maxMembers = Math.max(team.maxMembers, team.members.length);
     }

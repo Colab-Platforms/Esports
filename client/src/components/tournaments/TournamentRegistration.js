@@ -322,6 +322,24 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
       // Call API directly with full URL for Vercel compatibility
       const token = localStorage.getItem('token');
       const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+      
+      // 🔍 Console log the complete payload
+      console.log('📤 Tournament Registration Payload:', {
+        endpoint: `${API_BASE_URL}/api/tournaments/${tournament._id}/join`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        payload: registrationData,
+        tournament: {
+          id: tournament._id,
+          name: tournament.name,
+          gameType: tournament.gameType,
+          mode: tournament.mode
+        }
+      });
+      
       const response = await fetch(`${API_BASE_URL}/api/tournaments/${tournament._id}/join`, {
         method: 'POST',
         headers: {
