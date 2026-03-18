@@ -1087,6 +1087,23 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
+  
+  // Optional Substitute Validation
+  body('substitutePlayer')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitutePlayer.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitutePlayer.freeFireId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute Free Fire ID must be 3-30 characters')
+    .trim(),
+  
   body('whatsappNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
@@ -1144,11 +1161,16 @@ router.put('/admin/:registrationId', auth, [
     console.log('- Team Members Count:', registration.teamMembers.length);
     
     // Validate unique Free Fire IDs if updating team data
-    if (updateData.teamLeader || updateData.teamMembers) {
+    if (updateData.teamLeader || updateData.teamMembers || updateData.substitutePlayer) {
       const newTeamLeader = updateData.teamLeader || registration.teamLeader;
       const newTeamMembers = updateData.teamMembers || registration.teamMembers;
+      const newSubstitute = 'substitutePlayer' in updateData ? updateData.substitutePlayer : registration.substitutePlayer;
       
-      const allFreeFireIds = [newTeamLeader.freeFireId, ...newTeamMembers.map(m => m.freeFireId)];
+      const allFreeFireIds = [
+        newTeamLeader.freeFireId,
+        ...newTeamMembers.map(m => m.freeFireId),
+        ...(newSubstitute ? [newSubstitute.freeFireId] : [])  // ✅ Include substitute
+      ];
       const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
       
       if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
@@ -1192,6 +1214,17 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.whatsappNumber) {
       console.log('📝 Updating WhatsApp number:', updateData.whatsappNumber);
       registration.whatsappNumber = updateData.whatsappNumber;
+    }
+
+    // Handle substitutePlayer - can be set, updated, or removed (null)
+    if ('substitutePlayer' in updateData) {
+      if (updateData.substitutePlayer === null) {
+        console.log('📝 Removing substitute player');
+        registration.substitutePlayer = null;
+      } else {
+        console.log('📝 Updating substitute player:', updateData.substitutePlayer);
+        registration.substitutePlayer = updateData.substitutePlayer;
+      }
     }
 
     console.log('💾 Saving registration...');
