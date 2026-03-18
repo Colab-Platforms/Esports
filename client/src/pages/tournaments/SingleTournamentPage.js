@@ -637,21 +637,29 @@ const SingleTournamentPage = () => {
           : { name: "", gameId: "" };
 
         if (gameType === "bgmi") {
+          // Separate regular members and substitute
+          const regularMembers = otherMembers.filter(m => !m.isSubstitute);
+          const substituteMember = otherMembers.find(m => m.isSubstitute);
+
           const registrationData = {
             teamName: team.name,
             teamLeader: {
               name: leaderInfo.name,
               bgmiId: leaderInfo.gameId,
               phone: phoneNumber || user?.phone || "",
-              isSubstitute: false,
             },
-            teamMembers: otherMembers.map((m) => {
+            teamMembers: regularMembers.map((m) => {
               const info = getInfo(m);
               return {
                 name: info.name,
                 bgmiId: info.gameId,
-                isSubstitute: false,
               };
+            }),
+            ...(substituteMember && {
+              substitute: {
+                name: getInfo(substituteMember).name,
+                bgmiId: getInfo(substituteMember).gameId,
+              }
             }),
             whatsappNumber: phoneNumber || user?.phone || "",
           };
@@ -660,6 +668,10 @@ const SingleTournamentPage = () => {
             registrationData,
           );
         } else if (gameType === "freefire" || gameType === "ff") {
+          // Separate regular members and substitute
+          const regularMembers = otherMembers.filter(m => !m.isSubstitute);
+          const substituteMember = otherMembers.find(m => m.isSubstitute);
+
           const registrationData = {
             teamName: team.name,
             teamLeader: {
@@ -667,19 +679,26 @@ const SingleTournamentPage = () => {
               freeFireId: leaderInfo.gameId,
               phone: phoneNumber || user?.phone || "",
             },
-            teamMembers: otherMembers.map((m) => {
+            teamMembers: regularMembers.map((m) => {
               const info = getInfo(m);
               return { name: info.name, freeFireId: info.gameId };
+            }),
+            ...(substituteMember && {
+              substitute: {
+                name: getInfo(substituteMember).name,
+                freeFireId: getInfo(substituteMember).gameId,
+              }
             }),
             whatsappNumber: phoneNumber || user?.phone || "",
           };
           
           console.log('🔥 Free Fire Registration Data:', JSON.stringify(registrationData, null, 2));
           console.log('🔥 Leader Info:', leaderInfo);
-          console.log('🔥 Other Members:', otherMembers.map(m => ({ 
+          console.log('🔥 Other Members:', regularMembers.map(m => ({ 
             username: m.userId?.username, 
             info: getInfo(m) 
           })));
+          console.log('🔥 Substitute:', substituteMember ? { username: substituteMember.userId?.username, info: getInfo(substituteMember) } : null);
           
           await api.post(
             `/api/freefire-registration/${tournament._id}/register`,

@@ -67,6 +67,22 @@ router.post('/:tournamentId/register', auth, [
     .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
 
+  // Optional Substitute Validation
+  body('substitute')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitute.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitute.freeFireId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute Free Fire ID must be 3-30 characters')
+    .trim(),
+
   // WhatsApp Number Validation
   body('whatsappNumber')
     .matches(/^[6-9]\d{9}$/)
@@ -87,7 +103,7 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
+    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
 
     // Check if tournament exists and is Free Fire
     const tournament = await Tournament.findById(tournamentId);
@@ -144,7 +160,11 @@ router.post('/:tournamentId/register', auth, [
     }
 
     // Validate unique Free Fire IDs within the team
-    const allFreeFireIds = [teamLeader.freeFireId, ...teamMembers.map(m => m.freeFireId)];
+    const allFreeFireIds = [
+      teamLeader.freeFireId, 
+      ...teamMembers.map(m => m.freeFireId),
+      ...(substitute ? [substitute.freeFireId] : [])  // ✅ Include substitute
+    ];
     const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
     if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
       return res.status(400).json({
@@ -167,11 +187,12 @@ router.post('/:tournamentId/register', auth, [
       status: { $in: ['pending', 'images_uploaded', 'verified'] }
     });
 
-    // Collect all new player IDs (leader + members)
+    // Collect all new player IDs (leader + members + substitute)
     const leaderFF = teamLeader.freeFireId?.trim();
     const newPlayerIds = [
       { freeFireId: leaderFF, name: teamLeader.name, role: 'Team Leader' },
-      ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' }))
+      ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' })),
+      ...(substitute ? [{ freeFireId: substitute.freeFireId?.trim(), name: substitute.name, role: 'Substitute' }] : [])  // ✅ Include substitute
     ].filter(p => p.freeFireId); // skip empty IDs
 
     for (const existingReg of existingRegistrations) {
@@ -214,6 +235,7 @@ router.post('/:tournamentId/register', auth, [
       teamName,
       teamLeader,
       teamMembers,
+      ...(substitute && { substitutePlayer: substitute }),  // ✅ Map substitute to substitutePlayer
       whatsappNumber,
       status: 'pending'
     });
