@@ -5,13 +5,13 @@ import axios from 'axios';
 import { FiSettings, FiTwitter, FiInstagram, FiGithub, FiLinkedin } from 'react-icons/fi';
 import { selectAuth, updateProfile } from '../../store/slices/authSlice';
 
-const ProfileSettingsForm = ({ embedded = false }) => {
+const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
   const { user, token } = useSelector(selectAuth);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [activeSection, setActiveSection] = useState('account');
+  const [activeSection, setActiveSection] = useState(initialTab);
   const [isEditing, setIsEditing] = useState(false);
 
   const getCountryInfo = (countryCode) => {
