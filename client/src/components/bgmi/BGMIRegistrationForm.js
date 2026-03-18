@@ -12,6 +12,7 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [snackbar, setSnackbar] = useState({ message: '', type: 'info' });
+  const [conflictingBgmiIds, setConflictingBgmiIds] = useState(new Set());
 
   const [formData, setFormData] = useState({
     teamName: selectedTeam?.name || '',
@@ -54,6 +55,29 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
       }));
     }
   }, [selectedTeam, user]);
+
+  // Check for already-registered players whenever team members change
+  useEffect(() => {
+    const checkConflicts = async () => {
+      const allIds = [
+        formData.teamLeader.bgmiId,
+        ...formData.teamMembers.map(m => m.bgmiId)
+      ].filter(Boolean);
+
+      if (allIds.length === 0 || !tournament?._id) return;
+
+      try {
+        const response = await api.post(`/api/bgmi-registration/${tournament._id}/check-conflicts`, {
+          bgmiIds: allIds
+        });
+        const data = response.data || response;
+        setConflictingBgmiIds(new Set(data.conflictingIds || []));
+      } catch {
+        // silently ignore
+      }
+    };
+    checkConflicts();
+  }, [formData.teamLeader.bgmiId, formData.teamMembers, tournament?._id]);
 
   const handleInputChange = useCallback((section, field, value) => {
     setFormData(prev => {
@@ -601,6 +625,11 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
                       <h4 className="text-white font-medium text-sm">{formData.teamLeader.name}</h4>
                       <p className="text-gaming-neon text-xs">UID: {formData.teamLeader.bgmiId}</p>
                     </div>
+                    {conflictingBgmiIds.has(formData.teamLeader.bgmiId) && (
+                      <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/50 text-red-400 rounded text-xs font-medium">
+                        Already Registered
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -660,6 +689,11 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
                             <h4 className="text-white font-medium text-sm">{member.name}</h4>
                             <p className="text-gaming-neon text-xs">UID: {member.bgmiId}</p>
                           </div>
+                          {conflictingBgmiIds.has(member.bgmiId) && (
+                            <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/50 text-red-400 rounded text-xs font-medium">
+                              Already Registered
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -719,13 +753,15 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
             type="submit"
             form="registration-form"
             className="px-4 py-1.5 bg-gaming-neon text-gaming-dark font-medium rounded hover:bg-gaming-neon/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-            disabled={loading || formData.teamMembers.length < 3}
+            disabled={loading || formData.teamMembers.length < 3 || conflictingBgmiIds.size > 0}
           >
             {loading ? (
               <span className="flex items-center justify-center space-x-1">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gaming-dark"></div>
                 <span>Registering...</span>
               </span>
+            ) : conflictingBgmiIds.size > 0 ? (
+              'Player Already Registered'
             ) : (
               'Register Team'
             )}

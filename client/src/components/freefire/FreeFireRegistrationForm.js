@@ -12,6 +12,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [snackbar, setSnackbar] = useState({ message: '', type: 'info' });
+  const [conflictingFreeFireIds, setConflictingFreeFireIds] = useState(new Set());
 
   const [formData, setFormData] = useState({
     teamName: selectedTeam?.name || '',
@@ -50,6 +51,29 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       }));
     }
   }, [selectedTeam, user]);
+
+  // Check for already-registered players whenever team members change
+  useEffect(() => {
+    const checkConflicts = async () => {
+      const allIds = [
+        formData.teamLeader.freeFireId,
+        ...formData.teamMembers.map(m => m.freeFireId)
+      ].filter(Boolean);
+
+      if (allIds.length === 0 || !tournament?._id) return;
+
+      try {
+        const response = await api.post(`/api/freefire-registration/${tournament._id}/check-conflicts`, {
+          freeFireIds: allIds
+        });
+        const data = response.data || response;
+        setConflictingFreeFireIds(new Set(data.conflictingIds || []));
+      } catch {
+        // silently ignore
+      }
+    };
+    checkConflicts();
+  }, [formData.teamLeader.freeFireId, formData.teamMembers, tournament?._id]);
 
   const handleInputChange = useCallback((section, field, value) => {
     setFormData(prev => {
@@ -501,6 +525,11 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                       <h4 className="text-white font-medium text-sm">{formData.teamLeader.name}</h4>
                       <p className="text-orange-500 text-xs">UID: {formData.teamLeader.freeFireId}</p>
                     </div>
+                    {conflictingFreeFireIds.has(formData.teamLeader.freeFireId) && (
+                      <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/50 text-red-400 rounded text-xs font-medium">
+                        Already Registered
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -546,6 +575,11 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                             <h4 className="text-white font-medium text-sm">{member.name}</h4>
                             <p className="text-orange-500 text-xs">UID: {member.freeFireId}</p>
                           </div>
+                          {conflictingFreeFireIds.has(member.freeFireId) && (
+                            <span className="px-2 py-0.5 bg-red-500/20 border border-red-500/50 text-red-400 rounded text-xs font-medium">
+                              Already Registered
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -592,13 +626,15 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
             type="submit"
             form="registration-form"
             className="px-4 py-1.5 bg-orange-500 text-white font-medium rounded hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs whitespace-nowrap"
-            disabled={loading || formData.teamMembers.length < 3}
+            disabled={loading || formData.teamMembers.length < 3 || conflictingFreeFireIds.size > 0}
           >
             {loading ? (
               <span className="flex items-center justify-center space-x-1">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                 <span>Registering...</span>
               </span>
+            ) : conflictingFreeFireIds.size > 0 ? (
+              'Player Already Registered'
             ) : (
               'Register Team'
             )}

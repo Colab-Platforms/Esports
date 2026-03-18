@@ -280,6 +280,41 @@ router.post('/:tournamentId/register', auth, [
   }
 });
 
+// @route   POST /api/freefire-registration/:tournamentId/check-conflicts
+// @desc    Pre-check which players are already registered for this tournament
+// @access  Private
+router.post('/:tournamentId/check-conflicts', auth, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { freeFireIds } = req.body; // array of freeFireId strings
+
+    if (!Array.isArray(freeFireIds) || freeFireIds.length === 0) {
+      return res.json({ success: true, conflictingIds: [] });
+    }
+
+    const existingRegistrations = await TournamentRegistration.find({
+      tournamentId,
+      userId: { $ne: req.user.userId },
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    }).select('teamLeader.freeFireId teamMembers.freeFireId teamName');
+
+    const registeredIds = new Set();
+    for (const reg of existingRegistrations) {
+      if (reg.teamLeader?.freeFireId) registeredIds.add(reg.teamLeader.freeFireId.trim());
+      for (const m of reg.teamMembers || []) {
+        if (m.freeFireId) registeredIds.add(m.freeFireId.trim());
+      }
+    }
+
+    const conflictingIds = freeFireIds.filter(id => id && registeredIds.has(id.trim()));
+
+    res.json({ success: true, conflictingIds });
+  } catch (error) {
+    console.error('❌ FreeFire check-conflicts error:', error);
+    res.status(500).json({ success: false, conflictingIds: [] });
+  }
+});
+
 // @route   GET /api/freefire-registration/my-registrations
 // @desc    Get current user's registrations
 // @access  Private

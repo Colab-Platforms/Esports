@@ -303,6 +303,41 @@ router.post('/:tournamentId/register', auth, [
   }
 });
 
+// @route   POST /api/bgmi-registration/:tournamentId/check-conflicts
+// @desc    Pre-check which players are already registered for this tournament
+// @access  Private
+router.post('/:tournamentId/check-conflicts', auth, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+    const { bgmiIds } = req.body; // array of bgmiId strings
+
+    if (!Array.isArray(bgmiIds) || bgmiIds.length === 0) {
+      return res.json({ success: true, conflictingIds: [] });
+    }
+
+    const existingRegistrations = await TournamentRegistration.find({
+      tournamentId,
+      userId: { $ne: req.user.userId },
+      status: { $in: ['pending', 'images_uploaded', 'verified'] }
+    }).select('teamLeader.bgmiId teamMembers.bgmiId teamName');
+
+    const registeredIds = new Set();
+    for (const reg of existingRegistrations) {
+      if (reg.teamLeader?.bgmiId) registeredIds.add(reg.teamLeader.bgmiId.trim());
+      for (const m of reg.teamMembers || []) {
+        if (m.bgmiId) registeredIds.add(m.bgmiId.trim());
+      }
+    }
+
+    const conflictingIds = bgmiIds.filter(id => id && registeredIds.has(id.trim()));
+
+    res.json({ success: true, conflictingIds });
+  } catch (error) {
+    console.error('❌ BGMI check-conflicts error:', error);
+    res.status(500).json({ success: false, conflictingIds: [] });
+  }
+});
+
 // Moved this route to end of file to avoid conflict with /admin routes
 
 // @route   GET /api/bgmi-registration/my-registrations
