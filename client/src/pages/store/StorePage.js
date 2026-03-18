@@ -27,7 +27,6 @@ const getUidFromProfile = (profile, game) => {
 
 const StorePage = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('uc');
   const [gameFilter, setGameFilter] = useState('all');
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,13 +39,7 @@ const StorePage = () => {
   const [claiming, setClaiming] = useState(false);
 
   const [claims, setClaims] = useState([]);
-  const [storeItems, setStoreItems] = useState({ uc: [], cosmetics: [], passes: [] });
-
-  const categoryLabels = {
-    uc: '💎 UC Packs',
-    cosmetics: '🎨 Cosmetics',
-    passes: '🎫 Game Passes'
-  };
+  const [storeItems, setStoreItems] = useState([]);
 
   useEffect(() => {
     fetchWallet();
@@ -65,17 +58,11 @@ const StorePage = () => {
 
   const fetchStoreItems = async () => {
     try {
-      const ucResponse = await api.get('/api/store?category=uc');
-      const cosmeticsResponse = await api.get('/api/store?category=cosmetics');
-      const passesResponse = await api.get('/api/store?category=passes');
-      setStoreItems({
-        uc: ucResponse.success ? ucResponse.data.items : [],
-        cosmetics: cosmeticsResponse.success ? cosmeticsResponse.data.items : [],
-        passes: passesResponse.success ? passesResponse.data.items : []
-      });
+      const response = await api.get('/api/store');
+      setStoreItems(response.success ? response.data.items : []);
     } catch (error) {
       console.error('Error fetching store items:', error);
-      setStoreItems({ uc: [], cosmetics: [], passes: [] });
+      setStoreItems([]);
     }
   };
 
@@ -148,7 +135,7 @@ const StorePage = () => {
     }
   };
 
-  const currentItems = (storeItems[activeTab] || []).filter(
+  const currentItems = (storeItems || []).filter(
     item => gameFilter === 'all' || item.game === gameFilter || item.game === 'all'
   );
 
@@ -166,42 +153,36 @@ const StorePage = () => {
             </p>
           </div>
 
-          {/* Balance Display */}
-          <div className="bg-theme-bg-card border border-theme-border rounded-lg p-6">
-            <p className="text-theme-text-muted text-sm mb-2">Your Balance</p>
-            <p className="text-3xl font-bold text-theme-accent">
-              {wallet?.balance || 0} CC
-            </p>
+          {/* Right Section - Balance + Orders Link */}
+          <div className="flex flex-col gap-4 items-end">
+            {/* Balance Display */}
+            <div className="bg-theme-bg-card border border-theme-border rounded-lg p-6">
+              <p className="text-theme-text-muted text-sm mb-2">Your Balance</p>
+              <p className="text-3xl font-bold text-theme-accent">
+                {wallet?.balance || 0} CC
+              </p>
+            </div>
+            
+            {/* Orders Link */}
+            <button
+              onClick={() => navigate('/store/orders')}
+              className="px-6 py-2 bg-gaming-gold text-black rounded-lg font-semibold hover:bg-yellow-500 transition-all"
+            >
+              📦 My Orders
+            </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-4 border-b border-theme-border">
-          {Object.entries(categoryLabels).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`px-6 py-3 font-semibold transition-colors ${
-                activeTab === key
-                  ? 'text-theme-accent border-b-2 border-theme-accent'
-                  : 'text-theme-text-secondary hover:text-theme-text-primary'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Game Filter */}
+        {/* Game Filter Tabs */}
         <div className="flex gap-2 mb-8">
           {GAME_FILTERS.map(f => (
             <button
               key={f.key}
               onClick={() => setGameFilter(f.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
                 gameFilter === f.key
-                  ? 'bg-theme-accent text-black'
-                  : 'bg-theme-bg-hover text-theme-text-secondary hover:text-theme-text-primary'
+                  ? 'bg-gaming-gold text-black'
+                  : 'bg-gaming-charcoal text-gaming-gold hover:bg-gaming-dark border border-gaming-border'
               }`}
             >
               {f.label}
@@ -374,7 +355,7 @@ const StorePage = () => {
                       Cancel
                     </button>
                     <button
-                      onClick={() => navigate('/profile')}
+                      onClick={() => navigate('/profile/settings', { state: { activeTab: 'gameids' } })}
                       className="flex-1 px-4 py-2 bg-theme-accent text-black rounded-lg font-semibold hover:bg-theme-accent/80 transition-colors flex items-center justify-center gap-2"
                     >
                       <FiUser className="w-4 h-4" />
