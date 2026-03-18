@@ -286,6 +286,8 @@ const AdminBGMIRegistrations = () => {
 
       // Determine which API to call based on selected tournament
       let apiUrl;
+      let effectiveTournamentId = filters.tournamentId;
+      
       if (filters.tournamentId) {
         // Find the selected tournament to determine its game type
         const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
@@ -295,9 +297,25 @@ const AdminBGMIRegistrations = () => {
           apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
         }
       } else {
-        // If no tournament selected, default to BGMI for now
-        // TODO: In future, we might want to merge both APIs or create a unified endpoint
-        apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+        // If no tournament selected, check if we have registrations to determine game type
+        // This helps when refreshing after an edit
+        if (registrations && registrations.length > 0) {
+          const firstReg = registrations[0];
+          const firstRegTournament = firstReg.tournamentId;
+          const gameType = firstRegTournament?.gameType || firstRegTournament?.gameType;
+          
+          if (gameType === 'freefire' || gameType === 'FreeFire') {
+            apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
+            console.log('🔥 Using Free Fire API based on existing registrations');
+          } else {
+            apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+            console.log('🎮 Using BGMI API based on existing registrations');
+          }
+        } else {
+          // Default to BGMI if no context available
+          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+          console.log('🎮 Defaulting to BGMI API');
+        }
       }
       
       console.log('🔍 DEBUG: API URL:', apiUrl);
@@ -1543,13 +1561,36 @@ const AdminBGMIRegistrations = () => {
         {showEditModal && selectedRegistration && (
           <EditRegistrationModal
             registration={selectedRegistration}
-            tournament={tournaments.find(t => t._id === selectedRegistration.tournamentId) || { _id: selectedRegistration.tournamentId }}
+            tournament={
+              // First try to use populated tournament data from registration
+              (selectedRegistration.tournamentId && typeof selectedRegistration.tournamentId === 'object' && selectedRegistration.tournamentId._id)
+                ? selectedRegistration.tournamentId
+                // Fallback to finding in tournaments array
+                : tournaments.find(t => {
+                    const tId = t._id?.toString?.() || t._id;
+                    const regTId = selectedRegistration.tournamentId?._id?.toString?.() || selectedRegistration.tournamentId?.toString?.() || selectedRegistration.tournamentId;
+                    console.log('🔍 Tournament lookup:', {
+                      tId,
+                      regTId,
+                      match: tId === regTId,
+                      tGameType: t.gameType,
+                      tName: t.name,
+                      regTournamentId: selectedRegistration.tournamentId
+                    });
+                    return tId === regTId;
+                  }) 
+                // Last resort fallback
+                || { _id: selectedRegistration.tournamentId }
+            }
             onClose={() => {
               setShowEditModal(false);
               setSelectedRegistration(null);
             }}
             onUpdate={() => {
-              fetchRegistrations(pagination.page, false); // Refresh without cache
+              // Clear cache and refresh without cache
+              setCache(new Map());
+              setLastFetch(null);
+              fetchRegistrations(pagination.page, false);
               setShowEditModal(false);
               setSelectedRegistration(null);
             }}
@@ -2327,6 +2368,14 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Determine game type and field names
+  const gameType = tournament?.gameType;
+  const isFreeFire = gameType === 'freefire' || gameType === 'ff' || gameType === 'FreeFire';
+  const isBGMI = gameType === 'bgmi' || gameType === 'BGMI';
+  
+  const idFieldName = isFreeFire ? 'freeFireId' : 'bgmiId';
+  const idLabel = isFreeFire ? 'Free Fire ID' : 'BGMI ID';
+
   // Calculate available groups based on tournament settings
   const getAvailableGroups = () => {
     if (!tournament || !tournament.grouping?.enabled) {
@@ -2356,11 +2405,19 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
       registration: registration._id,
       tournament: tournament,
       tournamentId: tournament?._id,
+      tournamentGameType: tournament?.gameType,
+      gameType: gameType,
+      isFreeFire: isFreeFire,
+      isBGMI: isBGMI,
+      idFieldName: idFieldName,
+      idLabel: idLabel,
       grouping: tournament?.grouping,
       currentParticipants: tournament?.currentParticipants,
-      availableGroups
+      availableGroups,
+      registrationTeamLeader: registration.teamLeader,
+      registrationTeamMembers: registration.teamMembers
     });
-  }, [tournament, registration, availableGroups]);
+  }, [tournament, registration, availableGroups, gameType, isFreeFire, isBGMI, idFieldName, idLabel]);
 
   const handleInputChange = (section, field, value, index = null) => {
     setFormData(prev => {
@@ -2400,7 +2457,7 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         return;
       }
       
-      if (!formData.teamLeader.name || !formData.teamLeader.bgmiId || !formData.teamLeader.phone) {
+      if (!formData.teamLeader.name || !formData.teamLeader[idFieldName] || !formData.teamLeader.phone) {
         setError('Team leader information is incomplete');
         setLoading(false);
         return;
@@ -2413,18 +2470,18 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         return;
       }
       
-      // Check for duplicate BGMI IDs
-      const allBgmiIds = [formData.teamLeader.bgmiId, ...formData.teamMembers.map(m => m.bgmiId)];
-      const uniqueBgmiIds = [...new Set(allBgmiIds)];
-      if (allBgmiIds.length !== uniqueBgmiIds.length) {
-        setError('All team members must have unique BGMI IDs');
+      // Check for duplicate IDs (BGMI or Free Fire)
+      const allIds = [formData.teamLeader[idFieldName], ...formData.teamMembers.map(m => m[idFieldName])];
+      const uniqueIds = [...new Set(allIds)];
+      if (allIds.length !== uniqueIds.length) {
+        setError(`All team members must have unique ${idLabel}s`);
         setLoading(false);
         return;
       }
       
       // Ensure team members have required fields
       for (let i = 0; i < formData.teamMembers.length; i++) {
-        if (!formData.teamMembers[i].name || !formData.teamMembers[i].bgmiId) {
+        if (!formData.teamMembers[i].name || !formData.teamMembers[i][idFieldName]) {
           setError(`Member ${i + 1} information is incomplete`);
           setLoading(false);
           return;
@@ -2439,7 +2496,30 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         baseApiUrl = '/api/bgmi-registration/admin';
       }
       
-      const response = await api.put(`${baseApiUrl}/${registration._id}`, formData);
+      // Normalize the data to send correct field names to server
+      const dataToSend = {
+        teamName: formData.teamName,
+        teamLeader: {
+          name: formData.teamLeader.name,
+          phone: formData.teamLeader.phone,
+          [idFieldName]: formData.teamLeader[idFieldName]  // Use dynamic field name
+        },
+        teamMembers: formData.teamMembers.map(m => ({
+          name: m.name,
+          [idFieldName]: m[idFieldName]  // Use dynamic field name
+        })),
+        ...(formData.substitutePlayer && {
+          substitutePlayer: {
+            name: formData.substitutePlayer.name,
+            [idFieldName]: formData.substitutePlayer[idFieldName]  // Use dynamic field name
+          }
+        }),
+        whatsappNumber: formData.whatsappNumber
+      };
+      
+      console.log('📤 Sending normalized data:', JSON.stringify(dataToSend, null, 2));
+      
+      const response = await api.put(`${baseApiUrl}/${registration._id}`, dataToSend);
       
       console.log('📥 Update response:', response);
       
@@ -2562,11 +2642,11 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{idLabel}</label>
                 <input
                   type="text"
-                  value={formData.teamLeader.bgmiId}
-                  onChange={(e) => handleInputChange('teamLeader', 'bgmiId', e.target.value)}
+                  value={formData.teamLeader[idFieldName]}
+                  onChange={(e) => handleInputChange('teamLeader', idFieldName, e.target.value)}
                   className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
                 />
               </div>
@@ -2604,11 +2684,11 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">{idLabel}</label>
                     <input
                       type="text"
-                      value={member.bgmiId}
-                      onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                      value={member[idFieldName]}
+                      onChange={(e) => handleInputChange('teamMembers', idFieldName, e.target.value, index)}
                       className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
                     />
                   </div>
@@ -2633,13 +2713,13 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">{idLabel}</label>
                   <input
                     type="text"
-                    value={formData.substitutePlayer.bgmiId || ''}
-                    onChange={(e) => handleInputChange('substitutePlayer', 'bgmiId', e.target.value)}
+                    value={formData.substitutePlayer[idFieldName] || ''}
+                    onChange={(e) => handleInputChange('substitutePlayer', idFieldName, e.target.value)}
                     className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
-                    placeholder="Substitute BGMI ID"
+                    placeholder={`Substitute ${idLabel}`}
                   />
                 </div>
               </div>
