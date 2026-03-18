@@ -55,10 +55,10 @@ router.post('/:tournamentId/register', auth, [
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
   
-  // Team Members Validation (3-4 members: 3 required + 1 optional substitute)
+  // Team Members Validation (exactly 3 required members)
   body('teamMembers')
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 required + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members (plus leader = 4 total)'),
   body('teamMembers.*.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
@@ -110,7 +110,7 @@ router.post('/:tournamentId/register', auth, [
     console.log('📝 Registration data received:', {
       teamName,
       teamLeader,
-      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId, isSubstitute: m.isSubstitute })),
+      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId })),
       substitute: substitute ? { name: substitute.name, bgmiId: substitute.bgmiId } : null,
       whatsappNumber
     });
@@ -214,7 +214,8 @@ router.post('/:tournamentId/register', auth, [
       const existingMemberBGs = existingReg.teamMembers
         .map(m => m.bgmiId?.trim())
         .filter(Boolean);
-      const allExistingBGs = [existingLeaderBG, ...existingMemberBGs].filter(Boolean);
+      const existingSubBG = existingReg.substitutePlayer?.bgmiId?.trim();
+      const allExistingBGs = [existingLeaderBG, ...existingMemberBGs, ...(existingSubBG ? [existingSubBG] : [])].filter(Boolean);
 
       for (const newPlayer of newPlayerIds) {
         if (allExistingBGs.includes(newPlayer.bgmiId)) {
@@ -250,9 +251,8 @@ router.post('/:tournamentId/register', auth, [
       userId: req.user.userId,
       teamName,
       teamLeader,
-      teamMembers: substitute 
-        ? [...teamMembers, { ...substitute, isSubstitute: true }]
-        : teamMembers,
+      teamMembers: teamMembers,
+      ...(substitute && { substitutePlayer: substitute }),
       whatsappNumber,
       status: 'pending'
     });
@@ -1155,8 +1155,8 @@ router.put('/admin/:registrationId', auth, [
     .withMessage('Team leader phone must be a valid Indian number'),
   body('teamMembers')
     .optional()
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 regular + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members'),
   body('teamMembers.*.name')
     .optional()
     .isLength({ min: 2, max: 50 })
@@ -1167,6 +1167,9 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Team member BGMI ID must be 3-30 characters')
     .trim(),
+  body('substitutePlayer').optional().isObject().withMessage('Substitute must be an object'),
+  body('substitutePlayer.name').optional().isLength({ min: 2, max: 50 }).trim(),
+  body('substitutePlayer.bgmiId').optional().isLength({ min: 3, max: 30 }).trim(),
   body('whatsappNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
@@ -1278,6 +1281,17 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.whatsappNumber) {
       console.log('📝 Updating WhatsApp number:', updateData.whatsappNumber);
       registration.whatsappNumber = updateData.whatsappNumber;
+    }
+
+    // Handle substitutePlayer - can be set, updated, or removed (null)
+    if ('substitutePlayer' in updateData) {
+      if (updateData.substitutePlayer === null) {
+        console.log('📝 Removing substitute player');
+        registration.substitutePlayer = null;
+      } else {
+        console.log('📝 Updating substitute player:', updateData.substitutePlayer);
+        registration.substitutePlayer = updateData.substitutePlayer;
+      }
     }
 
     console.log('💾 Saving registration...');

@@ -174,7 +174,7 @@ const AdminBGMIRegistrations = () => {
           // `"${reg.teamMembers?.[1]?.bgmiId || ''}"`,
           `"${reg.teamMembers?.[2]?.name || ''}"`,
           // `"${reg.teamMembers?.[2]?.bgmiId || ''}"`,
-          `"${reg.teamMembers?.find(m => m.isSubstitute)?.name || ''}"`,
+          `"${reg.substitutePlayer?.name || ''}"`,
           `"${reg.group || ''}"`,
           `"${reg.status || ''}"`
         ].join(','))
@@ -1196,7 +1196,7 @@ const AdminBGMIRegistrations = () => {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
-                            {registration.teamMembers?.find(m => m.isSubstitute)?.name || '-'}
+                            {registration.substitutePlayer?.name || '-'}
                           </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
@@ -1348,7 +1348,7 @@ const AdminBGMIRegistrations = () => {
                       </div>
                       <div>
                         <span className="text-gray-400">Substitute:</span>
-                        <div className="text-white">{registration.teamMembers?.find(m => m.isSubstitute)?.name || '-'}</div>
+                        <div className="text-white">{registration.substitutePlayer?.name || '-'}</div>
                       </div>
                       <div>
                         <span className="text-gray-400">Group:</span>
@@ -1922,6 +1922,15 @@ const ImageVerificationModal = ({
                       <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
                     </div>
                   ))}
+
+                  {/* Substitute Player */}
+                  {registration.substitutePlayer && (
+                    <div className="rounded p-1 border bg-yellow-500/10 border-yellow-500/30">
+                      <div className="font-medium text-xs text-yellow-400">🔄 SUB</div>
+                      <div className="text-white text-xs font-medium truncate">{registration.substitutePlayer.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{registration.substitutePlayer.bgmiId}</div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-1 text-xs text-gray-400 flex items-center justify-between">
@@ -2311,6 +2320,7 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
     teamName: registration.teamName,
     teamLeader: { ...registration.teamLeader },
     teamMembers: [...registration.teamMembers],
+    substitutePlayer: registration.substitutePlayer ? { ...registration.substitutePlayer } : null,
     whatsappNumber: registration.whatsappNumber,
     group: registration.group || ''
   });
@@ -2363,6 +2373,11 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         const updatedMembers = [...prev.teamMembers];
         updatedMembers[index] = { ...updatedMembers[index], [field]: value };
         return { ...prev, teamMembers: updatedMembers };
+      } else if (section === 'substitutePlayer') {
+        return {
+          ...prev,
+          substitutePlayer: { ...(prev.substitutePlayer || {}), [field]: value }
+        };
       } else {
         return { ...prev, [field]: value };
       }
@@ -2601,6 +2616,35 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
               </div>
             ))}
           </div>
+
+          {/* Substitute Player */}
+          {formData.substitutePlayer && (
+            <div className="bg-gaming-charcoal rounded-lg p-6">
+              <h3 className="text-lg font-bold text-yellow-400 mb-4">🔄 Substitute Player</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={formData.substitutePlayer.name || ''}
+                    onChange={(e) => handleInputChange('substitutePlayer', 'name', e.target.value)}
+                    className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    placeholder="Substitute player name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                  <input
+                    type="text"
+                    value={formData.substitutePlayer.bgmiId || ''}
+                    onChange={(e) => handleInputChange('substitutePlayer', 'bgmiId', e.target.value)}
+                    className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
+                    placeholder="Substitute BGMI ID"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* WhatsApp Number */}
           <div>
