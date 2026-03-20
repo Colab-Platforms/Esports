@@ -212,21 +212,13 @@ const AdminBGMIRegistrations = () => {
       const response = await api.get('/api/tournaments');
       
       if (response.data.success) {
-        // Fix case sensitivity - tournaments are stored as 'bgmi' (lowercase)
-        const bgmiTournaments = response.data.data.tournaments.filter(t => 
-          t.gameType === 'bgmi' || t.gameType === 'BGMI'
-        );
-        console.log('🔍 Found BGMI tournaments:', bgmiTournaments.length);
-        console.log('🔍 Tournament names:', bgmiTournaments.map(t => `${t.name} (${t.status})`));
-        setTournaments(bgmiTournaments);
+        const allTournaments = response.data.data.tournaments;
+        console.log('🔍 Found tournaments:', allTournaments.length);
+        setTournaments(allTournaments);
       } else {
         // Try alternative response format
         if (response.data.tournaments) {
-          const bgmiTournaments = response.data.tournaments.filter(t => 
-            t.gameType === 'bgmi' || t.gameType === 'BGMI'
-          );
-          console.log('🔍 Found BGMI tournaments (alt format):', bgmiTournaments.length);
-          setTournaments(bgmiTournaments);
+          setTournaments(response.data.tournaments);
         }
       }
     } catch (error) {
@@ -1122,7 +1114,7 @@ const AdminBGMIRegistrations = () => {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 1 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 2 IGN</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Player 3 IGN</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Substitute</th>
+                      {/* <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Substitute</th> */}
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Group</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tournament</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
@@ -1172,7 +1164,7 @@ const AdminBGMIRegistrations = () => {
                             })()}
                           </div>
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        {/* <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm">
                             {(() => {
                               // Check if team leader is substitute
@@ -1187,7 +1179,7 @@ const AdminBGMIRegistrations = () => {
                               return <span className="text-gray-500">None</span>;
                             })()}
                           </div>
-                        </td>
+                        </td> */}
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm font-medium text-gaming-neon">{registration.group || 'Not Assigned'}</div>
                         </td>
@@ -1527,7 +1519,12 @@ const AdminBGMIRegistrations = () => {
         {showEditModal && selectedRegistration && (
           <EditRegistrationModal
             registration={selectedRegistration}
-            tournament={tournaments.find(t => t._id === selectedRegistration.tournamentId) || { _id: selectedRegistration.tournamentId }}
+            tournament={(() => {
+              const tId = selectedRegistration.tournamentId?._id || selectedRegistration.tournamentId;
+              return tournaments.find(t => t._id === tId) 
+                || selectedRegistration.tournamentId 
+                || { _id: tId };
+            })()}
             onClose={() => {
               setShowEditModal(false);
               setSelectedRegistration(null);
@@ -2281,13 +2278,31 @@ const ImageVerificationModal = ({
 
 // Edit Registration Modal Component
 const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) => {
-  const [formData, setFormData] = useState({
-    teamName: registration.teamName,
-    teamLeader: { ...registration.teamLeader },
-    teamMembers: [...registration.teamMembers],
-    whatsappNumber: registration.whatsappNumber,
-    group: registration.group || ''
-  });
+  // Normalize data based on game type
+  const gameType = tournament?.gameType?.toLowerCase() || 'bgmi';
+  const idFieldName = gameType === 'freefire' ? 'freeFireId' : 'bgmiId';
+  
+  // Initialize form data with normalized IDs
+  const initializeFormData = () => {
+    return {
+      teamName: registration.teamName,
+      teamLeader: {
+        ...registration.teamLeader,
+        // Ensure both bgmiId and freeFireId are present for proper display
+        bgmiId: registration.teamLeader.bgmiId || '',
+        freeFireId: registration.teamLeader.freeFireId || ''
+      },
+      teamMembers: registration.teamMembers.map(member => ({
+        ...member,
+        bgmiId: member.bgmiId || '',
+        freeFireId: member.freeFireId || ''
+      })),
+      whatsappNumber: registration.whatsappNumber,
+      group: registration.group || ''
+    };
+  };
+  
+  const [formData, setFormData] = useState(initializeFormData());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -2352,6 +2367,10 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
       console.log('🔄 Updating registration:', registration._id);
       console.log('📝 Form data:', formData);
       
+      // Determine game type from tournament
+      const gameType = tournament?.gameType?.toLowerCase() || 'bgmi';
+      const idFieldName = gameType === 'freefire' ? 'freeFireId' : 'bgmiId';
+      
       // Validate form data before sending
       if (!formData.teamName || formData.teamName.trim().length < 3) {
         setError('Team name must be at least 3 characters');
@@ -2359,7 +2378,7 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         return;
       }
       
-      if (!formData.teamLeader.name || !formData.teamLeader.bgmiId || !formData.teamLeader.phone) {
+      if (!formData.teamLeader.name || !formData.teamLeader[idFieldName] || !formData.teamLeader.phone) {
         setError('Team leader information is incomplete');
         setLoading(false);
         return;
@@ -2383,18 +2402,19 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         return;
       }
       
-      // Check for duplicate BGMI IDs
-      const allBgmiIds = [formData.teamLeader.bgmiId, ...formData.teamMembers.map(m => m.bgmiId)];
-      const uniqueBgmiIds = [...new Set(allBgmiIds)];
-      if (allBgmiIds.length !== uniqueBgmiIds.length) {
-        setError('All team members must have unique BGMI IDs');
+      // Check for duplicate IDs based on game type
+      const allIds = [formData.teamLeader[idFieldName], ...formData.teamMembers.map(m => m[idFieldName])];
+      const uniqueIds = [...new Set(allIds)];
+      if (allIds.length !== uniqueIds.length) {
+        const idType = gameType === 'freefire' ? 'Free Fire IDs' : 'BGMI IDs';
+        setError(`All team members must have unique ${idType}`);
         setLoading(false);
         return;
       }
       
       // Ensure team members have required fields
       for (let i = 0; i < formData.teamMembers.length; i++) {
-        if (!formData.teamMembers[i].name || !formData.teamMembers[i].bgmiId) {
+        if (!formData.teamMembers[i].name || !formData.teamMembers[i][idFieldName]) {
           const memberType = formData.teamMembers[i].isSubstitute ? 'Substitute' : `Member ${i + 1}`;
           setError(`${memberType} information is incomplete`);
           setLoading(false);
@@ -2402,7 +2422,12 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         }
       }
       
-      const response = await api.put(`/api/bgmi-registration/admin/${registration._id}`, formData);
+      // Determine API endpoint based on game type
+      const apiEndpoint = gameType === 'freefire' 
+        ? `/api/freefire-registration/admin/${registration._id}`
+        : `/api/bgmi-registration/admin/${registration._id}`;
+      
+      const response = await api.put(apiEndpoint, formData);
       
       console.log('📥 Update response:', response);
       
@@ -2413,7 +2438,12 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         if (formData.group && formData.group !== registration.group) {
           console.log(`🔄 Updating group to ${formData.group}...`);
           try {
-            const groupResponse = await api.put(`/api/bgmi-registration/admin/${registration._id}/group`, { group: formData.group });
+            const gameType = tournament?.gameType?.toLowerCase() || 'bgmi';
+            const groupEndpoint = gameType === 'freefire'
+              ? `/api/freefire-registration/admin/${registration._id}/group`
+              : `/api/bgmi-registration/admin/${registration._id}/group`;
+            
+            const groupResponse = await api.put(groupEndpoint, { group: formData.group });
             console.log(`✅ Group update response:`, groupResponse);
             if (groupResponse.success) {
               console.log(`✅ Group updated to ${formData.group}`);
@@ -2439,11 +2469,14 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
         message: error.message
       });
       
+      const gameType = tournament?.gameType?.toLowerCase() || 'bgmi';
+      const idType = gameType === 'freefire' ? 'Free Fire IDs' : 'BGMI IDs';
+      
       // More specific error messages
       if (error.response?.status === 400) {
         const errorMsg = error.response?.data?.error?.message || error.response?.data?.message;
-        if (errorMsg?.includes('unique BGMI IDs')) {
-          setError('All team members must have unique BGMI IDs');
+        if (errorMsg?.includes('unique') && errorMsg?.includes('ID')) {
+          setError(`All team members must have unique ${idType}`);
         } else if (errorMsg?.includes('exactly 3 members')) {
           setError('Team must have exactly 3 members');
         } else if (errorMsg?.includes('validation')) {
@@ -2525,11 +2558,17 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  {tournament?.gameType?.toLowerCase() === 'freefire' ? 'Free Fire ID' : 'BGMI ID'}
+                </label>
                 <input
                   type="text"
-                  value={formData.teamLeader.bgmiId}
-                  onChange={(e) => handleInputChange('teamLeader', 'bgmiId', e.target.value)}
+                  value={tournament?.gameType?.toLowerCase() === 'freefire' 
+                    ? formData.teamLeader.freeFireId 
+                    : formData.teamLeader.bgmiId}
+                  onChange={(e) => handleInputChange('teamLeader', 
+                    tournament?.gameType?.toLowerCase() === 'freefire' ? 'freeFireId' : 'bgmiId', 
+                    e.target.value)}
                   className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
                 />
               </div>
@@ -2573,26 +2612,30 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                             // Store current player data
                             const currentPlayerData = {
                               name: updatedMembers[index].name,
-                              bgmiId: updatedMembers[index].bgmiId
+                              bgmiId: updatedMembers[index].bgmiId,
+                              freeFireId: updatedMembers[index].freeFireId
                             };
                             
                             // Store substitute data
                             const substituteData = {
                               name: updatedMembers[substituteIndex].name,
-                              bgmiId: updatedMembers[substituteIndex].bgmiId
+                              bgmiId: updatedMembers[substituteIndex].bgmiId,
+                              freeFireId: updatedMembers[substituteIndex].freeFireId
                             };
                             
                             // Swap data (keeping isSubstitute flags same)
                             updatedMembers[index] = {
                               ...updatedMembers[index],
                               name: substituteData.name,
-                              bgmiId: substituteData.bgmiId
+                              bgmiId: substituteData.bgmiId,
+                              freeFireId: substituteData.freeFireId
                             };
                             
                             updatedMembers[substituteIndex] = {
                               ...updatedMembers[substituteIndex],
                               name: currentPlayerData.name,
-                              bgmiId: currentPlayerData.bgmiId
+                              bgmiId: currentPlayerData.bgmiId,
+                              freeFireId: currentPlayerData.freeFireId
                             };
                             
                             return { ...prev, teamMembers: updatedMembers };
@@ -2620,11 +2663,17 @@ const EditRegistrationModal = ({ registration, tournament, onClose, onUpdate }) 
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">BGMI ID</label>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        {tournament?.gameType?.toLowerCase() === 'freefire' ? 'Free Fire ID' : 'BGMI ID'}
+                      </label>
                       <input
                         type="text"
-                        value={member.bgmiId}
-                        onChange={(e) => handleInputChange('teamMembers', 'bgmiId', e.target.value, index)}
+                        value={tournament?.gameType?.toLowerCase() === 'freefire' 
+                          ? member.freeFireId 
+                          : member.bgmiId}
+                        onChange={(e) => handleInputChange('teamMembers', 
+                          tournament?.gameType?.toLowerCase() === 'freefire' ? 'freeFireId' : 'bgmiId', 
+                          e.target.value, index)}
                         className="w-full px-3 py-2 bg-gaming-slate border border-gray-600 rounded-lg text-white focus:border-gaming-neon focus:outline-none"
                       />
                     </div>
