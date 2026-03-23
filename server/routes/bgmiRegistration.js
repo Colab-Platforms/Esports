@@ -4,6 +4,7 @@ const TournamentRegistration = require('../models/TournamentRegistration');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
 
@@ -258,6 +259,52 @@ router.post('/:tournamentId/register', auth, [
     });
 
     await registration.save();
+
+    // Award 50 coins to all team members (leader + members + substitute)
+    try {
+      const allTeamMemberIds = [req.user.userId]; // Team leader
+      
+      // Find user IDs for team members by matching their BGMI IDs
+      if (teamMembers && teamMembers.length > 0) {
+        for (const member of teamMembers) {
+          if (member.bgmiId) {
+            const memberUser = await User.findOne({ 'gameIds.bgmi.uid': member.bgmiId });
+            if (memberUser) {
+              allTeamMemberIds.push(memberUser._id);
+            }
+          }
+        }
+      }
+
+      // Find user ID for substitute if exists
+      if (substitute && substitute.bgmiId) {
+        const substituteUser = await User.findOne({ 'gameIds.bgmi.uid': substitute.bgmiId });
+        if (substituteUser) {
+          allTeamMemberIds.push(substituteUser._id);
+        }
+      }
+
+      // Award 50 coins to each team member
+      for (const memberId of allTeamMemberIds) {
+        const memberWallet = await Wallet.findOne({ userId: memberId });
+        if (memberWallet) {
+          await memberWallet.addCoins(
+            50,
+            'earn',
+            'Tournament Registration Bonus',
+            {
+              source: 'tournament_registration',
+              referenceId: registration._id,
+              referenceModel: 'TournamentRegistration'
+            }
+          );
+          console.log(`✅ Awarded 50 coins to team member for tournament registration`);
+        }
+      }
+    } catch (coinError) {
+      console.error('⚠️ Failed to award registration coins:', coinError.message);
+      // Don't fail the registration if coin award fails
+    }
 
     // Send WhatsApp "Registration Successful" message
     try {

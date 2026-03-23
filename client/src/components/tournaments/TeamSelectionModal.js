@@ -173,7 +173,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     try {
       let response;
       if (isUpdating) {
-        // Update existing team
+             
         response = await axios.put(`${API_URL}/api/teams/${editingTeam._id}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
