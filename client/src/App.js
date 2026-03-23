@@ -30,6 +30,12 @@ import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 // import WalletPage from './pages/WalletPage';
+import WalletPage from './pages/wallet/WalletPage';
+import StorePage from './pages/store/StorePage';
+import OrdersPage from './pages/store/OrdersPage';
+import CoinConfigPage from './pages/admin/CoinConfigPage';
+import StoreManagementPage from './pages/admin/StoreManagementPage';
+import TournamentRewardDistribution from './pages/admin/TournamentRewardDistribution';
 import ProfilePage from './pages/ProfilePage';
 import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import GamesPage from './pages/GamesPage';
@@ -38,10 +44,12 @@ import PublicProfile from './pages/PublicProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
+import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
 import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
+import WinnerRewardPanel from './pages/admin/WinnerRewardPanel';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import BGMIPage from './pages/BGMIPage';
@@ -97,12 +105,12 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
-  // Allow access if user is admin OR if role is not set (for backward compatibility)
-  // This allows existing users to access admin panel if they were made admin in DB
-  const isAdmin = user?.role === 'admin' || user?.role === undefined;
+  // Allow access only for admin, designer, and moderator roles
+  const allowedRoles = ['admin', 'designer', 'moderator'];
+  const hasAccess = user?.role && allowedRoles.includes(user.role);
   
-  if (!isAdmin) {
-    console.log('❌ Access denied: User is not admin');
+  if (!hasAccess) {
+    console.log('❌ Access denied: User role is', user?.role);
     return <Navigate to="/" replace />;
   }
   
@@ -510,7 +518,53 @@ function App() {
               } 
             />
             
-            {/* Wallet route removed - free tournaments only */}
+            {/* Colab Coin Routes */}
+            <Route 
+              path="/wallet" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <WalletPage />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/store" 
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <StorePage />
+                </motion.div>
+              } 
+            />
+            
+            <Route 
+              path="/store/orders" 
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <OrdersPage />
+                  </motion.div>
+                </ProtectedRoute>
+              } 
+            />
+            
             
             <Route 
               path="/profile" 
@@ -674,6 +728,38 @@ function App() {
             />
 
             <Route 
+              path="/admin/claims" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ClaimsManager />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/tournaments/:id/rewards" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TournamentRewardDistribution />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+
+            <Route 
               path="/admin/images" 
               element={
                 <DesignerRoute>
@@ -732,6 +818,54 @@ function App() {
                     transition={{ duration: 0.3 }}
                   >
                     <AdminLiveStreamManager />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/coin-config" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <CoinConfigPage />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/store" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <StoreManagementPage />
+                  </motion.div>
+                </AdminRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/winner-rewards" 
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <WinnerRewardPanel />
                   </motion.div>
                 </AdminRoute>
               } 

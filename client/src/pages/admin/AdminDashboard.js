@@ -89,6 +89,20 @@ const AdminDashboard = () => {
       color: 'from-purple-500 to-pink-500'
     },
     {
+      title: 'Winner Rewards',
+      description: 'Distribute coins to tournament winners',
+      icon: FiTrendingUp,
+      link: '/admin/winner-rewards',
+      color: 'from-yellow-500 to-orange-500'
+    },
+    {
+      title: 'Claims Manager',
+      description: 'Track and fulfill UC claims',
+      icon: FiTrendingUp,
+      link: '/admin/claims',
+      color: 'from-yellow-500 to-orange-500'
+    },
+    {
       title: 'Users',
       description: 'Manage users and permissions',
       icon: FiUsers,

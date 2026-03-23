@@ -44,6 +44,10 @@ const teamSchema = new mongoose.Schema({
       enum: ['captain', 'member'],
       default: 'member'
     },
+    isSubstitute: {
+      type: Boolean,
+      default: false
+    },
     joinedAt: {
       type: Date,
       default: Date.now

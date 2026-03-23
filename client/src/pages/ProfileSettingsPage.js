@@ -1,4 +1,5 @@
 import { useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import { FiEdit3 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
@@ -6,6 +7,8 @@ import ProfileSettingsForm from '../components/profile/ProfileSettingsForm';
 
 const ProfileSettingsPage = () => {
   const { user } = useSelector(selectAuth);
+  const location = useLocation();
+  const initialTab = location.state?.activeTab || 'account';
 
   const getCountryInfo = (countryCode) => {
     const countries = {
@@ -113,7 +116,7 @@ const ProfileSettingsPage = () => {
 
           {/* Right Content - Settings Form */}
           <div className="lg:col-span-2">
-            <ProfileSettingsForm embedded={false} />
+            <ProfileSettingsForm embedded={false} initialTab={initialTab} />
           </div>
         </div>
       </div>

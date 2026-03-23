@@ -98,6 +98,59 @@ router.get('/test-email', async (req, res) => {
   }
 });
 
+// @route   GET /api/auth/validate-referral/:code
+// @desc    Validate referral code
+// @access  Public
+router.get('/validate-referral/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    if (!code || code.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_CODE',
+          message: 'Referral code must be at least 3 characters'
+        }
+      });
+    }
+
+    // Find user with this referral code
+    const referrer = await User.findOne({ 
+      referralCode: code.toUpperCase() 
+    }).select('fullName username referralCode');
+
+    if (!referrer) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'CODE_NOT_FOUND',
+          message: 'Referral code not found'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        isValid: true,
+        referrerName: referrer.fullName || referrer.username,
+        referralCode: referrer.referralCode
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Referral validation error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to validate referral code'
+      }
+    });
+  }
+});
+
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email
 // @access  Public
@@ -327,8 +380,9 @@ router.post('/reset-password', decodeSensitiveData, async (req, res) => {
 router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
+    console.log('🎁 Referral code received:', req.body.referralCode);
     
-    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds } = req.body;
+    const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds, referralCode } = req.body;
 
     // Basic validation - fullName, email, phone, and password are required
     if (!fullName || !email || !phone || !password) {
@@ -475,6 +529,111 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     await user.save();
     console.log('✅ User saved successfully');
 
+    // Give welcome bonus coins
+    let welcomeBonusAmount = 0;
+    let welcomeBonusSuccess = false;
+    try {
+      const Wallet = require('../models/Wallet');
+      const { CoinConfig } = require('../models/CoinConfig');
+      
+      // Get welcome bonus amount from config, default to 100 coins
+      const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
+      welcomeBonusAmount = config ? config.value : 100; // Default 100 coins
+      
+      // Create wallet and add welcome bonus
+      let wallet = new Wallet({ userId: user._id });
+      await wallet.addCoins(
+        welcomeBonusAmount,
+        'bonus',
+        'Welcome Bonus - Thank you for joining Colab Esports!',
+        { source: 'registration' }
+      );
+      await wallet.save();
+      
+      // Update user to mark welcome bonus as received
+      user.welcomeBonusReceived = true;
+      user.welcomeBonusDate = new Date();
+      await user.save();
+      
+      welcomeBonusSuccess = true;
+      console.log(`🎁 Welcome bonus of ${welcomeBonusAmount} coins credited to user:`, user.username);
+    } catch (coinError) {
+      console.error('❌ Failed to credit welcome bonus:', coinError);
+      // Don't fail registration if coin credit fails
+    }
+
+    // Handle referral code if provided
+    if (referralCode) {
+      console.log(`🎁 Processing referral code: ${referralCode}`);
+      try {
+        const Referral = require('../models/Referral');
+        const Wallet = require('../models/Wallet');
+        
+        console.log(`🔍 Looking for referral code: ${referralCode.toUpperCase()}`);
+        const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
+        
+        if (referral) {
+          console.log(`✅ Found referral! Referrer ID: ${referral.userId}`);
+          
+          // Add to referred users
+          referral.referredUsers.push({
+            userId: user._id,
+            status: 'completed',
+            coinsEarned: 30,
+            completedAt: new Date()
+          });
+          referral.totalReferrals += 1;
+          referral.successfulReferrals += 1;
+          referral.totalCoinsEarned += 50;
+          await referral.save();
+          console.log(`📝 Referral record updated`);
+          
+          // Award 30 coins to new user
+          let newUserWallet = await Wallet.findOne({ userId: user._id });
+          if (!newUserWallet) {
+            console.log(`💼 Creating new wallet for user: ${user.username}`);
+            newUserWallet = new Wallet({ userId: user._id });
+          }
+          await newUserWallet.addCoins(
+            30,
+            'referral',
+            'Referral bonus - Welcome gift',
+            { source: 'referral' }
+          );
+          await newUserWallet.save();
+          console.log(`💰 Awarded 30 coins to new user: ${user.username}`);
+          
+          // Update user to mark referral bonus as received
+          user.referralBonusReceived = true;
+          user.referralBonusDate = new Date();
+          user.referralCode = referralCode.toUpperCase();
+          await user.save();
+          
+          // Award 50 coins to referrer
+          let referrerWallet = await Wallet.findOne({ userId: referral.userId });
+          if (!referrerWallet) {
+            console.log(`💼 Creating new wallet for referrer`);
+            referrerWallet = new Wallet({ userId: referral.userId });
+          }
+          await referrerWallet.addCoins(
+            50,
+            'referral',
+            `Referral bonus - ${user.username} joined`,
+            { source: 'referral' }
+          );
+          await referrerWallet.save();
+          console.log(`💰 Awarded 50 coins to referrer`);
+          
+          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+30 coins), Referrer: (+50 coins)`);
+        } else {
+          console.log(`⚠️ Invalid referral code: ${referralCode}`);
+        }
+      } catch (referralError) {
+        console.error('❌ Failed to apply referral code:', referralError);
+        // Don't fail registration if referral fails
+      }
+    }
+
     // Generate token
     console.log('🔑 Generating JWT token...');
     const token = generateToken(user._id);
@@ -510,6 +669,16 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           freeFireIgnName: user.freeFireIgnName,
           freeFireUid: user.freeFireUid,
           createdAt: user.createdAt
+        },
+        welcomeBonus: {
+          success: welcomeBonusSuccess,
+          amount: welcomeBonusAmount,
+          message: welcomeBonusSuccess ? `Welcome to Colab Esports! You have earned ${welcomeBonusAmount} coins. Check out your wallet!` : null
+        },
+        referralBonus: {
+          received: user.referralBonusReceived || false,
+          amount: user.referralBonusReceived ? 30 : 0,
+          referralCode: user.referralCode || null
         }
       },
       message: '🎉 Welcome to Colab Esports! Your gaming journey begins now.',
@@ -517,6 +686,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     });
 
     console.log('🎉 Registration successful for:', fullName, `(${generatedUsername})`);
+    console.log('🎁 Welcome bonus data being sent:', {
+      success: welcomeBonusSuccess,
+      amount: welcomeBonusAmount,
+      message: welcomeBonusSuccess ? `Welcome to Colab Esports! You have earned ${welcomeBonusAmount} coins. Check out your wallet!` : null
+    });
 
   } catch (error) {
     console.error('❌ Registration error:', error);

@@ -40,14 +40,10 @@ const tournamentRegistrationSchema = new mongoose.Schema({
       type: String,
       required: [true, 'Team leader phone is required'],
       match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
-    },
-    isSubstitute: {
-      type: Boolean,
-      default: false
     }
   },
   
-  // Team Members (3-4 additional players: 3 required + 1 optional substitute)
+  // Team Members (exactly 3 required players)
   teamMembers: [{
     name: {
       type: String,
@@ -61,12 +57,18 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     freeFireId: {
       type: String,
       trim: true
-    },
-    isSubstitute: {
-      type: Boolean,
-      default: false
     }
   }],
+  
+  // Substitute Player (optional - 1 backup player)
+  substitutePlayer: {
+    type: {
+      name: { type: String, trim: true },
+      bgmiId: { type: String, trim: true },
+      freeFireId: { type: String, trim: true }
+    },
+    default: null
+  },
   
   // Registration Status
   status: {
@@ -183,19 +185,26 @@ tournamentRegistrationSchema.virtual('imagesByPlayer').get(function() {
   return imagesByPlayer;
 });
 
-// Virtual to get all team members (including leader)
+// Virtual to get all team members (including leader and substitute)
 tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
-  return [
+  const members = [
     { ...this.teamLeader, role: 'leader' },
     ...this.teamMembers.map((member, index) => ({ ...member, role: `member${index + 1}` }))
   ];
+  
+  // Add substitute if exists
+  if (this.substitutePlayer) {
+    members.push({ ...this.substitutePlayer, role: 'substitute' });
+  }
+  
+  return members;
 });
 
 // Pre-save middleware to update tournament participant count
 tournamentRegistrationSchema.pre('save', async function(next) {
-  // Ensure 3-4 team members (plus leader = 4-5 total)
-  if (this.teamMembers.length < 3 || this.teamMembers.length > 4) {
-    return next(new Error('Team must have 3-4 members (plus leader = 4-5 total players)'));
+  // Ensure exactly 3 team members (plus leader = 4 total, plus optional substitute = 5 max)
+  if (this.teamMembers.length !== 3) {
+    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
   }
   
   // Get tournament to check game type
@@ -208,8 +217,12 @@ tournamentRegistrationSchema.pre('save', async function(next) {
   
   // Validate unique IDs based on game type
   if (tournament.gameType === 'bgmi') {
-    // Collect all BGMI IDs to check for duplicates
-    const allBgmiIds = [this.teamLeader.bgmiId, ...this.teamMembers.map(m => m.bgmiId)].filter(Boolean);
+    // Collect all BGMI IDs to check for duplicates (including substitute if exists)
+    const allBgmiIds = [
+      this.teamLeader.bgmiId,
+      ...this.teamMembers.map(m => m.bgmiId),
+      ...(this.substitutePlayer?.bgmiId ? [this.substitutePlayer.bgmiId] : [])
+    ].filter(Boolean);
     const uniqueBgmiIds = [...new Set(allBgmiIds)];
     
     if (allBgmiIds.length !== uniqueBgmiIds.length) {
@@ -226,8 +239,12 @@ tournamentRegistrationSchema.pre('save', async function(next) {
       }
     }
   } else if (tournament.gameType === 'freefire') {
-    // Collect all Free Fire IDs to check for duplicates
-    const allFreeFireIds = [this.teamLeader.freeFireId, ...this.teamMembers.map(m => m.freeFireId)].filter(Boolean);
+    // Collect all Free Fire IDs to check for duplicates (including substitute if exists)
+    const allFreeFireIds = [
+      this.teamLeader.freeFireId,
+      ...this.teamMembers.map(m => m.freeFireId),
+      ...(this.substitutePlayer?.freeFireId ? [this.substitutePlayer.freeFireId] : [])
+    ].filter(Boolean);
     const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
     
     if (allFreeFireIds.length !== uniqueFreeFireIds.length) {

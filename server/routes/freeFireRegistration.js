@@ -1,9 +1,10 @@
- const express = require('express');
+const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const TournamentRegistration = require('../models/TournamentRegistration');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
 
@@ -67,6 +68,22 @@ router.post('/:tournamentId/register', auth, [
     .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
 
+  // Optional Substitute Validation
+  body('substitute')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitute.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitute.freeFireId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute Free Fire ID must be 3-30 characters')
+    .trim(),
+
   // WhatsApp Number Validation
   body('whatsappNumber')
     .matches(/^[6-9]\d{9}$/)
@@ -87,7 +104,7 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
+    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
 
     // Check if tournament exists and is Free Fire
     const tournament = await Tournament.findById(tournamentId);
@@ -144,7 +161,11 @@ router.post('/:tournamentId/register', auth, [
     }
 
     // Validate unique Free Fire IDs within the team
-    const allFreeFireIds = [teamLeader.freeFireId, ...teamMembers.map(m => m.freeFireId)];
+    const allFreeFireIds = [
+      teamLeader.freeFireId, 
+      ...teamMembers.map(m => m.freeFireId),
+      ...(substitute ? [substitute.freeFireId] : [])  // ✅ Include substitute
+    ];
     const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
     if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
       return res.status(400).json({
@@ -167,11 +188,12 @@ router.post('/:tournamentId/register', auth, [
       status: { $in: ['pending', 'images_uploaded', 'verified'] }
     });
 
-    // Collect all new player IDs (leader + members)
+    // Collect all new player IDs (leader + members + substitute)
     const leaderFF = teamLeader.freeFireId?.trim();
     const newPlayerIds = [
       { freeFireId: leaderFF, name: teamLeader.name, role: 'Team Leader' },
-      ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' }))
+      ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' })),
+      ...(substitute ? [{ freeFireId: substitute.freeFireId?.trim(), name: substitute.name, role: 'Substitute' }] : [])  // ✅ Include substitute
     ].filter(p => p.freeFireId); // skip empty IDs
 
     for (const existingReg of existingRegistrations) {
@@ -214,11 +236,58 @@ router.post('/:tournamentId/register', auth, [
       teamName,
       teamLeader,
       teamMembers,
+      ...(substitute && { substitutePlayer: substitute }),  // ✅ Map substitute to substitutePlayer
       whatsappNumber,
       status: 'pending'
     });
 
     await registration.save();
+
+    // Award 50 coins to all team members (leader + members + substitute)
+    try {
+      const allTeamMemberIds = [req.user.userId]; // Team leader
+      
+      // Find user IDs for team members by matching their Free Fire IDs
+      if (teamMembers && teamMembers.length > 0) {
+        for (const member of teamMembers) {
+          if (member.freeFireId) {
+            const memberUser = await User.findOne({ 'gameIds.freefire.uid': member.freeFireId });
+            if (memberUser) {
+              allTeamMemberIds.push(memberUser._id);
+            }
+          }
+        }
+      }
+
+      // Find user ID for substitute if exists
+      if (substitute && substitute.freeFireId) {
+        const substituteUser = await User.findOne({ 'gameIds.freefire.uid': substitute.freeFireId });
+        if (substituteUser) {
+          allTeamMemberIds.push(substituteUser._id);
+        }
+      }
+
+      // Award 50 coins to each team member
+      for (const memberId of allTeamMemberIds) {
+        const memberWallet = await Wallet.findOne({ userId: memberId });
+        if (memberWallet) {
+          await memberWallet.addCoins(
+            50,
+            'earn',
+            'Tournament Registration Bonus',
+            {
+              source: 'tournament_registration',
+              referenceId: registration._id,
+              referenceModel: 'TournamentRegistration'
+            }
+          );
+          console.log(`✅ Awarded 50 coins to team member for tournament registration`);
+        }
+      }
+    } catch (coinError) {
+      console.error('⚠️ Failed to award registration coins:', coinError.message);
+      // Don't fail the registration if coin award fails
+    }
 
     // Send WhatsApp "Registration Successful" message
     try {
@@ -277,41 +346,6 @@ router.post('/:tournamentId/register', auth, [
         timestamp: new Date().toISOString()
       }
     });
-  }
-});
-
-// @route   POST /api/freefire-registration/:tournamentId/check-conflicts
-// @desc    Pre-check which players are already registered for this tournament
-// @access  Private
-router.post('/:tournamentId/check-conflicts', auth, async (req, res) => {
-  try {
-    const { tournamentId } = req.params;
-    const { freeFireIds } = req.body; // array of freeFireId strings
-
-    if (!Array.isArray(freeFireIds) || freeFireIds.length === 0) {
-      return res.json({ success: true, conflictingIds: [] });
-    }
-
-    const existingRegistrations = await TournamentRegistration.find({
-      tournamentId,
-      userId: { $ne: req.user.userId },
-      status: { $in: ['pending', 'images_uploaded', 'verified'] }
-    }).select('teamLeader.freeFireId teamMembers.freeFireId teamName');
-
-    const registeredIds = new Set();
-    for (const reg of existingRegistrations) {
-      if (reg.teamLeader?.freeFireId) registeredIds.add(reg.teamLeader.freeFireId.trim());
-      for (const m of reg.teamMembers || []) {
-        if (m.freeFireId) registeredIds.add(m.freeFireId.trim());
-      }
-    }
-
-    const conflictingIds = freeFireIds.filter(id => id && registeredIds.has(id.trim()));
-
-    res.json({ success: true, conflictingIds });
-  } catch (error) {
-    console.error('❌ FreeFire check-conflicts error:', error);
-    res.status(500).json({ success: false, conflictingIds: [] });
   }
 });
 
@@ -1100,6 +1134,23 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
+  
+  // Optional Substitute Validation
+  body('substitutePlayer')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitutePlayer.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitutePlayer.freeFireId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute Free Fire ID must be 3-30 characters')
+    .trim(),
+  
   body('whatsappNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
@@ -1157,11 +1208,16 @@ router.put('/admin/:registrationId', auth, [
     console.log('- Team Members Count:', registration.teamMembers.length);
     
     // Validate unique Free Fire IDs if updating team data
-    if (updateData.teamLeader || updateData.teamMembers) {
+    if (updateData.teamLeader || updateData.teamMembers || updateData.substitutePlayer) {
       const newTeamLeader = updateData.teamLeader || registration.teamLeader;
       const newTeamMembers = updateData.teamMembers || registration.teamMembers;
+      const newSubstitute = 'substitutePlayer' in updateData ? updateData.substitutePlayer : registration.substitutePlayer;
       
-      const allFreeFireIds = [newTeamLeader.freeFireId, ...newTeamMembers.map(m => m.freeFireId)];
+      const allFreeFireIds = [
+        newTeamLeader.freeFireId,
+        ...newTeamMembers.map(m => m.freeFireId),
+        ...(newSubstitute ? [newSubstitute.freeFireId] : [])  // ✅ Include substitute
+      ];
       const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
       
       if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
@@ -1205,6 +1261,17 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.whatsappNumber) {
       console.log('📝 Updating WhatsApp number:', updateData.whatsappNumber);
       registration.whatsappNumber = updateData.whatsappNumber;
+    }
+
+    // Handle substitutePlayer - can be set, updated, or removed (null)
+    if ('substitutePlayer' in updateData) {
+      if (updateData.substitutePlayer === null) {
+        console.log('📝 Removing substitute player');
+        registration.substitutePlayer = null;
+      } else {
+        console.log('📝 Updating substitute player:', updateData.substitutePlayer);
+        registration.substitutePlayer = updateData.substitutePlayer;
+      }
     }
 
     console.log('💾 Saving registration...');

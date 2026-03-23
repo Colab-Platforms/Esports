@@ -337,7 +337,7 @@ const TournamentCardProfessional = ({
                 {!isAuthenticated
                   ? "LOGIN TO JOIN"
                   : tournament?.status === "active"
-                    ? "JOIN SERVER"
+                    ? "JOIN SERVERrrr"
                     : "SERVER INACTIVE"}
               </button>
 

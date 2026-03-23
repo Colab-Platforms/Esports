@@ -149,6 +149,12 @@ const walletSlice = createSlice({
     },
     resetWallet: (state) => {
       return initialState;
+    },
+    updateWalletBalance: (state, action) => {
+      if (state.wallet) {
+        state.wallet.balance = action.payload.balance;
+        state.wallet.totalEarned = action.payload.totalEarned || state.wallet.totalEarned;
+      }
     }
   },
   extraReducers: (builder) => {
@@ -247,6 +253,6 @@ const walletSlice = createSlice({
   }
 });
 
-export const { clearWalletError, clearCurrentOrder, clearBalanceCheck, resetWallet } = walletSlice.actions;
+export const { clearWalletError, clearCurrentOrder, clearBalanceCheck, resetWallet, updateWalletBalance } = walletSlice.actions;
 
 export default walletSlice.reducer;

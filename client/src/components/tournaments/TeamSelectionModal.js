@@ -67,7 +67,6 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || '');
   const [memberEdits, setMemberEdits] = useState({});
   const [editingMemberId, setEditingMemberId] = useState(null);
-  const [conflictingIds, setConflictingIds] = useState(new Set());
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
   const gameType = tournament?.gameType;
@@ -113,45 +112,6 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     setMemberEdits({});
     setEditingMemberId(null);
   }, [selectedTeamId]);
-
-  // Check which members are already registered for this tournament
-  useEffect(() => {
-    const checkConflicts = async () => {
-      if (!selectedTeam || !tournament?._id) {
-        setConflictingIds(new Set());
-        return;
-      }
-
-      const gameIds = selectedTeam.members
-        ?.map(m => getGameInfo(m.userId, gameType)?.gameId)
-        .filter(Boolean);
-
-      if (!gameIds || gameIds.length === 0) return;
-
-      try {
-        let endpoint = '';
-        let body = {};
-        if (gameType === 'bgmi') {
-          endpoint = `/api/bgmi-registration/${tournament._id}/check-conflicts`;
-          body = { bgmiIds: gameIds };
-        } else if (gameType === 'freefire' || gameType === 'ff') {
-          endpoint = `/api/freefire-registration/${tournament._id}/check-conflicts`;
-          body = { freeFireIds: gameIds };
-        } else {
-          return;
-        }
-
-        const response = await axios.post(`${API_URL}${endpoint}`, body, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setConflictingIds(new Set(response.data?.conflictingIds || []));
-      } catch {
-        setConflictingIds(new Set());
-      }
-    };
-
-    checkConflicts();
-  }, [selectedTeam, tournament?._id, gameType, token, API_URL]);
 
   const fetchTeams = async (selectId = null) => {
     try {
@@ -213,7 +173,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     try {
       let response;
       if (isUpdating) {
-        // Update existing team
+             
         response = await axios.put(`${API_URL}/api/teams/${editingTeam._id}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -406,9 +366,6 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                       <span className="text-white text-sm font-medium">{member.userId.username}</span>
                                       {isLeader && (
                                         <span className="text-[10px] bg-gaming-gold/20 text-gaming-gold px-1.5 py-0.5 rounded font-bold">LEADER</span>
-                                      )}
-                                      {conflictingIds.has(info.gameId) && (
-                                        <span className="text-[10px] bg-red-500/20 border border-red-500/50 text-red-400 px-1.5 py-0.5 rounded font-bold">Already Registered</span>
                                       )}
                                     </div>
                                     {/* <button

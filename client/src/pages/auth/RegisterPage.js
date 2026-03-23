@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone, FiChevronDown } from 'react-icons/fi';
-import { SiCounterstrike } from 'react-icons/si';
-import { IoGameController } from 'react-icons/io5';
+import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import secureRequest from '../../utils/secureRequest';
 
@@ -16,6 +14,8 @@ import {
   selectAuthError,
   clearError 
 } from '../../store/slices/authSlice';
+
+import { updateWalletBalance } from '../../store/slices/walletSlice';
 
 const RegisterPage = () => {
   const dispatch = useDispatch();
@@ -29,11 +29,19 @@ const RegisterPage = () => {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showGameDropdown, setShowGameDropdown] = useState(false);
+  const [referralValidation, setReferralValidation] = useState({
+    isValidating: false,
+    isValid: null,
+    message: '',
+    referrerName: ''
+  });
+
+
 
   // Clear error when component mounts
   useEffect(() => {
@@ -47,6 +55,61 @@ const RegisterPage = () => {
     }
   }, [error]);
   
+
+  // Debounced referral code validation
+  useEffect(() => {
+    const validateReferralCode = async (code) => {
+      if (!code || code.length < 3) {
+        setReferralValidation({
+          isValidating: false,
+          isValid: null,
+          message: '',
+          referrerName: ''
+        });
+        return;
+      }
+
+      setReferralValidation(prev => ({ ...prev, isValidating: true }));
+
+      try {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+        const response = await fetch(`${API_URL}/api/auth/validate-referral/${code}`);
+        const data = await response.json();
+
+        if (data.success) {
+          setReferralValidation({
+            isValidating: false,
+            isValid: true,
+            message: `Valid referral code!`,
+            referrerName: data.data.referrerName
+          });
+        } else {
+          setReferralValidation({
+            isValidating: false,
+            isValid: false,
+            message: data.error?.message || 'Invalid referral code',
+            referrerName: ''
+          });
+        }
+      } catch (error) {
+        console.error('Referral validation error:', error);
+        setReferralValidation({
+          isValidating: false,
+          isValid: false,
+          message: 'Unable to validate referral code',
+          referrerName: ''
+        });
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (formData.referralCode) {
+        validateReferralCode(formData.referralCode);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.referralCode]);
 
   const handleChange = (e) => {
     setFormData({
@@ -91,6 +154,12 @@ const RegisterPage = () => {
         return false;
       }
 
+      // Check referral code validation if provided
+      if (formData.referralCode && referralValidation.isValid === false) {
+        toast.error('Please enter a valid referral code or leave it empty');
+        return false;
+      }
+
       return true;
     };
 
@@ -101,13 +170,23 @@ const RegisterPage = () => {
 
       dispatch(registerStart());
 
+      // Show warning if referral code is provided but invalid
+      if (formData.referralCode && referralValidation.isValid === false) {
+        toast.error('Invalid referral code will be ignored. Registration will continue without referral bonus.', {
+          duration: 4000
+        });
+      }
+
       try {
         const requestData = {
           username: formData.fullName, // Temporarily use fullName as username for production
           fullName: formData.fullName,
           email: formData.email,
           phone: formData.phone,
-          password: formData.password
+          password: formData.password,
+          referralCode: (formData.referralCode && referralValidation.isValid === true) 
+            ? formData.referralCode 
+            : undefined // Only send referral code if it's validated as valid
         };
 
         // Use secure request utility to hide sensitive data
@@ -115,8 +194,34 @@ const RegisterPage = () => {
 
         if (data.success) {
           dispatch(registerSuccess(data.data));
-          toast.success('Sign up successful! Welcome to the arena! 🎮');
-          navigate('/dashboard');
+          
+          // Check if welcome bonus was credited
+          if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
+            // Calculate total bonus amount (welcome + referral)
+            const totalBonusAmount = data.data.welcomeBonus.amount + (data.data.referralBonus?.received ? data.data.referralBonus.amount : 0);
+            
+            // Update wallet balance in Redux
+            dispatch(updateWalletBalance({
+              balance: totalBonusAmount,
+              totalEarned: totalBonusAmount
+            }));
+            
+            // Store welcome bonus data in localStorage for home page
+            localStorage.setItem('welcomeBonus', JSON.stringify({
+              amount: data.data.welcomeBonus.amount,
+              message: data.data.welcomeBonus.message,
+              userName: data.data.user.fullName,
+              referralBonus: data.data.referralBonus || null,
+              timestamp: Date.now()
+            }));
+            
+            toast.success('Registration successful! 🎮');
+            navigate('/');
+          } else {
+            // No welcome bonus, show regular success and redirect
+            toast.success('Sign up successful! Welcome to the arena! 🎮');
+            navigate('/');
+          }
         } else {
           dispatch(registerFailure(data.error));
         }
@@ -538,6 +643,75 @@ const RegisterPage = () => {
               </motion.div>
             )} */}
           </div>
+
+          {/* Referral Code Field (Optional) */}
+          <div>
+            <label htmlFor="referralCode" className="block text-sm font-medium text-gray-300 mb-2">
+              Referral Code (Optional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gaming-gold font-bold text-lg">🎁</span>
+              </div>
+              <input
+                id="referralCode"
+                name="referralCode"
+                type="text"
+                className={`appearance-none relative block w-full px-12 py-3 border placeholder-gray-400 text-white bg-gaming-charcoal rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 uppercase ${
+                  referralValidation.isValid === true 
+                    ? 'border-green-500 focus:ring-green-500' 
+                    : referralValidation.isValid === false 
+                    ? 'border-red-500 focus:ring-red-500' 
+                    : 'border-gaming-slate focus:ring-gaming-gold'
+                }`}
+                placeholder="Enter referral code (optional)"
+                value={formData.referralCode}
+                onChange={(e) => setFormData({...formData, referralCode: e.target.value.toUpperCase()})}
+                maxLength={8}
+              />
+              
+              {/* Validation Icon - Removed */}
+            </div>
+            
+            {/* Validation Message */}
+            {referralValidation.message && (
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-1 text-xs ${
+                  referralValidation.isValid === true 
+                    ? 'text-green-400' 
+                    : referralValidation.isValid === false 
+                    ? 'text-red-400' 
+                    : 'text-gray-400'
+                }`}
+              >
+                {referralValidation.isValid === true && '🎉 '}
+                {referralValidation.message}
+              </motion.p>
+            )}
+            
+            {/* Bonus Preview */}
+            {referralValidation.isValid === true && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg"
+              >
+                <p className="text-xs text-green-400 flex items-center">
+                  <span className="mr-1">🪙</span>
+                  You'll receive bonus coins after registration!
+                </p>
+              </motion.div>
+            )}
+            
+            {/* Default help text when no validation */}
+            {!referralValidation.message && (
+              <p className="mt-1 text-xs text-gray-500">
+                Have a referral code? Enter it to get bonus coins! 🪙
+              </p>
+            )}
+          </div>
            
           {/* Terms and  Conditions */}
           <div className="flex items-center">
@@ -652,6 +826,8 @@ const RegisterPage = () => {
           </div>
         </motion.form>
       </motion.div>
+
+
     </div>
   );
 };

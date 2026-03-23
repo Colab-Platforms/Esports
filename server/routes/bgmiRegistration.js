@@ -4,6 +4,7 @@ const TournamentRegistration = require('../models/TournamentRegistration');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
 
@@ -55,10 +56,10 @@ router.post('/:tournamentId/register', auth, [
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
   
-  // Team Members Validation (3-4 members: 3 required + 1 optional substitute)
+  // Team Members Validation (exactly 3 required members)
   body('teamMembers')
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 required + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members (plus leader = 4 total)'),
   body('teamMembers.*.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team member name must be 2-50 characters')
@@ -68,6 +69,21 @@ router.post('/:tournamentId/register', auth, [
     .withMessage('Team member BGMI ID must be 3-30 characters')
     .trim(),
 
+  // Optional Substitute Validation
+  body('substitute')
+    .optional()
+    .isObject()
+    .withMessage('Substitute must be an object'),
+  body('substitute.name')
+    .optional()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Substitute name must be 2-50 characters')
+    .trim(),
+  body('substitute.bgmiId')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Substitute BGMI ID must be 3-30 characters')
+    .trim(),
   
   // WhatsApp Number Validation
   body('whatsappNumber')
@@ -90,12 +106,13 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, whatsappNumber } = req.body;
+    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
 
     console.log('📝 Registration data received:', {
       teamName,
       teamLeader,
-      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId, isSubstitute: m.isSubstitute })),
+      teamMembers: teamMembers?.map(m => ({ name: m.name, bgmiId: m.bgmiId })),
+      substitute: substitute ? { name: substitute.name, bgmiId: substitute.bgmiId } : null,
       whatsappNumber
     });
 
@@ -153,8 +170,12 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    // Validate unique BGMI IDs within the team
-    const allBgmiIds = [teamLeader.bgmiId, ...teamMembers.map(m => m.bgmiId)];
+    // Validate unique BGMI IDs within the team (including substitute)
+    const allBgmiIds = [
+      teamLeader.bgmiId,
+      ...teamMembers.map(m => m.bgmiId),
+      ...(substitute ? [substitute.bgmiId] : [])
+    ];
     const uniqueBgmiIds = [...new Set(allBgmiIds)];
     if (allBgmiIds.length !== uniqueBgmiIds.length) {
       return res.status(400).json({
@@ -179,11 +200,12 @@ router.post('/:tournamentId/register', auth, [
 
     console.log(`🔍 BGMI conflict check: tournamentId=${tournamentId}, found ${existingRegistrations.length} other registrations`);
 
-    // Collect all new player IDs (leader + members)
+    // Collect all new player IDs (leader + members + substitute)
     const leaderBG = teamLeader.bgmiId?.trim();
     const newPlayerIds = [
       { bgmiId: leaderBG, name: teamLeader.name, role: 'Team Leader' },
-      ...teamMembers.map(m => ({ bgmiId: m.bgmiId?.trim(), name: m.name, role: 'Team Member' }))
+      ...teamMembers.map(m => ({ bgmiId: m.bgmiId?.trim(), name: m.name, role: 'Team Member' })),
+      ...(substitute ? [{ bgmiId: substitute.bgmiId?.trim(), name: substitute.name, role: 'Substitute' }] : [])
     ].filter(p => p.bgmiId); // skip empty IDs
 
     console.log(`🔍 New players to check:`, newPlayerIds.map(p => p.bgmiId));
@@ -193,7 +215,8 @@ router.post('/:tournamentId/register', auth, [
       const existingMemberBGs = existingReg.teamMembers
         .map(m => m.bgmiId?.trim())
         .filter(Boolean);
-      const allExistingBGs = [existingLeaderBG, ...existingMemberBGs].filter(Boolean);
+      const existingSubBG = existingReg.substitutePlayer?.bgmiId?.trim();
+      const allExistingBGs = [existingLeaderBG, ...existingMemberBGs, ...(existingSubBG ? [existingSubBG] : [])].filter(Boolean);
 
       for (const newPlayer of newPlayerIds) {
         if (allExistingBGs.includes(newPlayer.bgmiId)) {
@@ -229,12 +252,59 @@ router.post('/:tournamentId/register', auth, [
       userId: req.user.userId,
       teamName,
       teamLeader,
-      teamMembers,
+      teamMembers: teamMembers,
+      ...(substitute && { substitutePlayer: substitute }),
       whatsappNumber,
       status: 'pending'
     });
 
     await registration.save();
+
+    // Award 50 coins to all team members (leader + members + substitute)
+    try {
+      const allTeamMemberIds = [req.user.userId]; // Team leader
+      
+      // Find user IDs for team members by matching their BGMI IDs
+      if (teamMembers && teamMembers.length > 0) {
+        for (const member of teamMembers) {
+          if (member.bgmiId) {
+            const memberUser = await User.findOne({ 'gameIds.bgmi.uid': member.bgmiId });
+            if (memberUser) {
+              allTeamMemberIds.push(memberUser._id);
+            }
+          }
+        }
+      }
+
+      // Find user ID for substitute if exists
+      if (substitute && substitute.bgmiId) {
+        const substituteUser = await User.findOne({ 'gameIds.bgmi.uid': substitute.bgmiId });
+        if (substituteUser) {
+          allTeamMemberIds.push(substituteUser._id);
+        }
+      }
+
+      // Award 50 coins to each team member
+      for (const memberId of allTeamMemberIds) {
+        const memberWallet = await Wallet.findOne({ userId: memberId });
+        if (memberWallet) {
+          await memberWallet.addCoins(
+            50,
+            'earn',
+            'Tournament Registration Bonus',
+            {
+              source: 'tournament_registration',
+              referenceId: registration._id,
+              referenceModel: 'TournamentRegistration'
+            }
+          );
+          console.log(`✅ Awarded 50 coins to team member for tournament registration`);
+        }
+      }
+    } catch (coinError) {
+      console.error('⚠️ Failed to award registration coins:', coinError.message);
+      // Don't fail the registration if coin award fails
+    }
 
     // Send WhatsApp "Registration Successful" message
     try {
@@ -300,41 +370,6 @@ router.post('/:tournamentId/register', auth, [
         timestamp: new Date().toISOString()
       }
     });
-  }
-});
-
-// @route   POST /api/bgmi-registration/:tournamentId/check-conflicts
-// @desc    Pre-check which players are already registered for this tournament
-// @access  Private
-router.post('/:tournamentId/check-conflicts', auth, async (req, res) => {
-  try {
-    const { tournamentId } = req.params;
-    const { bgmiIds } = req.body; // array of bgmiId strings
-
-    if (!Array.isArray(bgmiIds) || bgmiIds.length === 0) {
-      return res.json({ success: true, conflictingIds: [] });
-    }
-
-    const existingRegistrations = await TournamentRegistration.find({
-      tournamentId,
-      userId: { $ne: req.user.userId },
-      status: { $in: ['pending', 'images_uploaded', 'verified'] }
-    }).select('teamLeader.bgmiId teamMembers.bgmiId teamName');
-
-    const registeredIds = new Set();
-    for (const reg of existingRegistrations) {
-      if (reg.teamLeader?.bgmiId) registeredIds.add(reg.teamLeader.bgmiId.trim());
-      for (const m of reg.teamMembers || []) {
-        if (m.bgmiId) registeredIds.add(m.bgmiId.trim());
-      }
-    }
-
-    const conflictingIds = bgmiIds.filter(id => id && registeredIds.has(id.trim()));
-
-    res.json({ success: true, conflictingIds });
-  } catch (error) {
-    console.error('❌ BGMI check-conflicts error:', error);
-    res.status(500).json({ success: false, conflictingIds: [] });
   }
 });
 
@@ -614,8 +649,6 @@ router.get('/admin/registrations', auth, [
   query('teamName').optional().isLength({ min: 1, max: 50 }),
   query('playerName').optional().isLength({ min: 1, max: 50 }),
   query('group').optional().isLength({ min: 1, max: 10 }),
-  query('startDate').optional().isISO8601(),
-  query('endDate').optional().isISO8601(),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
@@ -646,7 +679,7 @@ router.get('/admin/registrations', auth, [
       });
     }
 
-    const { status, tournamentId, teamName, playerName, group, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const { status, tournamentId, teamName, playerName, group, page = 1, limit = 20 } = req.query;
 
     // Build MongoDB query directly
     const query = {};
@@ -659,20 +692,6 @@ router.get('/admin/registrations', auth, [
         { 'teamLeader.name': new RegExp(playerName, 'i') },
         { 'teamMembers.name': new RegExp(playerName, 'i') }
       ];
-    }
-
-    // Add date range filtering
-    if (startDate || endDate) {
-      query.registeredAt = {};
-      if (startDate) {
-        query.registeredAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        // Add 1 day to endDate to include the entire end date
-        const endDateObj = new Date(endDate);
-        endDateObj.setDate(endDateObj.getDate() + 1);
-        query.registeredAt.$lt = endDateObj;
-      }
     }
 
     // Get registrations with pagination
@@ -1183,8 +1202,8 @@ router.put('/admin/:registrationId', auth, [
     .withMessage('Team leader phone must be a valid Indian number'),
   body('teamMembers')
     .optional()
-    .isArray({ min: 3, max: 4 })
-    .withMessage('Team must have 3-4 members (3 regular + 1 optional substitute)'),
+    .isArray({ min: 3, max: 3 })
+    .withMessage('Team must have exactly 3 members'),
   body('teamMembers.*.name')
     .optional()
     .isLength({ min: 2, max: 50 })
@@ -1195,6 +1214,9 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Team member BGMI ID must be 3-30 characters')
     .trim(),
+  body('substitutePlayer').optional().isObject().withMessage('Substitute must be an object'),
+  body('substitutePlayer.name').optional().isLength({ min: 2, max: 50 }).trim(),
+  body('substitutePlayer.bgmiId').optional().isLength({ min: 3, max: 30 }).trim(),
   body('whatsappNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
@@ -1288,41 +1310,13 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.teamMembers) {
       console.log('📝 Updating team members:', updateData.teamMembers.length, 'members');
       
-      // Count regular members (excluding substitute)
-      const regularMembers = updateData.teamMembers.filter(m => !m.isSubstitute);
-      const substituteMembers = updateData.teamMembers.filter(m => m.isSubstitute);
-      
-      // Validate: Must have exactly 3 regular members
-      if (regularMembers.length !== 3) {
+      // Validate: Must have exactly 3 team members
+      if (updateData.teamMembers.length !== 3) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have exactly 3 regular members (excluding substitute)',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Validate: Can have at most 1 substitute
-      if (substituteMembers.length > 1) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'TOO_MANY_SUBSTITUTES',
-            message: 'Team can have at most 1 substitute member',
-            timestamp: new Date().toISOString()
-          }
-        });
-      }
-      
-      // Total members should be 3 or 4
-      if (updateData.teamMembers.length < 3 || updateData.teamMembers.length > 4) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_TEAM_SIZE',
-            message: 'Team must have 3-4 members (3 regular + 1 optional substitute)',
+            message: 'Team must have exactly 3 members',
             timestamp: new Date().toISOString()
           }
         });
@@ -1334,6 +1328,17 @@ router.put('/admin/:registrationId', auth, [
     if (updateData.whatsappNumber) {
       console.log('📝 Updating WhatsApp number:', updateData.whatsappNumber);
       registration.whatsappNumber = updateData.whatsappNumber;
+    }
+
+    // Handle substitutePlayer - can be set, updated, or removed (null)
+    if ('substitutePlayer' in updateData) {
+      if (updateData.substitutePlayer === null) {
+        console.log('📝 Removing substitute player');
+        registration.substitutePlayer = null;
+      } else {
+        console.log('📝 Updating substitute player:', updateData.substitutePlayer);
+        registration.substitutePlayer = updateData.substitutePlayer;
+      }
     }
 
     console.log('💾 Saving registration...');

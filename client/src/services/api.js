@@ -44,13 +44,16 @@ class ApiService {
       try {
         const response = await fetch(url, config);
         
+        // Clone response to read body multiple times if needed
+        const responseClone = response.clone();
+        
         // Try to parse as JSON
         let data;
         try {
           data = await response.json();
         } catch (parseError) {
           // If JSON parsing fails, it might be HTML (404 page)
-          const text = await response.text();
+          const text = await responseClone.text();
           console.error('❌ Failed to parse response as JSON:', text.substring(0, 200));
           throw new Error(`Invalid response format. Status: ${response.status}`);
         }

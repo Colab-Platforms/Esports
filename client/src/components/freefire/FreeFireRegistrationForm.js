@@ -22,6 +22,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       phone: user?.phone || ''
     },
     teamMembers: [],
+    substitute: null,
     selectedLeaderIndex: null
   });
 
@@ -35,19 +36,30 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       return memberId.toString() !== currentUserId?.toString();
     });
 
-    const preFilled = otherMembers.map(m => {
+    // Separate regular members and substitute
+    const regularMembers = [];
+    let substituteData = null;
+
+    otherMembers.forEach(m => {
       const u = m.userId;
-      return {
+      const memberData = {
         name: u?.gameIds?.freefire?.ign || u?.freeFireIgnName || u?.username || '',
         freeFireId: u?.gameIds?.freefire?.uid || u?.freeFireUid || '',
         playerId: u?._id || ''
       };
+
+      if (m.isSubstitute) {
+        substituteData = memberData;
+      } else {
+        regularMembers.push(memberData);
+      }
     });
 
-    if (preFilled.length > 0) {
+    if (regularMembers.length > 0 || substituteData) {
       setFormData(prev => ({
         ...prev,
-        teamMembers: preFilled
+        teamMembers: regularMembers,
+        substitute: substituteData
       }));
     }
   }, [selectedTeam, user]);
@@ -97,19 +109,35 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
   // Add player from search
   const handleAddPlayerFromSearch = useCallback((player) => {
     setFormData(prev => {
-      // Check if player already added
-      const alreadyAdded = prev.teamMembers.some(m => m.name.toLowerCase() === player.name.toLowerCase());
-      if (alreadyAdded) {
+      // Check if player already added (in teamMembers or as substitute)
+      const alreadyInTeam = prev.teamMembers.some(m => m.name.toLowerCase() === player.name.toLowerCase());
+      const alreadyAsSubstitute = prev.substitute && prev.substitute.name.toLowerCase() === player.name.toLowerCase();
+      
+      if (alreadyInTeam || alreadyAsSubstitute) {
         setSnackbar({ message: 'Player already added', type: 'warning' });
         return prev;
       }
 
-      // Check team size limit (4 players including leader for Free Fire)
+      // If we have 3 members and no substitute, add as substitute
+      if (prev.teamMembers.length === 3 && !prev.substitute) {
+        setSnackbar({ message: `${player.name} added as substitute`, type: 'success' });
+        return {
+          ...prev,
+          substitute: {
+            name: player.name,
+            freeFireId: player.freeFireId,
+            playerId: player.playerId
+          }
+        };
+      }
+
+      // Check team size limit (3 regular members)
       if (prev.teamMembers.length >= 3) {
-        setSnackbar({ message: 'Team is full (4 players max)', type: 'warning' });
+        setSnackbar({ message: 'Team is full (3 members + 1 substitute max)', type: 'warning' });
         return prev;
       }
 
+      setSnackbar({ message: `${player.name} added to team`, type: 'success' });
       return {
         ...prev,
         teamMembers: [
@@ -122,7 +150,6 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
         ]
       };
     });
-    setSnackbar({ message: `${player.name} added to team`, type: 'success' });
   }, []);
 
   // Remove player from team
@@ -241,7 +268,8 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
 
       const teamMembersToValidate = [
         { name: actualTeamLeader.name, freeFireId: actualTeamLeader.freeFireId },
-        ...otherMembers
+        ...otherMembers,
+        ...(formData.substitute ? [{ name: formData.substitute.name, freeFireId: formData.substitute.freeFireId }] : [])  // ✅ Include substitute
       ];
 
       // Get API URL with smart detection
@@ -280,7 +308,12 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       const unregisteredMembers = [];
       validationResults.forEach((result, index) => {
         if (!result.data?.isRegistered) {
-          const memberName = index === 0 ? 'Team Leader' : `Team Member ${index}`;
+          let memberName = `Team Member ${index}`;
+          if (index === 0) {
+            memberName = 'Team Leader';
+          } else if (index === teamMembersToValidate.length - 1 && formData.substitute) {
+            memberName = 'Substitute';
+          }
           unregisteredMembers.push(`${memberName} (${teamMembersToValidate[index].name})`);
         }
       });
@@ -310,6 +343,12 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
           name: m.name,
           freeFireId: m.freeFireId
         })),
+        ...(formData.substitute && {
+          substitute: {
+            name: formData.substitute.name,
+            freeFireId: formData.substitute.freeFireId
+          }
+        }),
         whatsappNumber: formData.teamLeader.phone
       };
 
@@ -503,7 +542,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-gray-300">
-                👥 Team Members ({(hasFreeFireCredentials ? 1 : 0) + formData.teamMembers.length}/4)
+                👥 Team Members ({(hasFreeFireCredentials ? 1 : 0) + formData.teamMembers.length}{ formData.substitute ? '+1 SUB' : ''}/4-5)
               </label>
             </div>
 
@@ -607,6 +646,37 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                     </motion.div>
                   );
                 })}
+
+                {/* Substitute Member Display */}
+                {formData.substitute && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="rounded-lg p-3 flex items-center justify-between transition-all bg-gaming-charcoal border border-gaming-slate"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-orange-500 font-bold text-sm">🔄</span>
+                        <div>
+                          <h4 className="text-white font-medium text-sm">{formData.substitute.name}</h4>
+                          <p className="text-orange-500 text-xs">UID: {formData.substitute.freeFireId}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-orange-500/20 border border-orange-500/40 text-orange-500 text-xs font-semibold rounded shrink-0">
+                      SUBSTITUTE
+                    </span>
+                    <motion.button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, substitute: null }))}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/20 transition-colors ml-2"
+                    >
+                      Remove
+                    </motion.button>
+                  </motion.div>
+                )}
               </div>
             )}
           </div>

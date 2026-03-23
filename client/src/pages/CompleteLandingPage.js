@@ -16,6 +16,7 @@ import GameIcon from '../components/common/GameIcon';
 import OptimizedImage from '../components/common/OptimizedImage';
 import HeroImageSlider from '../components/common/HeroImageSlider';
 import BGMILiveStreamSection from '../components/bgmi/BGMILiveStreamSection';
+import WelcomeBonusModal from '../components/common/WelcomeBonusModal';
 import { getOptimizedImageUrl } from '../utils/lcpOptimization';
 
 const CompleteLandingPage = () => {
@@ -39,6 +40,10 @@ const CompleteLandingPage = () => {
   const [loading, setLoading] = useState(false); // Start as false, only show loading when actually fetching
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [autoPlay, setAutoPlay] = useState(true);
+  
+  // Welcome Bonus Modal State
+  const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
+  const [welcomeBonusData, setWelcomeBonusData] = useState(null);
   
   // Cache system for API data - Extended cache duration with localStorage persistence
   const [dataCache, setDataCache] = useState(new Map());
@@ -181,6 +186,33 @@ const CompleteLandingPage = () => {
       }
     }
   }, [location.pathname]); // Remove cacheTimestamps dependency to prevent infinite loop
+
+  // Check for welcome bonus data on page load
+  useEffect(() => {
+    const welcomeBonusData = localStorage.getItem('welcomeBonus');
+    if (welcomeBonusData) {
+      try {
+        const bonusData = JSON.parse(welcomeBonusData);
+        
+        // Check if the data is not too old (within 5 minutes)
+        const now = Date.now();
+        const dataAge = now - (bonusData.timestamp || 0);
+        const maxAge = 5 * 60 * 1000; // 5 minutes
+        
+        if (dataAge <= maxAge) {
+          setWelcomeBonusData(bonusData);
+          setShowWelcomeBonus(true);
+          
+          // Clear the data from localStorage after showing
+          localStorage.removeItem('welcomeBonus');
+        } else {
+          localStorage.removeItem('welcomeBonus');
+        }
+      } catch (error) {
+        localStorage.removeItem('welcomeBonus');
+      }
+    }
+  }, []); // Run only once on mount
 
   // Upcoming games data
   const upcomingGames = [
@@ -1331,11 +1363,10 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg font-gaming">Connect, compete, and conquer together</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             {[
               { icon: <img src={getCdnIcon('social', 'friends')} height={70} width={70} alt="Friends System" />, title: 'Friends System', desc: 'Add friends, track progress, compete together', features: ['Send requests', 'View profiles', 'Compare stats'], color: 'from-green-500 to-emerald-500' },
-              { icon: <img src={getCdnIcon('social', 'teams')} height={70} width={70} alt="Team Management" />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' },
-              { icon: <img src={getCdnIcon('social', 'challenges')} height={70} width={70} alt="Challenges" />, title: 'Challenges', desc: 'Challenge friends and prove your skills', features: ['1v1 challenges', 'Custom rules', 'Coming soon'], color: 'bg-gradient-to-b from-purple-500 to-pink-500' }
+              { icon: <img src={getCdnIcon('social', 'teams')} height={70} width={70} alt="Team Management" />, title: 'Team Management', desc: 'Create teams, invite members, dominate', features: ['Custom teams', 'Invite system', 'Team tournaments'], color: 'from-blue-500 to-cyan-500' }
             ].map((item, idx) => (
               <motion.div
                 key={item.title}
@@ -1823,6 +1854,15 @@ const CompleteLandingPage = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Welcome Bonus Modal */}
+      <WelcomeBonusModal
+        isOpen={showWelcomeBonus}
+        onClose={() => setShowWelcomeBonus(false)}
+        bonusAmount={welcomeBonusData?.amount || 100}
+        userName={welcomeBonusData?.userName || 'Player'}
+        referralBonus={welcomeBonusData?.referralBonus || null}
+      />
     </div>
   );
 };
