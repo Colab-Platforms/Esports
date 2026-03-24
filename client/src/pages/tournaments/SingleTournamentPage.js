@@ -119,25 +119,50 @@ const SingleTournamentPage = () => {
         });
     } else {
       // Fallback: Copy to clipboard
-      navigator.clipboard
-        .writeText(`${shareText}\n${tournamentUrl}`)
-        .then(() => {
-          notificationService.showCustomNotification(
-            "success",
-            "Link Copied!",
-            "Tournament link copied to clipboard",
-          );
-        })
-        .catch((error) => {
-          console.error("Failed to copy:", error);
-          notificationService.showCustomNotification(
-            "info",
-            "Share Tournament",
-            `Copy this link: ${tournamentUrl}`,
-          );
-        });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+          .writeText(`${shareText}\n${tournamentUrl}`)
+          .then(() => {
+            notificationService.showCustomNotification(
+              "success",
+              "Link Copied!",
+              "Tournament link copied to clipboard",
+            );
+          })
+          .catch((error) => {
+            console.error("Failed to copy:", error);
+            fallbackCopyToClipboard(`${shareText}\n${tournamentUrl}`);
+          });
+      } else {
+        fallbackCopyToClipboard(`${shareText}\n${tournamentUrl}`);
+      }
     }
   }, [tournament]);
+
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      notificationService.showCustomNotification(
+        "success",
+        "Link Copied!",
+        "Tournament link copied to clipboard",
+      );
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      notificationService.showCustomNotification(
+        "info",
+        "Share Tournament",
+        `Copy this link: ${text}`,
+      );
+    }
+    document.body.removeChild(textArea);
+  };
 
   const fetchRegisteredTeams = React.useCallback(async () => {
     try {

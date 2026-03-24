@@ -56,9 +56,36 @@ const ImageUploadPage = () => {
   };
 
   const copyToClipboard = (url) => {
-    navigator.clipboard.writeText(url);
-    setCopiedUrl(url);
-    setTimeout(() => setCopiedUrl(''), 2000);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          setCopiedUrl(url);
+          setTimeout(() => setCopiedUrl(''), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy:', err);
+          fallbackCopyToClipboard(url);
+        });
+    } else {
+      fallbackCopyToClipboard(url);
+    }
+  };
+
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopiedUrl(text);
+      setTimeout(() => setCopiedUrl(''), 2000);
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+    }
+    document.body.removeChild(textArea);
   };
 
   const deleteImage = (index) => {

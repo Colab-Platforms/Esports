@@ -57,9 +57,41 @@ const WalletPage = () => {
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(referralCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    // Check if Clipboard API is available
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(referralCode)
+        .then(() => {
+          setCopiedCode(true);
+          setTimeout(() => setCopiedCode(false), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy:', err);
+          // Fallback to old method
+          fallbackCopyToClipboard(referralCode);
+        });
+    } else {
+      // Fallback for older browsers or insecure contexts
+      fallbackCopyToClipboard(referralCode);
+    }
+  };
+
+  // Fallback copy method for browsers that don't support Clipboard API
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      alert('Failed to copy. Please try again.');
+    }
+    document.body.removeChild(textArea);
   };
 
   const handleShareCode = async () => {

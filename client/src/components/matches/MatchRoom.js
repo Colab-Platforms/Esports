@@ -75,11 +75,36 @@ const MatchRoom = ({ matchId }) => {
         credentialsText = `Room ID: ${match.roomId}\nPassword: ${match.roomPassword}`;
       }
       
-      navigator.clipboard.writeText(credentialsText).then(() => {
-        // You could show a toast notification here
-        alert('Credentials copied to clipboard!');
-      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(credentialsText)
+          .then(() => {
+            alert('Credentials copied to clipboard!');
+          })
+          .catch((err) => {
+            console.error('Failed to copy:', err);
+            fallbackCopyToClipboard(credentialsText);
+          });
+      } else {
+        fallbackCopyToClipboard(credentialsText);
+      }
     }
+  };
+
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert('Credentials copied to clipboard!');
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      alert('Failed to copy credentials');
+    }
+    document.body.removeChild(textArea);
   };
 
   const getGameIcon = (gameType) => {
