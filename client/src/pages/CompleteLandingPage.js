@@ -27,6 +27,7 @@ const CompleteLandingPage = () => {
   // All state declarations first
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
   const [cs2Leaderboard, setCs2Leaderboard] = useState([]);
+  const [freeFireLeaderboard, setFreeFireLeaderboard] = useState([]);
   const [latestBgmiScoreboard, setLatestBgmiScoreboard] = useState(null);
   const [stats, setStats] = useState({
     totalPlayers: '0',
@@ -308,6 +309,13 @@ const CompleteLandingPage = () => {
       setCs2Leaderboard(cachedCs2Data);
     }
 
+    // Load FreeFire leaderboard from cache
+    const cachedFFData = getCachedData('freefire-scoreboards');
+    if (cachedFFData) {
+      console.log('📦 Loaded FreeFire scoreboards from cache:', cachedFFData.scoreboards?.length || 0);
+      setFreeFireLeaderboard(cachedFFData.scoreboards || []);
+    }
+
     // Load BGMI scoreboards from cache
     const cachedBgmiData = getCachedData('bgmi-scoreboards');
     if (cachedBgmiData) {
@@ -492,6 +500,7 @@ const CompleteLandingPage = () => {
       // Fetch non-critical data in parallel (large, slow)
       await Promise.all([
         fetchLeaderboards(),
+        fetchFreeFireLeaderboard(),
         fetchBgmiScoreboards(),
         fetchTestimonials(),
         fetchServers()
@@ -566,6 +575,43 @@ const CompleteLandingPage = () => {
       
     } catch (error) {
       console.error('❌ Error fetching leaderboards:', error);
+    }
+  };
+
+  const fetchFreeFireLeaderboard = async () => {
+    try {
+      // Check cache first
+      const cachedFFData = getCachedData('freefire-scoreboards');
+      
+      if (cachedFFData) {
+        setFreeFireLeaderboard(cachedFFData.scoreboards || []);
+        console.log('📦 Using cached FreeFire scoreboards data');
+        return;
+      }
+
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      
+      console.log('🔍 Fetching FreeFire scoreboards...');
+      const response = await fetch(`${API_URL}/api/tournaments/freefire/scoreboards?limit=6`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.data.scoreboards) {
+        console.log('✅ FreeFire scoreboards:', data.data.scoreboards.length);
+        setFreeFireLeaderboard(data.data.scoreboards);
+        setCachedData('freefire-scoreboards', { scoreboards: data.data.scoreboards });
+      } else {
+        console.log('⚠️ No FreeFire scoreboards found');
+        setFreeFireLeaderboard([]);
+        setCachedData('freefire-scoreboards', { scoreboards: [] });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching FreeFire scoreboards:', error);
+      setFreeFireLeaderboard([]);
     }
   };
 
@@ -931,7 +977,7 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg font-gaming">Real-time rankings • Updated every match</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {/* BGMI Leaderboard - Gaming Console Style */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
@@ -1181,6 +1227,125 @@ const CompleteLandingPage = () => {
                   <Link
                     to="/leaderboard"
                     className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
+                  >
+                    View Full Leaderboard
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* FreeFire Leaderboard - Gaming Console Style */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              {/* Console Border Effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl filter blur-xl"></div>
+              
+              <div className="relative bg-gaming-charcoal border-2 border-yellow-500/30 rounded-2xl p-6 shadow-2xl">
+                {/* Console Header */}
+                <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-yellow-500/20">
+                  <div className="flex items-center space-x-3">
+                    <motion.div
+                      animate={{ rotate: [0, 360] }}
+                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
+                    >
+                      <GameIcon gameType="freefire" size="lg" />
+                    </motion.div>
+                    <div>
+                      <h3 className="text-2xl font-gaming font-bold text-white">Free Fire</h3>
+                      <p className="text-xs text-gray-400">Battle Royale</p>
+                    </div>
+                  </div>
+                  <Link to="/leaderboard" className="text-gaming-gold hover:text-gaming-accent text-sm font-bold flex items-center group">
+                    View All 
+                    <motion.div
+                      animate={{ x: [0, 5, 0] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      <FiArrowRight className="ml-1" />
+                    </motion.div>
+                  </Link>
+                </div>
+
+                {/* Leaderboard Entries */}
+                <div className="space-y-3">
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gaming-gold mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-sm">Loading tournaments...</p>
+                    </div>
+                  ) : freeFireLeaderboard.length > 0 ? (
+                    freeFireLeaderboard.map((scoreboard, idx) => (
+                      <motion.div
+                        key={scoreboard._id}
+                        initial={{ opacity: 0, x: -20 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: idx * 0.1 }}
+                        whileHover={{ scale: 1.02, x: 5 }}
+                        className="relative group cursor-pointer"
+                        onClick={() => window.open(scoreboard.imageUrl, '_blank')}
+                      >
+                        <div className="relative bg-gaming-dark/70 rounded-lg overflow-hidden border border-gray-700 group-hover:border-gaming-gold/50 transition-all backdrop-blur-sm">
+                          <div className="flex">
+                            {/* Image Section */}
+                            <div className="w-24 h-16 flex-shrink-0">
+                              <img
+                                src={getOptimizedImageUrl(scoreboard.imageUrl, 200, 80)}
+                                loading="lazy"
+                                alt={scoreboard.description}
+                                className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                              />
+                            </div>
+                            
+                            {/* Details Section */}
+                            <div className="flex-1 p-3 flex items-center justify-between">
+                              <div>
+                                <div className="font-bold text-white text-sm group-hover:text-gaming-gold transition-colors">
+                                  {scoreboard.tournament.name}
+                                </div>
+                                <div className="text-xs text-gray-400 flex items-center">
+                                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                                  {new Date(scoreboard.tournament.endDate).toLocaleDateString()}
+                                </div>
+                              </div>
+                              
+                              <div className="text-right">
+                                <div className="text-xs font-bold text-gaming-gold">
+                                  #{idx + 1}
+                                </div>
+                                <div className="text-xs text-gray-400">Latest</div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Hover Overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-500 text-black px-3 py-1 rounded-full text-xs font-bold">
+                              View Full Results
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-4xl mb-2">🏆</div>
+                      <p className="text-gray-400 text-sm">No tournament results yet</p>
+                      <p className="text-xs text-gray-500 mt-1">Results will appear here after tournaments</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Console Footer */}
+                <div className="mt-6 pt-4 border-t-2 border-yellow-500/20">
+                  <Link
+                    to="/leaderboard"
+                    className="block w-full text-center py-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 hover:from-yellow-500/20 hover:to-orange-500/20 border-2 border-yellow-500/30 rounded-lg text-yellow-400 font-bold transition-all"
                   >
                     View Full Leaderboard
                   </Link>
