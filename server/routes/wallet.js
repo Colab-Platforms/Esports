@@ -284,6 +284,51 @@ router.post('/daily-login', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/wallet/streak-status
+// @desc    Check if user can claim daily streak today
+// @access  Private
+router.get('/streak-status', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    let wallet = await Wallet.findOne({ userId });
+    if (!wallet) {
+      wallet = new Wallet({ userId });
+      await wallet.save();
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const alreadyClaimed = wallet.lastDailyLogin && wallet.lastDailyLogin >= today;
+
+    // Calculate what coins they'd earn (base 10, or from config)
+    let rewardAmount = 10;
+    try {
+      const { CoinConfig } = require('../models/CoinConfig');
+      const config = await CoinConfig.findOne({ key: 'daily_login_reward' });
+      if (config) rewardAmount = config.value;
+    } catch (e) { /* use default */ }
+
+    res.json({
+      success: true,
+      data: {
+        canClaim: !alreadyClaimed,
+        currentStreak: wallet.streak || 0,
+        coinsToEarn: rewardAmount,
+        lastClaimed: wallet.lastDailyLogin || null
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching streak status:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to fetch streak status' }
+    });
+  }
+});
+
 // @route   POST /api/wallet/deduct-coins
 // @desc    Deduct coins from wallet for store purchases
 // @access  Private

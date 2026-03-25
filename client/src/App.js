@@ -16,6 +16,10 @@ import { selectAuth } from './store/slices/authSlice';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import DailyStreakToast from './components/common/DailyStreakToast';
+
+// Hooks
+import useDailyStreak from './hooks/useDailyStreak';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -152,6 +156,7 @@ function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
   const location = useLocation();
+  const { showToast, streakData, claiming, handleClaim, handleClose } = useDailyStreak();
   
   // Check if splash has been shown before (only show once per session)
   const [showSplash, setShowSplash] = React.useState(() => {
@@ -252,6 +257,19 @@ function App() {
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
+
+      {/* Daily Streak Toast */}
+      {showToast && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <DailyStreakToast
+            streak={streakData.streak}
+            coins={streakData.coins}
+            claiming={claiming}
+            onClaim={handleClaim}
+            onClose={handleClose}
+          />
+        </div>
+      )}
       
       {/* Main Content */}
       <main className="flex-1">
