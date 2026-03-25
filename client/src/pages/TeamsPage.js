@@ -43,6 +43,8 @@ const TeamsPage = () => {
   const tabs = [
     { id: 'players', label: 'Find Players', icon: FiUsers },
     { id: 'friends', label: 'Friend Requests', icon: FiUserPlus },
+    { id: 'myFriends', label: 'My Friends', icon: FiUsers },
+    { id: 'requestedFriends', label: 'Requested Friends', icon: FiUserPlus },
     { id: 'teams', label: 'My Teams', icon: FiUsers }
   ];
 
@@ -62,6 +64,10 @@ const TeamsPage = () => {
       }
     } else if (activeTab === 'friends') {
       fetchFriendRequests();
+    } else if (activeTab === 'myFriends') {
+      fetchMyFriends();
+    } else if (activeTab === 'requestedFriends') {
+      fetchSentRequests();
     } else if (activeTab === 'teams') {
       fetchMyTeams();
       fetchTeamInvitations();
@@ -782,6 +788,136 @@ const TeamsPage = () => {
                   <div className="col-span-full text-center py-12">
                     <FiUserPlus className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                     <p className="text-gray-400">No friend requests</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* My Friends Tab */}
+        {activeTab === 'myFriends' && (
+          <div className="space-y-6">
+            {/* Refresh Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={fetchMyFriends}
+                disabled={loading}
+                className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh friends list"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12 text-gray-400">Loading friends...</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myFriends.map((friend) => (
+                  <motion.div
+                    key={friend._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="card-gaming p-6"
+                  >
+                    <div className="flex items-start space-x-4 mb-4">
+                      <UserAvatar user={friend} size="lg" />
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-white">{friend.username}</h3>
+                        <p className="text-sm text-gray-400">Level {friend.level || 1}</p>
+                        <p className="text-xs text-gray-500">{friend.rank || 'Unranked'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => navigate(`/player/${friend.username}`)}
+                        className="flex-1 flex items-center justify-center space-x-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      >
+                        <FiEye className="w-4 h-4" />
+                        <span className="text-sm font-medium">View</span>
+                      </button>
+                      <button
+                        onClick={() => handleActionWithLogin(unfriend, friend._id)}
+                        className="flex-1 flex items-center justify-center space-x-2 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                      >
+                        <FiUserMinus className="w-4 h-4" />
+                        <span className="text-sm font-medium">Remove</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+                {myFriends.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <FiUsers className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400">No friends yet. Start by finding players!</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Requested Friends Tab */}
+        {activeTab === 'requestedFriends' && (
+          <div className="space-y-6">
+            {/* Refresh Button */}
+            <div className="flex justify-end">
+              <button
+                onClick={fetchSentRequests}
+                disabled={loading}
+                className="px-4 py-2 bg-gaming-neon hover:bg-gaming-neon-blue text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh sent requests"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12 text-gray-400">Loading requests...</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sentRequests.map((request) => (
+                  <motion.div
+                    key={request._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="card-gaming p-6"
+                  >
+                    <div className="flex items-start space-x-4 mb-4">
+                      <UserAvatar user={request.recipient} size="lg" />
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-white">{request.recipient.username}</h3>
+                        <p className="text-sm text-gray-400">Level {request.recipient.level || 1}</p>
+                        <p className="text-xs text-gray-500">{request.recipient.rank || 'Unranked'}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => navigate(`/player/${request.recipient.username}`)}
+                        className="flex-1 flex items-center justify-center space-x-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      >
+                        <FiEye className="w-4 h-4" />
+                        <span className="text-sm font-medium">View</span>
+                      </button>
+                      <button
+                        onClick={() => handleActionWithLogin(cancelFriendRequest, request.recipient._id)}
+                        className="flex-1 flex items-center justify-center space-x-2 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
+                      >
+                        <FiX className="w-4 h-4" />
+                        <span className="text-sm font-medium">Cancel</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+                {sentRequests.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <FiUserPlus className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400">No pending friend requests</p>
                   </div>
                 )}
               </div>
