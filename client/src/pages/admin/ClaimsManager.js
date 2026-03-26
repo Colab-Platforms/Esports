@@ -87,7 +87,7 @@ const ClaimsManager = () => {
       claim.itemId?.category || 'N/A',
       claim.price,
       new Date(claim.createdAt).toLocaleString(),
-      claim.claimStatus
+      claim.status === 'cancelled' ? 'cancelled' : claim.claimStatus
     ]);
 
     const csvContent = [
@@ -105,30 +105,29 @@ const ClaimsManager = () => {
     toast.success('📥 CSV exported successfully');
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-amber-500/20 text-amber-400 border-amber-500/50';
-      case 'fulfilled':
-        return 'bg-green-500/20 text-green-400 border-green-500/50';
-      case 'failed':
-        return 'bg-red-500/20 text-red-400 border-red-500/50';
-      default:
-        return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
+  const getStatusColor = (status, claimStatus) => {
+    if (status === 'cancelled') return 'bg-orange-500/20 text-orange-400 border-orange-500/50';
+    switch (claimStatus) {
+      case 'pending':   return 'bg-amber-500/20 text-amber-400 border-amber-500/50';
+      case 'fulfilled': return 'bg-green-500/20 text-green-400 border-green-500/50';
+      case 'failed':    return 'bg-red-500/20 text-red-400 border-red-500/50';
+      default:          return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
     }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'pending':
-        return '⏳';
-      case 'fulfilled':
-        return '✅';
-      case 'failed':
-        return '❌';
-      default:
-        return '•';
+  const getStatusIcon = (status, claimStatus) => {
+    if (status === 'cancelled') return '🚫';
+    switch (claimStatus) {
+      case 'pending':   return '⏳';
+      case 'fulfilled': return '✅';
+      case 'failed':    return '❌';
+      default:          return '•';
     }
+  };
+
+  const getDisplayStatus = (claim) => {
+    if (claim.status === 'cancelled') return 'cancelled';
+    return claim.claimStatus;
   };
 
   return (
@@ -156,7 +155,7 @@ const ClaimsManager = () => {
 
         {/* Status Filter */}
         <div className="flex gap-3 mb-8">
-          {['all', 'pending', 'fulfilled', 'failed'].map(status => (
+          {['all', 'pending', 'fulfilled', 'failed', 'cancelled'].map(status => (
             <button
               key={status}
               onClick={() => {
@@ -240,12 +239,14 @@ const ClaimsManager = () => {
                           {new Date(claim.createdAt).toLocaleString()}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(claim.claimStatus)}`}>
-                            {getStatusIcon(claim.claimStatus)} {claim.claimStatus}
+                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(claim.status, claim.claimStatus)}`}>
+                            {getStatusIcon(claim.status, claim.claimStatus)} {getDisplayStatus(claim)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          {claim.claimStatus === 'pending' ? (
+                          {claim.status === 'cancelled' ? (
+                            <span className="text-orange-400 text-sm">Refunded</span>
+                          ) : claim.claimStatus === 'pending' ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -310,10 +311,30 @@ const ClaimsManager = () => {
                                       <p className="text-sm text-red-400">{claim.failureReason}</p>
                                     </div>
                                   )}
+                                  {claim.status === 'cancelled' && (
+                                    <>
+                                      <div>
+                                        <p className="text-xs text-theme-text-muted mb-1">Cancelled At</p>
+                                        <p className="text-sm text-orange-400">
+                                          {claim.cancelledAt ? new Date(claim.cancelledAt).toLocaleString() : '—'}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-theme-text-muted mb-1">Cancellation Reason</p>
+                                        <p className="text-sm text-orange-400">
+                                          {claim.cancellationReason || 'Cancelled by user'}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-theme-text-muted mb-1">Refund Status</p>
+                                        <p className="text-sm text-green-400">✅ {claim.price} coins refunded</p>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
 
-                                {/* Action Buttons */}
-                                {claim.claimStatus === 'pending' && (
+                                {/* Action Buttons — hide for cancelled orders */}
+                                {claim.claimStatus === 'pending' && claim.status !== 'cancelled' && (
                                   <div className="flex gap-3 pt-4 border-t border-theme-border">
                                     <button
                                       onClick={() => handleFulfill(claim._id)}

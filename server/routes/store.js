@@ -223,7 +223,10 @@ router.get('/admin/claims', auth, async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     let query = {};
-    if (status !== 'all') {
+    if (status === 'cancelled') {
+      // User-cancelled orders have order status = 'cancelled', not claimStatus
+      query.status = 'cancelled';
+    } else if (status !== 'all') {
       query.claimStatus = status;
     }
 
@@ -390,6 +393,110 @@ router.put('/admin/claims/:claimId/fail', auth, async (req, res) => {
         message: 'Failed to mark claim as failed',
         timestamp: new Date().toISOString()
       }
+    });
+  }
+});
+
+// @route   POST /api/store/orders/:orderId/cancel
+// @desc    Cancel an order within 5-hour window and refund coins
+// @access  Private
+router.post('/orders/:orderId/cancel', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'ORDER_NOT_FOUND', message: 'Order not found' }
+      });
+    }
+
+    // Must belong to requesting user
+    if (order.userId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Not your order' }
+      });
+    }
+
+    // Block if already cancelled or delivered/completed
+    if (order.status === 'cancelled' || order.status === 'refunded') {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'ALREADY_CANCELLED', message: 'Order is already cancelled' }
+      });
+    }
+
+    if (order.status === 'completed' || order.claimStatus === 'fulfilled') {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'ORDER_FULFILLED', message: 'Cannot cancel a fulfilled order' }
+      });
+    }
+
+    // Enforce 5-hour cancellation window
+    const CANCEL_WINDOW_MS = 5 * 60 * 60 * 1000;
+    const elapsed = Date.now() - new Date(order.createdAt).getTime();
+
+    if (elapsed > CANCEL_WINDOW_MS) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'CANCELLATION_WINDOW_EXPIRED',
+          message: 'Cancellation window of 5 hours has passed'
+        }
+      });
+    }
+
+    // Cancel the order
+    order.status = 'cancelled';
+    order.cancelledAt = new Date();
+    order.cancellationReason = reason || 'Cancelled by user';
+    await order.save();
+
+    // Refund coins immediately
+    let wallet = await Wallet.findOne({ userId });
+    if (!wallet) {
+      wallet = new Wallet({ userId });
+    }
+
+    await wallet.addCoins(
+      order.price,
+      'refund',
+      `Refund for cancelled order: ${order.itemName}`,
+      { source: 'order_cancellation', orderId: order._id }
+    );
+
+    // Restore stock if applicable
+    const StoreItem = require('../models/StoreItem');
+    const item = await StoreItem.findById(order.itemId);
+    if (item && item.stock !== -1) {
+      item.stock += 1;
+      await item.save();
+    }
+
+    console.log(`🔄 Order ${order._id} cancelled by user ${userId}, refunded ${order.price} coins`);
+
+    res.json({
+      success: true,
+      data: {
+        order,
+        refundedCoins: order.price,
+        newBalance: wallet.balance
+      },
+      message: `Order cancelled. ${order.price} coins refunded to your wallet.`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to cancel order' }
     });
   }
 });

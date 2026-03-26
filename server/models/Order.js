@@ -43,6 +43,14 @@ const orderSchema = new mongoose.Schema({
   failureReason: {
     type: String
   },
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  cancellationReason: {
+    type: String,
+    default: null
+  },
   metadata: {
     type: mongoose.Schema.Types.Mixed
   }
