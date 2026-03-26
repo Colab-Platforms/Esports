@@ -275,6 +275,7 @@ router.put('/admin/claims/:claimId/fulfill', auth, async (req, res) => {
   try {
     const { claimId } = req.params;
     const adminId = req.user.userId;
+    const Notification = require('../models/Notification');
 
     const claim = await Order.findById(claimId);
 
@@ -305,6 +306,21 @@ router.put('/admin/claims/:claimId/fulfill', auth, async (req, res) => {
     claim.fulfilledBy = adminId;
     claim.fulfilledAt = new Date();
     await claim.save();
+
+    // Create notification for user
+    const notification = new Notification({
+      user: claim.userId,
+      type: 'order_fulfilled',
+      title: 'Your ordered item is fulfilled successfully',
+      message: `Your order for "${claim.itemName}" has been fulfilled. Visit your orders page to collect it.`,
+      actionUrl: '/store/orders',
+      metadata: {
+        orderId: claim._id,
+        itemName: claim.itemName,
+        itemId: claim.itemId
+      }
+    });
+    await notification.save();
 
     res.json({
       success: true,

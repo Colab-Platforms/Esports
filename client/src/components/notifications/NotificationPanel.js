@@ -108,6 +108,8 @@ const NotificationPanel = () => {
     
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
+
+      console.log("jsdfjsdb:",notification.actionUrl)
     }
     
     setIsOpen(false);
@@ -135,6 +137,7 @@ const NotificationPanel = () => {
       case 'tournament': return '🎮';
       case 'match': return '⚔️';
       case 'achievement': return '🏆';
+      case 'order_fulfilled': return '📦';
       case 'system': return '⚙️';
       case 'security': return '🔒';
       default: return '📢';
@@ -242,7 +245,7 @@ const NotificationPanel = () => {
 
                 {/* Filter Tabs */}
                 <div className="flex flex-wrap gap-1">
-                  {['all', 'unread', 'tournament', 'match', 'system'].map((filter) => (
+                  {['all', 'unread', 'tournament', 'match', 'order_fulfilled', 'system'].map((filter) => (
                     <button
                       key={filter}
                       onClick={() => setFilterType(filter)}
@@ -252,7 +255,7 @@ const NotificationPanel = () => {
                           : 'text-gray-400 hover:text-white bg-gaming-dark'
                       }`}
                     >
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                      {filter === 'order_fulfilled' ? 'Orders' : filter.charAt(0).toUpperCase() + filter.slice(1)}
                     </button>
                   ))}
                 </div>

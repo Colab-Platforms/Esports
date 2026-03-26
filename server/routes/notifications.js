@@ -191,4 +191,97 @@ router.delete('/', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/notifications/migrate/fix-order-urls
+// @desc    Fix old order notification URLs
+// @access  Private
+router.put('/migrate/fix-order-urls', auth, async (req, res) => {
+  try {
+    // Update all order_fulfilled notifications with old URL to new URL
+    const result = await Notification.updateMany(
+      { 
+        type: 'order_fulfilled',
+        actionUrl: '/my-orders'
+      },
+      { 
+        actionUrl: '/store/orders'
+      }
+    );
+
+    res.json({
+      success: true,
+      message: `Updated ${result.modifiedCount} notifications`,
+      data: { modifiedCount: result.modifiedCount },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error migrating notifications:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to migrate notifications',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   PUT /api/notifications/:id/update-url
+// @desc    Update a specific notification's action URL
+// @access  Private
+router.put('/:id/update-url', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { actionUrl } = req.body;
+    const userId = req.user.userId;
+
+    if (!actionUrl) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'actionUrl is required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: id, user: userId },
+      { actionUrl },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Notification not found',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { notification },
+      message: 'Notification URL updated',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating notification URL:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to update notification URL',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
 module.exports = router;
