@@ -688,10 +688,28 @@ const SingleTournamentPage = () => {
             }),
             whatsappNumber: phoneNumber || user?.phone || "",
           };
-          await api.post(
+          const bgmiResponse = await api.post(
             `/api/bgmi-registration/${tournament._id}/register`,
             registrationData,
           );
+          const bgmiData = bgmiResponse.data || bgmiResponse;
+          console.log('🎮 BGMI registration response:', bgmiData);
+          if (bgmiData?.success === false) {
+            const err = bgmiData.error || {};
+            console.log('❌ Registration failed - error code:', err.code);
+            console.log('❌ Conflicting players:', err.conflictingPlayers);
+            if (err.code === 'PLAYER_ALREADY_REGISTERED') {
+              const playerLines = (err.conflictingPlayers || [])
+                .map(p => `• ${p.playerName} (UID: ${p.freeFireId || p.bgmiId}) in team: ${p.existingTeam}`)
+                .join('\n');
+              const msg = `These players are already registered:\n${playerLines}`;
+              console.log('❌ Showing conflict notification:', msg);
+              notificationService.showCustomNotification("error", "Registration Failed", msg);
+              setRegistering(false);
+              return;
+            }
+            throw new Error(err.message || 'Registration failed');
+          }
         } else if (gameType === "freefire" || gameType === "ff") {
           // Separate regular members and substitute
           const regularMembers = otherMembers.filter(m => !m.isSubstitute);
@@ -724,11 +742,29 @@ const SingleTournamentPage = () => {
             info: getInfo(m) 
           })));
           console.log('🔥 Substitute:', substituteMember ? { username: substituteMember.userId?.username, info: getInfo(substituteMember) } : null);
-          
-          await api.post(
+          console.log("testinggggggggggggggggggggggggggggggg")
+          const ffResponse = await api.post(
             `/api/freefire-registration/${tournament._id}/register`,
             registrationData,
           );
+          const ffData = ffResponse.data || ffResponse;
+          console.log('🔥 FreeFire registration response:', ffData);
+          if (ffData?.success === false) {
+            const err = ffData.error || {};
+            console.log('❌ Registration failed - error code:', err.code);
+            console.log('❌ Conflicting players:', err.conflictingPlayers);
+            if (err.code === 'PLAYER_ALREADY_REGISTERED') {
+              const playerLines = (err.conflictingPlayers || [])
+                .map(p => `• ${p.playerName} (UID: ${p.freeFireId || p.bgmiId}) in team: ${p.existingTeam}`)
+                .join('\n');
+              const msg = `These players are already registered:\n${playerLines}`;
+              console.log('❌ Showing conflict notification:', msg);
+              notificationService.showCustomNotification("error", "Registration Failed", msg);
+              setRegistering(false);
+              return;
+            }
+            throw new Error(err.message || 'Registration failed');
+          }
         } else if (gameType === "cs2") {
           const steamId =
             leaderInfo.gameId ||
@@ -777,6 +813,23 @@ const SingleTournamentPage = () => {
 
         handleRegistrationSuccess();
       } catch (error) {
+        console.log('❌ Registration catch error:', error);
+        
+        // Handle player conflict error (HTTP 400 with PLAYER_ALREADY_REGISTERED)
+        const errData = error.response?.data?.error;
+        console.log('❌ Registration catch error:', errData);
+
+        if (errData?.code === 'PLAYER_ALREADY_REGISTERED') {
+          const playerLines = (errData.conflictingPlayers || [])
+            .map(p => `<div style="margin-top:4px">• <b>${p.playerName}</b> (UID: ${p.freeFireId || p.bgmiId})<br>&nbsp;&nbsp;Team: <i>${p.existingTeam}</i></div>`)
+            .join('');
+          const msg = `<div style="margin-bottom:4px">Already registered players:</div>${playerLines}`;
+          console.log('❌ Conflict players:', errData.conflictingPlayers);
+          notificationService.showCustomNotification("error", "Registration Failed", msg);
+          setRegistering(false);
+          return;
+        }
+
         let errorMessage = "Registration failed. Please try again.";
         const details = error.response?.data?.error?.details;
         if (details && Array.isArray(details)) {

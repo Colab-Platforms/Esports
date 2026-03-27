@@ -82,7 +82,9 @@ class ApiService {
             url,
             method: config.method
           });
-          throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+          const err = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+          err.response = { status: response.status, data };
+          throw err;
         }
         
         return data;
