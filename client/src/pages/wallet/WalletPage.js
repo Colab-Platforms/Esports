@@ -10,6 +10,8 @@ import {
   FiCheck,
   FiShare2,
 } from "react-icons/fi";
+import { TbBrandCoinbase } from "react-icons/tb";
+
 import { selectAuth } from "../../store/slices/authSlice";
 import api from "../../services/api";
 
@@ -336,7 +338,7 @@ const WalletPage = () => {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-400 text-sm">Current Balance</h3>
-              <FiDollarSign className="text-gaming-gold w-6 h-6" />
+              <TbBrandCoinbase className="text-gaming-gold w-6 h-6" />
             </div>
             <p className="text-4xl font-bold text-white mb-2">
               {wallet?.balance || 0}

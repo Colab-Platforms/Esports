@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiUpload, FiX } from 'react-icons/fi';
 import api from '../../services/api';
 
 const StoreManagementPage = () => {
@@ -9,6 +9,9 @@ const StoreManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -50,7 +53,7 @@ const StoreManagementPage = () => {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/store');
+      const response = await api.get('/api/admin/coin/store');
       if (response.success) {
         setItems(response.data.items);
       }
@@ -63,6 +66,11 @@ const StoreManagementPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.image) {
+      alert('Please upload an image for this item.');
+      return;
+    }
 
     try {
       if (editingItem) {
@@ -82,6 +90,7 @@ const StoreManagementPage = () => {
       // Reset form
       setShowForm(false);
       setEditingItem(null);
+      setImagePreview('');
       setFormData({
         name: '',
         description: '',
@@ -101,6 +110,7 @@ const StoreManagementPage = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
+    setImagePreview(item.image || '');
     setFormData({
       name: item.name,
       description: item.description,
@@ -141,9 +151,35 @@ const StoreManagementPage = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setImagePreview(localUrl);
+
+    setImageUploading(true);
+    try {
+      const formPayload = new FormData();
+      formPayload.append('image', file);
+      const response = await api.post('/api/admin/coin/store/upload-image', formPayload);
+      if (response.success) {
+        setFormData(prev => ({ ...prev, image: response.data.url }));
+        setImagePreview(response.data.url);
+      }
+    } catch (error) {
+      alert('Image upload failed: ' + (error.message || 'Unknown error'));
+      setImagePreview(formData.image || '');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const handleCancel = () => {
     setShowForm(false);
     setEditingItem(null);
+    setImagePreview('');
     setFormData({
       name: '',
       description: '',
@@ -280,14 +316,41 @@ const StoreManagementPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Image URL</label>
+                <label className="block text-sm text-gray-400 mb-2">Image <span className="text-red-400">*</span></label>
+                {/* Preview */}
+                {imagePreview && (
+                  <div className="relative w-32 h-32 mb-3 rounded-lg overflow-hidden bg-gaming-charcoal border border-gaming-border">
+                    <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => { setImagePreview(''); setFormData(prev => ({ ...prev, image: '' })); }}
+                      className="absolute top-1 right-1 bg-red-500 rounded-full p-0.5 text-white"
+                    >
+                      <FiX className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
                 <input
-                  type="url"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  placeholder="https://example.com/image.png"
-                  className="w-full px-3 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={imageUploading}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-300 hover:border-gaming-gold transition-colors disabled:opacity-50 ${
+                    !formData.image ? 'border border-red-500/60 bg-gaming-charcoal' : 'border border-gaming-border bg-gaming-charcoal'
+                  }`}
+                >
+                  <FiUpload className="w-4 h-4" />
+                  <span className="text-sm">{imageUploading ? 'Uploading...' : imagePreview ? 'Change Image' : 'Upload Image'}</span>
+                </button>
+                {!formData.image && (
+                  <p className="text-xs text-red-400 mt-1">Image is required</p>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -311,7 +374,7 @@ const StoreManagementPage = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-gaming">
+                <button type="submit" className="btn-gaming" disabled={imageUploading}>
                   {editingItem ? 'Update Item' : 'Create Item'}
                 </button>
               </div>

@@ -37,6 +37,7 @@ const StorePage = () => {
   const [modalState, setModalState] = useState(null); // 'uid_missing' | 'confirm'
   const [playerID, setPlayerID] = useState('');
   const [claiming, setClaiming] = useState(false);
+  const [autoFill, setAutoFill] = useState(true);
 
   const [claims, setClaims] = useState([]);
   const [storeItems, setStoreItems] = useState([]);
@@ -82,8 +83,8 @@ const StorePage = () => {
   const handleClaimItem = (item) => {
     setSelectedItem(item);
     setPlayerID('');
+    setAutoFill(true);
 
-    // For game-specific items, auto-detect UID from profile
     if (item.game === 'bgmi' || item.game === 'freefire') {
       const uid = getUidFromProfile(userProfile, item.game);
       if (!uid) {
@@ -93,7 +94,7 @@ const StorePage = () => {
         setModalState('confirm');
       }
     } else {
-      // 'all' items — let user type their ID
+      setAutoFill(false);
       setModalState('confirm');
     }
   };
@@ -201,12 +202,28 @@ const StorePage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`bg-theme-bg-card border-2 rounded-lg p-6 transition-all ${
+                className={`bg-theme-bg-card border-2 rounded-lg overflow-hidden transition-all ${
                   item.featured
                     ? 'border-theme-accent shadow-lg shadow-theme-accent/20'
                     : 'border-theme-border hover:border-theme-accent/50'
                 }`}
               >
+                {/* Item Image */}
+                {item.image ? (
+                  <div className="h-44 bg-gaming-charcoal flex items-center justify-center overflow-hidden p-4">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-44 bg-gaming-charcoal flex items-center justify-center text-4xl text-gray-600">
+                    🛍️
+                  </div>
+                )}
+
+                <div className="p-6">
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {/* Game badge */}
@@ -257,8 +274,9 @@ const StorePage = () => {
                         : 'bg-theme-accent text-black hover:bg-theme-accent/80'
                     }`}
                   >
-                    Claim
+                    Buy Now
                   </button>
+                </div>
                 </div>
               </motion.div>
             ))}
@@ -323,16 +341,21 @@ const StorePage = () => {
 
               {/* Item summary */}
               <div className="bg-theme-bg-hover rounded-lg p-4 mb-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xl font-bold text-theme-text-primary">{selectedItem.name}</p>
-                    {selectedItem.game && GAME_BADGE[selectedItem.game] && (
-                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-bold rounded ${GAME_BADGE[selectedItem.game].color}`}>
-                        {GAME_BADGE[selectedItem.game].label}
-                      </span>
-                    )}
+                <div className="flex items-center gap-4">
+                  {selectedItem.image && (
+                    <img src={selectedItem.image} alt={selectedItem.name} className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                  )}
+                  <div className="flex-1 flex items-center justify-between">
+                    <div>
+                      <p className="text-xl font-bold text-theme-text-primary">{selectedItem.name}</p>
+                      {selectedItem.game && GAME_BADGE[selectedItem.game] && (
+                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-bold rounded ${GAME_BADGE[selectedItem.game].color}`}>
+                          {GAME_BADGE[selectedItem.game].label}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-2xl font-bold text-theme-accent">{selectedItem.price} CC</span>
                   </div>
-                  <span className="text-2xl font-bold text-theme-accent">{selectedItem.price} CC</span>
                 </div>
               </div>
 
@@ -370,27 +393,37 @@ const StorePage = () => {
                 <>
                   {/* UID field */}
                   <div className="mb-5">
-                    <label className="block text-theme-text-secondary text-sm mb-2">
-                      {selectedItem.game === 'bgmi' ? 'BGMI UID' : selectedItem.game === 'freefire' ? 'Free Fire UID' : 'Player ID (UID)'}
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-theme-text-secondary text-sm">
+                        {selectedItem.game === 'bgmi' ? 'BGMI UID' : selectedItem.game === 'freefire' ? 'Free Fire UID' : 'Player ID (UID)'}
+                      </label>
+                      {(selectedItem.game === 'bgmi' || selectedItem.game === 'freefire') && getUidFromProfile(userProfile, selectedItem.game) && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={autoFill}
+                            onChange={(e) => {
+                              setAutoFill(e.target.checked);
+                              setPlayerID(e.target.checked ? getUidFromProfile(userProfile, selectedItem.game) : '');
+                            }}
+                            className="w-4 h-4 accent-gaming-gold"
+                          />
+                          <span className="text-xs text-theme-text-muted">Auto-fill from profile</span>
+                        </label>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={playerID}
                       onChange={(e) => setPlayerID(e.target.value)}
-                      readOnly={selectedItem.game === 'bgmi' || selectedItem.game === 'freefire'}
-                      placeholder="Your in-game UID"
-                      className={`w-full px-4 py-2 border rounded-lg text-black focus:outline-none focus:border-theme-accent ${
-                        selectedItem.game === 'bgmi' || selectedItem.game === 'freefire'
-                          ? 'bg-theme-bg-hover/50 border-theme-border cursor-not-allowed opacity-80'
-                          : 'bg-theme-bg-hover border-theme-border'
+                      readOnly={autoFill && (selectedItem.game === 'bgmi' || selectedItem.game === 'freefire')}
+                      placeholder="Enter your in-game UID"
+                      className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-theme-accent ${
+                        autoFill && (selectedItem.game === 'bgmi' || selectedItem.game === 'freefire')
+                          ? 'bg-theme-bg-hover/50 border-theme-border text-theme-text-secondary cursor-not-allowed opacity-80'
+                          : 'bg-theme-bg-hover border-theme-border text-theme-text-primary'
                       }`}
                     />
-                    {(selectedItem.game === 'bgmi' || selectedItem.game === 'freefire') && (
-                      <p className="text-xs text-theme-text-muted mt-1 flex items-center gap-1">
-                        <FiCheck className="text-green-400 w-3 h-3" />
-                        Auto-filled from your profile
-                      </p>
-                    )}
                   </div>
 
                   {/* Insufficient balance warning */}

@@ -4,6 +4,7 @@ const { CoinConfig, TimeMultiplier } = require('../models/CoinConfig');
 const StoreItem = require('../models/StoreItem');
 const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
+const { uploadStoreItem } = require('../middleware/upload');
 
 // Test route to verify routing is working
 router.get('/test', auth, adminAuth, (req, res) => {
@@ -271,6 +272,39 @@ router.delete('/multiplier/:id', auth, adminAuth, async (req, res) => {
         message: 'Failed to remove multiplier',
         timestamp: new Date().toISOString()
       }
+    });
+  }
+});
+
+// @route   POST /api/admin/coin/store/upload-image
+// @desc    Upload store item image to Cloudinary
+// @access  Admin only
+router.post('/store/upload-image', auth, adminAuth, uploadStoreItem.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: { message: 'No image file provided' } });
+  }
+  res.json({
+    success: true,
+    data: { url: req.file.path },
+    message: 'Image uploaded successfully'
+  });
+});
+
+// @route   GET /api/admin/coin/store
+// @desc    Get all store items (including inactive) for admin
+// @access  Admin only
+router.get('/store', auth, adminAuth, async (req, res) => {
+  try {
+    const items = await StoreItem.find({}).sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      data: { items },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to fetch store items', timestamp: new Date().toISOString() }
     });
   }
 });

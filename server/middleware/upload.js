@@ -30,6 +30,20 @@ const teamLogoStorage = new CloudinaryStorage({
   }
 });
 
+// Configure Cloudinary storage for store items
+const storeItemStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'esports/store-items',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [
+      { width: 600, height: 600, crop: 'limit' },
+      { quality: 'auto:good' },
+      { fetch_format: 'auto' }
+    ]
+  }
+});
+
 // Multer upload instances
 const uploadAvatar = multer({
   storage: avatarStorage,
@@ -60,7 +74,20 @@ const uploadTeamLogo = multer({
   }
 });
 
+const uploadStoreItem = multer({
+  storage: storeItemStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
+
 module.exports = {
   uploadAvatar,
-  uploadTeamLogo
+  uploadTeamLogo,
+  uploadStoreItem
 };
