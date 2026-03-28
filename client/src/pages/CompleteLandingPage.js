@@ -217,11 +217,11 @@ const CompleteLandingPage = () => {
 
   // Upcoming games data
   const upcomingGames = [
-    { name: 'Valorant', gameType: 'valorant', status: 'Coming 2025', color: 'from-red-500 to-pink-500' },
+    { name: 'Valorant', gameType: 'valorant', status: 'Coming Soon', color: 'from-red-500 to-pink-500' },
     // { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
-    { name: 'Free Fire', gameType: 'freefire', status: 'Coming 2025', color: 'from-yellow-500 to-orange-500' },
+    { name: 'Free Fire', gameType: 'freefire', status: 'Coming Soon ', color: 'from-yellow-500 to-orange-500' },
     // { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
-    { name: 'Counter Strike 2', gameType: 'cs2', status: 'Coming 2026', color: 'from-green-500 to-blue-500' }
+    { name: 'Counter Strike 2', gameType: 'cs2', status: 'Coming Soon', color: 'from-green-500 to-blue-500' }
   ];
 
   // Initial data fetch on component mount - with cache checking

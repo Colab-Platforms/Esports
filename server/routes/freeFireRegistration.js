@@ -193,15 +193,16 @@ router.post('/:tournamentId/register', auth, [
     const newPlayerIds = [
       { freeFireId: leaderFF, name: teamLeader.name, role: 'Team Leader' },
       ...teamMembers.map(m => ({ freeFireId: m.freeFireId?.trim(), name: m.name, role: 'Team Member' })),
-      ...(substitute ? [{ freeFireId: substitute.freeFireId?.trim(), name: substitute.name, role: 'Substitute' }] : [])  // ✅ Include substitute
-    ].filter(p => p.freeFireId); // skip empty IDs
+      ...(substitute ? [{ freeFireId: substitute.freeFireId?.trim(), name: substitute.name, role: 'Substitute' }] : [])
+    ].filter(p => p.freeFireId);
 
     for (const existingReg of existingRegistrations) {
       const existingLeaderFF = existingReg.teamLeader.freeFireId?.trim();
       const existingMemberFFs = existingReg.teamMembers
         .map(m => m.freeFireId?.trim())
         .filter(Boolean);
-      const allExistingFFs = [existingLeaderFF, ...existingMemberFFs].filter(Boolean);
+      const existingSubFF = existingReg.substitutePlayer?.freeFireId?.trim();
+      const allExistingFFs = [existingLeaderFF, ...existingMemberFFs, ...(existingSubFF ? [existingSubFF] : [])].filter(Boolean);
 
       for (const newPlayer of newPlayerIds) {
         if (allExistingFFs.includes(newPlayer.freeFireId)) {

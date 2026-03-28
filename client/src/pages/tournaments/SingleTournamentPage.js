@@ -742,7 +742,7 @@ const SingleTournamentPage = () => {
             info: getInfo(m) 
           })));
           console.log('🔥 Substitute:', substituteMember ? { username: substituteMember.userId?.username, info: getInfo(substituteMember) } : null);
-          console.log("testinggggggggggggggggggggggggggggggg")
+          
           const ffResponse = await api.post(
             `/api/freefire-registration/${tournament._id}/register`,
             registrationData,
@@ -821,7 +821,7 @@ const SingleTournamentPage = () => {
 
         if (errData?.code === 'PLAYER_ALREADY_REGISTERED') {
           const playerLines = (errData.conflictingPlayers || [])
-            .map(p => `<div style="margin-top:4px">• <b>${p.playerName}</b> (UID: ${p.freeFireId || p.bgmiId})<br>&nbsp;&nbsp;Team: <i>${p.existingTeam}</i></div>`)
+            .map(p => `<div style="margin-top:4px">• <span style="color:#f97316;font-weight:600">${p.playerName}</span> (UID: ${p.freeFireId || p.bgmiId})<br>&nbsp;&nbsp;Team: <span style="color:#3b82f6;font-style:italic">${p.existingTeam}</span></div>`)
             .join('');
           const msg = `<div style="margin-bottom:4px">Already registered players:</div>${playerLines}`;
           console.log('❌ Conflict players:', errData.conflictingPlayers);
