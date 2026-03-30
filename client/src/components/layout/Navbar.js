@@ -95,6 +95,7 @@ const Navbar = () => {
     // { to: '/bgmi', label: 'BGMI' },
     { to: "/tournaments", label: "TOURNAMENTS" },
     { to: "/teams", label: "CONNECTIONS" },
+    { to: "/clans", label: "CLANS" },
     { to: "/leaderboard", label: "LEADERBOARD" },
     { to: "/store", label: "STORE" },
   ];

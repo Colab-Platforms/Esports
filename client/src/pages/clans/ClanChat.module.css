@@ -1,0 +1,645 @@
+/* ============================================================================
+   MAIN LAYOUT
+   ============================================================================ */
+
+.container {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  background: #0d0d1a;
+  color: #f0f0ff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* ============================================================================
+   SIDEBAR
+   ============================================================================ */
+
+.sidebar {
+  background: #13131f;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.clanPill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: 10px;
+  background: rgba(108, 92, 231, 0.1);
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clanPill:hover {
+  background: rgba(108, 92, 231, 0.18);
+}
+
+.clanAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #6c5ce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.clanName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f0ff;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberSection {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.sectionHeader {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #52526e;
+  padding: 14px 12px 6px;
+  text-transform: uppercase;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  margin: 0 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.memberRow:hover {
+  background: #22223a;
+}
+
+.memberAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.memberUsername {
+  font-size: 12px;
+  color: #9090b8;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberRoleBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   CHAT PANEL
+   ============================================================================ */
+
+.chatPanel {
+  display: flex;
+  flex-direction: column;
+  background: #17172a;
+  overflow: hidden;
+  position: relative;
+}
+
+.channelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 52px;
+  background: #13131f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.channelName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f0f0ff;
+  margin: 0;
+}
+
+.channelInfo {
+  font-size: 11px;
+  color: #52526e;
+  margin: 0;
+}
+
+.headerButtons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.headerButton {
+  width: 32px;
+  height: 32px;
+  background: #1e1e32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9090b8;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.headerButton:hover {
+  background: #22223a;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f0f0ff;
+}
+
+/* ============================================================================
+   MESSAGES
+   ============================================================================ */
+
+.messagesContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.messagesContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messagesContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messagesContainer::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.messagesContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.messageRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 3px 16px;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.messageRow:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.messageRow:last-child {
+  animation: messageIn 0.18s ease-out;
+}
+
+.messageAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.messageBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.messageHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.username {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.roleBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.timestamp {
+  font-size: 11px;
+  color: #52526e;
+  font-weight: 400;
+}
+
+.deliveryStatus {
+  font-size: 10px;
+  color: #52526e;
+}
+
+.sendingStatus {
+  font-size: 10px;
+  color: #52526e;
+  font-style: italic;
+}
+
+.retryButton {
+  font-size: 10px;
+  color: #e17055;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.retryButton:hover {
+  text-decoration: underline;
+}
+
+.messageText {
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+  margin: 0;
+  color: #d0d0e8;
+}
+
+.reactionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.reactionPill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #1e1e32;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #9090b8;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.reactionPill:hover {
+  background: #22223a;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Date separator */
+.dateSeparator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.dateLine {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #52526e;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: #1e1e32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   TYPING INDICATOR
+   ============================================================================ */
+
+@keyframes typingBounce {
+
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  40% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+.typingIndicator {
+  height: 28px;
+  padding: 0 16px;
+  font-size: 12px;
+  color: #9090b8;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.typingDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9090b8;
+  animation: typingBounce 1.2s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+   INPUT ROW
+   ============================================================================ */
+
+.muteBar {
+  padding: 6px 16px;
+  background: rgba(225, 112, 85, 0.1);
+  border-top: 1px solid rgba(225, 112, 85, 0.2);
+  font-size: 12px;
+  color: #e17055;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #13131f;
+  padding: 10px 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  background: #1e1e32;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #9090b8;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.iconButton:hover {
+  background: #22223a;
+  border-color: rgba(108, 92, 231, 0.4);
+  color: #6c5ce7;
+}
+
+/* Input wrapper provides the focus ring */
+.inputWrapper {
+  flex: 1;
+  background: #1a1a2e;
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 8px 14px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inputWrapper:focus-within {
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.12);
+}
+
+.textInput {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  padding: 0;
+  color: #f0f0ff;
+}
+
+.textInput::placeholder {
+  color: #52526e;
+}
+
+.textInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sendButton {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.sendButton:not(:disabled):hover {
+  box-shadow: 0 0 12px rgba(108, 92, 231, 0.5);
+}
+
+.sendButton:disabled {
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   NEW MESSAGES INDICATOR
+   ============================================================================ */
+
+.newMessagesIndicator {
+  position: absolute;
+  bottom: 90px;
+  right: 24px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #6c5ce7;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+}
+
+.newMessagesIndicator:hover {
+  background: #7d6ff0;
+  box-shadow: 0 6px 16px rgba(108, 92, 231, 0.5);
+}
+
+/* ============================================================================
+   LOADING / ERROR / EMPTY STATES
+   ============================================================================ */
+
+.loadingState,
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  color: #9090b8;
+  gap: 12px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: #52526e;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+.errorButton {
+  padding: 8px 20px;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.errorButton:hover {
+  background: #7d6ff0;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 80vw;
+    max-width: 280px;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .messageText {
+    font-size: 13px;
+  }
+
+  .pinnedPanel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 100;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.4);
+  }
+}
