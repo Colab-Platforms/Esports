@@ -28,7 +28,25 @@ const CoinConfigPage = () => {
       setLoading(true);
       const response = await api.get('/api/admin/coin/coin-config');
       if (response.success) {
-        setConfigs(response.data.configs);
+        let fetchedConfigs = response.data.configs;
+        
+        // Ensure core referral configs are always present in the UI
+        const essentialReferralConfigs = [
+          { key: 'referral_reward', description: 'Referral Reward (Referrer Gets)', category: 'referral', value: 50 },
+          { key: 'referee_referral_bonus', description: 'Referral Bonus (Referee Gets)', category: 'referral', value: 50 }
+        ];
+
+        essentialReferralConfigs.forEach(essential => {
+          if (!fetchedConfigs.find(c => c.key === essential.key)) {
+            fetchedConfigs.push({
+              ...essential,
+              _id: `temp_${essential.key}`,
+              isTemporary: true
+            });
+          }
+        });
+
+        setConfigs(fetchedConfigs);
       }
     } catch (error) {
       console.error('Error fetching configs:', error);
@@ -52,7 +70,12 @@ const CoinConfigPage = () => {
   const handleUpdateConfig = async (key, value) => {
     try {
       setSaving(key);
-      const response = await api.put(`/api/admin/coin/coin-config/${key}`, { value });
+      const config = configs.find(c => c.key === key);
+      const response = await api.put(`/api/admin/coin/coin-config/${key}`, { 
+        value,
+        description: config?.description,
+        category: config?.category
+      });
       if (response.success) {
         alert('Configuration updated successfully');
         fetchConfigs();
@@ -123,8 +146,8 @@ const CoinConfigPage = () => {
   const categoryLabels = {
     earning: '💰 Earning',
     tournament: '🏆 Tournament',
-    referral: '🎁 Referral',
-    bonus: '⭐ Bonus'
+    referral: '🎁 Referral Program',
+    bonus: '⭐ Extra Bonuses'
   };
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -202,8 +225,9 @@ const CoinConfigPage = () => {
                           min="0"
                           value={config.value}
                           onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                             const newConfigs = configs.map(c =>
-                              c._id === config._id ? { ...c, value: parseInt(e.target.value) } : c
+                              c.key === config.key ? { ...c, value: val } : c
                             );
                             setConfigs(newConfigs);
                           }}
