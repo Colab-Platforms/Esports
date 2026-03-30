@@ -575,56 +575,64 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         if (referral) {
           console.log(`✅ Found referral! Referrer ID: ${referral.userId}`);
           
+          // Get reward amounts from config
+          const { CoinConfig } = require('../models/CoinConfig');
+          const referrerConfig = await CoinConfig.findOne({ key: 'referral_reward' });
+          const refereeConfig = await CoinConfig.findOne({ key: 'referee_referral_bonus' });
+          const referrerRewardAmount = referrerConfig ? referrerConfig.value : 50;
+          const refereeRewardAmount = refereeConfig ? refereeConfig.value : 30; // Fallback to 30 as per original logic
+
           // Add to referred users
           referral.referredUsers.push({
             userId: user._id,
             status: 'completed',
-            coinsEarned: 30,
+            coinsEarned: refereeRewardAmount,
             completedAt: new Date()
           });
           referral.totalReferrals += 1;
           referral.successfulReferrals += 1;
-          referral.totalCoinsEarned += 50;
+          referral.totalCoinsEarned += referrerRewardAmount;
           await referral.save();
           console.log(`📝 Referral record updated`);
           
-          // Award 30 coins to new user
+          // Award coins to new user (Referee)
           let newUserWallet = await Wallet.findOne({ userId: user._id });
           if (!newUserWallet) {
             console.log(`💼 Creating new wallet for user: ${user.username}`);
             newUserWallet = new Wallet({ userId: user._id });
           }
           await newUserWallet.addCoins(
-            30,
+            refereeRewardAmount,
             'referral',
             'Referral bonus - Welcome gift',
             { source: 'referral' }
           );
           await newUserWallet.save();
-          console.log(`💰 Awarded 30 coins to new user: ${user.username}`);
+          console.log(`💰 Awarded ${refereeRewardAmount} coins to new user: ${user.username}`);
           
           // Update user to mark referral bonus as received
           user.referralBonusReceived = true;
           user.referralBonusDate = new Date();
           user.referralCode = referralCode.toUpperCase();
+          user.referralBonusAmount = refereeRewardAmount; // Track amount received
           await user.save();
           
-          // Award 50 coins to referrer
+          // Award coins to referrer
           let referrerWallet = await Wallet.findOne({ userId: referral.userId });
           if (!referrerWallet) {
             console.log(`💼 Creating new wallet for referrer`);
             referrerWallet = new Wallet({ userId: referral.userId });
           }
           await referrerWallet.addCoins(
-            50,
+            referrerRewardAmount,
             'referral',
             `Referral bonus - ${user.username} joined`,
             { source: 'referral' }
           );
           await referrerWallet.save();
-          console.log(`💰 Awarded 50 coins to referrer`);
+          console.log(`💰 Awarded ${referrerRewardAmount} coins to referrer`);
           
-          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+30 coins), Referrer: (+50 coins)`);
+          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+${refereeRewardAmount} coins), Referrer: (+${referrerRewardAmount} coins)`);
         } else {
           console.log(`⚠️ Invalid referral code: ${referralCode}`);
         }
@@ -677,7 +685,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         },
         referralBonus: {
           received: user.referralBonusReceived || false,
-          amount: user.referralBonusReceived ? 30 : 0,
+          amount: user.referralBonusAmount || 0,
           referralCode: user.referralCode || null
         }
       },

@@ -180,9 +180,10 @@ router.post('/complete', auth, async (req, res) => {
       });
     }
 
-    // Get referral reward from config
-    const config = await CoinConfig.findOne({ key: 'referral_reward' });
-    const rewardAmount = config ? config.value : 50;
+    const referrerConfig = await CoinConfig.findOne({ key: 'referral_reward' });
+    const refereeConfig = await CoinConfig.findOne({ key: 'referee_referral_bonus' });
+    const referrerRewardAmount = referrerConfig ? referrerConfig.value : 50;
+    const refereeRewardAmount = refereeConfig ? refereeConfig.value : 50;
 
     // Update referral status
     const referredUser = referral.referredUsers.find(
@@ -191,30 +192,44 @@ router.post('/complete', auth, async (req, res) => {
 
     if (referredUser) {
       referredUser.status = 'completed';
-      referredUser.coinsEarned = rewardAmount;
+      referredUser.coinsEarned = referrerRewardAmount;
       referredUser.completedAt = new Date();
       referral.successfulReferrals += 1;
-      referral.totalCoinsEarned += rewardAmount;
+      referral.totalCoinsEarned += referrerRewardAmount;
       await referral.save();
 
       // Reward coins to referrer
-      let wallet = await Wallet.findOne({ userId: referral.userId });
-      if (!wallet) {
-        wallet = new Wallet({ userId: referral.userId });
+      let referrerWallet = await Wallet.findOne({ userId: referral.userId });
+      if (!referrerWallet) {
+        referrerWallet = new Wallet({ userId: referral.userId });
       }
 
-      await wallet.addCoins(
-        rewardAmount,
+      await referrerWallet.addCoins(
+        referrerRewardAmount,
         'referral',
-        'Referral Bonus',
+        'Referral Bonus (Referrer)',
         { source: 'referral', referredUserId: userId }
+      );
+
+      // Reward coins to referee
+      let refereeWallet = await Wallet.findOne({ userId: userId });
+      if (!refereeWallet) {
+        refereeWallet = new Wallet({ userId: userId });
+      }
+
+      await refereeWallet.addCoins(
+        refereeRewardAmount,
+        'referral',
+        'Referral Bonus (Referee)',
+        { source: 'referral', referrerId: referral.userId }
       );
 
       res.json({
         success: true,
         message: 'Referral completed successfully',
         data: {
-          coinsRewarded: rewardAmount
+          referrerReward: referrerRewardAmount,
+          refereeReward: refereeRewardAmount
         }
       });
     }

@@ -114,7 +114,8 @@ router.post('/coin-config/init', auth, adminAuth, async (req, res) => {
       { key: 'welcome_bonus', value: 100, description: 'Welcome bonus for new users', category: 'bonus' },
       { key: 'tournament_win_reward', value: 100, description: 'Reward for winning tournament', category: 'tournament' },
       { key: 'tournament_participation', value: 20, description: 'Reward for participating in tournament', category: 'tournament' },
-      { key: 'referral_reward', value: 50, description: 'Reward for successful referral', category: 'referral' },
+      { key: 'referral_reward', value: 50, description: 'Reward for successful referral (Referrer)', category: 'referral' },
+      { key: 'referee_referral_bonus', value: 50, description: 'Bonus for using a referral code (Referee)', category: 'referral' },
       { key: 'profile_complete_bonus', value: 25, description: 'Bonus for completing profile', category: 'bonus' },
       { key: 'first_tournament_bonus', value: 30, description: 'Bonus for first tournament registration', category: 'bonus' }
     ];

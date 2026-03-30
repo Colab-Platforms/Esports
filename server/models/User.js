@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.authProvider || this.authProvider === 'local';
     },
     unique: true,
@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
   },
   passwordHash: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.authProvider || this.authProvider === 'local';
     },
     minlength: [6, 'Password must be at least 6 characters']
@@ -284,6 +284,10 @@ const userSchema = new mongoose.Schema({
   referralCode: {
     type: String,
     default: null
+  },
+  referralBonusAmount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true,
