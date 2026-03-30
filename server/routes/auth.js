@@ -115,14 +115,12 @@ router.get('/validate-referral/:code', async (req, res) => {
       });
     }
 
-    const Referral = require('../models/Referral');
-
-    // Find referral code in Referral model
-    const referral = await Referral.findOne({ 
+    // Find user with this referral code
+    const referrer = await User.findOne({ 
       referralCode: code.toUpperCase() 
-    }).populate('userId', 'fullName username');
+    }).select('fullName username referralCode');
 
-    if (!referral) {
+    if (!referrer) {
       return res.status(404).json({
         success: false,
         error: {
@@ -136,8 +134,8 @@ router.get('/validate-referral/:code', async (req, res) => {
       success: true,
       data: {
         isValid: true,
-        referrerName: referral.userId.fullName || referral.userId.username,
-        referralCode: referral.referralCode
+        referrerName: referrer.fullName || referrer.username,
+        referralCode: referrer.referralCode
       }
     });
 
@@ -1221,15 +1219,6 @@ router.get('/google/callback', (req, res, next) => {
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       const redirectUrl = `${CLIENT_URL}/auth/success?token=${token}&provider=google`;
       console.log('🔄 Redirecting to:', redirectUrl);
-      
-      // Set secure cookie as backup (optional)
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-      
       res.redirect(redirectUrl);
       
     } catch (error) {
@@ -1340,7 +1329,7 @@ router.get('/steam/return',
       // Generate JWT token
       const token = generateToken(req.user._id, false);
       
-      // Redirect to frontend with token
+      // Redirect to frontend with token-1
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=steam`);
       
@@ -1353,3 +1342,4 @@ router.get('/steam/return',
 );
 
 module.exports = router;
+

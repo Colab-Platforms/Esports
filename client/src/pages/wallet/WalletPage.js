@@ -338,7 +338,11 @@ const WalletPage = () => {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-400 text-sm">Current Balance</h3>
-              <TbBrandCoinbase className="text-gaming-gold w-6 h-6" />
+              <div className="flex items-center">
+                <TbBrandCoinbase className="text-gaming-gold w-6 h-6" />
+                <TbBrandCoinbase className="text-gaming-gold w-6 h-4 mt-1" />
+              </div>
+              
             </div>
             <p className="text-4xl font-bold text-white mb-2">
               {wallet?.balance || 0}
