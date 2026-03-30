@@ -136,7 +136,7 @@ const Navbar = () => {
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/coin-config", label: "Coin Config" },
         { to: "/admin/store", label: "Store Items" },
-        { to: "/admin/winner-rewards", label: " Winner Rewards" },
+        // { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
     }
 
