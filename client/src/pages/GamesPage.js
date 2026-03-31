@@ -203,8 +203,8 @@ const GamesPage = () => {
         if (name.includes('valorant') || id.includes('valorant')) {
             return 'valorant';
         }
-        if (name.includes('Free Fire') || name.includes('freefire') || id.includes('ff')) {
-            return 'ff';
+        if (name.includes('free fire') || name.includes('freefire') || id.includes('ff') || id.includes('freefire')) {
+            return 'freefire';
         }
         if (name.includes('mobile legends') || name.includes('ml') || id.includes('ml')) {
             return 'ml';

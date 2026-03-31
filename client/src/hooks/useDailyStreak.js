@@ -30,8 +30,18 @@ const useDailyStreak = () => {
           streak: data.data.currentStreak,
           coins: data.data.coinsToEarn
         });
-        // Small delay so it doesn't pop instantly on page load
-        setTimeout(() => setShowToast(true), 1500);
+        // If welcome bonus modal might be showing (new signup), wait longer
+        // welcomeBonus key is set on signup and removed after modal shows
+        const welcomeBonusRaw = localStorage.getItem('welcomeBonus');
+        let isNewSignup = false;
+        if (welcomeBonusRaw) {
+          try {
+            const { timestamp } = JSON.parse(welcomeBonusRaw);
+            isNewSignup = Date.now() - timestamp < 5 * 60 * 1000; // within 5 mins
+          } catch (e) { /* ignore */ }
+        }
+        const delay = isNewSignup ? 5000 : 1500;
+        setTimeout(() => setShowToast(true), delay);
       }
     } catch (err) {
       // Silently fail — don't break the page

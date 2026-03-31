@@ -65,7 +65,7 @@ export const gameAssets = {
     hero: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1920&h=1080&fit=crop&crop=center',
     thumbnail: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=300&fit=crop&crop=center',
     icon: '🔥', // Keep emoji as fallback
-    cdnIcon: '', // No specific CDN icon for Free Fire yet
+    cdnIcon: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/66fdaaad-5750-4895-a5ee-ecd301571f47_1_-Photoroom.png?v=1774943820', // No specific CDN icon for Free Fire yet
     color: '#FF8C00',
     gradient: 'from-orange-600 to-yellow-500',
     category: 'mobile',

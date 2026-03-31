@@ -19,6 +19,8 @@ const GameIcon = ({
     '2xl': 'text-3xl w-16 h-16'
   };
 
+  console.log("this is game icon", gameInfo.cdnIcon)
+
   // Use CDN icon if available and style is 'icon' or 'cdn'
   if ((style === 'icon' || style === 'cdn') && gameInfo.cdnIcon) {
     return (
