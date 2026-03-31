@@ -180,8 +180,8 @@ router.post('/complete', auth, async (req, res) => {
       });
     }
 
-    const referrerConfig = await CoinConfig.findOne({ key: 'referral_reward' });
-    const refereeConfig = await CoinConfig.findOne({ key: 'referee_referral_bonus' });
+    const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
+    const refereeConfig = await CoinConfig.findOne({ key: 'referee_reward' });
     const referrerRewardAmount = referrerConfig ? referrerConfig.value : 50;
     const refereeRewardAmount = refereeConfig ? refereeConfig.value : 50;
 

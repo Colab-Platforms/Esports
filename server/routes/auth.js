@@ -13,7 +13,7 @@ const router = express.Router();
 const decodeSensitiveData = (req, res, next) => {
   if (req.body && typeof req.body === 'object') {
     const sensitiveFields = ['password', 'confirmPassword', 'currentPassword', 'newPassword'];
-    
+
     sensitiveFields.forEach(field => {
       if (req.body[field] && req.body[`${field}_encoded`]) {
         try {
@@ -46,9 +46,9 @@ router.get('/test', (req, res) => {
     message: 'Auth routes working!',
     timestamp: new Date().toISOString(),
     googleOAuth: {
-      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && 
-                     process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' && 
-                     process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'),
+      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET &&
+        process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' &&
+        process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'),
       clientId: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set',
       serverUrl: process.env.SERVER_URL || 'http://localhost:5001',
@@ -68,16 +68,16 @@ router.get('/test-email', async (req, res) => {
     console.log('  - EMAIL_PASS:', process.env.EMAIL_PASS ? `Set (${process.env.EMAIL_PASS.length} chars)` : 'Not set');
     console.log('  - EMAIL_HOST:', process.env.EMAIL_HOST || 'Not set');
     console.log('  - EMAIL_PORT:', process.env.EMAIL_PORT || 'Not set');
-    
+
     // Test sending email
     const testResult = await emailService.sendPasswordResetEmail(
       'test@example.com',
       'test-token-12345',
       'TestUser'
     );
-    
+
     console.log('📧 Test Result:', testResult);
-    
+
     res.json({
       success: true,
       message: 'Email test completed',
@@ -104,7 +104,7 @@ router.get('/test-email', async (req, res) => {
 router.get('/validate-referral/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    
+
     if (!code || code.length < 3) {
       return res.status(400).json({
         success: false,
@@ -116,8 +116,8 @@ router.get('/validate-referral/:code', async (req, res) => {
     }
 
     // Find user with this referral code
-    const referrer = await User.findOne({ 
-      referralCode: code.toUpperCase() 
+    const referrer = await User.findOne({
+      referralCode: code.toUpperCase()
     }).select('fullName username referralCode');
 
     if (!referrer) {
@@ -157,7 +157,7 @@ router.get('/validate-referral/:code', async (req, res) => {
 router.post('/forgot-password', async (req, res) => {
   try {
     console.log('📧 Forgot password request:', req.body);
-    
+
     const { email } = req.body;
 
     if (!email) {
@@ -185,13 +185,13 @@ router.post('/forgot-password', async (req, res) => {
 
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase() });
-    
+
     console.log('🔍 Forgot password request for:', email);
     console.log('🔍 User found:', !!user);
     if (user) {
       console.log('🔍 User details:', user.username, user.email);
     }
-    
+
     // Always return success to prevent email enumeration
     if (!user) {
       console.log('❌ User not found for email:', email);
@@ -216,8 +216,8 @@ router.post('/forgot-password', async (req, res) => {
 
     // Send password reset email (don't wait for it - send in background)
     emailService.sendPasswordResetEmail(
-      email, 
-      resetToken, 
+      email,
+      resetToken,
       user.username
     ).catch(error => {
       console.error('❌ Background email send failed:', error.message);
@@ -304,7 +304,7 @@ router.get('/verify-reset-token/:token', async (req, res) => {
 router.post('/reset-password', decodeSensitiveData, async (req, res) => {
   try {
     console.log('🔐 Password reset request');
-    
+
     const { token, password } = req.body;
 
     if (!token || !password) {
@@ -381,7 +381,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
   try {
     console.log('📝 Registration attempt:', req.body);
     console.log('🎁 Referral code received:', req.body.referralCode);
-    
+
     const { username, fullName, email, phone, password, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid, gameIds, referralCode } = req.body;
 
     // Basic validation - fullName, email, phone, and password are required
@@ -440,7 +440,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9_]/g, '')
         .substring(0, 20); // Limit to 20 chars
-      
+
       // Add random 4-digit number for uniqueness
       const randomNum = Math.floor(1000 + Math.random() * 9000);
       return `${baseUsername}_${randomNum}`;
@@ -453,7 +453,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
 
     // Check if user already exists
     console.log('🔍 Checking for existing user...');
-    
+
     const existingUser = await User.findOne({
       $or: [
         { email: email.toLowerCase() },
@@ -466,7 +466,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       let field = 'phone';
       if (existingUser.email === email.toLowerCase()) field = 'email';
       if (existingUser.phone === phone) field = 'phone';
-      
+
       return res.status(400).json({
         success: false,
         error: {
@@ -506,7 +506,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       userData.bgmiUid = bgmiUid || '';
       console.log('🎮 BGMI data added:', { ign: bgmiIgnName, uid: bgmiUid });
     }
-    
+
     if (freeFireIgnName || freeFireUid) {
       userData.gameIds.freefire = {
         ign: freeFireIgnName || '',
@@ -517,7 +517,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       userData.freeFireUid = freeFireUid || '';
       console.log('🔥 Free Fire data added:', { ign: freeFireIgnName, uid: freeFireUid });
     }
-    
+
     if (gameIds && gameIds.steam) {
       userData.gameIds.steam = gameIds.steam;
       console.log('🎮 Steam ID added:', gameIds.steam);
@@ -535,11 +535,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     try {
       const Wallet = require('../models/Wallet');
       const { CoinConfig } = require('../models/CoinConfig');
-      
+
       // Get welcome bonus amount from config, default to 100 coins
       const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
       welcomeBonusAmount = config ? config.value : 100; // Default 100 coins
-      
+
       // Create wallet and add welcome bonus
       let wallet = new Wallet({ userId: user._id });
       await wallet.addCoins(
@@ -549,12 +549,12 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         { source: 'registration' }
       );
       await wallet.save();
-      
+
       // Update user to mark welcome bonus as received
       user.welcomeBonusReceived = true;
       user.welcomeBonusDate = new Date();
       await user.save();
-      
+
       welcomeBonusSuccess = true;
       console.log(`🎁 Welcome bonus of ${welcomeBonusAmount} coins credited to user:`, user.username);
     } catch (coinError) {
@@ -563,60 +563,62 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     }
 
     // Handle referral code if provided
+    let appliedRefereeReward = 0;
     if (referralCode) {
       console.log(`🎁 Processing referral code: ${referralCode}`);
       try {
         const Referral = require('../models/Referral');
         const Wallet = require('../models/Wallet');
-        
+
         console.log(`🔍 Looking for referral code: ${referralCode.toUpperCase()}`);
         const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
-        
+
         if (referral) {
           console.log(`✅ Found referral! Referrer ID: ${referral.userId}`);
-          
-          // Get reward amounts from config
+
+          // Fetch reward amounts from CoinConfig (fallback to defaults)
           const { CoinConfig } = require('../models/CoinConfig');
-          const referrerConfig = await CoinConfig.findOne({ key: 'referral_reward' });
-          const refereeConfig = await CoinConfig.findOne({ key: 'referee_referral_bonus' });
-          const referrerRewardAmount = referrerConfig ? referrerConfig.value : 50;
-          const refereeRewardAmount = refereeConfig ? refereeConfig.value : 30; // Fallback to 30 as per original logic
+          const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
+          const refereeConfig = await CoinConfig.findOne({ key: 'referee_reward' });
+          const referrerReward = referrerConfig ? referrerConfig.value : 200;
+          const refereeReward = refereeConfig ? refereeConfig.value : 100;
+          appliedRefereeReward = refereeReward;
 
           // Add to referred users
           referral.referredUsers.push({
             userId: user._id,
             status: 'completed',
-            coinsEarned: refereeRewardAmount,
+            coinsEarned: referrerReward,
             completedAt: new Date()
           });
           referral.totalReferrals += 1;
           referral.successfulReferrals += 1;
-          referral.totalCoinsEarned += referrerRewardAmount;
+          referral.totalCoinsEarned += referrerReward;
           await referral.save();
           console.log(`📝 Referral record updated`);
-          
-          // Award coins to new user (Referee)
+
+          // Award coins to new user (referee)
           let newUserWallet = await Wallet.findOne({ userId: user._id });
           if (!newUserWallet) {
             console.log(`💼 Creating new wallet for user: ${user.username}`);
             newUserWallet = new Wallet({ userId: user._id });
           }
           await newUserWallet.addCoins(
-            refereeRewardAmount,
+            refereeReward,
             'referral',
             'Referral bonus - Welcome gift',
             { source: 'referral' }
           );
           await newUserWallet.save();
-          console.log(`💰 Awarded ${refereeRewardAmount} coins to new user: ${user.username}`);
-          
+          console.log(`💰 Awarded ${refereeReward} coins to new user: ${user.username}`);
+
           // Update user to mark referral bonus as received
           user.referralBonusReceived = true;
           user.referralBonusDate = new Date();
           user.referralCode = referralCode.toUpperCase();
-          user.referralBonusAmount = refereeRewardAmount; // Track amount received
+          user.referralBonusAmount = refereeReward; // Track amount received
           await user.save();
-          
+
           // Award coins to referrer
           let referrerWallet = await Wallet.findOne({ userId: referral.userId });
           if (!referrerWallet) {
@@ -624,15 +626,15 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
             referrerWallet = new Wallet({ userId: referral.userId });
           }
           await referrerWallet.addCoins(
-            referrerRewardAmount,
+            referrerReward,
             'referral',
             `Referral bonus - ${user.username} joined`,
             { source: 'referral' }
           );
           await referrerWallet.save();
-          console.log(`💰 Awarded ${referrerRewardAmount} coins to referrer`);
-          
-          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+${refereeRewardAmount} coins), Referrer: (+${referrerRewardAmount} coins)`);
+          console.log(`💰 Awarded ${referrerReward} coins to referrer`);
+
+          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+${refereeReward} coins), Referrer: (+${referrerReward} coins)`);
         } else {
           console.log(`⚠️ Invalid referral code: ${referralCode}`);
         }
@@ -685,7 +687,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         },
         referralBonus: {
           received: user.referralBonusReceived || false,
-          amount: user.referralBonusAmount || 0,
+          amount: user.referralBonusReceived ? appliedRefereeReward : 0,
           referralCode: user.referralCode || null
         }
       },
@@ -705,7 +707,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    
+
     // Handle specific MongoDB errors
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
@@ -718,7 +720,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         }
       });
     }
-    
+
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(err => err.message);
@@ -731,7 +733,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         }
       });
     }
-    
+
     res.status(500).json({
       success: false,
       error: {
@@ -758,7 +760,7 @@ router.post('/login', decodeSensitiveData, [
   try {
     console.log('🔐 Login attempt received');
     console.log('📧 Identifier:', req.body.identifier);
-    
+
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -797,7 +799,7 @@ router.post('/login', decodeSensitiveData, [
         }
       });
     }
-    
+
     console.log('✅ User found:', user.username);
 
     // Check if account is active
@@ -816,7 +818,7 @@ router.post('/login', decodeSensitiveData, [
     console.log('🔐 Verifying password for user:', user.username);
     const isPasswordValid = await user.comparePassword(password);
     console.log('🔐 Password valid:', isPasswordValid);
-    
+
     if (!isPasswordValid) {
       console.log('❌ Invalid password for user:', user.username);
       return res.status(401).json({
@@ -828,7 +830,7 @@ router.post('/login', decodeSensitiveData, [
         }
       });
     }
-    
+
     console.log('✅ Login successful for user:', user.username);
 
     // Update login streak
@@ -889,7 +891,7 @@ router.post('/login', decodeSensitiveData, [
 router.get('/profile', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-passwordHash');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -926,7 +928,7 @@ router.get('/profile', auth, async (req, res) => {
 router.put('/profile', auth, async (req, res) => {
   try {
     console.log('📝 Profile update request:', req.body);
-    
+
     const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid } = req.body;
     const user = await User.findById(req.user.userId);
 
@@ -954,7 +956,7 @@ router.put('/profile', auth, async (req, res) => {
           }
         });
       }
-      
+
       const existingUser = await User.findOne({ username });
       if (existingUser) {
         return res.status(400).json({
@@ -977,64 +979,64 @@ router.put('/profile', auth, async (req, res) => {
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (phone !== undefined) user.phone = phone;
-    
+
     // Update game IDs with new structure
     if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
-      
+
       // Convert old string format to new object format
       if (typeof user.gameIds.bgmi === 'string') {
         const oldBgmiId = user.gameIds.bgmi;
         user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
         console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
       }
-      
+
       if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
         user.gameIds.bgmi = { ign: '', uid: '' };
       }
-      
+
       user.gameIds.bgmi.ign = bgmiIgnName !== undefined ? bgmiIgnName : (user.gameIds.bgmi.ign || '');
       user.gameIds.bgmi.uid = bgmiUid !== undefined ? bgmiUid : (user.gameIds.bgmi.uid || '');
-      
+
       // Mark nested object as modified for Mongoose
       user.markModified('gameIds.bgmi');
-      
+
       // Also update legacy fields for backward compatibility
       user.bgmiIgnName = user.gameIds.bgmi.ign;
       user.bgmiUid = user.gameIds.bgmi.uid;
-      
+
       console.log('🎮 BGMI data updated:', user.gameIds.bgmi);
       console.log('🎮 Legacy fields updated:', { bgmiIgnName: user.bgmiIgnName, bgmiUid: user.bgmiUid });
     }
-    
+
     if (freeFireIgnName !== undefined || freeFireUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
-      
+
       // Convert old string format to new object format
       if (typeof user.gameIds.freefire === 'string') {
         const oldFreefireId = user.gameIds.freefire;
         user.gameIds.freefire = { ign: '', uid: oldFreefireId };
         console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
       }
-      
+
       if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
         user.gameIds.freefire = { ign: '', uid: '' };
       }
-      
+
       user.gameIds.freefire.ign = freeFireIgnName !== undefined ? freeFireIgnName : (user.gameIds.freefire.ign || '');
       user.gameIds.freefire.uid = freeFireUid !== undefined ? freeFireUid : (user.gameIds.freefire.uid || '');
-      
+
       // Mark nested object as modified for Mongoose
       user.markModified('gameIds.freefire');
-      
+
       // Also update legacy fields for backward compatibility
       user.freeFireIgnName = user.gameIds.freefire.ign;
       user.freeFireUid = user.gameIds.freefire.uid;
-      
+
       console.log('🔥 Free Fire data updated:', user.gameIds.freefire);
       console.log('🔥 Legacy fields updated:', { freeFireIgnName: user.freeFireIgnName, freeFireUid: user.freeFireUid });
     }
-    
+
     // Update social accounts
     if (socialAccounts !== undefined) {
       user.socialAccounts = {
@@ -1048,11 +1050,11 @@ router.put('/profile', auth, async (req, res) => {
     // Update game IDs - Handle steam and other games
     if (gameIds !== undefined) {
       if (!user.gameIds) user.gameIds = {};
-      
+
       if (gameIds.steam !== undefined) {
         user.gameIds.steam = gameIds.steam;
       }
-      
+
       // Handle bgmi if passed as object in gameIds
       if (gameIds.bgmi !== undefined) {
         // Convert old string format to new object format
@@ -1061,7 +1063,7 @@ router.put('/profile', auth, async (req, res) => {
           user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
           console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
         }
-        
+
         if (typeof gameIds.bgmi === 'object') {
           if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
             user.gameIds.bgmi = { ign: '', uid: '' };
@@ -1070,17 +1072,17 @@ router.put('/profile', auth, async (req, res) => {
             ign: gameIds.bgmi.ign || user.gameIds.bgmi?.ign || '',
             uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
           };
-          
+
           // Mark nested object as modified for Mongoose
           user.markModified('gameIds.bgmi');
-          
+
           user.bgmiIgnName = user.gameIds.bgmi.ign;
           user.bgmiUid = user.gameIds.bgmi.uid;
-          
+
           console.log('🎮 BGMI updated via gameIds:', user.gameIds.bgmi);
         }
       }
-      
+
       // Handle freefire if passed as object in gameIds
       if (gameIds.freefire !== undefined) {
         // Convert old string format to new object format
@@ -1089,7 +1091,7 @@ router.put('/profile', auth, async (req, res) => {
           user.gameIds.freefire = { ign: '', uid: oldFreefireId };
           console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
         }
-        
+
         if (typeof gameIds.freefire === 'object') {
           if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
             user.gameIds.freefire = { ign: '', uid: '' };
@@ -1098,13 +1100,13 @@ router.put('/profile', auth, async (req, res) => {
             ign: gameIds.freefire.ign || user.gameIds.freefire?.ign || '',
             uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
           };
-          
+
           // Mark nested object as modified for Mongoose
           user.markModified('gameIds.freefire');
-          
+
           user.freeFireIgnName = user.gameIds.freefire.ign;
           user.freeFireUid = user.gameIds.freefire.uid;
-          
+
           console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
         }
       }
@@ -1187,7 +1189,7 @@ router.get('/google', (req, res, next) => {
       }
     });
   }
-  
+
   passport.authenticate('google', {
     scope: ['profile', 'email']
   })(req, res, next);
@@ -1202,7 +1204,7 @@ router.get('/google/callback', (req, res, next) => {
     const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
     return res.redirect(`${CLIENT_URL}/auth/error?message=Google OAuth not configured`);
   }
-  
+
   passport.authenticate('google', { session: false }, async (err, user, info) => {
     try {
       if (err) {
@@ -1210,25 +1212,25 @@ router.get('/google/callback', (req, res, next) => {
         const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
         return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
       }
-      
+
       if (!user) {
         console.error('❌ Google OAuth: No user returned');
         const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
         return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
       }
-      
+
       console.log('✅ Google OAuth user authenticated:', user.username);
-      
+
       // Generate JWT token
       const token = generateToken(user._id, false);
       console.log('🔑 JWT token generated for user:', user._id);
-      
+
       // Redirect to frontend with token
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       const redirectUrl = `${CLIENT_URL}/auth/success?token=${token}&provider=google`;
       console.log('🔄 Redirecting to:', redirectUrl);
       res.redirect(redirectUrl);
-      
+
     } catch (error) {
       console.error('❌ Google OAuth callback error:', error);
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
@@ -1243,7 +1245,7 @@ router.get('/google/callback', (req, res, next) => {
 router.put('/change-password', auth, decodeSensitiveData, async (req, res) => {
   try {
     console.log('🔐 Password change request for user:', req.user.userId);
-    
+
     const { currentPassword, newPassword } = req.body;
 
     // Validation
@@ -1336,11 +1338,11 @@ router.get('/steam/return',
     try {
       // Generate JWT token
       const token = generateToken(req.user._id, false);
-      
+
       // Redirect to frontend with token-1
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
       res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=steam`);
-      
+
     } catch (error) {
       console.error('Steam OAuth callback error:', error);
       const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';

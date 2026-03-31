@@ -32,8 +32,8 @@ const CoinConfigPage = () => {
         
         // Ensure core referral configs are always present in the UI
         const essentialReferralConfigs = [
-          { key: 'referral_reward', description: 'Referral Reward (Referrer Gets)', category: 'referral', value: 50 },
-          { key: 'referee_referral_bonus', description: 'Referral Bonus (Referee Gets)', category: 'referral', value: 50 }
+          { key: 'referrer_reward', description: 'Referral Reward (Referrer Gets)', category: 'referral', value: 200 },
+          { key: 'referee_reward', description: 'Referral Bonus (Referee Gets)', category: 'referral', value: 100 }
         ];
 
         essentialReferralConfigs.forEach(essential => {

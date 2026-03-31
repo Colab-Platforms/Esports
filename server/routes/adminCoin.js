@@ -54,7 +54,9 @@ router.put('/coin-config/:key', auth, adminAuth, async (req, res) => {
     const { key } = req.params;
     const { value, description, category } = req.body;
 
-    if (value === undefined || value < 0) {
+    const parsedValue = parseInt(value, 10);
+
+    if (value === undefined || isNaN(parsedValue) || parsedValue < 0) {
       return res.status(400).json({
         success: false,
         error: {
@@ -114,8 +116,8 @@ router.post('/coin-config/init', auth, adminAuth, async (req, res) => {
       { key: 'welcome_bonus', value: 100, description: 'Welcome bonus for new users', category: 'bonus' },
       { key: 'tournament_win_reward', value: 100, description: 'Reward for winning tournament', category: 'tournament' },
       { key: 'tournament_participation', value: 20, description: 'Reward for participating in tournament', category: 'tournament' },
-      { key: 'referral_reward', value: 50, description: 'Reward for successful referral (Referrer)', category: 'referral' },
-      { key: 'referee_referral_bonus', value: 50, description: 'Bonus for using a referral code (Referee)', category: 'referral' },
+      { key: 'referrer_reward', value: 200, description: 'Coins awarded to referrer when someone joins using their code', category: 'referral' },
+      { key: 'referee_reward', value: 100, description: 'Coins awarded to new user (referee) who signs up using a referral code', category: 'referral' },
       { key: 'profile_complete_bonus', value: 25, description: 'Bonus for completing profile', category: 'bonus' },
       { key: 'first_tournament_bonus', value: 30, description: 'Bonus for first tournament registration', category: 'bonus' }
     ];
@@ -317,7 +319,7 @@ router.post('/store', auth, adminAuth, async (req, res) => {
   try {
     console.log('📦 Creating store item:', req.body);
     console.log('👤 User:', req.user?.username, 'Role:', req.user?.role);
-    
+
     const { name, description, image, price, category, game, stock, metadata } = req.body;
 
     if (!name || !description || price === undefined) {
@@ -344,7 +346,7 @@ router.post('/store', auth, adminAuth, async (req, res) => {
     });
 
     await item.save();
-    
+
     console.log('✅ Store item created:', item._id);
 
     res.status(201).json({
