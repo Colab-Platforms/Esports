@@ -115,12 +115,13 @@ router.get('/validate-referral/:code', async (req, res) => {
       });
     }
 
-    // Find user with this referral code
-    const referrer = await User.findOne({
+    // Find referral record with this code (codes live in the Referral collection)
+    const Referral = require('../models/Referral');
+    const referral = await Referral.findOne({
       referralCode: code.toUpperCase()
-    }).select('fullName username referralCode');
+    }).populate('userId', 'fullName username');
 
-    if (!referrer) {
+    if (!referral) {
       return res.status(404).json({
         success: false,
         error: {
@@ -130,12 +131,14 @@ router.get('/validate-referral/:code', async (req, res) => {
       });
     }
 
+    const referrer = referral.userId;
+
     res.json({
       success: true,
       data: {
         isValid: true,
-        referrerName: referrer.fullName || referrer.username,
-        referralCode: referrer.referralCode
+        referrerName: referrer ? (referrer.fullName || referrer.username) : 'A friend',
+        referralCode: referral.referralCode
       }
     });
 

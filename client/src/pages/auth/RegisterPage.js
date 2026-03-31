@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
@@ -20,6 +20,7 @@ import { updateWalletBalance } from '../../store/slices/walletSlice';
 const RegisterPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const isLoading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
@@ -47,6 +48,15 @@ const RegisterPage = () => {
   useEffect(() => {
     dispatch(clearError());
   }, [dispatch]);
+
+  // Auto-fill referral code from URL query param (?ref=CODE)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const refCode = params.get('ref');
+    if (refCode) {
+      setFormData(prev => ({ ...prev, referralCode: refCode.toUpperCase() }));
+    }
+  }, [location.search]);
 
   // Show error toast
   useEffect(() => {
