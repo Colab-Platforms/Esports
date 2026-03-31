@@ -334,13 +334,25 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 userSchema.methods.updateLoginStreak = function () {
   const now = new Date();
   const lastLogin = new Date(this.lastLogin);
-  const daysDiff = Math.floor((now - lastLogin) / (1000 * 60 * 60 * 24));
+  
+  // Strip time from dates to compare calendar days (Midnight to Midnight)
+  const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const lastAtMidnight = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate());
+  
+  // Calculate difference in calendar days
+  const daysDiff = Math.floor((todayAtMidnight - lastAtMidnight) / (1000 * 60 * 60 * 24));
 
-  if (daysDiff === 1) {
+  if (this.loginStreak === 0) {
+    // Initialize streak for new users or if it was somehow 0
+    this.loginStreak = 1;
+  } else if (daysDiff === 1) {
+    // Logged in on the very next calendar day
     this.loginStreak += 1;
   } else if (daysDiff > 1) {
+    // User missed a day or more, reset streak to 1
     this.loginStreak = 1;
   }
+  // If daysDiff is 0, they logged in again on the same day, so we leave the streak as is
 
   this.lastLogin = now;
   return this.save();
