@@ -112,7 +112,14 @@ const LoginPage = () => {
 
       if (data.success) {
         dispatch(loginSuccess(data.data));
-        toast.success(data.message || 'Login successful!');
+        const toastId = toast.success(
+          (t) => (
+            <span onClick={() => toast.dismiss(t.id)} style={{ cursor: 'pointer' }}>
+              {data.message || 'Login successful!'}
+            </span>
+          ),
+          { duration: 5000 }
+        );
         
         // Clear saved form data on successful login
         localStorage.removeItem('loginFormData');
