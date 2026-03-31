@@ -58,13 +58,24 @@ router.get('/', auth, async (req, res) => {
       });
     }
 
+    // Calculate streak status
+    const todayAtMidnight = new Date();
+    todayAtMidnight.setHours(0, 0, 0, 0);
+    
+    const yesterdayAtMidnight = new Date(todayAtMidnight);
+    yesterdayAtMidnight.setDate(yesterdayAtMidnight.getDate() - 1);
+    
+    // Streak is valid only if last login was today OR yesterday
+    const isStreakValid = wallet.lastDailyLogin && wallet.lastDailyLogin >= yesterdayAtMidnight;
+    const currentStreak = isStreakValid ? (wallet.streak || 0) : 0;
+
     res.json({
       success: true,
       data: {
         balance: wallet.balance,
         totalEarned: wallet.totalEarned,
         totalSpent: wallet.totalSpent,
-        streak: wallet.streak,
+        streak: currentStreak,
         lastDailyLogin: wallet.lastDailyLogin,
         last7Days: days.filter(d => !d.isFuture), // Keep backward compatibility
         days: days, // New field with all 9 days
@@ -302,6 +313,14 @@ router.get('/streak-status', auth, async (req, res) => {
 
     const alreadyClaimed = wallet.lastDailyLogin && wallet.lastDailyLogin >= today;
 
+    // Calculate virtual streak-status
+    const yesterdayAtMidnight = new Date(today);
+    yesterdayAtMidnight.setDate(yesterdayAtMidnight.getDate() - 1);
+    
+    // Streak is only valid if they claimed today or yesterday
+    const isStreakValid = wallet.lastDailyLogin && wallet.lastDailyLogin >= yesterdayAtMidnight;
+    const currentStreak = isStreakValid ? (wallet.streak || 0) : 0;
+
     // Calculate what coins they'd earn (base 10, or from config)
     let rewardAmount = 10;
     try {
@@ -314,7 +333,7 @@ router.get('/streak-status', auth, async (req, res) => {
       success: true,
       data: {
         canClaim: !alreadyClaimed,
-        currentStreak: wallet.streak || 0,
+        currentStreak: currentStreak,
         coinsToEarn: rewardAmount,
         lastClaimed: wallet.lastDailyLogin || null
       },
