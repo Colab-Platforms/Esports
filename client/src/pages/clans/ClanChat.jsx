@@ -7,7 +7,8 @@ import { usePresence } from '../../hooks/usePresence';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import styles from './ClanChat.module.css';
-import { FiMoreVertical, FiTrash2, FiEdit2, FiBookmark, FiSearch } from 'react-icons/fi';
+import { FiMoreVertical, FiTrash2, FiEdit2, FiBookmark, FiSearch, FiMenu, FiX, FiUsers, FiMessageSquare } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Emoji picker data
 const EMOJI_CATEGORIES = {
@@ -30,11 +31,13 @@ const formatDateLabel = (dateString) => {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (date.toDateString() === today.toDateString()) return `Today at ${timeStr}`;
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday at ${timeStr}`;
   
   return date.toLocaleDateString('en-US', { 
-    month: 'long', 
+    month: 'short', 
     day: 'numeric', 
     year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined 
   });
@@ -96,45 +99,41 @@ const UnreadDivider = () => (
 // ============================================================================
 
 const getAvatarColor = (char) => {
-  const colorMap = {
-    'A': '#534AB7', 'B': '#534AB7', 'C': '#534AB7', 'D': '#534AB7',
-    'E': '#1D9E75', 'F': '#1D9E75', 'G': '#1D9E75', 'H': '#1D9E75',
-    'I': '#D85A30', 'J': '#D85A30', 'K': '#D85A30', 'L': '#D85A30',
-    'M': '#BA7517', 'N': '#BA7517', 'O': '#BA7517', 'P': '#BA7517',
-    'Q': '#185FA5', 'R': '#185FA5', 'S': '#185FA5', 'T': '#185FA5',
-    'U': '#993556', 'V': '#993556', 'W': '#993556', 'X': '#993556',
-    'Y': '#993556', 'Z': '#993556'
-  };
-  return colorMap[char?.toUpperCase()] || '#534AB7';
+  const colors = [
+    '#6c5ce7', '#a29bfe', '#00b894', '#00cec9', 
+    '#0984e3', '#e17055', '#d63031', '#e84393',
+    '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'
+  ];
+  if (!char) return colors[0];
+  const charCode = char.charCodeAt(0);
+  return colors[charCode % colors.length];
 };
 
 const DateDivider = ({ date }) => (
-  <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', padding: '0 16px' }}>
-    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />
-    <span style={{ padding: '0 12px', fontSize: '11px', fontWeight: 'bold', color: '#666680', textTransform: 'uppercase', letterSpacing: '1px' }}>
-      {date}
-    </span>
-    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+  <div className={styles.dateSeparator}>
+    <div className={styles.dateLine} />
+    <span className={styles.dateLabel}>{date}</span>
+    <div className={styles.dateLine} />
   </div>
 );
 
 const PinnedMessagesPanel = ({ messages, onClose, onUnpin }) => (
-  <div className={styles.pinnedPanel} style={{
-    width: '280px',
-    background: '#1a1a2e',
-    borderLeft: '1px solid rgba(255,255,255,0.08)',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    zIndex: 20
-  }}>
-    <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold', color: '#e8e8f0' }}>📌 Pinned Messages</h3>
-      <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer', fontSize: '20px' }}>×</button>
+  <div className={styles.pinnedPanel}>
+    <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(19, 19, 31, 1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <FiBookmark size={18} color="var(--gold)" fill="var(--gold)" />
+        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#e8e8f0', letterSpacing: '0.02em' }}>Pinned Messages</h3>
+      </div>
+      <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+        <FiX size={20} />
+      </button>
     </div>
-    <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+    <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '16px 12px' }}>
       {messages.length === 0 ? (
-        <div style={{ textAlign: 'center', marginTop: '40px', color: '#666680', fontSize: '12px' }}>No pinned messages yet</div>
+        <div style={{ textAlign: 'center', marginTop: '60px', color: '#52526e' }}>
+          <FiBookmark size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+          <p style={{ fontSize: '14px', margin: 0, fontWeight: '500' }}>No pinned messages yet</p>
+        </div>
       ) : (
         messages.map(msg => (
           <div key={msg._id} style={{ marginBottom: '12px', background: '#1e1e32', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '10px' }}>
@@ -343,12 +342,21 @@ const EmojiPicker = ({ onSelectEmoji, onClose }) => {
 
 const MessageActionsTray = ({ message, isCurrentUser, onEdit, onDelete, onQuickReact, onOpenPicker, onPin, onReply }) => {
   const actions = [
-    { icon: '😊', title: 'React',  onClick: onOpenPicker },
-    { icon: '↩',  title: 'Reply',  onClick: onReply },
-    ...(isCurrentUser ? [{ icon: '✏', title: 'Edit', onClick: onEdit }] : []),
-    { icon: '📌', title: 'Pin',    onClick: onPin },
-    { icon: '🗑',  title: 'Delete', onClick: onDelete, danger: true },
+    { icon: <FiMoreVertical size={14} />, title: 'React',  onClick: onOpenPicker },
+    { icon: <FiMoreVertical size={14} />, title: 'Reply',  onClick: onReply, iconOverride: '↩' },
+    ...(isCurrentUser ? [{ icon: <FiEdit2 size={14} />, title: 'Edit', onClick: onEdit }] : []),
+    { icon: <FiBookmark size={14} />, title: 'Pin',    onClick: onPin },
+    { icon: <FiTrash2 size={14} />, title: 'Delete', onClick: onDelete, danger: true },
   ];
+
+  // Replacing emojis with actual icons for a cleaner look
+  const actionIcons = {
+    React: <FiSearch size={14} />, // Placeholder for emoji icon if needed
+    Reply: <FiMoreVertical size={14} style={{ transform: 'scaleX(-1)' }} />, 
+    Edit: <FiEdit2 size={14} />,
+    Pin: <FiBookmark size={14} />,
+    Delete: <FiTrash2 size={14} />
+  };
 
   return (
     <div style={{
@@ -376,18 +384,18 @@ const MessageActionsTray = ({ message, isCurrentUser, onEdit, onDelete, onQuickR
           </button>
         ))}
       </div>
-      {actions.map(({ icon, title, onClick, danger }) => (
+      {actions.map(({ title, onClick, danger, iconOverride }) => (
         <button key={title} title={title} onClick={onClick}
           style={{
             width: '28px', height: '28px', background: 'transparent', border: 'none',
             borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: danger ? '#e17055' : '#9090b8', transition: 'background 0.15s, color 0.15s'
+            color: danger ? '#ff4757' : '#9090b8', transition: 'background 0.15s, color 0.15s'
           }}
           onMouseEnter={e => e.currentTarget.style.background = '#2a2a3e'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          {icon}
+          {title === 'Reply' ? '↩' : title === 'React' ? '😊' : actionIcons[title]}
         </button>
       ))}
     </div>
@@ -401,7 +409,14 @@ const MessageItem = ({ message, isCurrentUser, onReact, onEdit, onDelete, onPin,
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.content);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const messageRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -414,15 +429,15 @@ const MessageItem = ({ message, isCurrentUser, onReact, onEdit, onDelete, onPin,
   }, []);
 
   const getRoleColor = () => {
-    if (isCurrentUser) return '#5DCAA5';
-    if (message.sender?.role === 'owner') return '#FAC775';
-    if (message.sender?.role === 'mod') return '#AFA9EC';
+    if (isCurrentUser) return '#6c5ce7';
+    if (message.sender?.role === 'owner') return '#f1c40f';
+    if (message.sender?.role === 'mod') return '#00d4ff';
     return '#e8e8f0';
   };
 
   const getRoleBadge = () => {
-    if (message.sender?.role === 'owner') return { bg: '#3d2a00', color: '#FAC775', border: '0.5px solid #BA7517', text: 'Owner' };
-    if (message.sender?.role === 'mod') return { bg: '#2a1a4a', color: '#AFA9EC', border: '0.5px solid #7F77DD', text: 'Mod' };
+    if (message.sender?.role === 'owner') return { bg: 'rgba(241, 196, 15, 0.15)', color: '#f1c40f', border: '1px solid rgba(241, 196, 15, 0.3)', text: 'OWNER' };
+    if (message.sender?.role === 'mod') return { bg: 'rgba(0, 212, 255, 0.15)', color: '#00d4ff', border: '1px solid rgba(0, 212, 255, 0.3)', text: 'MOD' };
     return null;
   };
 
@@ -447,18 +462,24 @@ const MessageItem = ({ message, isCurrentUser, onReact, onEdit, onDelete, onPin,
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => { if (!showEmojiPicker) setShowActions(false); }}
       style={{ 
-        position: 'relative', 
-        marginTop: isGrouped ? '2px' : '16px',
-        padding: isGrouped ? '2px 0 2px 0' : '8px 0',
-        minHeight: isGrouped ? 'unset' : '48px'
+        marginTop: isGrouped ? '1px' : '12px',
+        padding: isGrouped ? '2px 20px 2px 76px' : '6px 20px',
       }}
     >
       {!isGrouped ? (
-        <div className={styles.messageAvatar} style={{ background: avatarColor, opacity: message.status === 'failed' ? 0.5 : 1 }}>
+        <div className={styles.messageAvatarLarge} style={{ background: avatarColor, opacity: message.status === 'failed' ? 0.5 : 1 }}>
           {initials}
         </div>
       ) : (
-        <div style={{ width: '40px', textAlign: 'right', paddingRight: '12px', opacity: showActions ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
+        <div style={{ 
+          position: 'absolute',
+          left: '16px',
+          width: '44px', 
+          textAlign: 'right', 
+          opacity: (showActions || isMobile) ? 1 : 0.2, 
+          transition: 'opacity 0.15s', 
+          flexShrink: 0 
+        }}>
           <span style={{ fontSize: '10px', color: '#555570', fontFamily: 'monospace' }}>
             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
           </span>
@@ -473,7 +494,7 @@ const MessageItem = ({ message, isCurrentUser, onReact, onEdit, onDelete, onPin,
             </span>
 
             {badge && (
-              <span className={styles.roleBadge} style={{ background: badge.bg, color: badge.color, border: badge.border }}>
+              <span className={styles.memberRoleBadge} style={{ background: badge.bg, color: badge.color, border: badge.border }}>
                 {badge.text}
               </span>
             )}
@@ -490,10 +511,20 @@ const MessageItem = ({ message, isCurrentUser, onReact, onEdit, onDelete, onPin,
               </button>
             )}
 
-            {showActions && (
+            {(showActions || isMobile) && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowActions(v => !v); }}
-                style={{ background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer', padding: '0 4px', marginLeft: 'auto' }}
+                style={{ 
+                  background: (showActions && !isMobile) ? 'rgba(108, 92, 231, 0.1)' : 'transparent', 
+                  border: 'none', 
+                  color: (showActions || isMobile) ? '#f0f0ff' : '#8888aa', 
+                  cursor: 'pointer', 
+                  padding: '4px', 
+                  borderRadius: '6px',
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
                 title="Message actions"
               >
                 <FiMoreVertical size={16} />
@@ -591,17 +622,20 @@ const MemberSidebarRow = ({ member, isOnline }) => {
   const initials = member.user?.username?.substring(0, 2).toUpperCase() || '??';
 
   const getRoleBadge = () => {
-    if (member.role === 'owner') return { bg: '#3d2a00', color: '#FAC775', border: '0.5px solid #BA7517', text: 'Owner' };
-    if (member.role === 'mod') return { bg: '#2a1a4a', color: '#AFA9EC', border: '0.5px solid #7F77DD', text: 'Mod' };
+    if (member.role === 'owner') return { bg: 'rgba(241, 196, 15, 0.15)', color: '#f1c40f', border: '1px solid rgba(241, 196, 15, 0.3)', text: 'OWNER' };
+    if (member.role === 'mod') return { bg: 'rgba(0, 212, 255, 0.15)', color: '#00d4ff', border: '1px solid rgba(0, 212, 255, 0.3)', text: 'MOD' };
     return null;
   };
 
   const badge = getRoleBadge();
 
   return (
-    <div className={styles.memberRow} style={{ opacity: isOnline ? 1 : 0.4 }}>
-      <div className={styles.memberAvatar} style={{ background: avatarColor }}>{initials}</div>
-      <span className={styles.memberUsername} style={{ color: isOnline ? '#e8e8f0' : '#555570' }}>{member.user?.username}</span>
+    <div className={styles.memberRow} style={{ opacity: isOnline ? 1 : 0.5 }}>
+      <div className={styles.memberAvatar} style={{ background: avatarColor }}>
+        {initials}
+        <div className={`${styles.statusDot} ${isOnline ? styles.statusOnline : ''}`} />
+      </div>
+      <span className={styles.memberUsername}>{member.user?.username}</span>
       {badge && (
         <span className={styles.memberRoleBadge} style={{ background: badge.bg, color: badge.color, border: badge.border }}>
           {badge.text}
@@ -731,61 +765,27 @@ const ChatInput = forwardRef(({ value, onChange, onSend, disabled, isMuted, mute
   }
 
   return (
-    <>
+    <div className={styles.inputContainer}>
       {isMuted && (
         <div className={styles.muteBar}>You are muted until {new Date(muteUntil).toLocaleString()}</div>
       )}
       
-      {replyTo && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: '#1e1e32',
-          padding: '8px 16px',
-          borderLeft: '4px solid #6c5ce7',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          borderRadius: '8px 8px 0 0',
-          margin: '0 8px'
-        }}>
-          <div style={{ overflow: 'hidden' }}>
-            <p style={{ fontSize: '11px', color: '#6c5ce7', margin: 0, fontWeight: 'bold' }}>
-              Replying to @{replyTo.sender?.username}
-            </p>
-            <p style={{ fontSize: '10px', color: '#8888aa', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {replyTo.content}
-            </p>
-          </div>
-          <button 
-            onClick={onCancelReply}
-            style={{ background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer', fontSize: '16px', padding: '0 4px' }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      <div className={styles.inputRow} style={{ position: 'relative' }}>
-        <button className={styles.iconButton} title="Attachments" onClick={() => fileInputRef.current?.click()} type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 0 19.8 4.3M22 12.5a10 10 0 0 0-19.8-4.2" />
-          </svg>
-        </button>
-        <input ref={fileInputRef} type="file" onChange={handleFileSelect} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
-
-        <button className={styles.iconButton} title="Emoji" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
-          </svg>
-        </button>
-
-        {showEmojiPicker && (
-          <div style={{ position: 'absolute', bottom: '100%', left: '40px', marginBottom: '8px' }}>
-            <EmojiPicker onSelectEmoji={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />
+      <div className={styles.inputWrapper}>
+        {replyTo && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'rgba(108, 92, 231, 0.1)', padding: '8px 12px',
+            borderLeft: '4px solid #6c5ce7', borderRadius: '8px', marginBottom: '8px'
+          }}>
+            <div style={{ overflow: 'hidden' }}>
+              <p style={{ fontSize: '11px', color: '#6c5ce7', margin: 0, fontWeight: 'bold' }}>Replying to @{replyTo.sender?.username}</p>
+              <p style={{ fontSize: '10px', color: '#8888aa', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyTo.content}</p>
+            </div>
+            <button onClick={onCancelReply} style={{ background: 'transparent', border: 'none', color: '#8888aa', cursor: 'pointer' }}><FiX size={16} /></button>
           </div>
         )}
 
-        <div className={styles.inputWrapper}>
+        <div className={styles.inputRow}>
           <textarea
             ref={setRefs}
             value={value}
@@ -795,55 +795,68 @@ const ChatInput = forwardRef(({ value, onChange, onSend, disabled, isMuted, mute
             placeholder={isMuted ? 'You are muted' : 'Message #general... (type @ to mention)'}
             className={styles.textInput}
             rows={1}
-            style={{
-              color: isMuted ? '#D85A30' : '#e8e8f0',
-              resize: 'none',
-              maxHeight: '120px',
-              overflowY: 'auto',
-              lineHeight: '1.5',
-              display: 'block'
-            }}
           />
-          {value.length > 1800 && (
-            <div style={{
-              fontSize: '11px',
-              color: value.length > 1950 ? '#e17055' : '#52526e',
-              textAlign: 'right',
-              marginTop: '2px',
-              paddingRight: '4px'
-            }}>
-              {value.length} / 2000
-            </div>
-          )}
-          {showMentions && filteredMembers.length > 0 && (
-            <div style={{
-              position: 'absolute', bottom: '100%', left: 0, right: 0,
-              background: '#1e1e32', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '6px', maxHeight: '150px', overflowY: 'auto',
-              marginBottom: '4px', zIndex: 100
-            }}>
-              {filteredMembers.slice(0, 5).map(member => (
-                <button key={member._id} onClick={() => handleMentionSelect(member.user.username)}
-                  style={{ width: '100%', padding: '8px 12px', background: 'transparent', border: 'none', color: '#e8e8f0', textAlign: 'left', cursor: 'pointer', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#2a2a3e'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  @{member.user.username}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
-        <button onClick={onSend} disabled={disabled || isMuted || !value.trim()} className={styles.sendButton} type="button"
-          style={{ background: (value.trim() && !disabled && !isMuted) ? '#6c5ce7' : '#1e1e32', cursor: (value.trim() && !disabled && !isMuted) ? 'pointer' : 'not-allowed' }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16346272 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.99701575 L3.03521743,10.4380088 C3.03521743,10.5951061 3.19218622,10.7522035 3.50612381,10.7522035 L16.6915026,11.5376905 C16.6915026,11.5376905 17.1624089,11.5376905 17.1624089,12.0089827 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
-          </svg>
-        </button>
+        <div className={styles.inputActions}>
+          <div className={styles.actionGroup}>
+            <button className={styles.actionBtn} title="Attachments" onClick={() => fileInputRef.current?.click()} type="button">
+              <FiX size={18} style={{ transform: 'rotate(45deg)' }} /> {/* Using FiX as + placeholder if needed, but better use FiPlus if available or svg */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+            </button>
+            <input ref={fileInputRef} type="file" onChange={handleFileSelect} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
+
+            <button className={styles.actionBtn} title="Emoji" onClick={() => setShowEmojiPicker(!showEmojiPicker)} type="button">
+              <span style={{ fontSize: '18px' }}>😊</span>
+            </button>
+            
+            {showEmojiPicker && (
+              <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '12px', zIndex: 1000 }}>
+                <EmojiPicker onSelectEmoji={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {value.length > 1500 && (
+              <span style={{ fontSize: '11px', color: value.length > 1900 ? '#ff4757' : '#8888aa', fontWeight: 'bold' }}>
+                {value.length} / 2000
+              </span>
+            )}
+            <button 
+              onClick={onSend} 
+              disabled={disabled || isMuted || !value.trim()} 
+              className={styles.sendButton} 
+              type="button"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {showMentions && filteredMembers.length > 0 && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 0, right: 0,
+            background: '#1a1a2e', border: '1px solid var(--border)',
+            borderBottom: 'none', borderRadius: '12px 12px 0 0', maxHeight: '200px', 
+            overflowY: 'auto', zIndex: 1000, boxShadow: '0 -10px 30px rgba(0,0,0,0.5)'
+          }}>
+            {filteredMembers.slice(0, 8).map(member => (
+              <button key={member._id} onClick={() => handleMentionSelect(member.user.username)}
+                style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: '#e8e8f0', textAlign: 'left', cursor: 'pointer', fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '10px' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(108, 92, 231, 0.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: getAvatarColor(member.user.username[0]), fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{member.user.username[0].toUpperCase()}</div>
+                @{member.user.username}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 });
 ChatInput.displayName = 'ChatInput';
@@ -859,6 +872,7 @@ const ClanChat = () => {
   const { user } = useAuth();
   const { messages, sendMessage, editMessage, typingUsers, sendTyping } = useChat(clanId);
   const presence = usePresence(clanId);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Refs moved to top
   const messagesContainerRef = useRef(null);
@@ -876,6 +890,7 @@ const ClanChat = () => {
   const [replyTo, setReplyTo] = useState(null);
   const [showPinned, setShowPinned] = useState(false);
   const [pinnedMessages, setPinnedMessages] = useState([]);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
   
   // Pagination State
   const [olderMessages, setOlderMessages] = useState([]);
@@ -1078,6 +1093,16 @@ const ClanChat = () => {
     [allMessages, lastSeenId, hasClearedUnread]
   );
 
+  useEffect(() => {
+    if (!isNearBottom && messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.sender?._id !== userId && lastMsg.sender?.id !== userId) {
+        setShowNewMessages(true);
+        setNewMessagesCount(prev => prev + 1);
+      }
+    }
+  }, [messages, isNearBottom, userId]);
+
   const filteredItems = useMemo(() => {
     return groupedItems.filter(item => {
       if (item.type !== 'message') return true;
@@ -1100,7 +1125,23 @@ const ClanChat = () => {
   const onlineCount = Object.values(presence || {}).filter(s => s === 'online').length;
 
   if (loading) {
-    return <div className={styles.container}><div className={styles.loadingState}>Loading chat...</div></div>;
+    return (
+      <div className={styles.container}>
+        <div className={styles.chatPanel}>
+          <div className={styles.messagesContainer} style={{ padding: '20px' }}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} style={{ display: 'flex', gap: '12px', marginBottom: '24px', opacity: 0.3 }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#2a2a3e', animation: 'pulse 2s infinite' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ width: '120px', height: '12px', background: '#2a2a3e', borderRadius: '4px', marginBottom: '8px' }} />
+                  <div style={{ width: '80%', height: '10px', background: '#2a2a3e', borderRadius: '4px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!myClan) {
@@ -1116,11 +1157,29 @@ const ClanChat = () => {
 
   return (
     <div className={styles.container}>
+      {/* Sidebar Overlay (Mobile) */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className={styles.sidebarOverlay}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Left Sidebar */}
-      <div className={styles.sidebar}>
-        <div className={styles.clanPill}>
-          <div className={styles.clanAvatar}>{myClan.clan.name.substring(0, 2).toUpperCase()}</div>
-          <span className={styles.clanName}>{myClan.clan.name}</span>
+      <div className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.sidebarHeader}>
+          <div className={styles.clanPill}>
+            <div className={styles.clanAvatar}>{myClan.clan.name.substring(0, 2).toUpperCase()}</div>
+            <span className={styles.clanName}>{myClan.clan.name}</span>
+          </div>
+          <button className={styles.sidebarClose} onClick={() => setSidebarOpen(false)}>
+            <FiX size={20} />
+          </button>
         </div>
         <div className={styles.memberSection}>
           <div className={styles.sectionHeader}>ONLINE — {onlineMembers.length}</div>
@@ -1140,39 +1199,47 @@ const ClanChat = () => {
         <div className={styles.chatPanel}>
           {/* Channel Header */}
           <div className={styles.channelHeader}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <h2 className={styles.channelName}># general</h2>
-                {isAnnouncement && (
-                  <span style={{ fontSize: '11px', background: 'rgba(250,199,117,0.1)', 
-                    color: '#FAC775', border: '0.5px solid #BA7517', borderRadius: '4px', 
-                    padding: '1px 6px', marginLeft: '6px' }}>
-                    📣 Announcement
-                  </span>
-                )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button 
+                className={styles.mobileMenuButton}
+                onClick={() => setSidebarOpen(true)}
+                title="Open Sidebar"
+              >
+                <FiMenu size={20} />
+              </button>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <h2 className={styles.channelName}># general</h2>
+                  {isAnnouncement && (
+                    <span style={{ fontSize: '11px', background: 'rgba(250,199,117,0.1)', 
+                      color: '#FAC775', border: '0.5px solid #BA7517', borderRadius: '4px', 
+                      padding: '1px 6px', marginLeft: '6px' }}>
+                      📣 Announcement
+                    </span>
+                  )}
+                </div>
+                <p className={styles.channelInfo}>{onlineCount} online · {members.length} members</p>
               </div>
-              <p className={styles.channelInfo}>{onlineCount} online · {members.length} members</p>
             </div>
             <div className={styles.headerButtons}>
-              <button className={styles.headerButton} title="Search messages" onClick={() => setShowSearch(!showSearch)}>
+              <button 
+                className={styles.headerButton} 
+                title="Search messages" 
+                onClick={() => setShowSearch(!showSearch)}
+                style={{ color: showSearch ? '#6c5ce7' : '#8888aa' }}
+              >
                 <FiSearch size={18} />
               </button>
               <button 
                 className={styles.headerButton} 
                 title="Pinned messages" 
                 onClick={() => setShowPinned(!showPinned)}
-                style={{ color: showPinned ? '#6c5ce7' : '#8888aa' }}
+                style={{ color: showPinned ? '#FAC775' : '#8888aa' }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill={showPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                </svg>
+                <FiBookmark size={18} fill={showPinned ? "#FAC775" : "none"} />
               </button>
               <button className={styles.headerButton} title="Members" onClick={() => navigate(`/clans/${clanId}?tab=members`)}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <FiUsers size={18} />
               </button>
             </div>
           </div>
@@ -1216,8 +1283,15 @@ const ClanChat = () => {
 
             {filteredItems.length === 0 && !loadingMore ? (
               <div className={styles.emptyState}>
-                <p>{searchQuery ? 'No messages found' : 'No messages yet'}</p>
-                <p>{searchQuery ? 'Try a different search' : 'Start the conversation!'}</p>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(108, 92, 231, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+                  <FiMessageSquare size={32} color="#6c5ce7" style={{ opacity: 0.5 }} />
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#e8e8f0', margin: '0 0 8px 0' }}>
+                  {searchQuery ? 'No results found' : 'Welcome to the channel!'}
+                </h3>
+                <p style={{ fontSize: '14px', color: '#666680', margin: 0 }}>
+                  {searchQuery ? `We couldn't find any matches for "${searchQuery}"` : 'Be the first one to start a conversation.'}
+                </p>
               </div>
             ) : (
               <>
@@ -1267,32 +1341,37 @@ const ClanChat = () => {
               onClick={() => {
                 bottomAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
                 setShowNewMessages(false);
+                setNewMessagesCount(0);
               }}
               style={{
                 position: 'absolute',
                 bottom: '90px',
                 right: '24px',
-                width: '38px',
                 height: '38px',
-                borderRadius: '50%',
+                padding: '0 16px',
+                borderRadius: '20px',
                 background: '#6c5ce7',
                 border: 'none',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: '8px',
                 zIndex: 10,
                 opacity: showNewMessages ? 1 : 0,
                 transform: showNewMessages ? 'translateY(0)' : 'translateY(10px)',
                 pointerEvents: showNewMessages ? 'auto' : 'none',
                 transition: 'opacity 0.2s, transform 0.2s',
-                boxShadow: '0 4px 12px rgba(108,92,231,0.4)'
+                boxShadow: '0 4px 12px rgba(108,92,231,0.4)',
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: 'bold'
               }}
               title="Scroll to bottom"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <path d="M12 5v14M5 12l7 7 7-7" />
               </svg>
+              {newMessagesCount > 0 && <span>{newMessagesCount} New Messages</span>}
             </button>
           )}
         </div>

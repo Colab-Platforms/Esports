@@ -1020,7 +1020,7 @@ const BansTab = ({ clanId }) => {
       setLoading(true);
       const response = await api.get(`/api/clans/${clanId}/bans`);
       if (response.success) {
-        setBans(response.data.bans || []);
+        setBans(response.data.bannedUsers || []);
       }
     } catch (error) {
       console.error('Error fetching bans:', error);
@@ -1072,19 +1072,19 @@ const BansTab = ({ clanId }) => {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gaming-border rounded-full flex items-center justify-center text-xs font-bold">
-                      {ban.user?.username?.[0]?.toUpperCase()}
+                      {ban?.username?.[0]?.toUpperCase()}
                     </div>
-                    <p className="text-sm font-semibold text-white">{ban.user?.username}</p>
+                    <p className="text-sm font-semibold text-white">{ban?.username}</p>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-400">{ban.reason || 'No reason'}</td>
+                <td className="px-6 py-4 text-sm text-gray-400">Banned Information</td>
                 <td className="px-6 py-4 text-sm text-gray-400">
-                  {new Date(ban.bannedAt).toLocaleDateString()}
+                  {ban?.createdAt ? new Date(ban.createdAt).toLocaleDateString() : 'N/A'}
                 </td>
                 <td className="px-6 py-4">
                   <button
-                    onClick={() => handleUnban(ban.user._id)}
-                    disabled={actionLoading === `unban-${ban.user._id}`}
+                    onClick={() => handleUnban(ban._id)}
+                    disabled={actionLoading === `unban-${ban._id}`}
                     className="px-4 py-2 bg-green-500/20 text-green-400 text-sm font-bold rounded hover:bg-green-500/30 disabled:opacity-50"
                   >
                     Unban

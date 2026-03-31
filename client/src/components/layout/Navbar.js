@@ -16,6 +16,7 @@ import {
 import { selectAuth, logout } from "../../store/slices/authSlice";
 import NotificationPanel from "../notifications/NotificationPanel";
 import UserAvatar from "../common/UserAvatar";
+import ClanNavPill from "../clan/ClanNavPill";
 import api from "../../services/api";
 
 // import ThemeToggle from '../common/ThemeToggle';
@@ -305,9 +306,11 @@ const Navbar = () => {
                   <span className="font-semibold">CC</span>
                 </Link>
 
-                 {/* Notifications */}
+                {/* Notifications */}
                 <NotificationPanel />
-                
+
+                {/* Clan Status */}
+                <ClanNavPill />
 
                 {/* Wallet removed - free tournaments only */}
 

@@ -263,7 +263,7 @@ const ClanDropdown = ({ onClose }) => {
           <button
             type="button"
             onClick={() => {
-              navigate(`/clans/${myClan.clan._id}/admin`);
+              navigate(`/clans/${myClan.clan._id}/admin?tab=settings`);
               onClose();
             }}
             className="w-full px-4 py-2 flex items-center gap-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors text-left"

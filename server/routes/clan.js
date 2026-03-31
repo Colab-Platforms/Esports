@@ -1539,7 +1539,11 @@ router.get('/:id/reports', auth, checkClanRole(['owner', 'admin']), [
 
     const ClanReport = require('../models/ClanReport');
     const reports = await ClanReport.find({ clan: clanId, status })
-      .populate('message', 'content sender')
+      .populate({
+        path: 'message',
+        select: 'content sender',
+        populate: { path: 'sender', select: 'username avatarUrl' }
+      })
       .populate('reportedBy', 'username')
       .sort({ createdAt: -1 })
       .skip(skip)

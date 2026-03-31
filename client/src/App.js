@@ -8,6 +8,7 @@ import './config/console';
 
 // Context
 import { ThemeProvider } from './contexts/ThemeContextSimple';
+import { ClanProvider } from './contexts/ClanContext';
 
 // Redux
 import { selectAuth } from './store/slices/authSlice';
@@ -58,6 +59,12 @@ import CS2Page from './pages/CS2Page';
 import FreeFirePage from './pages/FreeFirePage';
 import TournamentDetails from './pages/tournaments/TournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
+import ClanDiscovery from './pages/clans/ClanDiscovery';
+import ClanCreate from './pages/clans/ClanCreate';
+import ClanProfile from './pages/clans/ClanProfile';
+import ClanChat from './pages/clans/ClanChat';
+import ClanAdmin from './pages/clans/ClanAdmin';
+import ClanActivity from './pages/clans/ClanActivity';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
 
@@ -251,6 +258,7 @@ function App() {
     <ThemeProvider>
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
+      <ClanProvider>
       <Navbar />
       
       {/* Main Content */}
@@ -271,6 +279,14 @@ function App() {
                 </motion.div>
               } 
             />
+
+            {/* Clan Routes - Moved to top for priority */}
+            <Route path="/clans" element={<ProtectedRoute><ClanDiscovery /></ProtectedRoute>} />
+            <Route path="/clans/create" element={<ProtectedRoute><ClanCreate /></ProtectedRoute>} />
+            <Route path="/clans/:id/chat" element={<ProtectedRoute><ClanChat /></ProtectedRoute>} />
+            <Route path="/clans/:id/admin" element={<ProtectedRoute><ClanAdmin /></ProtectedRoute>} />
+            <Route path="/clans/:id/activity" element={<ProtectedRoute><ClanActivity /></ProtectedRoute>} />
+            <Route path="/clans/:id" element={<ProtectedRoute><ClanProfile /></ProtectedRoute>} />
             
             {/* Auth Routes */}
             <Route 
@@ -582,21 +598,23 @@ function App() {
               } 
             />
             
-            <Route 
-              path="/profile/settings" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ProfileSettingsPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
+             <Route 
+               path="/profile/settings" 
+               element={
+                 <ProtectedRoute>
+                   <motion.div
+                     initial={{ opacity: 0, y: 20 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     exit={{ opacity: 0, y: -20 }}
+                     transition={{ duration: 0.3 }}
+                   >
+                     <ProfileSettingsPage />
+                   </motion.div>
+                 </ProtectedRoute>
+               } 
+             />
+             
+
             
             <Route 
               path="/teams" 
@@ -907,6 +925,7 @@ function App() {
       
       {/* Footer - Hidden on auth pages */}
       {!isAuthPage && <Footer />}
+      </ClanProvider>
       </div>
     </ThemeProvider>
   );
