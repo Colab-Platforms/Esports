@@ -297,9 +297,8 @@ const Navbar = () => {
                   to="/wallet"
                   className="flex items-center space-x-2 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200 rounded-lg"
                 >
-                  <div className="flex items-center justify-center w-6 h-6 bg-gaming-gold/20 rounded">
+                  <div className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-gaming-gold/20 rounded">
                     <span className="text-gaming-gold font-bold text-xs">{coinBalance}</span>
-                    {console.log("your CoinBalance is:" , coinBalance)}
                   </div>
                   <span className="font-semibold">CC</span>
                 </Link>
@@ -601,7 +600,7 @@ const Navbar = () => {
                       className="flex items-center space-x-3 px-3 py-3 rounded-lg text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <div className="flex items-center justify-center w-8 h-8 bg-gaming-gold/20 rounded-lg">
+                      <div className="flex items-center justify-center min-w-[2rem] h-8 px-2 bg-gaming-gold/20 rounded-lg">
                         <span className="text-gaming-gold font-bold text-sm">{coinBalance || '0'}</span>
                       </div>
                       <span className="font-display font-semibold">Wallet</span>
