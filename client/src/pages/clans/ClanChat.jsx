@@ -879,8 +879,7 @@ const ClanChat = () => {
   const bottomAnchorRef = useRef(null);
   const inputRef = useRef(null);
 
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { members, isLoadingMembers: loading } = useClan();
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
   const [showNewMessages, setShowNewMessages] = useState(false);
@@ -904,17 +903,8 @@ const ClanChat = () => {
   const [hasClearedUnread, setHasClearedUnread] = useState(false);
 
   const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const membersRes = await api.get(`/api/clans/${clanId}/members?limit=100`);
-      if (membersRes.success) setMembers(membersRes.data.members);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load chat');
-    } finally {
-      setLoading(false);
-    }
-  }, [clanId]);
+    // Members are now fetched by ClanContext
+  }, []);
 
   const fetchPinnedMessages = useCallback(async () => {
     try {
@@ -1144,247 +1134,160 @@ const ClanChat = () => {
     );
   }
 
-  if (!myClan) {
+  if (!myClan && !loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.errorState}>
-          <p>You are not in a clan</p>
-          <button onClick={() => navigate('/clans')} className={styles.errorButton}>Browse Clans</button>
-        </div>
+      <div className={styles.emptyState}>
+        <p>You are not in this clan</p>
+        <button onClick={() => navigate('/clans')} className={styles.errorButton}>Browse Clans</button>
       </div>
     );
   }
 
   return (
-    <div className={styles.container}>
-      {/* Sidebar Overlay (Mobile) */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className={styles.sidebarOverlay}
-          />
-        )}
-      </AnimatePresence>
+    <div className={styles.chatPanel} style={{ height: '100%', flex: 1 }}>
+      {/* Mobile Header (repurposed) */}
+      <div className={styles.mobileOnlyHeader}>
+        <button className={styles.mobileMenuButton} onClick={() => setSidebarOpen(true)}>
+          <FiMenu size={20} />
+        </button>
+      </div>
 
-      {/* Left Sidebar */}
-      <div className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.sidebarHeader}>
-          <div className={styles.clanPill}>
-            <div className={styles.clanAvatar}>{myClan.clan.name.substring(0, 2).toUpperCase()}</div>
-            <span className={styles.clanName}>{myClan.clan.name}</span>
+      {/* Channel Header (Repurposed as local header) */}
+      <div className={styles.channelHeader}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <h2 className={styles.channelName}># general</h2>
+              {isAnnouncement && (
+                <span style={{ fontSize: '11px', background: 'rgba(250,199,117,0.1)', 
+                  color: '#FAC775', border: '0.5px solid #BA7517', borderRadius: '4px', 
+                  padding: '1px 6px', marginLeft: '6px' }}>
+                  📣 Announcement
+                </span>
+              )}
+            </div>
           </div>
-          <button className={styles.sidebarClose} onClick={() => setSidebarOpen(false)}>
-            <FiX size={20} />
+        </div>
+        <div className={styles.headerButtons}>
+          <button 
+            className={styles.headerButton} 
+            title="Search messages" 
+            onClick={() => setShowSearch(!showSearch)}
+            style={{ color: showSearch ? '#6c5ce7' : '#8888aa' }}
+          >
+            <FiSearch size={18} />
+          </button>
+          <button 
+            className={styles.headerButton} 
+            title="Pinned messages" 
+            onClick={() => setShowPinned(!showPinned)}
+            style={{ color: showPinned ? '#FAC775' : '#8888aa' }}
+          >
+            <FiBookmark size={18} fill={showPinned ? "#FAC775" : "none"} />
           </button>
         </div>
-        <div className={styles.memberSection}>
-          <div className={styles.sectionHeader}>ONLINE — {onlineMembers.length}</div>
-          {onlineMembers.map(member => <MemberSidebarRow key={member._id} member={member} isOnline={true} />)}
-        </div>
-        {offlineMembers.length > 0 && (
-          <div className={styles.memberSection}>
-            <div className={styles.sectionHeader}>OFFLINE — {offlineMembers.length}</div>
-            {offlineMembers.map(member => <MemberSidebarRow key={member._id} member={member} isOnline={false} />)}
-          </div>
-        )}
       </div>
 
-      {/* Main Layout Area */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {/* Right Panel (Chat) */}
-        <div className={styles.chatPanel}>
-          {/* Channel Header */}
-          <div className={styles.channelHeader}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button 
-                className={styles.mobileMenuButton}
-                onClick={() => setSidebarOpen(true)}
-                title="Open Sidebar"
-              >
-                <FiMenu size={20} />
-              </button>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <h2 className={styles.channelName}># general</h2>
-                  {isAnnouncement && (
-                    <span style={{ fontSize: '11px', background: 'rgba(250,199,117,0.1)', 
-                      color: '#FAC775', border: '0.5px solid #BA7517', borderRadius: '4px', 
-                      padding: '1px 6px', marginLeft: '6px' }}>
-                      📣 Announcement
-                    </span>
-                  )}
-                </div>
-                <p className={styles.channelInfo}>{onlineCount} online · {members.length} members</p>
-              </div>
-            </div>
-            <div className={styles.headerButtons}>
-              <button 
-                className={styles.headerButton} 
-                title="Search messages" 
-                onClick={() => setShowSearch(!showSearch)}
-                style={{ color: showSearch ? '#6c5ce7' : '#8888aa' }}
-              >
-                <FiSearch size={18} />
-              </button>
-              <button 
-                className={styles.headerButton} 
-                title="Pinned messages" 
-                onClick={() => setShowPinned(!showPinned)}
-                style={{ color: showPinned ? '#FAC775' : '#8888aa' }}
-              >
-                <FiBookmark size={18} fill={showPinned ? "#FAC775" : "none"} />
-              </button>
-              <button className={styles.headerButton} title="Members" onClick={() => navigate(`/clans/${clanId}?tab=members`)}>
-                <FiUsers size={18} />
-              </button>
-            </div>
+      {/* Messages & Input */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+        {/* Search bar */}
+        {showSearch && (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: '#1a1a2e' }}>
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+              autoFocus
+            />
           </div>
+        )}
 
-          {/* Search bar */}
-          {showSearch && (
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: '#1a1a2e' }}>
-              <input
-                type="text"
-                placeholder="Search messages..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', background: '#1e1e32', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#e8e8f0', fontSize: '13px' }}
-                autoFocus
-              />
+        <div ref={messagesContainerRef} onScroll={handleScroll} className={styles.messagesContainer}>
+          {loadingMore && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
+              <div className={styles.loaderDots}>
+                {[0, 1, 2].map(i => <div key={i} />)}
+              </div>
             </div>
           )}
+          {!hasMore && !loadingMore && allMessages.length > 0 && (
+            <div className={styles.endOfConvo}>— Beginning of conversation —</div>
+          )}
 
-          {/* Messages Container */}
-          <div ref={messagesContainerRef} onScroll={handleScroll} className={styles.messagesContainer}>
-            {loadingMore && (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <style>{`
-                    @keyframes load-bounce { to { transform: translateY(-4px); opacity: 1; } }
-                  `}</style>
-                  {[0, 1, 2].map(i => (
-                    <div key={i} style={{ 
-                      width: '6px', height: '6px', background: '#6c5ce7', borderRadius: '50%', opacity: 0.4,
-                      animation: `load-bounce 0.6s infinite alternate ${i * 0.2}s`
-                    }} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {!hasMore && !loadingMore && allMessages.length > 0 && (
-              <div style={{ textAlign: 'center', padding: '24px 0 12px 0', color: '#666680', fontSize: '11px', fontWeight: '500' }}>
-                — Beginning of conversation —
-              </div>
-            )}
-
-            {filteredItems.length === 0 && !loadingMore ? (
-              <div className={styles.emptyState}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(108, 92, 231, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                  <FiMessageSquare size={32} color="#6c5ce7" style={{ opacity: 0.5 }} />
-                </div>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#e8e8f0', margin: '0 0 8px 0' }}>
-                  {searchQuery ? 'No results found' : 'Welcome to the channel!'}
-                </h3>
-                <p style={{ fontSize: '14px', color: '#666680', margin: 0 }}>
-                  {searchQuery ? `We couldn't find any matches for "${searchQuery}"` : 'Be the first one to start a conversation.'}
-                </p>
-              </div>
-            ) : (
-              <>
-                {filteredItems.map((item, idx) => (
-                  item.type === 'dateDivider' ? (
-                    <DateDivider key={`date-${idx}`} date={item.date} />
-                  ) : item.type === 'unreadDivider' ? (
-                    <UnreadDivider key="unread-divider" />
-                  ) : (
-                    <MessageItem
-                      key={item.data._id}
-                      message={item.data}
-                      isCurrentUser={item.data.sender?._id === userId || item.data.sender?.id === userId}
-                      onReact={handleReactToMessage}
-                      onSaveEdit={handleSaveEdit}
-                      onDelete={handleDeleteMessage}
-                      onPin={handlePinMessage}
-                      onReply={setReplyTo}
-                      isGrouped={item.isGrouped}
-                    />
-                  )
-                ))}
-                <div ref={bottomAnchorRef} />
-              </>
-            )}
-          </div>
-
-          <TypingIndicator typingUsers={typingUsers} currentUserId={userId} />
-
-          <ChatInput
-            ref={inputRef}
-            value={messageInput}
-            onChange={handleInputChange}
-            onSend={handleSendMessage}
-            disabled={sending}
-            isMuted={isMuted}
-            muteUntil={myClan?.mutedUntil}
-            onAttachmentUpload={(url) => setMessageInput(messageInput + ` [attachment](${url})`)}
-            members={members}
-            replyTo={replyTo}
-            onCancelReply={() => setReplyTo(null)}
-            isReadOnly={isReadOnly}
-          />
-
-          {showNewMessages && (
-            <button
-              onClick={() => {
-                bottomAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
-                setShowNewMessages(false);
-                setNewMessagesCount(0);
-              }}
-              style={{
-                position: 'absolute',
-                bottom: '90px',
-                right: '24px',
-                height: '38px',
-                padding: '0 16px',
-                borderRadius: '20px',
-                background: '#6c5ce7',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                zIndex: 10,
-                opacity: showNewMessages ? 1 : 0,
-                transform: showNewMessages ? 'translateY(0)' : 'translateY(10px)',
-                pointerEvents: showNewMessages ? 'auto' : 'none',
-                transition: 'opacity 0.2s, transform 0.2s',
-                boxShadow: '0 4px 12px rgba(108,92,231,0.4)',
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}
-              title="Scroll to bottom"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-              {newMessagesCount > 0 && <span>{newMessagesCount} New Messages</span>}
-            </button>
+          {filteredItems.length === 0 && !loadingMore ? (
+            <div className={styles.emptyState}>
+              <FiMessageSquare size={48} className={styles.emptyIcon} />
+              <h3>{searchQuery ? 'No results found' : 'Welcome to the channel!'}</h3>
+              <p>{searchQuery ? `No matches for "${searchQuery}"` : 'Be the first to start a conversation.'}</p>
+            </div>
+          ) : (
+            <>
+              {filteredItems.map((item, idx) => (
+                item.type === 'dateDivider' ? (
+                  <DateDivider key={`date-${idx}`} date={item.date} />
+                ) : item.type === 'unreadDivider' ? (
+                  <UnreadDivider key="unread-divider" />
+                ) : (
+                  <MessageItem
+                    key={item.data._id}
+                    message={item.data}
+                    isCurrentUser={item.data.sender?._id === userId || item.data.sender?.id === userId}
+                    onReact={handleReactToMessage}
+                    onSaveEdit={handleSaveEdit}
+                    onDelete={handleDeleteMessage}
+                    onPin={handlePinMessage}
+                    onReply={setReplyTo}
+                    isGrouped={item.isGrouped}
+                  />
+                )
+              ))}
+              <div ref={bottomAnchorRef} />
+            </>
           )}
         </div>
 
-        {/* Pinned Messages Sidebar */}
-        {showPinned && (
-          <PinnedMessagesPanel 
-            messages={pinnedMessages} 
-            onClose={() => setShowPinned(false)}
-            onUnpin={handleUnpinMessage}
-          />
+        <TypingIndicator typingUsers={typingUsers} currentUserId={userId} />
+
+        <ChatInput
+          ref={inputRef}
+          value={messageInput}
+          onChange={handleInputChange}
+          onSend={handleSendMessage}
+          disabled={sending}
+          isMuted={isMuted}
+          muteUntil={myClan?.mutedUntil}
+          onAttachmentUpload={(url) => setMessageInput(messageInput + ` [attachment](${url})`)}
+          members={members}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          isReadOnly={isReadOnly}
+        />
+
+        {showNewMessages && (
+          <button
+            onClick={() => {
+              bottomAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
+              setShowNewMessages(false);
+              setNewMessagesCount(0);
+            }}
+            className={styles.scrollDownButton}
+          >
+            <FiSearch size={14} style={{ transform: 'rotate(90deg)' }} />
+            {newMessagesCount > 0 && <span>{newMessagesCount} New Messages</span>}
+          </button>
         )}
       </div>
+
+      {/* Pinned Messages Sidebar */}
+      {showPinned && (
+        <PinnedMessagesPanel 
+          messages={pinnedMessages} 
+          onClose={() => setShowPinned(false)}
+          onUnpin={handleUnpinMessage}
+        />
+      )}
     </div>
   );
 };

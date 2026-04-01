@@ -101,87 +101,54 @@ const ClanActivity = () => {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gaming-dark py-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gaming-border rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading clan...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!clan) {
-    return (
-      <div className="min-h-screen bg-gaming-dark py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Clan not found</h1>
-          <button
-            onClick={() => navigate('/clans')}
-            className="px-6 py-2 bg-gaming-gold text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors"
-          >
-            Back to Clans
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(`/clans/${clanId}`)}
-          className="flex items-center gap-2 text-gaming-gold hover:text-yellow-400 mb-6 transition-colors"
-        >
-          <FiArrowLeft className="w-5 h-5" />
-          Back to clan
-        </button>
-
-        {/* Header */}
-        <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-8 mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">{clan.name}</h1>
-          <p className="text-gray-400">Recent Activity</p>
+    <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar bg-hub-content-bg">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-gaming font-bold text-white mb-1">Activity Feed</h1>
+          <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Latest events in <span className="text-gaming-gold">{clan?.name}</span></p>
         </div>
 
-        {/* Activity Feed */}
-        <div className="bg-gaming-charcoal border border-gaming-border rounded-lg overflow-hidden">
+        <div className="space-y-4">
           {loadingActivity ? (
-            <div className="p-6">
-              <ActivitySkeleton />
-            </div>
+            <ActivitySkeleton />
           ) : activity.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-gray-400 text-lg">No activity yet — be the first to chat!</p>
+            <div className="glass-panel p-20 text-center">
+              <p className="text-gray-500 italic">No recent activity found.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gaming-border">
+            <div className="space-y-3">
               {activity.map((item, index) => (
                 <div
                   key={item._id || index}
-                  className="flex gap-4 p-6 hover:bg-gaming-dark/50 transition-colors"
+                  className="glass-card p-4 flex gap-4 items-center hover:border-white/10 transition-colors"
                 >
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gaming-gold font-bold text-xs">
                     {getAvatarInitials(item.sender?.username)}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <p className="text-sm font-semibold text-white">
-                        {item.sender?.username || 'Unknown'}
+                    <div className="flex items-baseline justify-between mb-1">
+                      <p className="text-sm font-bold text-white">
+                        {item.sender?.username || 'System'}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
                         {formatTimestamp(item.createdAt)}
-                      </p>
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-300 break-words line-clamp-2">
-                      {item.content}
+                    <p className="text-xs text-gray-400 truncate">
+                      Sent a message: <span className="text-gray-300">"{item.content}"</span>
                     </p>
                   </div>
+                  
+                  <button 
+                    onClick={() => navigate(`/clans/${clanId}/chat`)}
+                    className="text-[10px] font-bold text-gaming-gold/60 hover:text-gaming-gold uppercase tracking-widest px-3 py-1 rounded border border-gaming-gold/20 hover:bg-gaming-gold/5 transition-all"
+                  >
+                    View Chat
+                  </button>
                 </div>
               ))}
             </div>

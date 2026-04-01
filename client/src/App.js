@@ -65,6 +65,7 @@ import ClanProfile from './pages/clans/ClanProfile';
 import ClanChat from './pages/clans/ClanChat';
 import ClanAdmin from './pages/clans/ClanAdmin';
 import ClanActivity from './pages/clans/ClanActivity';
+import ClanLayout from './components/clan/ClanLayout';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
 
@@ -283,10 +284,20 @@ function App() {
             {/* Clan Routes - Moved to top for priority */}
             <Route path="/clans" element={<ProtectedRoute><ClanDiscovery /></ProtectedRoute>} />
             <Route path="/clans/create" element={<ProtectedRoute><ClanCreate /></ProtectedRoute>} />
-            <Route path="/clans/:id/chat" element={<ProtectedRoute><ClanChat /></ProtectedRoute>} />
-            <Route path="/clans/:id/admin" element={<ProtectedRoute><ClanAdmin /></ProtectedRoute>} />
-            <Route path="/clans/:id/activity" element={<ProtectedRoute><ClanActivity /></ProtectedRoute>} />
-            <Route path="/clans/:id" element={<ProtectedRoute><ClanProfile /></ProtectedRoute>} />
+            
+            {/* Unified Clan Hub Wrapper */}
+            <Route path="/clans/:id/*" element={
+              <ProtectedRoute>
+                <ClanLayout>
+                  <Routes>
+                    <Route path="chat" element={<ClanChat />} />
+                    <Route path="admin" element={<ClanAdmin />} />
+                    <Route path="activity" element={<ClanActivity />} />
+                    <Route path="" element={<ClanProfile />} />
+                  </Routes>
+                </ClanLayout>
+              </ProtectedRoute>
+            } />
             
             {/* Auth Routes */}
             <Route 

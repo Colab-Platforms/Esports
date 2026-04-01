@@ -38,6 +38,15 @@
   --theme-success: #27ae60;
   --theme-error: #e74c3c;
   --theme-warning: #f39c12;
+  
+  /* Hub & Premium Layout */
+  --hub-sidebar-bg: rgba(13, 13, 21, 0.95);
+  --hub-content-bg: #0a0a0f;
+  --hub-border: rgba(255, 255, 255, 0.08);
+  --hub-glass-bg: rgba(255, 255, 255, 0.03);
+  --hub-glass-blur: blur(12px);
+  --hub-accent: #f1c40f;
+  --hub-text-dim: #8888aa;
 }
 
 .light {
@@ -422,8 +431,30 @@ l gaming-specific utilities */
   .border-gradient-neon {
     border-image: linear-gradient(135deg, #00ff88, #00d4ff) 1;
   }
-}/* Li
-ne clamp utilities */
+
+  /* Glassmorphism Classes */
+  .glass-panel {
+    background: var(--hub-glass-bg);
+    backdrop-filter: var(--hub-glass-blur);
+    -webkit-backdrop-filter: var(--hub-glass-blur);
+    border: 1px solid var(--hub-border);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .premium-blur {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+/* Line clamp utilities */
 @layer utilities {
   .line-clamp-1 {
     overflow: hidden;

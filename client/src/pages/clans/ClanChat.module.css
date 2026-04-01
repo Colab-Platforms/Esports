@@ -560,3 +560,13 @@
   background: var(--border);
   border-radius: 10px;
 }
+.searchInput { width: 100%; padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 8px; color: white; font-size: 13px; outline: none; }
+.loaderDots { display: flex; gap: 6px; }
+.loaderDots div { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: bounceDot 0.6s infinite alternate; }
+@keyframes bounceDot { to { transform: translateY(-6px); opacity: 1; } }
+.endOfConvo { text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 12px; }
+.scrollDownButton { position: absolute; bottom: 100px; right: 24px; height: 40px; padding: 0 16px; border-radius: 20px; background: var(--accent); color: white; border: none; }
+.emptyIcon { opacity: 0.4; margin-bottom: 16px; color: var(--accent); }
+.mobileOnlyHeader { display: none; }
+@media (max-width: 768px) { .mobileOnlyHeader { display: flex; padding: 12px; border-bottom: 1px solid var(--border); } }
+

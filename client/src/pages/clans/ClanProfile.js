@@ -56,11 +56,11 @@ const ClanHeader = ({ clan, user, isMember, joining, onJoin, onChatNavigate, isO
   const displayDescription = expanded || !isLong ? clan.description : words.slice(0, 50).join(' ') + '...';
 
   return (
-  <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-8 mb-8 relative">
+  <div className="glass-panel p-8 mb-8 relative border-l-4 border-l-gaming-gold">
     <div className="flex items-start justify-between mb-6">
       <div className="flex items-start gap-6 w-full">
         {/* Avatar */}
-        <div className="w-24 h-24 bg-gradient-to-br from-gaming-gold to-yellow-600 rounded-lg flex items-center justify-center text-black font-bold text-4xl flex-shrink-0">
+        <div className="w-24 h-24 glass-panel flex items-center justify-center text-gaming-gold font-bold text-4xl flex-shrink-0 border-2 border-gaming-gold/20">
           {getAvatarInitials(clan.name)}
         </div>
 
@@ -546,46 +546,18 @@ const ClanProfile = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gaming-dark py-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gaming-border rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading clan...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return null; // Let Hub handle loading or show a skeleton
 
-  if (!clan) {
-    return (
-      <div className="min-h-screen bg-gaming-dark py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Clan not found</h1>
-          <button
-            onClick={() => navigate('/clans')}
-            className="px-6 py-2 bg-gaming-gold text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors"
-          >
-            Back to Clans
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!clan) return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <h2 className="text-2xl font-bold text-white mb-4">Clan not found</h2>
+      <button onClick={() => navigate('/clans')} className="btn-premium">Browse Clans</button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/clans')}
-          className="flex items-center gap-2 text-gaming-gold hover:text-yellow-400 mb-6 transition-colors"
-        >
-          <FiArrowLeft className="w-5 h-5" />
-          Back to Clans
-        </button>
-
-        {/* Clan Header */}
+    <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar bg-hub-content-bg">
+      <div className="max-w-6xl mx-auto space-y-8">
         <ClanHeader
           clan={clan}
           user={user}
@@ -597,58 +569,104 @@ const ClanProfile = () => {
           onSaveClan={handleUpdateClan}
         />
 
-        {/* Tabs Menu */}
-        <div className="flex gap-4 mb-8 border-b border-gaming-border overflow-x-auto">
-          {['overview', 'members', 'activity'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 font-semibold transition-colors capitalize whitespace-nowrap ${activeTab === tab
-                ? 'text-gaming-gold border-b-2 border-gaming-gold'
-                : 'text-gray-400 hover:text-white'
-                }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Stats Panel */}
+            <div className="glass-panel p-6 flex items-center justify-around">
+               <div className="text-center">
+                 <p className="text-2xl font-bold text-gaming-gold">{clan.memberCount || 0}</p>
+                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Members</p>
+               </div>
+               <div className="w-px h-10 bg-white/10" />
+               <div className="text-center">
+                 <p className="text-2xl font-bold text-blue-400">{clan.onlineCount || 0}</p>
+                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Online</p>
+               </div>
+               <div className="w-px h-10 bg-white/10" />
+               <div className="text-center">
+                 <p className="text-2xl font-bold text-purple-400">{clan.visibility || 'Public'}</p>
+                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Visibility</p>
+               </div>
+            </div>
 
-        {/* Tab Content Rendering */}
-        {activeTab === 'overview' && (
-          <ClanOverviewTab
-            clanRules={clanRules}
-            myRole={myRole}
-            editingRules={editingRules}
-            setEditingRules={setEditingRules}
-            rulesText={rulesText}
-            setRulesText={setRulesText}
-            setClanRules={setClanRules}
-            pinnedMessages={pinnedMessages}
-            members={members}
-          />
-        )}
+            {/* Tabs List */}
+            <div className="glass-panel overflow-hidden">
+              <div className="flex border-b border-white/5 bg-white/2">
+                {['overview', 'members', 'activity'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-8 py-4 text-sm font-bold transition-all relative capitalize ${
+                      activeTab === tab ? 'text-gaming-gold' : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    {tab}
+                    {activeTab === tab && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gaming-gold shadow-[0_0_8px_rgba(241,196,15,0.5)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
 
-        {activeTab === 'members' && (
-          <ClanMembersTab
-            members={members}
-            filteredMembers={filteredMembers}
-            loadingMembers={loadingMembers}
-            memberSearch={memberSearch}
-            setMemberSearch={setMemberSearch}
-            memberSort={memberSort}
-            setMemberSort={setMemberSort}
-          />
-        )}
+              <div className="p-8">
+                {activeTab === 'overview' && (
+                  <ClanOverviewTab
+                    clanRules={clanRules}
+                    myRole={myRole}
+                    editingRules={editingRules}
+                    setEditingRules={setEditingRules}
+                    rulesText={rulesText}
+                    setRulesText={setRulesText}
+                    setClanRules={setClanRules}
+                    pinnedMessages={pinnedMessages}
+                    members={members}
+                  />
+                )}
 
-        {activeTab === 'activity' && (
-          <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-6">
-            <h3 className="text-xl font-bold text-white mb-4">📊 Clan Activity</h3>
-            <div className="text-gray-400 text-sm">
-              Activity feed coming soon...
+                {activeTab === 'members' && (
+                  <ClanMembersTab
+                    members={members}
+                    filteredMembers={filteredMembers}
+                    loadingMembers={loadingMembers}
+                    memberSearch={memberSearch}
+                    setMemberSearch={setMemberSearch}
+                    memberSort={memberSort}
+                    setMemberSort={setMemberSort}
+                  />
+                )}
+
+                {activeTab === 'activity' && (
+                  <div className="py-10 text-center text-gray-500 italic">
+                    📊 Activity feed logic coming soon...
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        )}
 
+          {/* Right Column - Brief Info */}
+          <div className="space-y-6">
+            <div className="glass-card p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">About</h3>
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {clan.description || 'No description provided.'}
+              </p>
+            </div>
+
+            <div className="glass-card p-6">
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Leadership</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gaming-gold/10 flex items-center justify-center text-gaming-gold font-bold">
+                  {clan.owner?.username?.[0].toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white transition-colors">@{clan.owner?.username}</p>
+                  <p className="text-[10px] text-gaming-gold font-bold">Clan Leader</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

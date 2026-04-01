@@ -110,63 +110,32 @@ const ClanAdmin = () => {
     setSearchParams({ tab });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gaming-dark py-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gaming-border rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading admin panel...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return null;
 
   if (accessDenied) {
     return (
-      <div className="min-h-screen bg-gaming-dark py-8">
-        <div className="max-w-7xl mx-auto px-4">
-          <button
-            onClick={() => navigate(`/clans/${clanId}`)}
-            className="flex items-center gap-2 text-gaming-gold hover:text-yellow-400 mb-6 transition-colors"
-          >
-            <FiArrowLeft className="w-5 h-5" />
-            Back to Clan
-          </button>
-          <div className="bg-gaming-charcoal border border-red-500/30 rounded-lg p-8 text-center">
-            <FiAlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-            <p className="text-gray-400 mb-6">You don't have permission to access the admin panel.</p>
-            <button
-              onClick={() => navigate(`/clans/${clanId}`)}
-              className="px-6 py-2 bg-gaming-gold text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
+      <div className="flex flex-col items-center justify-center py-20 bg-hub-content-bg h-full">
+        <FiAlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+        <p className="text-gray-400 mb-6 text-center max-w-md">You don't have permission to access the management panel for this clan.</p>
+        <button onClick={() => navigate(`/clans/${clanId}`)} className="btn-premium">Return to Overview</button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <button
-          onClick={() => navigate(`/clans/${clanId}`)}
-          className="flex items-center gap-2 text-gaming-gold hover:text-yellow-400 mb-6 transition-colors"
-        >
-          <FiArrowLeft className="w-5 h-5" />
-          Back to Clan
-        </button>
-
-        <div className="mb-8">
-          <h1 className="text-4xl font-gaming font-bold text-white mb-2">Admin Panel</h1>
-          <p className="text-gray-400">{clan?.name} • Role: {userRole}</p>
+    <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar bg-hub-content-bg">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <h1 className="text-3xl font-gaming font-bold text-white mb-1">Management</h1>
+            <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Role — <span className="text-gaming-gold">{userRole}</span></p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-gaming-charcoal border border-gaming-border rounded-lg overflow-hidden sticky top-8">
+            <div className="glass-panel overflow-hidden sticky top-8">
               <nav className="flex flex-col">
                 {[
                   { id: 'members', label: 'Members', icon: FiUsers },
@@ -181,12 +150,15 @@ const ClanAdmin = () => {
                     <button
                       key={item.id}
                       onClick={() => handleTabChange(item.id)}
-                      className={`flex items-center gap-3 px-4 py-3 border-b border-gaming-border/50 transition-colors ${
+                      className={`flex items-center gap-3 px-6 py-4 border-b border-white/5 transition-all text-sm font-bold relative ${
                         activeTab === item.id
-                          ? 'bg-gaming-gold/10 text-gaming-gold'
-                          : 'text-gray-400 hover:text-white hover:bg-gaming-dark/50'
+                          ? 'text-gaming-gold bg-white/5'
+                          : 'text-gray-400 hover:text-white hover:bg-white/2'
                       }`}
                     >
+                      {activeTab === item.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gaming-gold shadow-[0_0_8px_rgba(241,196,15,0.5)]" />
+                      )}
                       <Icon className="w-5 h-5" />
                       <span className="flex-1 text-left">{item.label}</span>
                     </button>

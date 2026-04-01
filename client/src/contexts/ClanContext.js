@@ -23,8 +23,10 @@ export const ClanProvider = ({ children }) => {
 
   // State
   const [myClan, setMyClan] = useState(null);
+  const [members, setMembers] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
   // ============================================================================
   // FETCH UNREAD COUNT
@@ -70,8 +72,9 @@ export const ClanProvider = ({ children }) => {
             lastSeenAt.toString()
           );
 
-          // Fetch unread count
+          // Fetch unread count and members
           await fetchUnreadCount(response.data.clan._id, lastSeenAt);
+          await fetchMembers(response.data.clan._id);
         } else {
           // User has no clan
           setMyClan(null);
@@ -100,6 +103,27 @@ export const ClanProvider = ({ children }) => {
   }, [myClan]);
 
   // ============================================================================
+  // FETCH CLAN MEMBERS
+  // ============================================================================
+
+  const fetchMembers = useCallback(async (clanId) => {
+    if (!clanId) return;
+
+    try {
+      setIsLoadingMembers(true);
+      const response = await api.get(`/api/clans/${clanId}/members?limit=100`);
+
+      if (response.success) {
+        setMembers(response.data.members || []);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching clan members:', error);
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  }, []);
+
+  // ============================================================================
   // REFRESH CLAN
   // ============================================================================
 
@@ -125,20 +149,23 @@ export const ClanProvider = ({ children }) => {
             lastSeenAt.toString()
           );
 
-          // Fetch unread count
+          // Fetch unread count and members
           await fetchUnreadCount(response.data.clan._id, lastSeenAt);
+          await fetchMembers(response.data.clan._id);
         } else {
           // User has no clan
           console.log('✅ refreshMyClan: User has no clan');
           setMyClan(null);
+          setMembers([]);
           setUnreadCount(0);
         }
       }
     } catch (error) {
       console.error('❌ Error refreshing clan:', error);
       setMyClan(null);
+      setMembers([]);
     }
-  }, [token, fetchUnreadCount]);
+  }, [token, fetchUnreadCount, fetchMembers]);
 
   // ============================================================================
   // SOCKET INTEGRATION - LISTEN FOR CLAN EVENTS
@@ -270,10 +297,13 @@ export const ClanProvider = ({ children }) => {
 
   const value = {
     myClan,
+    members,
     unreadCount,
     isLoading,
+    isLoadingMembers,
     clearUnread,
-    refreshMyClan
+    refreshMyClan,
+    fetchMembers
   };
 
   return (
