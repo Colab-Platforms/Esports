@@ -144,35 +144,56 @@ router.post('/:id/distribute-rewards', auth, adminAuth, async (req, res) => {
     const winnerTeamIds = winners.map(w => w.teamId);
     
     // Helper function to distribute coins to a team
-    const distributeToTeam = async (teamId, amount, position = null) => {
+    const distributeToTeam = async (recipientId, amount, position = null) => {
       let teamMembers = [];
       let teamName = '';
       
       if (tournament.gameType === 'bgmi' || tournament.gameType === 'freefire') {
-        const registration = await TournamentRegistration.findById(teamId)
+        const registration = await TournamentRegistration.findById(recipientId)
           .populate('userId', 'username email');
         
         if (!registration) {
-          throw new Error(`Team registration ${teamId} not found`);
+          throw new Error(`Team registration ${recipientId} not found`);
         }
         
         teamName = registration.teamName;
         teamMembers = [registration.userId];
         
       } else {
-        const team = await Team.findById(teamId).populate('members.userId', 'username email');
+        // Find participant by ID or check if it's a Team model entry
+        const participant = tournament.participants?.id(recipientId);
         
-        if (!team) {
-          throw new Error(`Team ${teamId} not found`);
+        if (participant) {
+          // If we found a direct participant ID
+          teamName = participant.teamName || `Solo: ${participant.userId.username || 'User'}`;
+          
+          // Populate the userId manually if it was just an ID
+          const User = require('../models/User');
+          const userObj = await User.findById(participant.userId).select('username email');
+          if (userObj) {
+            teamMembers = [userObj];
+          }
+        } else {
+          // Fallback for older entries/Team model
+          const team = await Team.findById(recipientId).populate('members.userId', 'username email');
+          if (!team) {
+            throw new Error(`Recipient ${recipientId} not found in participants or teams`);
+          }
+          teamName = team.name;
+          teamMembers = team.members.map(m => m.userId);
         }
-        
-        teamName = team.name;
-        teamMembers = team.members.map(m => m.userId);
       }
       
       // Distribute to each member
+      console.log(`👥 Processing ${teamMembers.length} members for team: ${teamName}`);
+      
       for (const member of teamMembers) {
         try {
+          if (!member || !member._id) {
+            console.warn(`⚠️ Skipping invalid member in team ${teamName}`);
+            continue;
+          }
+
           let wallet = await Wallet.findOne({ userId: member._id });
           if (!wallet) {
             wallet = new Wallet({ userId: member._id });
@@ -184,30 +205,30 @@ router.post('/:id/distribute-rewards', auth, adminAuth, async (req, res) => {
           
           await wallet.addCoins(
             amount,
-            'bonus',
+            'earn',
             description,
             {
               source: 'tournament_reward',
-              tournamentId: tournamentId,
-              teamId: teamId,
+              tournamentId: tournament._id,
+              teamId: recipientId,
               teamName: teamName,
               position: position || 'participation'
             }
           );
           
-          const lastTransaction = wallet.transactions[wallet.transactions.length - 1];
+          const lastTransaction = wallet.transactions[wallet.transactions.length - 1]; // Fixed: Wallet uses 'transactions'
           
           allRecipients.push({
             userId: member._id,
-            username: member.username,
-            teamId: teamId,
+            username: member.username || 'Unknown',
+            teamId: recipientId,
             teamName: teamName,
             amount: amount,
             position: position || 'participation',
-            transactionId: lastTransaction._id.toString()
+            transactionId: lastTransaction?._id?.toString() || 'manual'
           });
           
-          console.log(`✅ ${amount} coins → ${member.username} (${teamName}) - ${position || 'Participation'}`);
+          console.log(`✅ ${amount} coins → ${member.username || member._id} (${teamName}) - ${position || 'Participation'}`);
           
         } catch (error) {
           console.error(`❌ Error distributing to ${member.username}:`, error);
@@ -422,25 +443,37 @@ router.get('/:id/registered-teams', auth, adminAuth, async (req, res) => {
       });
       
     } else {
-      // For CS2/Valorant: Fetch from Team model
-      const teamDocs = await Team.find({
-        game: tournament.gameType,
-        isActive: true
-      }).populate('members.userId', 'username email');
+      // For CS2/Valorant: We MUST only use participants actually in this tournament
+      // We group them by teamName. If teamName is empty, we treat them as individual participants.
       
-      console.log(`✅ Found ${teamDocs.length} teams for ${tournament.gameType}`);
+      const participants = tournament.participants || [];
+      console.log(`✅ Processing ${participants.length} participants for ${tournament.gameType} tournament reward mapping`);
       
-      teams = teamDocs.map(team => ({
-        _id: team._id,
-        name: team.name,
-        tag: team.tag,
-        memberCount: team.members.length,
-        members: team.members.map(m => ({
-          userId: m.userId._id,
-          username: m.userId.username,
-          role: m.role
-        }))
+      // Group by teamName
+      const teamGroups = {};
+      
+      participants.forEach(p => {
+        const tName = p.teamName || `Solo: ${p.userId.username || 'User'}`;
+        if (!teamGroups[tName]) {
+          teamGroups[tName] = {
+            _id: p._id, // Use participant ID as a temporary unique ID
+            name: tName,
+            members: []
+          };
+        }
+        teamGroups[tName].members.push({
+          userId: p.userId._id,
+          username: p.userId.username,
+          role: 'member'
+        });
+      });
+      
+      teams = Object.values(teamGroups).map(group => ({
+        ...group,
+        memberCount: group.members.length
       }));
+      
+      console.log(`✅ Mapped ${teams.length} unique teams/solos from participants`);
     }
     
     res.json({
