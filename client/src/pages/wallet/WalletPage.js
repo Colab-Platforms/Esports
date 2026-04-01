@@ -41,7 +41,7 @@ const WalletPage = () => {
       const response = await api.get('/api/referral/my-code');
       console.log('🎁 Referral API Response:', response);
       console.log('🎁 Response Data:', response.data);
-      
+
       if (response.success) {
         console.log('✅ Success! Code:', response.data.referralCode);
         setReferralCode(response.data.referralCode);
@@ -54,7 +54,7 @@ const WalletPage = () => {
     } catch (error) {
       console.error('❌ Error fetching referral code:', error);
       console.error('Error response:', error.response?.data);
-      alert('Failed to fetch referral code'); 
+      alert('Failed to fetch referral code');
     }
   };
 
@@ -117,7 +117,7 @@ const WalletPage = () => {
       const response = await api.get("/api/wallet");
       if (response.success) {
         setWallet(response.data);
-        
+
         // Set 9 days data (7 past + today + 2 future)
         if (response.data.days) {
           setLast7Days(response.data.days);
@@ -125,11 +125,11 @@ const WalletPage = () => {
           // Fallback for backward compatibility
           setLast7Days(response.data.last7Days);
         }
-        
+
         // Check if already claimed today    
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         if (response.data.lastDailyLogin) {
           const lastLogin = new Date(response.data.lastDailyLogin);
           lastLogin.setHours(0, 0, 0, 0);
@@ -236,16 +236,15 @@ const WalletPage = () => {
                 <FiShare2 className="w-4 h-4" />
                 <span>Referral Code</span>
               </button>
-              
+
               {/* Claim Button */}
               <button
                 onClick={handleClaimDaily}
                 disabled={claiming || claimedToday}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all duration-300 ${
-                  claimedToday
-                    ? "border-2 border-green-400 bg-green-400/20 text-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"
-                    : "btn-gaming"
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all duration-300 ${claimedToday
+                  ? "border-2 border-green-400 bg-green-400/20 text-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"
+                  : "btn-gaming"
+                  }`}
               >
                 {claimedToday ? (
                   <>
@@ -266,7 +265,7 @@ const WalletPage = () => {
           <div className="flex justify-center lg:justify-end">
             <div className="flex flex-col items-center gap-2">
               {/* <span className="text-xs text-gray-400 font-medium">Your Streak Journey</span> */}
-              
+
               <div className="flex gap-1.5">
                 {last7Days.map((day, index) => (
                   <div
@@ -275,24 +274,22 @@ const WalletPage = () => {
                   >
                     {/* Day Circle */}
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                        day.isFuture
-                          ? "border-2 border-dashed border-gray-600 bg-gray-800/30 text-gray-500"
-                          : day.claimed
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${day.isFuture
+                        ? "border-2 border-dashed border-gray-600 bg-gray-800/30 text-gray-500"
+                        : day.claimed
                           ? "border-2 border-green-400 bg-green-400/20 text-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)]"
                           : day.isToday
-                          ? "border-2 border-gaming-gold bg-gaming-gold/10 text-gaming-gold animate-pulse"
-                          : "border-2 border-gray-600 bg-gray-700/50 text-gray-400"
-                      }`}
-                      title={`${day.dayName}, ${day.dayNumber}${
-                        day.isFuture 
-                          ? ' - Upcoming' 
-                          : day.claimed 
-                          ? ' - Claimed ✓' 
-                          : day.isToday 
-                          ? ' - Claim Today!' 
-                          : ' - Missed'
-                      }`}
+                            ? "border-2 border-gaming-gold bg-gaming-gold/10 text-gaming-gold animate-pulse"
+                            : "border-2 border-gray-600 bg-gray-700/50 text-gray-400"
+                        }`}
+                      title={`${day.dayName}, ${day.dayNumber}${day.isFuture
+                        ? ' - Upcoming'
+                        : day.claimed
+                          ? ' - Claimed ✓'
+                          : day.isToday
+                            ? ' - Claim Today!'
+                            : ' - Missed'
+                        }`}
                     >
                       {day.isFuture ? (
                         <span className="text-[10px]">{day.dayNumber}</span>
@@ -302,21 +299,20 @@ const WalletPage = () => {
                         <span className="text-[10px]">{day.dayNumber}</span>
                       )}
                     </div>
-                    
+
                     {/* Day Name */}
-                    <span className={`text-[9px] font-medium ${
-                      day.isFuture 
-                        ? 'text-gray-600' 
-                        : day.isToday 
-                        ? 'text-gaming-gold font-bold' 
+                    <span className={`text-[9px] font-medium ${day.isFuture
+                      ? 'text-gray-600'
+                      : day.isToday
+                        ? 'text-gaming-gold font-bold'
                         : 'text-gray-500'
-                    }`}>
+                      }`}>
                       {day.dayName}
                     </span>
                   </div>
                 ))}
               </div>
-              
+
               {/* Streak Count */}
               <div className="text-center mt-1">
                 <span className="text-xs text-gray-400">
@@ -328,8 +324,8 @@ const WalletPage = () => {
         </div>
 
         {/* Balance Cards */}
-        
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Current Balance */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -337,11 +333,15 @@ const WalletPage = () => {
             className="card-gaming p-6 bg-gradient-to-br from-gaming-gold/20 to-gaming-neon/20"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-400 text-sm">Current Balance</h3>
+              <h3 className="text-gray-400 text-md">Current Balance</h3>
               <div className="flex items-center gap-1">
-                <span className="text-gaming-gold font-bold text-md tracking-widest" style={{ fontFamily: 'Orbitron, sans-serif' }}>CC</span>
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc_icon_8f0f0cb6-bff1-419f-bdc6-cdaf635e4cd8.png?v=1775034754"
+                  alt="CC"
+                  className="w-12 h-12 object-contain"
+                />
               </div>
-              
+
             </div>
             <p className="text-4xl font-bold text-white mb-2">
               {wallet?.balance || 0}
@@ -385,85 +385,85 @@ const WalletPage = () => {
           </motion.div> */}
 
           {/* Streak */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.1 }}
-  whileHover={{ scale: 1.02 }}
-  className="relative card-gaming p-6 col-span-2 overflow-hidden"
->
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            whileHover={{ scale: 1.02 }}
+            className="relative card-gaming p-6 col-span-2 overflow-hidden"
+          >
 
-  {/* glowing background */}
-  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-yellow-500/10 blur-2xl"></div>
+            {/* glowing background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-yellow-500/10 blur-2xl"></div>
 
-  <div className="relative flex items-center justify-between">
+            <div className="relative flex items-center justify-between">
 
-    {/* LEFT SIDE */}
-    <div>
+              {/* LEFT SIDE */}
+              <div>
 
-      <p className="text-gray-400 text-sm mb-1">
-        7 Day Login Streak
-      </p>
+                <p className="text-gray-400 text-sm mb-1">
+                  7 Day Login Streak
+                </p>
 
-      <div className="flex items-end space-x-2">
-        <span className="text-6xl font-extrabold text-white">
-          {wallet?.streak || 0}
-        </span>
+                <div className="flex items-end space-x-2">
+                  <span className="text-6xl font-extrabold text-white">
+                    {wallet?.streak || 0}
+                  </span>
 
-        <span className="text-orange-400 font-semibold mb-2">
-          / 7
-        </span>
-      </div>
+                  <span className="text-orange-400 font-semibold mb-2">
+                    / 7
+                  </span>
+                </div>
 
-      {/* motivational label */}
-      <p className="text-sm mt-2 text-orange-400 font-semibold">
-        {(wallet?.streak || 0) >= 6
-          ? "🔥 Legendary Streak"
-          : (wallet?.streak || 0) >= 4
-          ? "⚡ Hot Streak"
-          : (wallet?.streak || 0) >= 2
-          ? "🚀 Building Momentum"
-          : "🎯 Start Your Streak"}
-      </p>
+                {/* motivational label */}
+                <p className="text-sm mt-2 text-orange-400 font-semibold">
+                  {(wallet?.streak || 0) >= 6
+                    ? "🔥 Legendary Streak"
+                    : (wallet?.streak || 0) >= 4
+                      ? "⚡ Hot Streak"
+                      : (wallet?.streak || 0) >= 2
+                        ? "🚀 Building Momentum"
+                        : "🎯 Start Your Streak"}
+                </p>
 
-    </div>
+              </div>
 
-    {/* RIGHT SIDE ICON */}
-    <motion.div
-      animate={{ scale: [1, 1.15, 1] }}
-      transition={{ duration: 2, repeat: Infinity }}
-      className="text-8xl"
-    >
-      🔥
-    </motion.div>
+              {/* RIGHT SIDE ICON */}
+              <motion.div
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-8xl"
+              >
+                🔥
+              </motion.div>
 
-  </div>
+            </div>
 
 
-  {/* PROGRESS BAR */}
-  <div className="mt-6">
+            {/* PROGRESS BAR */}
+            <div className="mt-6">
 
-    <div className="flex justify-between text-xs text-gray-400 mb-1">
-      <span>Weekly Progress</span>
-      <span>{wallet?.streak || 0}/7</span>
-    </div>
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span>Weekly Progress</span>
+                <span>{wallet?.streak || 0}/7</span>
+              </div>
 
-    <div className="w-full bg-gaming-dark rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-gaming-dark rounded-full h-3 overflow-hidden">
 
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{
-          width: `${((wallet?.streak || 0) / 7) * 100}%`
-        }}
-        transition={{ duration: 1 }}
-        className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-300"
-      />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${((wallet?.streak || 0) / 7) * 100}%`
+                  }}
+                  transition={{ duration: 1 }}
+                  className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-300"
+                />
 
-    </div>
+              </div>
 
-  </div>
+            </div>
 
-</motion.div>
+          </motion.div>
         </div>
 
         {/* Daily Reward */}

@@ -300,7 +300,11 @@ const Navbar = () => {
                   <div className="flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-gaming-gold/20 rounded">
                     <span className="text-gaming-gold font-bold text-xs">{coinBalance}</span>
                   </div>
-                  <span className="font-semibold">CC</span>
+                  <img
+                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc_icon_8f0f0cb6-bff1-419f-bdc6-cdaf635e4cd8.png?v=1775034754"
+                    alt="CC"
+                    className="w-7 h-7 object-contain"
+                  />
                 </Link>
 
                  {/* Notifications */}
