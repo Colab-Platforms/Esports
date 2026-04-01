@@ -4,6 +4,7 @@ import { selectIsAuthenticated } from '../store/slices/authSlice';
 import axios from 'axios';
 
 const TOAST_STORAGE_KEY = 'dailyStreakToastShown';
+const API_BASE = process.env.REACT_APP_API_URL || '';
 
 const useDailyStreak = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -21,7 +22,7 @@ const useDailyStreak = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.get('/api/wallet/streak-status', {
+      const { data } = await axios.get(`${API_BASE}/api/wallet/streak-status`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -57,7 +58,7 @@ const useDailyStreak = () => {
     setClaiming(true);
     try {
       const token = localStorage.getItem('token');
-      const { data } = await axios.post('/api/wallet/daily-login', {}, {
+      const { data } = await axios.post(`${API_BASE}/api/wallet/daily-login`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
