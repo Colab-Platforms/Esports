@@ -50,6 +50,8 @@ const authSlice = createSlice({
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('userId', user._id || user.id); // Store userId separately for easy access
+      // Clear streak toast flag so it re-evaluates on every fresh login
+      localStorage.removeItem('dailyStreakToastShown');
     },
     loginFailure: (state, action) => {
       state.token = null;
@@ -79,6 +81,8 @@ const authSlice = createSlice({
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('userId', user._id || user.id); // Store userId separately for easy access
+      // Clear streak toast flag so it evaluates fresh after signup
+      localStorage.removeItem('dailyStreakToastShown');
     },
     registerFailure: (state, action) => {
       state.token = null;
