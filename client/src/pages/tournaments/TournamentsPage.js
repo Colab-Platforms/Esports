@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiFilter, FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import GameIcon from '../../components/common/GameIcon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import TournamentCardProfessional from '../../components/tournaments/TournamentCardProfessional';
@@ -26,13 +26,7 @@ const TournamentsPage = () => {
   const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [siteImages, setSiteImages] = useState({});
-  
-  // Advanced filter states
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterGameTypes, setFilterGameTypes] = useState([]); // Changed to array for multiselect
-  const [showGameTypeDropdown, setShowGameTypeDropdown] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,19 +151,6 @@ const TournamentsPage = () => {
     }
   };
 
-  // Handle game type selection (multiselect)
-  const handleGameTypeToggle = (gameType) => {
-    setFilterGameTypes(prev => {
-      if (prev.includes(gameType)) {
-        // Remove if already selected
-        return prev.filter(g => g !== gameType);
-      } else {
-        // Add if not selected
-        return [...prev, gameType];
-      }
-    });
-  };
-
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -180,24 +161,10 @@ const TournamentsPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
 
-  // Client-side filtering for search and advanced filters
+  // Client-side filtering for search
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Status filter (additional client-side filter)
-    let matchesStatus = true;
-    if (filterStatus !== 'all') {
-      if (filterStatus === 'active') {
-        matchesStatus = tournament.status === 'active' || tournament.status === 'registration_open';
-      } else if (filterStatus === 'completed') {
-        matchesStatus = tournament.status === 'completed';
-      }
-    }
-    
-    // Game type filter (multiselect - additional client-side filter)
-    const matchesGameType = filterGameTypes.length === 0 || filterGameTypes.includes(tournament.gameType);
-    
-    return matchesSearch && matchesStatus && matchesGameType;
+    return matchesSearch;
   });
 
   // Tournament background gradients based on game type
@@ -333,182 +300,72 @@ const TournamentsPage = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title, Search and Filters - All in one line */}
-        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center gap-4">
+        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           {/* Page Title */}
           <h1 className="text-3xl font-gaming font-bold text-white whitespace-nowrap">
             TOURNAMENTS
           </h1>
 
           {/* Search Bar */}
-          <div className="flex-1 relative w-full md:w-auto">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <div className="relative w-full md:w-auto">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
               type="text"
-              placeholder="Type to search..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gaming-gold focus:border-transparent"
+              className="w-full pl-9 pr-3 py-2 bg-gaming-card border border-gaming-border rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gaming-gold focus:border-transparent"
             />
           </div>
-
-          {/* Filters Button */}
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center space-x-2 px-6 py-3 bg-gaming-card border border-gaming-border rounded-lg text-white hover:border-gaming-gold transition-colors duration-200 whitespace-nowrap ${showFilters ? 'border-gaming-gold bg-gaming-gold/10' : ''}`}
-          >
-            <FiFilter className="h-4 w-4" />
-            <span>Filters</span>
-          </button>
         </div>
 
-        {/* Advanced Filters Modal */}
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6 p-6 bg-gaming-card border border-gaming-border rounded-lg"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-gaming font-bold text-white">Advanced Filters</h3>
-                <button 
-                  onClick={() => setShowFilters(false)}
-                  className="text-gray-400 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
-                  <select 
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active / Ongoing</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-                
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Game Type (Multi-Select)</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowGameTypeDropdown(!showGameTypeDropdown)}
-                    className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gaming-gold font-gaming text-left flex items-center justify-between"
-                  >
-                    <span className="truncate">
-                      {filterGameTypes.length === 0 
-                        ? 'Select Games' 
-                        : filterGameTypes.length === 1
-                        ? filterGameTypes[0].toUpperCase()
-                        : `${filterGameTypes.length} Games Selected`
-                      }
-                    </span>
-                    <FiChevronRight className={`transform transition-transform ${showGameTypeDropdown ? 'rotate-90' : ''}`} />
-                  </button>
-                  
-                  {/* Multiselect Dropdown */}
-                  {showGameTypeDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-gaming-dark border border-gaming-border rounded-lg shadow-lg overflow-hidden">
-                      {['bgmi', 'freefire', 'valorant', 'cs2'].map((game) => (
-                        <label
-                          key={game}
-                          className="flex items-center px-4 py-3 hover:bg-gaming-card cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filterGameTypes.includes(game)}
-                            onChange={() => handleGameTypeToggle(game)}
-                            className="w-4 h-4 text-gaming-gold bg-gaming-charcoal border-gaming-border rounded focus:ring-gaming-gold focus:ring-2"
-                          />
-                          <span className="ml-3 text-white font-gaming">
-                            {game === 'bgmi' ? 'BGMI' : 
-                             game === 'freefire' ? 'Free Fire' : 
-                             game === 'valorant' ? 'Valorant' : 
-                             'CS2'}
-                          </span>
-                          {filterGameTypes.includes(game) && (
-                            <span className="ml-auto text-gaming-gold">✓</span>
-                          )}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex justify-end mt-4 space-x-3">
-                <button 
-                  onClick={() => {
-                    setFilterStatus('all');
-                    setFilterGameTypes([]);
-                    setSearchQuery('');
-                    setShowGameTypeDropdown(false);
-                  }}
-                  className="px-4 py-2 bg-gaming-slate text-white rounded-lg hover:bg-gaming-charcoal transition-colors font-gaming"
-                >
-                  Clear All
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowFilters(false);
-                    setShowGameTypeDropdown(false);
-                  }}
-                  className="px-4 py-2 bg-gaming-gold text-black rounded-lg hover:bg-gaming-accent transition-colors font-gaming font-bold"
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Tournament Status Tabs */}
-        {/* <div className="mb-8">
-          <div className="overflow-x-auto">
-            <div className="flex space-x-8 border-b border-gaming-border min-w-max">
-              {statusTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveStatusTab(tab.id)}
-                  className={`pb-4 px-2 font-semibold transition-colors duration-200 whitespace-nowrap ${
-                    activeStatusTab === tab.id
-                      ? 'text-gaming-gold border-b-2 border-gaming-gold'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div> */}
-
-        {/* Tournament Categories */}
-        {/* <div className="mb-8">
+        {/* Tournament Categories Tabs */}
+        <div className="mb-8">
           <div className="overflow-x-auto">
             <div className="flex gap-4 min-w-max pb-2">
-              {categoryTabs.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategoryTab(category.id)}
-                  className={`px-4 py-2 rounded-lg font-semibold transition-colors duration-200 whitespace-nowrap ${
-                    activeCategoryTab === category.id
-                      ? 'bg-gaming-gold text-black'
-                      : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border'
-                  }`}
-                >
-                  {category.label}
-                </button>
-              ))}
+              <button
+                onClick={() => setActiveCategoryTab('all')}
+                className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
+                  activeCategoryTab === 'all'
+                    ? 'bg-gaming-gold text-black'
+                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+                }`}
+              >
+                ALL GAMES
+              </button>
+              <button
+                onClick={() => setActiveCategoryTab('bgmi')}
+                className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
+                  activeCategoryTab === 'bgmi'
+                    ? 'bg-gaming-gold text-black'
+                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+                }`}
+              >
+                BGMI
+              </button>
+              <button
+                onClick={() => setActiveCategoryTab('ff')}
+                className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
+                  activeCategoryTab === 'ff'
+                    ? 'bg-gaming-gold text-black'
+                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+                }`}
+              >
+                FREE FIRE
+              </button>
+              <button
+                onClick={() => setActiveCategoryTab('cs2')}
+                className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
+                  activeCategoryTab === 'cs2'
+                    ? 'bg-gaming-gold text-black'
+                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+                }`}
+              >
+                CS2
+              </button>
             </div>
           </div>
-        </div> */}
+        </div>
 
         {/* Tournament Grid */}
         <div className="min-h-96 mb-8">
@@ -594,8 +451,7 @@ const TournamentsPage = () => {
               </p>
               <button 
                 onClick={() => {
-                  setFilterStatus('all');
-                  setFilterGameTypes([]);
+                  setActiveCategoryTab('all');
                   setSearchQuery('');
                 }}
                 className="mt-4 px-6 py-3 bg-gaming-gold text-black rounded-lg hover:bg-gaming-accent transition-colors font-gaming font-bold"

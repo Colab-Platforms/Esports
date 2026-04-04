@@ -164,19 +164,22 @@ const TournamentCardProfessional = ({
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        ) : gameType === "freefire" ? (
+        ) : gameType === "freefire" || gameType === "ff" ? (
           <img
             src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Free_Fire_battlefield_action__endoftext.png?v=1775206525"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        ) : (
+        ) 
+        : 
+        (
           <img
             src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        )}
+        )
+        }
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/85" />
       </div>
