@@ -1682,7 +1682,7 @@ const CompleteLandingPage = () => {
 
 
       {/* More Games Coming Soon - Classic Premium Design */}
-      <section className="py-20 relative overflow-hidden">
+      {/* <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-purple-900/10 to-gaming-dark"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -1696,14 +1696,14 @@ const CompleteLandingPage = () => {
               More Games Coming Soon
             </h2>
             <p className="text-gray-400 text-lg font-gaming">Expanding to more titles in 2025</p>
-          </motion.div>
+          </motion.div> */}
 
           {/* Classic Premium Carousel */}
-          <div className="relative max-w-4xl mx-auto">
+          {/* <div className="relative max-w-4xl mx-auto"> */}
 
 
             {/* Premium Card Container */}
-            <div className="overflow-hidden rounded-2xl shadow-2xl">
+            {/* <div className="overflow-hidden rounded-2xl shadow-2xl">
               <motion.div
                 className="flex"
                 animate={{ x: `${-currentGameIndex * 100}%` }}
@@ -1727,19 +1727,19 @@ const CompleteLandingPage = () => {
                         transition: { duration: 0.3 }
                       }}
                       className="relative group h-80"
-                    >
+                    > */}
                       {/* Subtle Premium Glow */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-10 group-hover:opacity-20 rounded-2xl filter blur-xl transition-all duration-500`}></div>
-                      
+                      {/* <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-10 group-hover:opacity-20 rounded-2xl filter blur-xl transition-all duration-500`}></div>
+                       */}
                       {/* Classic Premium Card */}
-                      <div className="relative h-full bg-gradient-to-br from-gaming-charcoal to-gaming-dark border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300">
+                      {/* <div className="relative h-full bg-gradient-to-br from-gaming-charcoal to-gaming-dark border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300"> */}
                         {/* Premium Border Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-gaming-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        {/* <div className="absolute inset-0 bg-gradient-to-br from-gaming-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div> */}
                         
                         {/* Classic Premium Content */}
-                        <div className="relative h-full flex flex-col items-center justify-center p-8 text-center">
+                        {/* <div className="relative h-full flex flex-col items-center justify-center p-8 text-center"> */}
                           {/* Simple Elegant Icon */}
-                          <motion.div
+                          {/* <motion.div
                             animate={{ 
                               scale: [1, 1.05, 1]
                             }}
@@ -1756,23 +1756,23 @@ const CompleteLandingPage = () => {
                           >
                             <GameIcon gameType={game.gameType} size="2xl" />
                           </motion.div>
-                          
+                           */}
                           {/* Classic Game Title */}
-                          <h3 className="text-3xl font-gaming font-bold text-white mb-4 group-hover:text-gaming-gold transition-colors duration-300">
+                          {/* <h3 className="text-3xl font-gaming font-bold text-white mb-4 group-hover:text-gaming-gold transition-colors duration-300">
                             {game.name}
-                          </h3>
+                          </h3> */}
                           
                           {/* Premium Status Badge */}
-                          <motion.div
+                          {/* <motion.div
                             whileHover={{ scale: 1.05 }}
                             className={`inline-flex items-center px-6 py-3 bg-gradient-to-r ${game.color} rounded-full text-white font-gaming font-bold text-sm shadow-lg backdrop-blur-sm mb-4`}
                           >
                             <span className="mr-2">🚀</span>
                             {game.status}
                           </motion.div>
-                          
+                           */}
                           {/* Simple Description */}
-                          <p className="text-gray-300 font-gaming text-sm">
+                          {/* <p className="text-gray-300 font-gaming text-sm">
                             Get ready for epic tournaments
                           </p>
                         </div>
@@ -1781,12 +1781,12 @@ const CompleteLandingPage = () => {
                   </div>
                 ))}
               </motion.div>
-            </div>
+            </div> */}
 
             {/* Classic Premium Indicators with Navigation */}
-            <div className="flex items-center justify-center space-x-4 mt-8">
+            {/* <div className="flex items-center justify-center space-x-4 mt-8"> */}
               {/* Previous Button */}
-              <button
+              {/* <button
                 onClick={() => {
                   const prevIndex = currentGameIndex === 0 ? upcomingGames.length - 1 : currentGameIndex - 1;
                   setCurrentGameIndex(prevIndex);
@@ -1795,10 +1795,10 @@ const CompleteLandingPage = () => {
                 className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-all duration-300"
               >
                 ←
-              </button>
+              </button> */}
               
               {/* Indicators */}
-              <div className="flex space-x-3">
+              {/* <div className="flex space-x-3">
                 {upcomingGames.map((game, idx) => (
                   <button
                     key={idx}
@@ -1813,10 +1813,10 @@ const CompleteLandingPage = () => {
                     }`}
                   />
                 ))}
-              </div>
+              </div> */}
               
               {/* Next Button */}
-              <button
+              {/* <button
                 onClick={() => {
                   const nextIndex = (currentGameIndex + 1) % upcomingGames.length;
                   setCurrentGameIndex(nextIndex);
@@ -1826,10 +1826,10 @@ const CompleteLandingPage = () => {
               >
                 →
               </button>
-            </div>
+            </div> */}
 
             {/* Auto-slide Toggle with Status */}
-            <div className="flex flex-col items-center mt-6 space-y-2">
+            {/* <div className="flex flex-col items-center mt-6 space-y-2">
               <button
                 onClick={() => {
                   console.log('🎮 Auto-slide toggle clicked. Current autoPlay:', autoPlay);
@@ -1843,10 +1843,10 @@ const CompleteLandingPage = () => {
                 }`}
               >
                 {autoPlay ? '⏸️ Pause Auto-slide' : '▶️ Enable Auto-slide'}
-              </button>
+              </button> */}
               
               {/* Status Indicator */}
-              <div className="flex items-center space-x-2 text-xs">
+              {/* <div className="flex items-center space-x-2 text-xs">
                 <div className={`w-2 h-2 rounded-full ${autoPlay ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
                 <span className="text-gray-400">
                   {autoPlay ? 'Auto-sliding active' : 'Auto-slide paused'}
@@ -1855,7 +1855,7 @@ const CompleteLandingPage = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Testimonials - Enhanced Unique Slider */}
       <section className="py-20 bg-gaming-charcoal/30 relative overflow-hidden">
