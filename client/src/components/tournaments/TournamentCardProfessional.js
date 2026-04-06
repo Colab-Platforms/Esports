@@ -43,7 +43,7 @@ const TournamentCardProfessional = ({
     window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournament._id}`);
   }, [user, tournament._id]);
 
-    const handleJoinTournament = React.useCallback(async () => {
+  const handleJoinTournament = React.useCallback(async () => {
     if (!isAuthenticated) {
       navigate("/login");
       return;
@@ -136,10 +136,10 @@ const TournamentCardProfessional = ({
     // For non-CS2 tournaments, navigate to details page
     navigate(`/tournaments/${tournament._id}`);
   }, [isAuthenticated, tournament, user, navigate]);
-  
+
 
   return (
-    
+
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -170,15 +170,15 @@ const TournamentCardProfessional = ({
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        ) 
-        : 
-        (
-          <img
-            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
-            alt={tournament.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
         )
+          :
+          (
+            <img
+              src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
+              alt={tournament.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          )
         }
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/85" />
@@ -281,7 +281,7 @@ const TournamentCardProfessional = ({
                       {Math.round(
                         (tournament.currentParticipants /
                           tournament.maxParticipants) *
-                          100,
+                        100,
                       )}
                       %
                     </span>
@@ -337,16 +337,15 @@ const TournamentCardProfessional = ({
                 disabled={
                   tournament?.status !== "active"
                 }
-                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-sm rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${
-                  tournament?.status !== "active"
+                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-sm rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${tournament?.status !== "active"
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
-                }`}
+                  }`}
               >
                 {!isAuthenticated
                   ? "LOGIN TO JOIN"
                   : tournament?.status === "active"
-                    ? "JOIN SERVERrrr"
+                    ? "JOIN SERVER"
                     : "SERVER INACTIVE"}
               </button>
 
