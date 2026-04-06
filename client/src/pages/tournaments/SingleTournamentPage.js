@@ -13,7 +13,7 @@ import {
   FiKey,
   FiCopy,
 } from "react-icons/fi";
-import { selectAuth } from "../../store/slices/authSlice";
+import { selectAuth, selectUserRole } from "../../store/slices/authSlice";
 import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
 import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
 import api from "../../services/api";
@@ -87,6 +87,7 @@ const SingleTournamentPage = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(selectAuth);
+  const userRole = useSelector(selectUserRole);
   const [activeTab, setActiveTab] = useState("general");
   const [showTeamSelection, setShowTeamSelection] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -968,7 +969,7 @@ const SingleTournamentPage = () => {
 
   const tabs = [
     { id: "general", label: "GENERAL", icon: FiInfo },
-    { id: "teams", label: "TEAMS", icon: FiUsers },
+    ...(userRole === "admin" ? [{ id: "teams", label: "TEAMS", icon: FiUsers }] : []),
   ];
 
   const renderTabContent = () => {
