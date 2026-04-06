@@ -151,11 +151,36 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
     }));
   };
 
+  const validateUID = (uid) => {
+    if (!uid) return { valid: true, message: '' };
+    if (!/^\d+$/.test(uid)) {
+      return { valid: false, message: 'UID must contain only numbers' };
+    }
+    if (uid.length !== 11) {
+      return { valid: false, message: 'UID must be exactly 11 digits' };
+    }
+    return { valid: true, message: '' };
+  };
+
+  const getUIDError = (uid) => {
+    return validateUID(uid).message;
+  };
+
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
       setError('');
       setSuccess('');
+      
+      // Validate UIDs
+      const bgmiUidError = getUIDError(gameIds.bgmi.uid);
+      const freeFireUidError = getUIDError(gameIds.freefire.uid);
+      
+      if (bgmiUidError || freeFireUidError) {
+        setError(bgmiUidError || freeFireUidError);
+        setLoading(false);
+        return;
+      }
       
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       
@@ -444,12 +469,19 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={gameIds.bgmi.uid}
                   onChange={(e) => handleGameIdChange('bgmi', 'uid', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${
                     isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  } ${
+                    getUIDError(gameIds.bgmi.uid) 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gaming-border focus:border-gaming-gold'
                   }`}
-                  placeholder="Your BGMI UID"
+                  placeholder="Your BGMI UID (11 digits)"
                 />
-                <p className="text-xs text-gray-500 mt-1">Your unique BGMI user ID for verification</p>
+                {getUIDError(gameIds.bgmi.uid) && (
+                  <p className="text-xs text-red-400 mt-1">{getUIDError(gameIds.bgmi.uid)}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">Your unique BGMI user ID for verification (11 digits, numbers only)</p>
               </div>
             </div>
 
@@ -487,12 +519,19 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                     value={gameIds.freefire.uid}
                     onChange={(e) => handleGameIdChange('freefire', 'uid', e.target.value)}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${
                       isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    } ${
+                      getUIDError(gameIds.freefire.uid) 
+                        ? 'border-red-500 focus:border-red-500' 
+                        : 'border-gaming-border focus:border-gaming-gold'
                     }`}
-                    placeholder="Your Free Fire UID"
+                    placeholder="Your Free Fire UID (11 digits)"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Your unique Free Fire user ID for verification</p>
+                  {getUIDError(gameIds.freefire.uid) && (
+                    <p className="text-xs text-red-400 mt-1">{getUIDError(gameIds.freefire.uid)}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Your unique Free Fire user ID for verification (11 digits, numbers only)</p>
                 </div>
               </div>
             </div>

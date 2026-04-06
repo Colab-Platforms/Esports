@@ -181,6 +181,17 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
   // Check if user has Free Fire UID and IGN set
   const hasFreeFireCredentials = user?.freeFireUid && user?.freeFireIgnName;
 
+  const validateUID = (uid) => {
+    if (!uid) return { valid: true, message: '' };
+    if (!/^\d+$/.test(uid)) {
+      return { valid: false, message: 'UID must contain only numbers' };
+    }
+    if (uid.length !== 11) {
+      return { valid: false, message: 'UID must be exactly 11 digits' };
+    }
+    return { valid: true, message: '' };
+  };
+
   const validateForm = () => {
     // Team name validation
     if (!formData.teamName.trim() || formData.teamName.length < 3) {
@@ -196,6 +207,13 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
 
     if (!formData.teamLeader.freeFireId.trim()) {
       setError('Team leader Free Fire ID is required');
+      return false;
+    }
+
+    // Validate team leader Free Fire UID
+    const leaderUidValidation = validateUID(formData.teamLeader.freeFireId);
+    if (!leaderUidValidation.valid) {
+      setError(`Team leader Free Fire ID: ${leaderUidValidation.message}`);
       return false;
     }
 
@@ -218,6 +236,22 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       }
       if (!member.freeFireId.trim()) {
         setError(`Team member ${i + 1} Free Fire ID is required`);
+        return false;
+      }
+
+      // Validate team member Free Fire UID
+      const memberUidValidation = validateUID(member.freeFireId);
+      if (!memberUidValidation.valid) {
+        setError(`Team member ${i + 1} Free Fire ID: ${memberUidValidation.message}`);
+        return false;
+      }
+    }
+
+    // Validate substitute UID if present
+    if (formData.substitute) {
+      const substituteUidValidation = validateUID(formData.substitute.freeFireId);
+      if (!substituteUidValidation.valid) {
+        setError(`Substitute Free Fire ID: ${substituteUidValidation.message}`);
         return false;
       }
     }

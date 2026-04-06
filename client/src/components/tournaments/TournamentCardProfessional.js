@@ -166,7 +166,7 @@ const TournamentCardProfessional = ({
           />
         ) : gameType === "freefire" || gameType === "ff" ? (
           <img
-            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Free_Fire_battlefield_action__endoftext.png?v=1775206525"
+            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775282348379.webp?v=1775290118"
             alt={tournament.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

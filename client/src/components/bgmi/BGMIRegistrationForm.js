@@ -158,6 +158,17 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
   // Check if user has BGMI UID and IGN set
   const hasBgmiCredentials = user?.bgmiUid && user?.bgmiIgnName;
 
+  const validateUID = (uid) => {
+    if (!uid) return { valid: true, message: '' };
+    if (!/^\d+$/.test(uid)) {
+      return { valid: false, message: 'UID must contain only numbers' };
+    }
+    if (uid.length !== 11) {
+      return { valid: false, message: 'UID must be exactly 11 digits' };
+    }
+    return { valid: true, message: '' };
+  };
+
   const validateForm = () => {
     // Team name validation
     if (!formData.teamName.trim() || formData.teamName.length < 3) {
@@ -173,6 +184,13 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
 
     if (!formData.teamLeader.bgmiId.trim()) {
       setError('Team leader BGMI ID is required');
+      return false;
+    }
+
+    // Validate team leader BGMI UID
+    const leaderUidValidation = validateUID(formData.teamLeader.bgmiId);
+    if (!leaderUidValidation.valid) {
+      setError(`Team leader BGMI ID: ${leaderUidValidation.message}`);
       return false;
     }
 
@@ -195,6 +213,22 @@ const BGMIRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess }) 
       }
       if (!member.bgmiId.trim()) {
         setError(`Team member ${i + 1} BGMI ID is required`);
+        return false;
+      }
+
+      // Validate team member BGMI UID
+      const memberUidValidation = validateUID(member.bgmiId);
+      if (!memberUidValidation.valid) {
+        setError(`Team member ${i + 1} BGMI ID: ${memberUidValidation.message}`);
+        return false;
+      }
+    }
+
+    // Validate substitute UID if present
+    if (formData.substitute) {
+      const substituteUidValidation = validateUID(formData.substitute.bgmiId);
+      if (!substituteUidValidation.valid) {
+        setError(`Substitute BGMI ID: ${substituteUidValidation.message}`);
         return false;
       }
     }

@@ -37,6 +37,17 @@ const getGameInfoFromPlayer = (player, gameId) => {
   }
 };
 
+const validateUID = (uid) => {
+  if (!uid) return { valid: true, message: '' };
+  if (!/^\d+$/.test(uid)) {
+    return { valid: false, message: 'UID must contain only numbers' };
+  }
+  if (uid.length !== 11) {
+    return { valid: false, message: 'UID must be exactly 11 digits' };
+  }
+  return { valid: true, message: '' };
+};
+
 const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam = null, currentUser = null }) => {
   const isEdit = !!editTeam;
 
@@ -48,9 +59,12 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
     const game = editTeam?.game || fixedGame || 'bgmi';
     return getGameInfoFromPlayer(currentUser || {}, game);
   });
+  const [captainErrors, setCaptainErrors] = useState({});
   const [editingCaptain, setEditingCaptain] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
+  const [memberErrors, setMemberErrors] = useState({});
   const [substitute, setSubstitute] = useState(null);
+  const [substituteErrors, setSubstituteErrors] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -223,12 +237,37 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
   };
 
   const handleUpdateGameInfo = (playerId, field, value) => {
+    // Validate UID fields
+    let error = '';
+    if ((field === 'uid') && value) {
+      const validation = validateUID(value);
+      if (!validation.valid) {
+        error = validation.message;
+      }
+    }
+
     setSelectedMembers(prev => prev.map(m => {
       if (m._id !== playerId) return m;
       const newGameInfo = { ...m.gameInfo, [field]: value };
       const hasAllInfo = currentGame.fields.every(f => newGameInfo[f] && newGameInfo[f].trim());
       return { ...m, gameInfo: newGameInfo, hasAllInfo };
     }));
+
+    // Update member errors
+    if (error) {
+      setMemberErrors(prev => ({ ...prev, [playerId]: { ...prev[playerId], [field]: error } }));
+    } else {
+      setMemberErrors(prev => {
+        const updated = { ...prev };
+        if (updated[playerId]) {
+          delete updated[playerId][field];
+          if (Object.keys(updated[playerId]).length === 0) {
+            delete updated[playerId];
+          }
+        }
+        return updated;
+      });
+    }
   };
 
   const handleSubmit = (e) => {
@@ -241,6 +280,36 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
       toast.error(`Team must have at least ${currentGame.minMembers} players`, { position: 'top-center' });
       return;
     }
+
+    // Validate captain UID
+    if (currentGame.fields.includes('uid')) {
+      const captainUidValidation = validateUID(captainGameInfo.uid);
+      if (!captainUidValidation.valid) {
+        toast.error(`Captain UID: ${captainUidValidation.message}`, { position: 'top-center' });
+        return;
+      }
+    }
+
+    // Validate all member UIDs
+    for (const member of selectedMembers) {
+      if (currentGame.fields.includes('uid')) {
+        const memberUidValidation = validateUID(member.gameInfo.uid);
+        if (!memberUidValidation.valid) {
+          toast.error(`${member.username} UID: ${memberUidValidation.message}`, { position: 'top-center' });
+          return;
+        }
+      }
+    }
+
+    // Validate substitute UID if present
+    if (substitute && currentGame.fields.includes('uid')) {
+      const substituteUidValidation = validateUID(substitute.gameInfo.uid);
+      if (!substituteUidValidation.valid) {
+        toast.error(`Substitute UID: ${substituteUidValidation.message}`, { position: 'top-center' });
+        return;
+      }
+    }
+
     onCreate({
       name: formData.name,
       game: formData.game,
@@ -430,10 +499,43 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                       <input
                         type="text"
                         value={captainGameInfo[field] || ''}
-                        onChange={(e) => setCaptainGameInfo(prev => ({ ...prev, [field]: e.target.value }))}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setCaptainGameInfo(prev => ({ ...prev, [field]: value }));
+                          
+                          // Validate UID fields
+                          if (field === 'uid' && value) {
+                            const validation = validateUID(value);
+                            if (!validation.valid) {
+                              setCaptainErrors(prev => ({ ...prev, [field]: validation.message }));
+                            } else {
+                              setCaptainErrors(prev => {
+                                const updated = { ...prev };
+                                delete updated[field];
+                                return updated;
+                              });
+                            }
+                          } else if (field === 'uid') {
+                            setCaptainErrors(prev => {
+                              const updated = { ...prev };
+                              delete updated[field];
+                              return updated;
+                            });
+                          }
+                        }}
                         placeholder={`Enter your ${currentGame.labels[field]}`}
-                        className="w-full px-2.5 py-1.5 bg-gaming-dark border border-gaming-border rounded text-white text-sm focus:border-gaming-gold focus:outline-none"
+                        className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${
+                          captainErrors[field]
+                            ? 'border-red-500 focus:border-red-500'
+                            : 'border-gaming-border focus:border-gaming-gold'
+                        }`}
                       />
+                      {captainErrors[field] && (
+                        <p className="text-xs text-red-400 mt-1">{captainErrors[field]}</p>
+                      )}
+                      {field === 'uid' && (
+                        <p className="text-xs text-gray-500 mt-1">Must be 11 digits, numbers only</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -508,8 +610,18 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                                   value={member.gameInfo[field] || ''}
                                   onChange={(e) => handleUpdateGameInfo(member._id, field, e.target.value)}
                                   placeholder={`Enter ${currentGame.labels[field]}`}
-                                  className="w-full px-2.5 py-1.5 bg-gaming-dark border border-gaming-border rounded text-white text-sm focus:border-gaming-gold focus:outline-none"
+                                  className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${
+                                    memberErrors[member._id]?.[field]
+                                      ? 'border-red-500 focus:border-red-500'
+                                      : 'border-gaming-border focus:border-gaming-gold'
+                                  }`}
                                 />
+                                {memberErrors[member._id]?.[field] && (
+                                  <p className="text-xs text-red-400 mt-1">{memberErrors[member._id][field]}</p>
+                                )}
+                                {field === 'uid' && (
+                                  <p className="text-xs text-gray-500 mt-1">Must be 11 digits, numbers only</p>
+                                )}
                               </div>
                             ))}
                           </div>
