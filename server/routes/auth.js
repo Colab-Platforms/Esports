@@ -354,11 +354,20 @@ router.post('/reset-password', decodeSensitiveData, async (req, res) => {
       });
     }
 
-    // Update password and clear reset token
-    user.passwordHash = password; // Will be hashed by pre-save middleware
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
+    // Hash the password manually since updateOne bypasses pre-save middleware
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update password and clear reset token using updateOne to avoid validation on other fields
+    await User.updateOne(
+      { _id: user._id },
+      {
+        passwordHash: hashedPassword,
+        resetPasswordToken: undefined,
+        resetPasswordExpires: undefined
+      }
+    );
 
     console.log('✅ Password reset successful for user:', user.username);
 
