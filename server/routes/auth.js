@@ -852,8 +852,42 @@ router.post('/login', decodeSensitiveData, [
 
     console.log('✅ Login successful for user:', user.username);
 
-    // Update login streak
-    await user.updateLoginStreak();
+    // Update login streak without triggering validation on other fields
+    const now = new Date();
+    const lastLogin = new Date(user.lastLogin);
+    
+    // Strip time from dates to compare calendar days (Midnight to Midnight)
+    const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const lastAtMidnight = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate());
+    
+    // Calculate difference in calendar days
+    const daysDiff = Math.floor((todayAtMidnight - lastAtMidnight) / (1000 * 60 * 60 * 24));
+
+    let newLoginStreak = user.loginStreak;
+    if (newLoginStreak === 0) {
+      // Initialize streak for new users or if it was somehow 0
+      newLoginStreak = 1;
+    } else if (daysDiff === 1) {
+      // Logged in on the very next calendar day
+      newLoginStreak += 1;
+    } else if (daysDiff > 1) {
+      // User missed a day or more, reset streak to 1
+      newLoginStreak = 1;
+    }
+    // If daysDiff is 0, they logged in again on the same day, so we leave the streak as is
+
+    // Update login streak and lastLogin using updateOne to avoid validation
+    await User.updateOne(
+      { _id: user._id },
+      {
+        loginStreak: newLoginStreak,
+        lastLogin: now
+      }
+    );
+
+    // Update the user object for response
+    user.loginStreak = newLoginStreak;
+    user.lastLogin = now;
 
     // Generate token
     const token = generateToken(user._id, rememberMe);
