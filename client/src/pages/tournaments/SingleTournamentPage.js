@@ -39,13 +39,12 @@ const StatItem = ({ label, icon, children, highlight, green }) => {
         {label}
       </div>
       <div
-        className={`font-bold text-lg ${
-          highlight
-            ? "text-orange-400 font-mono"
-            : green
-              ? "text-green-400"
-              : "text-gray-200"
-        }`}
+        className={`font-bold text-lg ${highlight
+          ? "text-orange-400 font-mono"
+          : green
+            ? "text-green-400"
+            : "text-gray-200"
+          }`}
       >
         {children}
       </div>
@@ -58,16 +57,14 @@ const TimerCard = ({ title, color, targetDate }) => {
 
   return (
     <div
-      className={`p-4 rounded-lg border ${
-        isOrange
-          ? "bg-orange-500/10 border-orange-500/30"
-          : "bg-blue-500/10 border-blue-500/30"
-      }`}
+      className={`p-4 rounded-lg border ${isOrange
+        ? "bg-orange-500/10 border-orange-500/30"
+        : "bg-blue-500/10 border-blue-500/30"
+        }`}
     >
       <div
-        className={`text-sm font-bold uppercase tracking-widest mb-2 ${
-          isOrange ? "text-orange-400" : "text-blue-400"
-        }`}
+        className={`text-sm font-bold uppercase tracking-widest mb-2 ${isOrange ? "text-orange-400" : "text-blue-400"
+          }`}
       >
         {title}
       </div>
@@ -735,15 +732,15 @@ const SingleTournamentPage = () => {
             }),
             whatsappNumber: phoneNumber || user?.phone || "",
           };
-          
+
           console.log('🔥 Free Fire Registration Data:', JSON.stringify(registrationData, null, 2));
           console.log('🔥 Leader Info:', leaderInfo);
-          console.log('🔥 Other Members:', regularMembers.map(m => ({ 
-            username: m.userId?.username, 
-            info: getInfo(m) 
+          console.log('🔥 Other Members:', regularMembers.map(m => ({
+            username: m.userId?.username,
+            info: getInfo(m)
           })));
           console.log('🔥 Substitute:', substituteMember ? { username: substituteMember.userId?.username, info: getInfo(substituteMember) } : null);
-          
+
           const ffResponse = await api.post(
             `/api/freefire-registration/${tournament._id}/register`,
             registrationData,
@@ -815,7 +812,7 @@ const SingleTournamentPage = () => {
         handleRegistrationSuccess();
       } catch (error) {
         console.log('❌ Registration catch error:', error);
-        
+
         // Handle player conflict error (HTTP 400 with PLAYER_ALREADY_REGISTERED)
         const errData = error.response?.data?.error;
         console.log('❌ Registration catch error:', errData);
@@ -1065,7 +1062,7 @@ const SingleTournamentPage = () => {
                       {/* Registration Countdown */}
                       {tournament?.registrationDeadline &&
                         new Date(tournament.registrationDeadline) >
-                          new Date() && (
+                        new Date() && (
                           <TimerCard
                             title="Registration Closes In"
                             color="orange"
@@ -1307,15 +1304,14 @@ const SingleTournamentPage = () => {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              team.status === "verified"
-                                ? "bg-green-500/20 text-green-400"
-                                : team.status === "pending"
-                                  ? "bg-yellow-500/20 text-yellow-400"
-                                  : team.status === "rejected"
-                                    ? "bg-red-500/20 text-red-400"
-                                    : "bg-blue-500/20 text-blue-400"
-                            }`}
+                            className={`px-2 py-1 rounded text-xs font-medium ${team.status === "verified"
+                              ? "bg-green-500/20 text-green-400"
+                              : team.status === "pending"
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : team.status === "rejected"
+                                  ? "bg-red-500/20 text-red-400"
+                                  : "bg-blue-500/20 text-blue-400"
+                              }`}
                           >
                             {team.status?.replace("_", " ").toUpperCase() ||
                               "PENDING"}
@@ -1474,20 +1470,19 @@ const SingleTournamentPage = () => {
 
                 {/* Status Badge with Countdown */}
                 <div
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm text-center backdrop-blur-sm border font-display ${
-                    tournament?.status === "active"
-                      ? "bg-green-500/20 text-green-300 border-green-400/40"
-                      : tournament?.status === "registration_open"
-                        ? "bg-blue-500/20 text-blue-300 border-blue-400/40"
-                        : "bg-gray-500/20 text-gray-300 border-gray-400/40"
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm text-center backdrop-blur-sm border font-display ${tournament?.status === "active"
+                    ? "bg-green-500/20 text-green-300 border-green-400/40"
+                    : tournament?.status === "registration_open"
+                      ? "bg-blue-500/20 text-blue-300 border-blue-400/40"
+                      : "bg-gray-500/20 text-gray-300 border-gray-400/40"
+                    }`}
                 >
                   {tournament?.status === "active" ? (
                     <div className="flex flex-col gap-2 items-center">
                       <span>ACTIVE</span>
                       {tournament?.registrationDeadline &&
                         new Date(tournament.registrationDeadline) >
-                          new Date() && (
+                        new Date() && (
                           <div className="text-xs font-body whitespace-nowrap">
                             <CountdownTimer
                               targetDate={tournament.registrationDeadline}
@@ -1616,22 +1611,21 @@ const SingleTournamentPage = () => {
                         tournament?.gameType === "cs2"
                           ? tournament?.status !== "active"
                           : tournament?.status !== "registration_open" ||
-                            (tournament?.registrationDeadline &&
-                              new Date(tournament.registrationDeadline) <
-                                new Date())
+                          (tournament?.registrationDeadline &&
+                            new Date(tournament.registrationDeadline) <
+                            new Date())
                       }
-                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${
-                        (
-                          tournament?.gameType === "cs2"
-                            ? tournament?.status !== "active"
-                            : tournament?.status !== "registration_open" ||
-                              (tournament?.registrationDeadline &&
-                                new Date(tournament.registrationDeadline) <
-                                  new Date())
-                        )
-                          ? "opacity-50 cursor-not-allowed"
-                          : "cursor-pointer"
-                      }`}
+                      className={`btn-gaming px-8 py-4 text-lg font-bold shadow-lg hover:shadow-gaming-gold/50 transition-all duration-300 font-display ${(
+                        tournament?.gameType === "cs2"
+                          ? tournament?.status !== "active"
+                          : tournament?.status !== "registration_open" ||
+                          (tournament?.registrationDeadline &&
+                            new Date(tournament.registrationDeadline) <
+                            new Date())
+                      )
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                        }`}
                     >
                       {!isAuthenticated
                         ? "LOGIN TO JOIN"
@@ -1640,8 +1634,8 @@ const SingleTournamentPage = () => {
                             ? "JOIN SERVER"
                             : "SERVER INACTIVE"
                           : tournament?.registrationDeadline &&
-                              new Date(tournament.registrationDeadline) <
-                                new Date()
+                            new Date(tournament.registrationDeadline) <
+                            new Date()
                             ? "REGISTRATION CLOSED"
                             : tournament?.status !== "registration_open"
                               ? "REGISTRATION CLOSED"
@@ -1666,11 +1660,10 @@ const SingleTournamentPage = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wide transition-all duration-300 ${
-                activeTab === tab.id
-                  ? "bg-gradient-to-r from-gaming-gold to-yellow-500 text-black shadow-lg shadow-gaming-gold/50"
-                  : "bg-gaming-card border border-gaming-border text-gray-400 hover:text-white hover:border-gaming-gold"
-              }`}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wide transition-all duration-300 ${activeTab === tab.id
+                ? "bg-gradient-to-r from-gaming-gold to-yellow-500 text-black shadow-lg shadow-gaming-gold/50"
+                : "bg-gaming-card border border-gaming-border text-gray-400 hover:text-white hover:border-gaming-gold"
+                }`}
             >
               <tab.icon
                 className={`h-4 w-4 ${activeTab === tab.id ? "text-black" : ""}`}

@@ -527,10 +527,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     }
 
     const user = new User(userData);
-
-    console.log('💾 Saving user to database...');
-    await user.save();
-    console.log('✅ User saved successfully');
+    // Note: We don't save yet, we'll save once at the end after all modifications
 
     // Give welcome bonus coins
     let welcomeBonusAmount = 0;
@@ -541,28 +538,14 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
 
       // Get welcome bonus amount from config, default to 100 coins
       const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
-      welcomeBonusAmount = config ? config.value : 100; // Default 100 coins
+      welcomeBonusAmount = config ? config.value : 100;
 
-      // Create wallet and add welcome bonus
-      let wallet = new Wallet({ userId: user._id });
-      await wallet.addCoins(
-        welcomeBonusAmount,
-        'bonus',
-        'Welcome Bonus - Thank you for joining Colab Esports!',
-        { source: 'registration' }
-      );
-      await wallet.save();
-
-      // Update user to mark welcome bonus as received
+      // Mark bonus as received on user object (but don't save yet)
       user.welcomeBonusReceived = true;
       user.welcomeBonusDate = new Date();
-      await user.save();
-
       welcomeBonusSuccess = true;
-      console.log(`🎁 Welcome bonus of ${welcomeBonusAmount} coins credited to user:`, user.username);
     } catch (coinError) {
-      console.error('❌ Failed to credit welcome bonus:', coinError);
-      // Don't fail registration if coin credit fails
+      console.error('❌ Failed to prepare welcome bonus:', coinError);
     }
 
     // Handle referral code if provided
@@ -571,15 +554,9 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       console.log(`🎁 Processing referral code: ${referralCode}`);
       try {
         const Referral = require('../models/Referral');
-        const Wallet = require('../models/Wallet');
-
-        console.log(`🔍 Looking for referral code: ${referralCode.toUpperCase()}`);
         const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
 
         if (referral) {
-          console.log(`✅ Found referral! Referrer ID: ${referral.userId}`);
-
-          // Fetch reward amounts from CoinConfig (fallback to defaults)
           const { CoinConfig } = require('../models/CoinConfig');
           const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
           const refereeConfig = await CoinConfig.findOne({ key: 'referee_reward' });
@@ -587,7 +564,13 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           const refereeReward = refereeConfig ? refereeConfig.value : 100;
           appliedRefereeReward = refereeReward;
 
-          // Add to referred users
+          // Prepare referral updates (will be saved later)
+          user.referralBonusReceived = true;
+          user.referralBonusDate = new Date();
+          user.referralCode = referralCode.toUpperCase();
+          user.referralBonusAmount = refereeReward;
+
+          // Update referral record
           referral.referredUsers.push({
             userId: user._id,
             status: 'completed',
@@ -597,37 +580,60 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           referral.totalReferrals += 1;
           referral.successfulReferrals += 1;
           referral.totalCoinsEarned += referrerReward;
-          await referral.save();
-          console.log(`📝 Referral record updated`);
+          await referral.save(); // Save referral record
+          
+          // Note: Wallet updates for referee and referrer will happen AFTER user is saved successfully
+        }
+      } catch (referralError) {
+        console.error('❌ Failed to process referral:', referralError);
+      }
+    }
 
-          // Award coins to new user (referee)
+    // FINAL SAVE: Save user once with all fields updated
+    console.log('💾 Saving user to database...');
+    await user.save();
+    console.log('✅ User saved successfully');
+
+    // AFTER SUCCESSFUL USER SAVE: Handle Wallet and Referrer rewards
+    try {
+      const Wallet = require('../models/Wallet');
+      
+      // 1. Give welcome bonus in wallet
+      if (welcomeBonusSuccess) {
+        let wallet = new Wallet({ userId: user._id });
+        await wallet.addCoins(
+          welcomeBonusAmount,
+          'bonus',
+          'Welcome Bonus - Thank you for joining Colab Esports!',
+          { source: 'registration' }
+        );
+        await wallet.save();
+      }
+
+      // 2. Give referral bonus in wallet (referee and referrer)
+      if (user.referralBonusReceived) {
+        const Referral = require('../models/Referral');
+        const referral = await Referral.findOne({ referralCode: user.referralCode });
+        
+        if (referral) {
+          const { CoinConfig } = require('../models/CoinConfig');
+          const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
+          const referrerReward = referrerConfig ? referrerConfig.value : 200;
+
+          // Award to new user (referee)
           let newUserWallet = await Wallet.findOne({ userId: user._id });
-          if (!newUserWallet) {
-            console.log(`💼 Creating new wallet for user: ${user.username}`);
-            newUserWallet = new Wallet({ userId: user._id });
-          }
+          if (!newUserWallet) newUserWallet = new Wallet({ userId: user._id });
           await newUserWallet.addCoins(
-            refereeReward,
+            user.referralBonusAmount,
             'referral',
             'Referral bonus - Welcome gift',
             { source: 'referral' }
           );
           await newUserWallet.save();
-          console.log(`💰 Awarded ${refereeReward} coins to new user: ${user.username}`);
 
-          // Update user to mark referral bonus as received
-          user.referralBonusReceived = true;
-          user.referralBonusDate = new Date();
-          user.referralCode = referralCode.toUpperCase();
-          user.referralBonusAmount = refereeReward; // Track amount received
-          await user.save();
-
-          // Award coins to referrer
+          // Award to referrer
           let referrerWallet = await Wallet.findOne({ userId: referral.userId });
-          if (!referrerWallet) {
-            console.log(`💼 Creating new wallet for referrer`);
-            referrerWallet = new Wallet({ userId: referral.userId });
-          }
+          if (!referrerWallet) referrerWallet = new Wallet({ userId: referral.userId });
           await referrerWallet.addCoins(
             referrerReward,
             'referral',
@@ -635,16 +641,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
             { source: 'referral' }
           );
           await referrerWallet.save();
-          console.log(`💰 Awarded ${referrerReward} coins to referrer`);
-
-          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+${refereeReward} coins), Referrer: (+${referrerReward} coins)`);
-        } else {
-          console.log(`⚠️ Invalid referral code: ${referralCode}`);
         }
-      } catch (referralError) {
-        console.error('❌ Failed to apply referral code:', referralError);
-        // Don't fail registration if referral fails
       }
+    } catch (postSaveError) {
+      console.error('❌ Post-registration reward error:', postSaveError);
+      // We don't fail registration if rewards fail after user is already saved
     }
 
     // Generate token
@@ -780,14 +781,16 @@ router.post('/login', decodeSensitiveData, [
     }
 
     const { identifier, password, rememberMe } = req.body;
-    console.log('🔍 Searching for user with identifier:', identifier);
+    const trimmedIdentifier = typeof identifier === 'string' ? identifier.trim() : identifier;
+    console.log('🔍 Searching for user with trimmed identifier:', trimmedIdentifier);
 
-    // Find user by email, username, or phone
+    // Find user by email, username, phone, or fullName
     const user = await User.findOne({
       $or: [
-        { email: identifier.toLowerCase() },
-        { username: identifier },
-        { phone: identifier }
+        { email: trimmedIdentifier.toLowerCase() },
+        { username: trimmedIdentifier },
+        { phone: trimmedIdentifier },
+        { fullName: { $regex: new RegExp(`^${trimmedIdentifier}$`, 'i') } } // Case-insensitive full name
       ]
     });
 
