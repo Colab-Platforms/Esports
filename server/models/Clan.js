@@ -22,6 +22,12 @@ const clanSchema = new mongoose.Schema({
     type: String,
     default: null // URL to clan avatar image
   },
+
+  game: {
+    type: String,
+    required: [true, 'Game focus is required'],
+    default: 'Other'
+  },
   
   description: {
     type: String,

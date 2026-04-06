@@ -1,415 +1,337 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { FiArrowLeft, FiUsers, FiMessageSquare, FiClock, FiLock, FiGlobe } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiMessageSquare, FiClock, FiLock, FiGlobe, FiTarget, FiAward, FiActivity, FiZap, FiCopy, FiSearch } from 'react-icons/fi';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { selectAuth } from '../../store/slices/authSlice';
 import { useClan } from '../../contexts/ClanContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Pure Utilities ---
 const getAvatarInitials = (name) => {
   if (!name) return '';
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
 };
 
 const getRoleBadgeColor = (role) => {
   switch (role) {
-    case 'owner':
-      return 'bg-red-500/20 text-red-400';
-    case 'admin':
-      return 'bg-purple-500/20 text-purple-400';
-    case 'mod':
-      return 'bg-blue-500/20 text-blue-400';
-    default:
-      return 'bg-gray-500/20 text-gray-400';
+    case 'owner': return 'bg-red-500/10 text-red-400 border-red-500/20';
+    case 'admin': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+    case 'mod': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+    default: return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
   }
 };
 
 // --- Sub-Components ---
 
-const ClanHeader = ({ clan, user, isMember, joining, onJoin, onChatNavigate, isOwner, onSaveClan }) => {
+const ClanHeader = ({ clan, user, isMember, joining, onJoin, onChatNavigate, isOwner, onSaveClan, onLeave }) => {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({ name: clan?.name || '', description: clan?.description || '' });
-  const [expanded, setExpanded] = useState(false);
 
-  // Update edit data when clan changes
-  useEffect(() => {
-    if (clan) {
-      setEditData({ name: clan.name || '', description: clan.description || '' });
+  const getGameColor = (game) => {
+    switch (game?.toLowerCase()) {
+      case 'valorant': return 'from-yellow-400 to-orange-600';
+      case 'cs2': return 'from-blue-500 to-indigo-700';
+      case 'apex': return 'from-red-600 to-rose-800';
+      default: return 'from-gaming-gold to-yellow-600';
     }
-  }, [clan]);
-
-  const handleSave = async () => {
-    if (!editData.name.trim()) return toast.error('Clan name is required');
-    await onSaveClan(editData);
-    setEditing(false);
   };
 
-  const words = clan?.description ? clan.description.trim().split(/\s+/) : [];
-  const isLong = words.length > 50;
-  const displayDescription = expanded || !isLong ? clan.description : words.slice(0, 50).join(' ') + '...';
+  const copyId = () => {
+    navigator.clipboard.writeText(clan._id);
+    toast.success('ID Copied to Clipboard');
+  };
 
   return (
-  <div className="glass-panel p-8 mb-8 relative border-l-4 border-l-gaming-gold">
-    <div className="flex items-start justify-between mb-6">
-      <div className="flex items-start gap-6 w-full">
-        {/* Avatar */}
-        <div className="w-24 h-24 glass-panel flex items-center justify-center text-gaming-gold font-bold text-4xl flex-shrink-0 border-2 border-gaming-gold/20">
-          {getAvatarInitials(clan.name)}
-        </div>
+    <div className="relative mb-12">
+      {/* Cinematic Banner */}
+      <div className={`h-48 md:h-64 w-full bg-gradient-to-br ${getGameColor(clan.game)} rounded-3xl overflow-hidden relative shadow-2xl group`}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <div className="space-y-4 max-w-2xl mb-6 pr-8">
-              <div>
-                <label className="block text-sm font-bold text-gray-400 mb-1">Clan Name</label>
-                <input
-                  type="text"
-                  value={editData.name}
-                  onChange={e => setEditData({ ...editData, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white font-gaming text-2xl focus:outline-none focus:border-gaming-gold transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-400 mb-1">Description</label>
-                <textarea
-                  value={editData.description}
-                  onChange={e => setEditData({ ...editData, description: e.target.value })}
-                  className="w-full px-4 py-3 bg-gaming-dark border border-gaming-border rounded-lg text-gray-300 resize-none focus:outline-none focus:border-gaming-gold transition-colors"
-                  rows="4"
-                />
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={handleSave}
-                  className="px-6 py-2 bg-gaming-gold text-black font-bold rounded-lg hover:bg-yellow-500 transition-colors"
-                >
-                  Save Changes
-                </button>
-                <button
-                  onClick={() => {
-                    setEditing(false);
-                    setEditData({ name: clan.name, description: clan.description });
-                  }}
-                  className="px-6 py-2 bg-gaming-dark border border-gaming-border text-white font-bold rounded-lg hover:border-gaming-gold transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <h1 className="text-4xl font-gaming font-bold text-white break-words">{clan.name}</h1>
-                {clan.tag && (
-                  <span className="px-3 py-1 bg-gaming-gold/20 text-gaming-gold font-bold rounded">
-                    {clan.tag}
-                  </span>
-                )}
-                {isOwner && (
-                  <button 
-                    onClick={() => setEditing(true)} 
-                    className="ml-2 text-xs text-gaming-gold border border-gaming-gold/30 px-3 py-1.5 rounded-lg hover:bg-gaming-gold/10 transition-colors"
-                  >
-                    Edit Clan
-                  </button>
-                )}
-              </div>
-              <div className="text-gray-400 mb-4 max-w-2xl whitespace-pre-wrap">
-                {displayDescription}
-                {isLong && (
-                  <button 
-                    onClick={() => setExpanded(!expanded)} 
-                    className="ml-2 text-gaming-gold hover:underline font-semibold focus:outline-none"
-                  >
-                    {expanded ? 'Show Less' : 'Read More'}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Stats Row */}
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2 text-gray-300">
-              <FiUsers className="w-4 h-4" />
-              <span>{clan.memberCount || 0}/{clan.maxMembers} Members</span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-300">
-              <FiClock className="w-4 h-4" />
-              <span>{clan.onlineCount || 0} Online</span>
-            </div>
-            {/* <div className="flex items-center gap-2 text-gray-300">
-              <FiMessageSquare className="w-4 h-4" />
-              <span>{clan.messageCount || 0} Messages</span>
-            </div> */}
-          </div>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      <div>
-        {isMember ? (
+        {/* Top Intelligence Tools */}
+        <div className="absolute top-6 right-6 flex gap-3 z-20">
           <button
-            onClick={onChatNavigate}
-            className="px-6 py-3 bg-gaming-gold hover:bg-yellow-500 text-black font-bold rounded-lg transition-colors"
+            onClick={copyId}
+            className="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md text-gray-300 border border-white/10 rounded-xl transition-all"
+            title="Copy Tactical ID"
           >
-            Go to Chat
+            <FiCopy className="w-4 h-4" />
           </button>
-        ) : clan.bannedUsers?.includes(user?._id) ? (
-          <button
-            disabled
-            className="px-6 py-3 bg-red-500/50 text-red-200 font-bold rounded-lg cursor-not-allowed"
-          >
-            Banned from clan
-          </button>
-        ) : (
-          <button
-            onClick={onJoin}
-            disabled={joining}
-            className="px-6 py-3 bg-gaming-gold hover:bg-yellow-500 disabled:opacity-50 text-black font-bold rounded-lg transition-colors"
-          >
-            {joining ? 'Joining...' : clan.visibility === 'private' ? 'Request to join' : 'Join the Clan'}
-          </button>
-        )}
-      </div>
-    </div>
-
-    {/* Visibility & Owner */}
-    <div className="flex items-center gap-4 text-sm text-gray-400 border-t border-gaming-border pt-4">
-      <div className="flex items-center gap-2">
-        {clan.visibility === 'public' ? (
-          <FiGlobe className="w-4 h-4" />
-        ) : (
-          <FiLock className="w-4 h-4" />
-        )}
-        <span className="capitalize">{clan.visibility} Clan</span>
-      </div>
-      <span>•</span>
-      <span>Led by {clan.owner?.username}</span>
-    </div>
-  </div>
-)};
-
-const ClanOverviewTab = ({
-  clanRules,
-  myRole,
-  editingRules,
-  setEditingRules,
-  rulesText,
-  setRulesText,
-  setClanRules,
-  pinnedMessages,
-  members
-}) => (
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    {/* Main Content */}
-    <div className="lg:col-span-2 space-y-6">
-      {/* Pinned Messages */}
-      <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-6">
-        <h3 className="text-xl font-bold text-white mb-4">📌 Pinned Messages</h3>
-        {pinnedMessages.length === 0 ? (
-          <div className="text-gray-400 text-sm">
-            No pinned messages yet. Admins can pin important messages in the chat.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {pinnedMessages.map((msg, idx) => (
-              <div key={idx} className="bg-gaming-dark border border-gaming-border/50 rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gaming-gold">{msg.author}</span>
-                  <span className="text-xs text-gray-500">{msg.date}</span>
-                </div>
-                <p className="text-sm text-gray-300">{msg.content}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Clan Rules */}
-      <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-white">📋 Clan Rules</h3>
-          {myRole === 'owner' && (
+          {isOwner && (
             <button
-              onClick={() => {
-                setEditingRules(!editingRules);
-                setRulesText(clanRules.join('\n'));
-              }}
-              className="text-sm px-3 py-1 bg-gaming-gold/20 text-gaming-gold rounded hover:bg-gaming-gold/30 transition-colors"
+              onClick={() => setEditing(true)}
+              className="px-5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 text-xs font-black uppercase tracking-widest rounded-xl transition-all"
             >
-              {editingRules ? 'Cancel' : 'Edit'}
+              Update Intelligence
             </button>
           )}
         </div>
+      </div>
 
-        {editingRules ? (
-          <div className="space-y-3">
-            <textarea
-              value={rulesText}
-              onChange={(e) => setRulesText(e.target.value)}
-              placeholder="Enter clan rules (one per line)"
-              className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gaming-gold transition-colors resize-none"
-              rows="6"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setClanRules(rulesText.split('\n').filter(r => r.trim()));
-                  setEditingRules(false);
-                  toast.success('Clan rules updated!');
-                }}
-                className="flex-1 px-4 py-2 bg-gaming-gold hover:bg-yellow-500 text-black font-bold rounded-lg transition-colors"
-              >
-                Save Rules
-              </button>
-              <button
-                onClick={() => setEditingRules(false)}
-                className="flex-1 px-4 py-2 bg-gaming-charcoal border border-gaming-border text-white font-bold rounded-lg hover:border-gaming-gold transition-colors"
-              >
-                Cancel
-              </button>
+      {/* Identity Segment Overlay */}
+      <div className="mx-auto px-8 -mt-20 relative z-30">
+        <div className="flex flex-col md:flex-row items-end gap-10">
+          {/* Elite Avatar Overlay */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-44 h-44 rounded-[2rem] bg-gaming-dark border-[10px] border-gaming-charcoal flex items-center justify-center text-gaming-gold font-gaming font-black text-6xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] overflow-hidden group/avatar"
+          >
+            {clan.avatar ? (
+              <img src={clan.avatar} alt={clan.name} className="w-full h-full object-cover transition-transform group-hover/avatar:scale-110 duration-500" />
+            ) : (
+              <span className="drop-shadow-[0_0_15px_rgba(241,196,15,0.6)]">{getAvatarInitials(clan.name)}</span>
+            )}
+          </motion.div>
+
+          {/* Core Identity Panel */}
+          <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-8 pb-4 w-full">
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <h1 className="text-4xl md:text-6xl font-gaming font-black text-white uppercase tracking-tighter drop-shadow-2xl">
+                  {clan.name}
+                </h1>
+                <div className="bg-gaming-gold/20 text-gaming-gold px-3 py-1 rounded-lg text-xl font-gaming font-black italic">
+                  {clan.tag || 'T1'}
+                </div>
+              </div>
+              <div className="flex items-center gap-6 text-gray-500 font-black text-xs tracking-[0.2em] uppercase">
+                <span className="flex items-center gap-2 text-gaming-gold/80"><FiTarget className="w-4 h-4" /> {clan.game} SECTOR</span>
+                <span className="flex items-center gap-2"><FiLock className="w-4 h-4" /> {clan.visibility}</span>
+                <span className="flex items-center gap-2 text-white/40">EST. {new Date(clan.createdAt).getFullYear()}</span>
+              </div>
+            </div>
+
+            {/* Strategic Actions */}
+            <div className="flex items-center gap-4">
+              {isMember ? (
+                <>
+                  <button
+                    onClick={onChatNavigate}
+                    className="px-10 py-4 bg-gaming-gold hover:bg-yellow-500 text-black font-black uppercase tracking-widest text-sm rounded-2xl shadow-[0_15px_30px_rgba(241,196,15,0.3)] transition-all transform hover:-translate-y-1 active:scale-95"
+                  >
+                    Go to Chat
+                  </button>
+                  {!isOwner && (
+                    <button
+                      onClick={onLeave}
+                      className="p-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10 rounded-2xl transition-all"
+                    >
+                      <FiArrowLeft className="w-5 h-5" />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={onJoin}
+                  disabled={joining}
+                  className="px-12 py-5 bg-gaming-gold hover:bg-yellow-500 text-black font-black uppercase tracking-widest text-base rounded-2xl shadow-[0_15px_40px_rgba(241,196,15,0.4)] transition-all transform hover:-translate-y-1 active:scale-95"
+                >
+                  {joining ? 'Authenticating...' : 'JOIN CLAN'}
+                </button>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="text-gray-400 text-sm space-y-2">
-            {clanRules.map((rule, idx) => (
-              <p key={idx}>{rule}</p>
-            ))}
+        </div>
+      </div>
+
+      {/* Edit Overlay */}
+      <AnimatePresence>
+        {editing && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-xl bg-black/70">
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 50, scale: 0.95 }}
+              className="bg-gaming-charcoal border border-white/10 p-10 rounded-[2.5rem] w-full max-w-2xl shadow-[0_0_100px_rgba(0,0,0,0.8)]"
+            >
+              <h2 className="text-3xl font-gaming font-black text-white uppercase italic tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">Update Tactical Intelligence</h2>
+              <div className="space-y-8">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Community Callsign</label>
+                  <input
+                    type="text"
+                    value={editData.name}
+                    onChange={e => setEditData({ ...editData, name: e.target.value })}
+                    className="w-full h-14 px-6 bg-gaming-dark border border-white/5 rounded-2xl text-white font-bold text-lg focus:border-gaming-gold outline-none transition-all shadow-inner"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">Manifesto (Mission Statement)</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={e => setEditData({ ...editData, description: e.target.value })}
+                    className="w-full p-6 bg-gaming-dark border border-white/5 rounded-2xl text-white focus:border-gaming-gold outline-none transition-all h-40 resize-none leading-relaxed"
+                  />
+                </div>
+                <div className="flex gap-4 pt-6">
+                  <button
+                    onClick={async () => {
+                      await onSaveClan(editData);
+                      setEditing(false);
+                    }}
+                    className="flex-1 h-16 bg-gaming-gold hover:bg-yellow-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-xl transition-all"
+                  >
+                    Confirm Intel Update
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex-1 h-16 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest rounded-2xl transition-all"
+                  >
+                    Abort Mission
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
+  );
+};
 
-    {/* Sidebar */}
-    <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-6">
-      <h3 className="text-lg font-bold text-white mb-4">👥 Top Members</h3>
-      <div className="space-y-3">
-        {members.slice(0, 5).map(member => (
-          <div key={member._id} className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gaming-border rounded-full flex items-center justify-center text-xs font-bold">
-              {member.user?.username?.[0]?.toUpperCase()}
+const ClanOverviewTab = ({ description, myRole, clanRules }) => {
+  return (
+    <div className="space-y-12">
+      {/* Narrative Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-6 w-1.5 bg-gaming-gold rounded-full" />
+            <h3 className="text-xl font-gaming font-black text-white uppercase tracking-widest">The Manifesto</h3>
+          </div>
+          <p className="text-lg text-gray-400 leading-loose font-medium italic px-4 border-l border-white/5">
+            "{description || 'No formal manifesto has been drafted by the leadership yet. Expect clandestine operations and total domination.'}"
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="h-6 w-1.5 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+            <h3 className="text-xl font-gaming font-black text-white uppercase tracking-widest">Protocol (Rules)</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-3 px-4">
+            {(clanRules || []).map((rule, idx) => (
+              <div key={idx} className="flex items-start gap-4 p-4 bg-gaming-charcoal border border-white/5 rounded-xl hover:border-red-500/30 transition-all group">
+                <span className="text-red-500 font-gaming font-black text-lg leading-none mt-1 opacity-50 group-hover:opacity-100">{idx + 1}</span>
+                <p className="text-gray-300 font-bold text-sm leading-relaxed">{rule}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Trophy / Milestone Case */}
+      <div className="pt-12 border-t border-white/5">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <FiAward className="w-6 h-6 text-gaming-gold" />
+            <h3 className="text-xl font-gaming font-black text-white uppercase tracking-widest">Elite Service Records</h3>
+          </div>
+          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">3 Global Citations</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-6 bg-gaming-charcoal border border-gaming-gold/10 rounded-2xl flex items-center gap-5 group transition-all hover:bg-gaming-gold/5">
+            <div className="w-14 h-14 rounded-2xl bg-gaming-gold/10 flex items-center justify-center text-gaming-gold text-2xl group-hover:scale-110 transition-transform">
+              🥇
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">
-                {member.user?.username}
-              </p>
-              <p className={`text-xs font-bold ${getRoleBadgeColor(member.role)}`}>
-                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-              </p>
+            <div>
+              <p className="text-white font-black text-sm uppercase tracking-tighter">Season Alpha Champion</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Valorant Premier</p>
             </div>
           </div>
+          <div className="p-6 bg-gaming-charcoal border border-blue-500/10 rounded-2xl flex items-center gap-5 group transition-all hover:bg-blue-500/5 opacity-50 grayscale hover:grayscale-0 cursor-not-allowed">
+            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-2xl">
+              🎖️
+            </div>
+            <div>
+              <p className="text-white font-black text-sm uppercase tracking-tighter">CS2 Major Contender</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest italic">Signal Offline</p>
+            </div>
+          </div>
+          <div className="p-6 bg-gaming-charcoal border border-purple-500/10 rounded-2xl flex items-center gap-5 group transition-all hover:bg-purple-500/5">
+            <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 text-2xl">
+              🚀
+            </div>
+            <div>
+              <p className="text-white font-black text-sm uppercase tracking-tighter">Rapid Recruitment</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Squad Size Milestone</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ClanRosterTab = ({ members, memberSearch, setMemberSearch }) => {
+  return (
+    <div className="space-y-10">
+      {/* Search Filter Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
+        <div className="relative w-full max-w-md group">
+          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-gaming-gold transition-colors" />
+          <input
+            type="text"
+            placeholder="Scan directory for operative signature..."
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            className="w-full h-12 pl-12 pr-6 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:border-gaming-gold transition-all"
+          />
+        </div>
+        <div className="flex items-center gap-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+          <span>Directory Status: <span className="text-green-500">Live</span></span>
+          <span className="w-1 h-1 rounded-full bg-white/10" />
+          <span>Total Intel: {members.length} Samples</span>
+        </div>
+      </div>
+
+      {/* Operative Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {members.filter(m => m.user?.username?.toLowerCase().includes(memberSearch.toLowerCase())).map((member) => (
+          <motion.div
+            key={member._id}
+            whileHover={{ y: -5 }}
+            className="bg-gaming-charcoal border border-white/5 p-5 rounded-2xl relative overflow-hidden group"
+          >
+            <div className={`absolute top-0 left-0 w-1.5 h-full ${member.role === 'owner' ? 'bg-red-500' : member.role === 'admin' ? 'bg-purple-500' : 'bg-gaming-gold'}`} />
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-14 h-14 rounded-xl bg-gaming-dark border-2 border-gaming-charcoal flex items-center justify-center text-white font-black group-hover:border-gaming-gold transition-all overflow-hidden">
+                {member.user?.avatarUrl ? (
+                  <img src={member.user.avatarUrl} alt={member.user.username} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xl">{member.user?.username?.[0]?.toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-lg font-gaming font-black text-white truncate leading-none mb-1 uppercase tracking-tight">{member.user?.username}</p>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${getRoleBadgeColor(member.role)}`}>
+                  {member.role === 'owner' ? 'Command' : member.role}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                <span>Operative Rank</span>
+                <span className="text-white">LEVEL {member.user?.level || 0}</span>
+              </div>
+              <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                <span>Status</span>
+                <span className="text-green-400">ACTIVE SESSION</span>
+              </div>
+            </div>
+            <div className="mt-5 pt-4 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="text-[10px] font-black text-gaming-gold uppercase tracking-widest hover:underline">View Profile</button>
+              <FiArrowLeft className="w-4 h-4 text-gray-600 rotate-180" />
+            </div>
+          </motion.div>
         ))}
       </div>
     </div>
-  </div>
-);
-
-const ClanMembersTab = ({
-  members,
-  filteredMembers,
-  loadingMembers,
-  memberSearch,
-  setMemberSearch,
-  memberSort,
-  setMemberSort
-}) => (
-  <div className="space-y-4">
-    {/* Search & Sort Controls */}
-    <div className="bg-gaming-charcoal border border-gaming-border rounded-lg p-4 space-y-4">
-      <div className="flex gap-4 flex-col md:flex-row">
-        {/* Search */}
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search members by username..."
-            value={memberSearch}
-            onChange={(e) => setMemberSearch(e.target.value)}
-            className="w-full px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-gaming-gold transition-colors"
-          />
-        </div>
-
-        {/* Sort */}
-        <select
-          value={memberSort}
-          onChange={(e) => setMemberSort(e.target.value)}
-          className="px-4 py-2 bg-gaming-dark border border-gaming-border rounded-lg text-white focus:outline-none focus:border-gaming-gold transition-colors"
-        >
-          <option value="role">Sort by Role</option>
-          <option value="newest">Sort by Newest</option>
-          <option value="messages">Sort by Activity</option>
-        </select>
-      </div>
-
-      {/* Results Count */}
-      <div className="text-sm text-gray-400">
-        Showing {filteredMembers.length} of {members.length} members
-      </div>
-    </div>
-
-    {/* Members Table */}
-    <div className="bg-gaming-charcoal border border-gaming-border rounded-lg overflow-hidden">
-      {loadingMembers ? (
-        <div className="p-8 text-center text-gray-400">Loading members...</div>
-      ) : filteredMembers.length === 0 ? (
-        <div className="p-8 text-center text-gray-400">No members found</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gaming-dark border-b border-gaming-border">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-400">Member</th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-400">Role</th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-400">Joined</th>
-                {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-400">Messages</th> */}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.map(member => (
-                <tr key={member._id} className="border-b border-gaming-border hover:bg-gaming-dark/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gaming-border rounded-full flex items-center justify-center text-xs font-bold">
-                        {member.user?.username?.[0]?.toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {member.user?.username}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Level {member.user?.level || 1}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded text-xs font-bold ${getRoleBadgeColor(member.role)}`}>
-                      {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
-                    {new Date(member.joinedAt).toLocaleDateString()}
-                  </td>
-                  {/* <td className="px-6 py-4 text-sm text-gray-400">
-                    {member.stats?.messagesCount || 0}
-                  </td> */}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  </div>
-);
+  );
+};
 
 // --- Main Container ---
 
@@ -426,245 +348,179 @@ const ClanProfile = () => {
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'overview');
   const [members, setMembers] = useState([]);
   const [joining, setJoining] = useState(false);
-  const [loadingMembers, setLoadingMembers] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
-  const [memberSort, setMemberSort] = useState('role');
-  const [pinnedMessages, setPinnedMessages] = useState([]);
-  const [clanRules, setClanRules] = useState([
-    '• Be respectful to all members',
-    '• No cheating or exploiting',
-    '• Participate in clan events',
-    '• Follow Discord guidelines'
+  const [clanRules] = useState([
+    'Enforce total respect across all operational sectors.',
+    'Unauthorized use of exploits results in immediate extraction.',
+    'Mandatory participation in high-priority tournament deployments.',
+    'Adhere to all encrypted protocol guidelines in Discord coms.'
   ]);
-  const [editingRules, setEditingRules] = useState(false);
-  const [rulesText, setRulesText] = useState('');
 
-  // Derive membership from myClan context
+  // Derive status
   const isMember = myClan?.clan?._id?.toString() === clanId || myClan?._id?.toString() === clanId;
-  const myRole = isMember ? myClan?.role : null;
+  const myRole = isMember ? (myClan?.role || 'member') : null;
 
-  // Handle Clan Profile Updates
-  const handleUpdateClan = async (updateData) => {
-    try {
-      const response = await api.patch(`/api/clans/${clanId}`, updateData);
-      if (response.success) {
-        setClan(prev => ({ ...prev, ...updateData }));
-        toast.success("Clan updated successfully");
-        await refreshMyClan();
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update clan");
-    }
-  };
-
-  // Fetch clan detail
   useEffect(() => {
-    fetchClanDetail();
+    fetchClanData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clanId]);
 
-  // Sync activeTab with URL param
-  useEffect(() => {
-    if (tabFromUrl) setActiveTab(tabFromUrl);
-  }, [tabFromUrl]);
-
-  // Fetch members when tab changes
-  useEffect(() => {
-    if (activeTab === 'members' && members.length === 0) {
-      fetchMembers();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
-
-  const fetchClanDetail = async () => {
+  const fetchClanData = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/api/clans/${clanId}`);
+      const [clanRes, membersRes] = await Promise.all([
+        api.get(`/api/clans/${clanId}`),
+        api.get(`/api/clans/${clanId}/members?limit=100`)
+      ]);
 
-      if (response.success) {
-        setClan(response.data.clan);
-      }
+      if (clanRes.success) setClan(clanRes.data.clan);
+      if (membersRes.success) setMembers(membersRes.data.members);
     } catch (error) {
-      console.error('Error fetching clan:', error);
-      toast.error('Failed to load clan');
+      toast.error('Tactical failure: Unable to sync with database');
       navigate('/clans');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMembers = async () => {
+  const handleUpdate = async (data) => {
     try {
-      setLoadingMembers(true);
-      const response = await api.get(`/api/clans/${clanId}/members?limit=50`);
-
-      if (response.success) {
-        setMembers(response.data.members);
+      const res = await api.patch(`/api/clans/${clanId}`, data);
+      if (res.success) {
+        setClan(prev => ({ ...prev, ...data }));
+        toast.success('Intelligence updated');
+        await refreshMyClan();
       }
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      toast.error('Failed to load members');
-    } finally {
-      setLoadingMembers(false);
+    } catch (err) {
+      toast.error('Authority denied');
     }
   };
 
-  // Filter and sort members
-  const filteredMembers = useMemo(() => {
-    return members
-      .filter(m =>
-        m.user?.username?.toLowerCase().includes(memberSearch.toLowerCase())
-      )
-      .sort((a, b) => {
-        if (memberSort === 'role') {
-          const roleOrder = { owner: 0, admin: 1, mod: 2, member: 3 };
-          return roleOrder[a.role] - roleOrder[b.role];
-        } else if (memberSort === 'newest') {
-          return new Date(b.joinedAt) - new Date(a.joinedAt);
-        } else if (memberSort === 'messages') {
-          return (b.stats?.messagesCount || 0) - (a.stats?.messagesCount || 0);
-        }
-        return 0;
-      });
-  }, [members, memberSearch, memberSort]);
-
-  const handleJoinClan = async () => {
+  const handleJoin = async () => {
     try {
       setJoining(true);
-      const response = await api.post(`/api/clans/${clanId}/join`);
-
-      if (response.success) {
-        toast.success('🎉 Successfully joined clan!');
-        // Refresh clan context so navbar updates immediately
+      const res = await api.post(`/api/clans/${clanId}/join`);
+      if (res.success) {
+        toast.success('Welcome to the squad, operative.');
         await refreshMyClan();
+        await fetchClanData();
       }
-    } catch (error) {
-      const message = error.response?.data?.message || 'Failed to join clan';
-      toast.error(message);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Access Denied');
     } finally {
       setJoining(false);
     }
   };
 
-  if (loading) return null; // Let Hub handle loading or show a skeleton
+  const handleLeave = async () => {
+    if (!window.confirm('CRITICAL: Withdrawal from clan is permanent. Proceed?')) return;
+    try {
+      const res = await api.post(`/api/clans/${clanId}/leave`);
+      if (res.success) {
+        toast.success('Operative extracted successfully.');
+        await refreshMyClan();
+        await fetchClanData();
+      }
+    } catch (err) {
+      toast.error('Withdrawal failed');
+    }
+  };
 
-  if (!clan) return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <h2 className="text-2xl font-bold text-white mb-4">Clan not found</h2>
-      <button onClick={() => navigate('/clans')} className="btn-premium">Browse Clans</button>
-    </div>
-  );
+  if (loading || !clan) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar bg-hub-content-bg">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-10 custom-scrollbar bg-gaming-dark selection:bg-gaming-gold/30">
+      <div className="max-w-7xl mx-auto space-y-12">
         <ClanHeader
           clan={clan}
           user={user}
           isMember={isMember}
           joining={joining}
-          onJoin={handleJoinClan}
+          onJoin={handleJoin}
           onChatNavigate={() => navigate(`/clans/${clanId}/chat`)}
           isOwner={myRole === 'owner'}
-          onSaveClan={handleUpdateClan}
+          onSaveClan={handleUpdate}
+          onLeave={handleLeave}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Stats Panel */}
-            <div className="glass-panel p-6 flex items-center justify-around">
-               <div className="text-center">
-                 <p className="text-2xl font-bold text-gaming-gold">{clan.memberCount || 0}</p>
-                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Members</p>
-               </div>
-               <div className="w-px h-10 bg-white/10" />
-               <div className="text-center">
-                 <p className="text-2xl font-bold text-blue-400">{clan.onlineCount || 0}</p>
-                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Online</p>
-               </div>
-               <div className="w-px h-10 bg-white/10" />
-               <div className="text-center">
-                 <p className="text-2xl font-bold text-purple-400">{clan.visibility || 'Public'}</p>
-                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Visibility</p>
-               </div>
-            </div>
+        {/* Real Performance Dashboard */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="bg-gaming-charcoal/50 border border-white/5 rounded-3xl p-8 text-center backdrop-blur-md">
+            <p className="text-gray-500 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Total Members</p>
+            <p className="text-5xl font-gaming font-black text-white">{clan.memberCount}</p>
+            <div className="mt-3 text-[10px] text-gaming-gold font-bold uppercase tracking-widest">{Math.floor((clan.memberCount / clan.maxMembers) * 100)}% Capacity</div>
+          </div>
+          <div className="bg-gaming-charcoal/50 border border-white/5 rounded-3xl p-8 text-center backdrop-blur-md">
+            <p className="text-gray-500 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Tactical Access</p>
+            <p className="text-4xl font-gaming font-black text-blue-400 uppercase tracking-tighter truncate">{clan.visibility}</p>
+            <div className="mt-3 text-[10px] text-blue-400/60 font-bold uppercase tracking-widest">Clan Visibility</div>
+          </div>
+          <div className="bg-gaming-charcoal/50 border border-white/5 rounded-3xl p-8 text-center backdrop-blur-md">
+            <p className="text-gray-500 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Game Sector</p>
+            <p className="text-4xl font-gaming font-black text-purple-400 uppercase tracking-tighter truncate">{clan.game}</p>
+            <div className="mt-3 text-[10px] text-purple-400/60 font-bold uppercase tracking-widest">Live Operations</div>
+          </div>
+          <div className="bg-gaming-charcoal/50 border border-white/5 rounded-3xl p-8 text-center backdrop-blur-md">
+            <p className="text-gray-500 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Service History</p>
+            <p className="text-5xl font-gaming font-black text-green-500">
+              {Math.floor((new Date() - new Date(clan.createdAt)) / (1000 * 60 * 60 * 24))}
+            </p>
+            <div className="mt-3 text-[10px] text-green-500/50 font-bold uppercase tracking-widest">Days Active</div>
+          </div>
+        </div>
 
-            {/* Tabs List */}
-            <div className="glass-panel overflow-hidden">
-              <div className="flex border-b border-white/5 bg-white/2">
-                {['overview', 'members', 'activity'].map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-8 py-4 text-sm font-bold transition-all relative capitalize ${
-                      activeTab === tab ? 'text-gaming-gold' : 'text-gray-500 hover:text-gray-300'
-                    }`}
-                  >
-                    {tab}
-                    {activeTab === tab && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gaming-gold shadow-[0_0_8px_rgba(241,196,15,0.5)]" />
-                    )}
-                  </button>
-                ))}
-              </div>
+        {/* Standardized Navigation Container */}
+        <div className="bg-gaming-charcoal/30 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-sm shadow-2xl">
+          <div className="flex bg-black/20 p-2 md:p-4">
+            {['overview', 'members', 'tournaments', 'activity'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 flex items-center justify-center gap-3 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all ${activeTab === tab ? 'bg-gaming-gold text-black shadow-[0_10px_20px_rgba(241,196,15,0.2)]' : 'text-gray-500 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                {tab === 'overview' && <FiAward className="w-4 h-4" />}
+                {tab === 'members' && <FiUsers className="w-4 h-4" />}
+                {tab === 'tournaments' && <FiTarget className="w-4 h-4" />}
+                {tab === 'activity' && <FiActivity className="w-4 h-4" />}
+                <span className="hidden md:inline">{tab}</span>
+              </button>
+            ))}
+          </div>
 
-              <div className="p-8">
-                {activeTab === 'overview' && (
-                  <ClanOverviewTab
-                    clanRules={clanRules}
-                    myRole={myRole}
-                    editingRules={editingRules}
-                    setEditingRules={setEditingRules}
-                    rulesText={rulesText}
-                    setRulesText={setRulesText}
-                    setClanRules={setClanRules}
-                    pinnedMessages={pinnedMessages}
-                    members={members}
-                  />
-                )}
+          <div className="p-10 lg:p-16 min-h-[500px]">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: 'circOut' }}
+              >
+                {activeTab === 'overview' && <ClanOverviewTab description={clan.description} clanRules={clanRules} />}
+                {activeTab === 'members' && <ClanRosterTab members={members} memberSearch={memberSearch} setMemberSearch={setMemberSearch} />}
 
-                {activeTab === 'members' && (
-                  <ClanMembersTab
-                    members={members}
-                    filteredMembers={filteredMembers}
-                    loadingMembers={loadingMembers}
-                    memberSearch={memberSearch}
-                    setMemberSearch={setMemberSearch}
-                    memberSort={memberSort}
-                    setMemberSort={setMemberSort}
-                  />
+                {activeTab === 'tournaments' && (
+                  <div className="text-center py-24 space-y-6">
+                    <FiTarget className="w-16 h-16 text-white/5 mx-auto animate-pulse" />
+                    <h3 className="text-2xl font-gaming font-black text-white/20 uppercase tracking-widest italic">Encrypted Briefings</h3>
+                    <p className="text-gray-600 max-w-md mx-auto italic font-bold">
+                      Current tournament deployments and upcoming match-ups are restricted to level-3 verified operatives only.
+                    </p>
+                  </div>
                 )}
 
                 {activeTab === 'activity' && (
-                  <div className="py-10 text-center text-gray-500 italic">
-                    📊 Activity feed logic coming soon...
+                  <div className="text-center py-24 space-y-6">
+                    <FiActivity className="w-16 h-16 text-white/5 mx-auto animate-spin-slow" />
+                    <h3 className="text-2xl font-gaming font-black text-white/20 uppercase tracking-widest italic">Signal Offline</h3>
+                    <p className="text-gray-600 max-w-md mx-auto italic font-bold text-xs tracking-widest leading-loose">
+                      Real-time activity feed synchronization is currently disabled by local EM jamming. Operations update pending.
+                    </p>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Brief Info */}
-          <div className="space-y-6">
-            <div className="glass-card p-6">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">About</h3>
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {clan.description || 'No description provided.'}
-              </p>
-            </div>
-
-            <div className="glass-card p-6">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Leadership</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gaming-gold/10 flex items-center justify-center text-gaming-gold font-bold">
-                  {clan.owner?.username?.[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white transition-colors">@{clan.owner?.username}</p>
-                  <p className="text-[10px] text-gaming-gold font-bold">Clan Leader</p>
-                </div>
-              </div>
-            </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>

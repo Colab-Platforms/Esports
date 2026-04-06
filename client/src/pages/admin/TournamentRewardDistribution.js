@@ -3,11 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiDollarSign, FiUsers, FiCheck, FiAlertCircle, FiArrowLeft } from 'react-icons/fi';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const TournamentRewardDistribution = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [tournament, setTournament] = useState(null);
   const [teams, setTeams] = useState([]);
   const [winners, setWinners] = useState([
@@ -21,31 +22,31 @@ const TournamentRewardDistribution = () => {
   const [loading, setLoading] = useState(true);
   const [distributing, setDistributing] = useState(false);
   const [rewardStatus, setRewardStatus] = useState(null);
-  
+
   // Video upload states
   const [videoFile, setVideoFile] = useState(null);
   const [videoStatus, setVideoStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
-  
+
   useEffect(() => {
     fetchTournamentData();
   }, [id]);
-  
+
   const fetchTournamentData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch tournament details
       const tournamentRes = await api.get(`/api/tournaments/${id}`);
       console.log('📦 Tournament data:', tournamentRes);
       setTournament(tournamentRes.data);
-      
+
       // Fetch registered teams
       const teamsRes = await api.get(`/api/tournaments/${id}/registered-teams`);
       console.log('👥 Teams data:', teamsRes);
-      
+
       if (teamsRes.success && teamsRes.data) {
         setTeams(teamsRes.data.teams || []);
         console.log(`✅ Loaded ${teamsRes.data.teams?.length || 0} teams`);
@@ -53,51 +54,52 @@ const TournamentRewardDistribution = () => {
         console.warn('⚠️ No teams data in response');
         setTeams([]);
       }
-      
+
       // Fetch reward status
       const statusRes = await api.get(`/api/tournaments/${id}/reward-status`);
       console.log('💰 Reward status:', statusRes);
       setRewardStatus(statusRes.data);
-      
+
       // Fetch video status
       const videoRes = await api.get(`/api/tournaments/${id}/video-status`);
       console.log('🎥 Video status:', videoRes);
       setVideoStatus(videoRes.data);
-      
+
     } catch (error) {
       console.error('❌ Error fetching tournament data:', error);
-      console.error('Error details:', error.response?.data);
-      alert(`Failed to load tournament data: ${error.response?.data?.error || error.message}`);
+      const errorData = error.response?.data?.error;
+      const errorMessage = typeof errorData === 'object' ? errorData.message : errorData;
+      toast.error(`Failed to load data: ${errorMessage || error.message}`);
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleDistributeRewards = async (e) => {
     e.preventDefault();
-    
+
     // Filter out winners that have both teamId and amount
     const validWinners = winners.filter(w => w.teamId && w.amount && parseInt(w.amount) > 0);
-    
+
     if (validWinners.length === 0) {
-      alert('Please select at least one winner team with a reward amount');
+      toast.error('Please select at least one winner team with a reward amount');
       return;
     }
-    
+
     // Check for duplicate teams
-    const teamIds = validWinners.map(w => w.teamId);
+    const teamIds = validWinners.map(w => w.teamId);         
     const uniqueTeamIds = [...new Set(teamIds)];
     if (teamIds.length !== uniqueTeamIds.length) {
-      alert('Cannot select the same team for multiple positions');
+      toast.error('Cannot select the same team for multiple positions');
       return;
     }
-    
+
     const totalWinnerCoins = validWinners.reduce((sum, w) => sum + parseInt(w.amount), 0);
     const participationCoins = parseInt(participationReward) || 0;
     const nonWinnerTeams = teams.length - validWinners.length;
     const totalParticipationCoins = nonWinnerTeams * participationCoins;
     const grandTotal = totalWinnerCoins + totalParticipationCoins;
-    
+
     const confirmMessage = `Are you sure you want to distribute rewards?\n\n` +
       `Winners: ${validWinners.length}\n` +
       `Winner Rewards: ${totalWinnerCoins} coins\n\n` +
@@ -105,14 +107,14 @@ const TournamentRewardDistribution = () => {
       `Participation Reward: ${participationCoins} coins each\n` +
       `Total Participation: ${totalParticipationCoins} coins\n\n` +
       `GRAND TOTAL: ${grandTotal} coins`;
-    
+
     if (!window.confirm(confirmMessage)) {
       return;
     }
-    
+
     try {
       setDistributing(true);
-      
+
       const response = await api.post(`/api/tournaments/${id}/distribute-rewards`, {
         winners: validWinners.map(w => ({
           teamId: w.teamId,
@@ -121,69 +123,71 @@ const TournamentRewardDistribution = () => {
         })),
         participationReward: participationCoins
       });
-      
+
       if (response.success) {
-        alert(`✅ ${response.message}\n\nTotal coins distributed: ${response.data.totalCoinsDistributed}`);
-        fetchTournamentData(); // Refresh data
+        toast.success(`Rewards distributed! Total: ${response.data.totalCoinsDistributed}`);
+        fetchTournamentData();
       }
-      
+
     } catch (error) {
       console.error('Error distributing rewards:', error);
-      alert(error.response?.data?.error || 'Failed to distribute rewards');
+      const errorData = error.response?.data?.error;
+      const errorMessage = typeof errorData === 'object' ? errorData.message : errorData;
+      toast.error(errorMessage || error.message || 'Failed to distribute rewards');
     } finally {
       setDistributing(false);
     }
   };
-  
+
   const handleWinnerChange = (index, field, value) => {
     const newWinners = [...winners];
     newWinners[index][field] = value;
     setWinners(newWinners);
   };
-  
+
   const handleVideoFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
       const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Please upload a video file (MP4, MOV, AVI, MKV)');
+        toast.error('Invalid video format. Use MP4/MOV/AVI.');
         return;
       }
-      
+
       // Validate file size (500MB max)
       const maxSize = 500 * 1024 * 1024;
       if (file.size > maxSize) {
-        alert('File too large. Maximum size is 500MB');
+        toast.error('File too large. Max 500MB.');
         return;
       }
-      
+
       setVideoFile(file);
     }
   };
-  
+
   const handleVideoUpload = async () => {
     if (!videoFile) {
       alert('Please select a video file');
       return;
     }
-    
+
     try {
       setUploading(true);
       setUploadProgress(0);
-      
+
       const formData = new FormData();
       formData.append('video', videoFile);
-      
+
       // Don't set Content-Type header - let browser set it with boundary
       const response = await api.post(`/api/tournaments/${id}/upload-video`, formData);
-      
+
       if (response.success) {
-        alert('✅ Video uploaded successfully!');
+        toast.success('Video uploaded!');
         setVideoFile(null);
-        fetchTournamentData(); // Refresh data
+        fetchTournamentData();
       }
-      
+
     } catch (error) {
       console.error('Error uploading video:', error);
       alert(error.message || 'Failed to upload video');
@@ -192,50 +196,49 @@ const TournamentRewardDistribution = () => {
       setUploadProgress(0);
     }
   };
-  
+
   const handleVideoDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this video?')) {
       return;
     }
-    
+
     try {
       const response = await api.delete(`/api/tournaments/${id}/delete-video`);
-      
+
       if (response.success) {
-        alert('✅ Video deleted successfully');
-        fetchTournamentData(); // Refresh data
+        toast.success('Video deleted');
+        fetchTournamentData();
       }
-      
+
     } catch (error) {
       console.error('Error deleting video:', error);
       alert(error.response?.data?.error || 'Failed to delete video');
     }
   };
-  
+
   const handleProcessVideo = async () => {
     if (!window.confirm('Process this video to extract scoreboard data?\n\nThis may take 30-60 seconds.')) {
       return;
     }
-    
+
     try {
       setProcessing(true);
-      
+
       const response = await api.post(`/api/tournaments/${id}/process-video`);
-      
+
       if (response.success) {
-        alert(`✅ ${response.message}\n\nFound ${response.data.totalTeams} teams!`);
-        
-        // Auto-populate top 5 winners
+        toast.success(`Processed! Teams found: ${response.data.totalTeams}`);
+
         if (response.data.teams && response.data.teams.length > 0) {
           const newWinners = [...winners];
-          
+
           response.data.teams.slice(0, 5).forEach((team, index) => {
             // Find matching team in dropdown by name
-            const matchingTeam = teams.find(t => 
+            const matchingTeam = teams.find(t =>
               t.name.toLowerCase().includes(team.team_name.toLowerCase()) ||
               team.team_name.toLowerCase().includes(t.name.toLowerCase())
             );
-            
+
             if (matchingTeam) {
               newWinners[index].teamId = matchingTeam._id;
               // Suggest reward based on rank (you can customize this)
@@ -243,24 +246,25 @@ const TournamentRewardDistribution = () => {
               newWinners[index].amount = suggestedRewards[index].toString();
             }
           });
-          
+
           setWinners(newWinners);
-          alert('✅ Top 5 teams auto-populated! Please review and adjust rewards before distributing.');
+          toast.success('Winners suggested from video!');
         }
-        
+
         fetchTournamentData(); // Refresh data
       }
-      
+
     } catch (error) {
       console.error('Error processing video:', error);
-      const errorMsg = error.response?.data?.error || 'Failed to process video';
-      const details = error.response?.data?.details || '';
+      const errorData = error.response?.data?.error;
+      const errorMsg = typeof errorData === 'object' ? errorData.message : (errorData || 'Failed to process video');
+      const details = error.response?.data?.details || error.message || '';
       alert(`❌ ${errorMsg}\n\n${details}`);
     } finally {
       setProcessing(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
@@ -268,7 +272,7 @@ const TournamentRewardDistribution = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gaming-dark py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -281,7 +285,7 @@ const TournamentRewardDistribution = () => {
             <FiArrowLeft />
             <span>Back to Tournaments</span>
           </button>
-          
+
           <h1 className="text-3xl font-gaming font-bold text-white mb-2">
             💰 Distribute Tournament Rewards
           </h1>
@@ -289,7 +293,7 @@ const TournamentRewardDistribution = () => {
             {tournament?.name}
           </p>
         </div>
-        
+
         {/* Video Upload Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -299,7 +303,7 @@ const TournamentRewardDistribution = () => {
           <h2 className="text-2xl font-gaming font-bold text-white mb-4">
             🎥 Tournament Video Upload
           </h2>
-          
+
           {videoStatus?.hasVideo ? (
             <div className="space-y-4">
               <div className="p-4 bg-green-500/10 border border-green-500 rounded-lg">
@@ -346,7 +350,7 @@ const TournamentRewardDistribution = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Show extracted teams if processed */}
               {videoStatus.processed && videoStatus.extractedData?.teams && (
                 <div className="p-4 bg-gaming-charcoal rounded-lg border border-gaming-gold/30">
@@ -376,7 +380,7 @@ const TournamentRewardDistribution = () => {
               <p className="text-gray-400 mb-4">
                 Upload the tournament gameplay video to automatically extract scoreboard data and determine winners.
               </p>
-              
+
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <input
@@ -392,7 +396,7 @@ const TournamentRewardDistribution = () => {
                     </p>
                   )}
                 </div>
-                
+
                 <button
                   onClick={handleVideoUpload}
                   disabled={!videoFile || uploading}
@@ -401,7 +405,7 @@ const TournamentRewardDistribution = () => {
                   {uploading ? 'Uploading...' : 'Upload Video'}
                 </button>
               </div>
-              
+
               {uploading && (
                 <div className="flex items-center space-x-3">
                   <div className="w-full bg-gaming-charcoal rounded-full h-2 overflow-hidden">
@@ -410,7 +414,7 @@ const TournamentRewardDistribution = () => {
                   <span className="text-sm text-gray-400">Uploading...</span>
                 </div>
               )}
-              
+
               <div className="text-xs text-gray-500 space-y-1">
                 <p>• Supported formats: MP4, MOV, AVI, MKV</p>
                 <p>• Maximum file size: 500MB</p>
@@ -419,7 +423,7 @@ const TournamentRewardDistribution = () => {
             </div>
           )}
         </motion.div>
-        
+
         {/* Reward Status */}
         {rewardStatus?.rewardsDistributed && (
           <motion.div
@@ -450,7 +454,7 @@ const TournamentRewardDistribution = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* Distribution Form */}
         {!rewardStatus?.rewardsDistributed && (
           <motion.div
@@ -478,7 +482,7 @@ const TournamentRewardDistribution = () => {
                           className="w-full px-4 py-3 bg-gaming-dark border border-gaming-border rounded-lg text-white font-bold"
                         />
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Team
@@ -496,7 +500,7 @@ const TournamentRewardDistribution = () => {
                           ))}
                         </select>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                           Reward (Coins)
@@ -514,7 +518,7 @@ const TournamentRewardDistribution = () => {
                   ))}
                 </div>
               </div>
-              
+
               {/* Participation Reward */}
               <div className="p-4 bg-gaming-charcoal rounded-lg border border-gaming-gold/30">
                 <h4 className="text-lg font-bold text-gaming-gold mb-3">
@@ -537,7 +541,7 @@ const TournamentRewardDistribution = () => {
                   />
                 </div>
               </div>
-              
+
               {/* Calculation Preview */}
               {winners.some(w => w.teamId && w.amount) && (
                 <div className="p-4 bg-gaming-charcoal rounded-lg border border-gaming-gold/30">
@@ -552,7 +556,7 @@ const TournamentRewardDistribution = () => {
                         </div>
                       );
                     })}
-                    
+
                     {participationReward && parseInt(participationReward) > 0 && (
                       <>
                         <div className="border-t border-gaming-border pt-2 mt-2">
@@ -563,18 +567,18 @@ const TournamentRewardDistribution = () => {
                         </div>
                       </>
                     )}
-                    
+
                     <div className="flex justify-between pt-2 border-t border-gaming-border">
                       <span className="text-gray-400 font-semibold">Total coins:</span>
                       <span className="text-gaming-gold font-bold text-lg">
-                        {winners.filter(w => w.teamId && w.amount).reduce((sum, w) => sum + parseInt(w.amount || 0), 0) + 
-                         (parseInt(participationReward || 0) * (teams.length - winners.filter(w => w.teamId).length))}
+                        {winners.filter(w => w.teamId && w.amount).reduce((sum, w) => sum + parseInt(w.amount || 0), 0) +
+                          (parseInt(participationReward || 0) * (teams.length - winners.filter(w => w.teamId).length))}
                       </span>
                     </div>
                   </div>
                 </div>
               )}
-              
+
               {/* Submit Button */}
               <button
                 type="submit"
@@ -583,7 +587,7 @@ const TournamentRewardDistribution = () => {
               >
                 {distributing ? 'Distributing...' : '💰 Distribute Rewards'}
               </button>
-              
+
               {teams.length === 0 && (
                 <p className="text-yellow-400 text-sm text-center">
                   <FiAlertCircle className="inline mr-1" />

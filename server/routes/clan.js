@@ -161,6 +161,16 @@ router.post('/', auth, [
     const { name, tag, description, visibility, maxMembers } = req.body;
     const userId = req.user.userId;
 
+    // Check if user is already a member of any clan
+    const userMembership = await ClanMember.findOne({ user: userId });
+    if (userMembership) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already a member of a clan. You must leave your current clan before creating a new one.',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Check if clan name already exists
     const existingClan = await Clan.findOne({ name });
     if (existingClan) {
@@ -216,6 +226,9 @@ router.get('/', [
     .trim()
     .isLength({ max: 100 })
     .withMessage('Search query too long'),
+  query('game')
+    .optional()
+    .trim(),
   query('visibility')
     .optional()
     .isIn(['public', 'private', 'invite'])
@@ -240,7 +253,7 @@ router.get('/', [
       });
     }
 
-    const { search, visibility, page = 1, limit = 20 } = req.query;
+    const { search, visibility, game, page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Build filter
@@ -249,7 +262,11 @@ router.get('/', [
     if (visibility) {
       filter.visibility = visibility;
     } else {
-      filter.visibility = 'public'; // Default to public clans
+      filter.visibility = 'public';
+    }
+
+    if (game) {
+      filter.game = { $regex: new RegExp('^' + game + '$', 'i') };
     }
 
     if (search) {
@@ -611,14 +628,22 @@ router.post('/:id/join', auth, async (req, res) => {
       });
     }
 
-    // Check if already member
-    const existingMember = await ClanMember.findOne({ clan: clanId, user: userId });
+    // Check if already member of any clan
+    const existingMember = await ClanMember.findOne({ user: userId });
     if (existingMember) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are already a member of this clan',
-        timestamp: new Date().toISOString()
-      });
+      if (existingMember.clan.toString() === clanId) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already a member of this clan',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already a member of another clan. You must leave your current clan before joining this one.',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     // Add member

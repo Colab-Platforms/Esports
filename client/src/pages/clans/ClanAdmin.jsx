@@ -171,7 +171,7 @@ const ClanAdmin = () => {
           <div className="lg:col-span-3">
             {activeTab === 'members' && <MembersTab clanId={clanId} userRole={userRole} />}
             {activeTab === 'reports' && <ReportsTab clanId={clanId} />}
-            {activeTab === 'settings' && <SettingsTab clanId={clanId} clan={clan} setClan={setClan} />}
+            {activeTab === 'settings' && <SettingsTab clanId={clanId} clan={clan} setClan={setClan} user={user} navigate={navigate} />}
             {activeTab === 'roles' && <RolesTab />}
             {activeTab === 'bans' && <BansTab clanId={clanId} />}
             {activeTab === 'audit' && <AuditLogTab clanId={clanId} />}
@@ -676,7 +676,7 @@ const ReportsTab = ({ clanId }) => {
 };
 
 
-const SettingsTab = ({ clanId, clan, setClan }) => {
+const SettingsTab = ({ clanId, clan, setClan, user, navigate }) => {
   const [formData, setFormData] = useState({
     maxMembers: 100,
     visibility: 'public',
@@ -773,6 +773,39 @@ const SettingsTab = ({ clanId, clan, setClan }) => {
       >
         {saving ? 'Saving...' : 'Save Settings'}
       </button>
+
+      {/* Danger Zone */}
+      {clan?.owner?._id === (user?._id || user?.id) && (
+        <div className="mt-12 pt-8 border-t border-red-500/20">
+          <h3 className="text-red-500 font-gaming font-bold text-xl mb-4">Danger Zone</h3>
+          <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <p className="text-white font-bold">Delete Clan</p>
+                <p className="text-sm text-gray-400">Once you delete a clan, there is no going back. All data will be lost.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (window.confirm('CRITICAL: Are you absolutely sure? This will delete all members, messages, and clan data permanently.')) {
+                    try {
+                      const res = await api.delete(`/api/clans/${clanId}`);
+                      if (res.success) {
+                        toast.success('Clan deleted successfully');
+                        navigate('/clans');
+                      }
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || 'Failed to delete clan');
+                    }
+                  }
+                }}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors"
+              >
+                Delete Clan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

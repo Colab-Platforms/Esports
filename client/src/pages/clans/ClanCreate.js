@@ -7,7 +7,7 @@ import { useClan } from '../../contexts/ClanContext';
 
 const ClanCreate = () => {
   const navigate = useNavigate();
-  const { refreshMyClan } = useClan();
+  const { refreshMyClan, myClan, isLoading } = useClan();
   const fileInputRef = useRef(null);
   
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -158,6 +158,38 @@ const ClanCreate = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) return null;
+
+  if (myClan) {
+    const clanData = myClan.clan || myClan;
+    return (
+      <div className="min-h-screen bg-gaming-dark py-12 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full bg-gaming-charcoal rounded-xl border border-gaming-border p-8 shadow-2xl text-center">
+          <div className="text-6xl mb-6">🛡️</div>
+          <h1 className="text-2xl font-gaming font-bold text-white mb-4">Already in a Clan</h1>
+          <p className="text-gray-400 mb-8 leading-relaxed">
+            You are already a member of <span className="text-gaming-gold font-bold">{clanData.name}</span>. 
+            You must leave your current clan before you can create a new one.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate(`/clans/${clanData._id}`)}
+              className="w-full px-6 py-3 bg-gaming-gold hover:bg-yellow-500 text-black font-bold rounded-lg transition-all"
+            >
+              View My Clan
+            </button>
+            <button
+              onClick={() => navigate('/clans')}
+              className="w-full px-6 py-3 bg-gaming-dark border border-gaming-border text-white font-bold rounded-lg hover:border-gaming-gold transition-all"
+            >
+              Browse Other Clans
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4">
