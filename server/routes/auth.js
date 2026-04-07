@@ -996,6 +996,12 @@ router.put('/profile', auth, async (req, res) => {
       });
     }
 
+
+    // Ensure fullName is always set (preserve existing or use username as fallback)
+    if (!user.fullName) {
+      user.fullName = user.username || 'User';
+    }
+
     // Check if username is already taken
     if (username && username !== user.username) {
       // Validate username length only
