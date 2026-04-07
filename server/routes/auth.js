@@ -1060,7 +1060,7 @@ router.put('/profile', auth, async (req, res) => {
       }
 
       // Mark nested object as modified for Mongoose
-      user.markModified('gameIds.bgmi');
+      user.markModified('gameIds');
 
       // Also update legacy fields for backward compatibility
       user.bgmiIgnName = user.gameIds.bgmi.ign;
@@ -1090,7 +1090,7 @@ router.put('/profile', auth, async (req, res) => {
       }
 
       // Mark nested object as modified for Mongoose
-      user.markModified('gameIds.freefire');
+      user.markModified('gameIds');
 
       // Also update legacy fields for backward compatibility
       user.freeFireIgnName = user.gameIds.freefire.ign;
@@ -1133,7 +1133,7 @@ router.put('/profile', auth, async (req, res) => {
         };
 
         // Mark nested object as modified for Mongoose
-        user.markModified('gameIds.bgmi');
+        user.markModified('gameIds');
 
         user.bgmiIgnName = user.gameIds.bgmi.ign;
         user.bgmiUid = user.gameIds.bgmi.uid;
@@ -1156,12 +1156,25 @@ router.put('/profile', auth, async (req, res) => {
         };
 
         // Mark nested object as modified for Mongoose
-        user.markModified('gameIds.freefire');
+        user.markModified('gameIds');
 
         user.freeFireIgnName = user.gameIds.freefire.ign;
         user.freeFireUid = user.gameIds.freefire.uid;
 
         console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
+      }
+    }
+
+    // Ensure gameIds is properly structured before saving
+    if (user.gameIds) {
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+        user.gameIds.bgmi = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+        user.gameIds.freefire = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.steam) {
+        user.gameIds.steam = '';
       }
     }
 
@@ -1214,7 +1227,24 @@ router.put('/profile', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Profile update error:', error);
+    console.error('❌ Profile update error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: messages.join(', '),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: {
