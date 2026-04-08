@@ -50,7 +50,7 @@ const Navbar = () => {
     };
 
     fetchWalletBalance();
-    
+
     // Refresh balance every 30 seconds
     const interval = setInterval(fetchWalletBalance, 30000);
     return () => clearInterval(interval);
@@ -218,11 +218,10 @@ const Navbar = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`font-display font-semibold transition-colors duration-200 ${
-                  isActiveLink(link.to)
+                className={`font-display font-semibold transition-colors duration-200 ${isActiveLink(link.to)
                     ? "text-theme-accent border-b-2 border-theme-accent pb-1"
                     : "text-theme-text-secondary hover:text-theme-accent"
-                }`}
+                  }`}
               >
                 {link.label}
               </Link>
@@ -248,7 +247,7 @@ const Navbar = () => {
                       strokeWidth={2}
                       d="M19 9l-7 7-7-7"
                     />
-                  </svg>    
+                  </svg>
                 </button>
 
                 {/* Dropdown Menu */}
@@ -274,11 +273,10 @@ const Navbar = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`font-display font-semibold transition-colors duration-200 ${
-                    isActiveLink(link.to)
+                  className={`font-display font-semibold transition-colors duration-200 ${isActiveLink(link.to)
                       ? "text-theme-accent border-b-2 border-theme-accent pb-1"
                       : "text-theme-text-secondary hover:text-theme-accent"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
@@ -292,7 +290,7 @@ const Navbar = () => {
                 {/* Theme Toggle */}
                 {/* <ThemeToggle size="sm" /> */}
 
-               
+
                 <Link
                   to="/wallet"
                   className="flex items-center space-x-2 px-3 py-2 text-sm text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover transition-colors duration-200 rounded-lg"
@@ -301,15 +299,15 @@ const Navbar = () => {
                     <span className="text-gaming-gold font-bold text-xs">{coinBalance}</span>
                   </div>
                   <img
-                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc_icon_8f0f0cb6-bff1-419f-bdc6-cdaf635e4cd8.png?v=1775034754"
+                    src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc.png?v=1775632733"
                     alt="CC"
                     className="w-7 h-7 object-contain"
                   />
                 </Link>
 
-                 {/* Notifications */}
+                {/* Notifications */}
                 <NotificationPanel />
-                
+
 
                 {/* Wallet removed - free tournaments only */}
 
@@ -382,15 +380,15 @@ const Navbar = () => {
                         {/* Admin Panel Link - Only for admin/moderator users */}
                         {(user?.role === "admin" ||
                           user?.role === "moderator") && (
-                          <Link
-                            to="/admin"
-                            className="flex items-center space-x-2 px-4 py-2 text-sm text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                          >
-                            <FiGrid className="w-4 h-4" />
-                            <span>Admin Panel</span>
-                          </Link>
-                        )}
+                            <Link
+                              to="/admin"
+                              className="flex items-center space-x-2 px-4 py-2 text-sm text-gaming-gold hover:text-yellow-400 hover:bg-theme-bg-hover transition-colors duration-200 font-bold"
+                              onClick={() => setIsProfileMenuOpen(false)}
+                            >
+                              <FiGrid className="w-4 h-4" />
+                              <span>Admin Panel</span>
+                            </Link>
+                          )}
 
                         <button
                           onClick={handleLogout}
@@ -525,11 +523,10 @@ const Navbar = () => {
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
-                      isActiveLink(link.to)
+                    className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${isActiveLink(link.to)
                         ? "bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent"
                         : "text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover"
-                    }`}
+                      }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className="font-display font-semibold">
@@ -548,11 +545,10 @@ const Navbar = () => {
                       <Link
                         key={link.to}
                         to={link.to}
-                        className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${
-                          isActiveLink(link.to)
+                        className={`flex items-center px-3 py-3 rounded-lg transition-colors duration-200 ${isActiveLink(link.to)
                             ? "bg-gaming-gold/10 text-gaming-gold border-l-4 border-gaming-gold"
                             : "text-gaming-gold/70 hover:text-gaming-gold hover:bg-gaming-gold/5"
-                        }`}
+                          }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <span className="font-semibold uppercase">
@@ -572,11 +568,10 @@ const Navbar = () => {
                       <Link
                         key={link.to}
                         to={link.to}
-                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${
-                          isActiveLink(link.to)
+                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${isActiveLink(link.to)
                             ? "bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent"
                             : "text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover"
-                        }`}
+                          }`}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <link.icon className="w-5 h-5" />

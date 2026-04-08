@@ -336,7 +336,7 @@ const WalletPage = () => {
               <h3 className="text-gray-400 text-md">Current Balance</h3>
               <div className="flex items-center gap-1">
                 <img
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc_icon_8f0f0cb6-bff1-419f-bdc6-cdaf635e4cd8.png?v=1775034754"
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/cc.png?v=1775632733"
                   alt="CC"
                   className="w-12 h-12 object-contain"
                 />
