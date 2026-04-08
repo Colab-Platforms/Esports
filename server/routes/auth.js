@@ -1054,7 +1054,10 @@ router.put('/profile', auth, async (req, res) => {
     if (favoriteGame !== undefined) user.favoriteGame = favoriteGame;
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-    if (phone !== undefined) user.phone = phone;
+    if (phone !== undefined) {
+      // If phone is an empty string, set it to undefined to avoid duplicate key errors on the unique/sparse index
+      user.phone = (phone && typeof phone === 'string' && phone.trim() !== '') ? phone.trim() : undefined;
+    }
 
     // Update game IDs with new structure
     if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
