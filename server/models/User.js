@@ -4,10 +4,11 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   fullName: {
     type: String,
-    required: [true, 'Full name is required'],
+    required: false,
     trim: true,
     minlength: [3, 'Full name must be at least 3 characters'],
-    maxlength: [50, 'Full name cannot exceed 50 characters']
+    maxlength: [50, 'Full name cannot exceed 50 characters'],
+    default: ''
   },
   username: {
     type: String,
@@ -22,6 +23,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
+    trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   phone: {
@@ -30,6 +32,7 @@ const userSchema = new mongoose.Schema({
       return !this.authProvider || this.authProvider === 'local';
     },
     unique: true,
+    trim: true,
     sparse: true, // Allow null values for OAuth users
     match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
   },
@@ -314,7 +317,15 @@ userSchema.index({ 'gameIds.steam': 1 }); // For CS2 player matching
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
+  // Only hash if password was modified
   if (!this.isModified('passwordHash')) return next();
+
+  // If passwordHash already looks like a bcrypt hash (starts with $2), don't re-hash it!
+  // This prevents multiple save calls from double-hashing the password
+  if (typeof this.passwordHash === 'string' && this.passwordHash.startsWith('$2')) {
+    console.log('🛡️ Password already hashed, skipping re-hash');
+    return next();
+  }
 
   try {
     const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 12);

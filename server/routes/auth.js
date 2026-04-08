@@ -210,10 +210,14 @@ router.post('/forgot-password', async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-    // Save reset token to user
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = resetTokenExpiry;
-    await user.save();
+    // Save reset token to user using updateOne to avoid validation on other fields
+    await User.updateOne(
+      { _id: user._id },
+      {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetTokenExpiry
+      }
+    );
 
     console.log('✅ Reset token generated for user:', user.username);
 
@@ -350,11 +354,20 @@ router.post('/reset-password', decodeSensitiveData, async (req, res) => {
       });
     }
 
-    // Update password and clear reset token
-    user.passwordHash = password; // Will be hashed by pre-save middleware
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
+    // Hash the password manually since updateOne bypasses pre-save middleware
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update password and clear reset token using updateOne to avoid validation on other fields
+    await User.updateOne(
+      { _id: user._id },
+      {
+        passwordHash: hashedPassword,
+        resetPasswordToken: undefined,
+        resetPasswordExpires: undefined
+      }
+    );
 
     console.log('✅ Password reset successful for user:', user.username);
 
@@ -527,10 +540,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     }
 
     const user = new User(userData);
-
-    console.log('💾 Saving user to database...');
-    await user.save();
-    console.log('✅ User saved successfully');
+    // Note: We don't save yet, we'll save once at the end after all modifications
 
     // Give welcome bonus coins
     let welcomeBonusAmount = 0;
@@ -541,28 +551,14 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
 
       // Get welcome bonus amount from config, default to 100 coins
       const config = await CoinConfig.findOne({ key: 'welcome_bonus' });
-      welcomeBonusAmount = config ? config.value : 100; // Default 100 coins
+      welcomeBonusAmount = config ? config.value : 100;
 
-      // Create wallet and add welcome bonus
-      let wallet = new Wallet({ userId: user._id });
-      await wallet.addCoins(
-        welcomeBonusAmount,
-        'bonus',
-        'Welcome Bonus - Thank you for joining Colab Esports!',
-        { source: 'registration' }
-      );
-      await wallet.save();
-
-      // Update user to mark welcome bonus as received
+      // Mark bonus as received on user object (but don't save yet)
       user.welcomeBonusReceived = true;
       user.welcomeBonusDate = new Date();
-      await user.save();
-
       welcomeBonusSuccess = true;
-      console.log(`🎁 Welcome bonus of ${welcomeBonusAmount} coins credited to user:`, user.username);
     } catch (coinError) {
-      console.error('❌ Failed to credit welcome bonus:', coinError);
-      // Don't fail registration if coin credit fails
+      console.error('❌ Failed to prepare welcome bonus:', coinError);
     }
 
     // Handle referral code if provided
@@ -571,15 +567,9 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       console.log(`🎁 Processing referral code: ${referralCode}`);
       try {
         const Referral = require('../models/Referral');
-        const Wallet = require('../models/Wallet');
-
-        console.log(`🔍 Looking for referral code: ${referralCode.toUpperCase()}`);
         const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
 
         if (referral) {
-          console.log(`✅ Found referral! Referrer ID: ${referral.userId}`);
-
-          // Fetch reward amounts from CoinConfig (fallback to defaults)
           const { CoinConfig } = require('../models/CoinConfig');
           const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
           const refereeConfig = await CoinConfig.findOne({ key: 'referee_reward' });
@@ -587,7 +577,13 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           const refereeReward = refereeConfig ? refereeConfig.value : 100;
           appliedRefereeReward = refereeReward;
 
-          // Add to referred users
+          // Prepare referral updates (will be saved later)
+          user.referralBonusReceived = true;
+          user.referralBonusDate = new Date();
+          user.referralCode = referralCode.toUpperCase();
+          user.referralBonusAmount = refereeReward;
+
+          // Update referral record
           referral.referredUsers.push({
             userId: user._id,
             status: 'completed',
@@ -597,37 +593,60 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           referral.totalReferrals += 1;
           referral.successfulReferrals += 1;
           referral.totalCoinsEarned += referrerReward;
-          await referral.save();
-          console.log(`📝 Referral record updated`);
+          await referral.save(); // Save referral record
 
-          // Award coins to new user (referee)
+          // Note: Wallet updates for referee and referrer will happen AFTER user is saved successfully
+        }
+      } catch (referralError) {
+        console.error('❌ Failed to process referral:', referralError);
+      }
+    }
+
+    // FINAL SAVE: Save user once with all fields updated
+    console.log('💾 Saving user to database...');
+    await user.save();
+    console.log('✅ User saved successfully');
+
+    // AFTER SUCCESSFUL USER SAVE: Handle Wallet and Referrer rewards
+    try {
+      const Wallet = require('../models/Wallet');
+
+      // 1. Give welcome bonus in wallet
+      if (welcomeBonusSuccess) {
+        let wallet = new Wallet({ userId: user._id });
+        await wallet.addCoins(
+          welcomeBonusAmount,
+          'bonus',
+          'Welcome Bonus - Thank you for joining Colab Esports!',
+          { source: 'registration' }
+        );
+        await wallet.save();
+      }
+
+      // 2. Give referral bonus in wallet (referee and referrer)
+      if (user.referralBonusReceived) {
+        const Referral = require('../models/Referral');
+        const referral = await Referral.findOne({ referralCode: user.referralCode });
+
+        if (referral) {
+          const { CoinConfig } = require('../models/CoinConfig');
+          const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
+          const referrerReward = referrerConfig ? referrerConfig.value : 200;
+
+          // Award to new user (referee)
           let newUserWallet = await Wallet.findOne({ userId: user._id });
-          if (!newUserWallet) {
-            console.log(`💼 Creating new wallet for user: ${user.username}`);
-            newUserWallet = new Wallet({ userId: user._id });
-          }
+          if (!newUserWallet) newUserWallet = new Wallet({ userId: user._id });
           await newUserWallet.addCoins(
-            refereeReward,
+            user.referralBonusAmount,
             'referral',
             'Referral bonus - Welcome gift',
             { source: 'referral' }
           );
           await newUserWallet.save();
-          console.log(`💰 Awarded ${refereeReward} coins to new user: ${user.username}`);
 
-          // Update user to mark referral bonus as received
-          user.referralBonusReceived = true;
-          user.referralBonusDate = new Date();
-          user.referralCode = referralCode.toUpperCase();
-          user.referralBonusAmount = refereeReward; // Track amount received
-          await user.save();
-
-          // Award coins to referrer
+          // Award to referrer
           let referrerWallet = await Wallet.findOne({ userId: referral.userId });
-          if (!referrerWallet) {
-            console.log(`💼 Creating new wallet for referrer`);
-            referrerWallet = new Wallet({ userId: referral.userId });
-          }
+          if (!referrerWallet) referrerWallet = new Wallet({ userId: referral.userId });
           await referrerWallet.addCoins(
             referrerReward,
             'referral',
@@ -635,16 +654,11 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
             { source: 'referral' }
           );
           await referrerWallet.save();
-          console.log(`💰 Awarded ${referrerReward} coins to referrer`);
-
-          console.log(`🎁 Referral success: ${referralCode} - New user: ${user.username} (+${refereeReward} coins), Referrer: (+${referrerReward} coins)`);
-        } else {
-          console.log(`⚠️ Invalid referral code: ${referralCode}`);
         }
-      } catch (referralError) {
-        console.error('❌ Failed to apply referral code:', referralError);
-        // Don't fail registration if referral fails
       }
+    } catch (postSaveError) {
+      console.error('❌ Post-registration reward error:', postSaveError);
+      // We don't fail registration if rewards fail after user is already saved
     }
 
     // Generate token
@@ -780,14 +794,16 @@ router.post('/login', decodeSensitiveData, [
     }
 
     const { identifier, password, rememberMe } = req.body;
-    console.log('🔍 Searching for user with identifier:', identifier);
+    const trimmedIdentifier = typeof identifier === 'string' ? identifier.trim() : identifier;
+    console.log('🔍 Searching for user with trimmed identifier:', trimmedIdentifier);
 
-    // Find user by email, username, or phone
+    // Find user by email, username, phone, or fullName
     const user = await User.findOne({
       $or: [
-        { email: identifier.toLowerCase() },
-        { username: identifier },
-        { phone: identifier }
+        { email: trimmedIdentifier.toLowerCase() },
+        { username: trimmedIdentifier },
+        { phone: trimmedIdentifier },
+        { fullName: { $regex: new RegExp(`^${trimmedIdentifier}$`, 'i') } } // Case-insensitive full name
       ]
     });
 
@@ -836,8 +852,42 @@ router.post('/login', decodeSensitiveData, [
 
     console.log('✅ Login successful for user:', user.username);
 
-    // Update login streak
-    await user.updateLoginStreak();
+    // Update login streak without triggering validation on other fields
+    const now = new Date();
+    const lastLogin = new Date(user.lastLogin);
+
+    // Strip time from dates to compare calendar days (Midnight to Midnight)
+    const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const lastAtMidnight = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate());
+
+    // Calculate difference in calendar days
+    const daysDiff = Math.floor((todayAtMidnight - lastAtMidnight) / (1000 * 60 * 60 * 24));
+
+    let newLoginStreak = user.loginStreak;
+    if (newLoginStreak === 0) {
+      // Initialize streak for new users or if it was somehow 0
+      newLoginStreak = 1;
+    } else if (daysDiff === 1) {
+      // Logged in on the very next calendar day
+      newLoginStreak += 1;
+    } else if (daysDiff > 1) {
+      // User missed a day or more, reset streak to 1
+      newLoginStreak = 1;
+    }
+    // If daysDiff is 0, they logged in again on the same day, so we leave the streak as is
+
+    // Update login streak and lastLogin using updateOne to avoid validation
+    await User.updateOne(
+      { _id: user._id },
+      {
+        loginStreak: newLoginStreak,
+        lastLogin: now
+      }
+    );
+
+    // Update the user object for response
+    user.loginStreak = newLoginStreak;
+    user.lastLogin = now;
 
     // Generate token
     const token = generateToken(user._id, rememberMe);
@@ -946,6 +996,29 @@ router.put('/profile', auth, async (req, res) => {
       });
     }
 
+    // CRITICAL: Migrate old gameIds format to new format FIRST
+    console.log('🔍 Current gameIds before migration:', user.gameIds);
+
+    if (user.gameIds) {
+      // Migrate old string format to new object format
+      if (typeof user.gameIds.bgmi === 'string') {
+        const oldBgmiUid = user.gameIds.bgmi;
+        user.gameIds.bgmi = { ign: user.bgmiIgnName || '', uid: oldBgmiUid };
+        console.log('🔄 Migrated BGMI from string to object:', user.gameIds.bgmi);
+      }
+
+      if (typeof user.gameIds.freefire === 'string') {
+        const oldFreefireUid = user.gameIds.freefire;
+        user.gameIds.freefire = { ign: user.freeFireIgnName || '', uid: oldFreefireUid };
+        console.log('🔄 Migrated Free Fire from string to object:', user.gameIds.freefire);
+      }
+    }
+
+    // Ensure fullName is always set (preserve existing or use username as fallback)
+    if (!user.fullName) {
+      user.fullName = user.username || 'User';
+    }
+
     // Check if username is already taken
     if (username && username !== user.username) {
       // Validate username length only
@@ -992,7 +1065,9 @@ router.put('/profile', auth, async (req, res) => {
       if (typeof currentBgmi === 'string') {
         user.set('gameIds.bgmi', { ign: '', uid: currentBgmi });
         console.log('🔄 Migrated old BGMI string to object:', currentBgmi);
-      } else if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+      }
+
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
         user.gameIds.bgmi = { ign: '', uid: '' };
       }
 
@@ -1017,7 +1092,9 @@ router.put('/profile', auth, async (req, res) => {
       if (typeof currentFreefire === 'string') {
         user.set('gameIds.freefire', { ign: '', uid: currentFreefire });
         console.log('🔄 Migrated old Free Fire string to object:', currentFreefire);
-      } else if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+      }
+
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
         user.gameIds.freefire = { ign: '', uid: '' };
       }
 
@@ -1061,17 +1138,16 @@ router.put('/profile', auth, async (req, res) => {
           console.log('🔄 Migrated old BGMI string to object (via gameIds):', currentBgmi);
         }
 
-        if (typeof gameIds.bgmi === 'object' && gameIds.bgmi !== null) {
+        if (typeof gameIds.bgmi === 'object') {
           if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
             user.gameIds.bgmi = { ign: '', uid: '' };
           }
-          
-          user.gameIds.bgmi.ign = gameIds.bgmi.ign !== undefined ? gameIds.bgmi.ign : (user.gameIds.bgmi.ign || '');
-          user.gameIds.bgmi.uid = gameIds.bgmi.uid !== undefined ? gameIds.bgmi.uid : (user.gameIds.bgmi.uid || '');
+          user.gameIds.bgmi = {
+            ign: gameIds.bgmi.ign || user.gameIds.bgmi?.ign || '',
+            uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
+          };
 
-          // Mark nested object as modified for Mongoose
-          user.markModified('gameIds.bgmi');
-
+          user.markModified('gameIds');
           user.bgmiIgnName = user.gameIds.bgmi.ign;
           user.bgmiUid = user.gameIds.bgmi.uid;
 
@@ -1092,18 +1168,30 @@ router.put('/profile', auth, async (req, res) => {
           if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
             user.gameIds.freefire = { ign: '', uid: '' };
           }
-          
-          user.gameIds.freefire.ign = gameIds.freefire.ign !== undefined ? gameIds.freefire.ign : (user.gameIds.freefire.ign || '');
-          user.gameIds.freefire.uid = gameIds.freefire.uid !== undefined ? gameIds.freefire.uid : (user.gameIds.freefire.uid || '');
+          user.gameIds.freefire = {
+            ign: gameIds.freefire.ign || user.gameIds.freefire?.ign || '',
+            uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
+          };
 
-          // Mark nested object as modified for Mongoose
-          user.markModified('gameIds.freefire');
-
+          user.markModified('gameIds');
           user.freeFireIgnName = user.gameIds.freefire.ign;
           user.freeFireUid = user.gameIds.freefire.uid;
 
           console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
         }
+      }
+    }
+
+    // Ensure gameIds is properly structured before saving
+    if (user.gameIds) {
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+        user.gameIds.bgmi = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+        user.gameIds.freefire = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.steam) {
+        user.gameIds.steam = '';
       }
     }
 
@@ -1156,7 +1244,24 @@ router.put('/profile', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Profile update error:', error);
+    console.error('❌ Profile update error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: messages.join(', '),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: {
