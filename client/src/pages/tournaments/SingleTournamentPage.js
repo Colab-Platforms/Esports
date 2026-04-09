@@ -418,6 +418,22 @@ const SingleTournamentPage = () => {
     fetchTournamentData();
   }, [id]);
 
+  // Check registration status for authenticated users (uses api.js which sends auth token)
+  useEffect(() => {
+    if (!tournament?._id || !isAuthenticated) return;
+    const checkRegistrationStatus = async () => {
+      try {
+        const data = await api.get(`/api/tournaments/${tournament._id}/registration-status`);
+        if (data.success) {
+          setIsUserRegistered(data.data.isRegistered);
+        }
+      } catch (error) {
+        console.error('Failed to check registration status:', error);
+      }
+    };
+    checkRegistrationStatus();
+  }, [tournament?._id, isAuthenticated]);
+
   // Fetch registered teams when tournament data is loaded
   useEffect(() => {
     if (tournament && tournament._id) {
