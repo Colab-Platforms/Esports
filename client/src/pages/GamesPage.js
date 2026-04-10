@@ -243,7 +243,7 @@ const GamesPage = () => {
         };
         
         return (
-        <Link to={`/game/${getRoutePath(game)}`}>
+        <Link to={`/tournaments`}>
             <motion.div
                 whileHover={{ y: -8, scale: 1.02 }}
                 className="relative overflow-hidden rounded-xl border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"

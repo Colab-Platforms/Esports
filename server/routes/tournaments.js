@@ -1999,6 +1999,35 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/tournaments/:id/registration-status
+// @desc    Check if authenticated user is registered for this tournament
+// @access  Private
+router.get('/:id/registration-status', auth, async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const userId = req.user.userId;
+
+    // Check participants array (CS2/Valorant)
+    const tournament = await Tournament.findById(tournamentId).select('participants');
+    if (!tournament) {
+      return res.status(404).json({ success: false, error: { message: 'Tournament not found' } });
+    }
+
+    let isRegistered = tournament.isUserRegistered(userId);
+
+    // Also check TournamentRegistration (BGMI/FreeFire)
+    if (!isRegistered) {
+      const reg = await TournamentRegistration.findOne({ tournamentId, userId });
+      if (reg) isRegistered = true;
+    }
+
+    res.json({ success: true, data: { isRegistered }, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Registration status check error:', error);
+    res.status(500).json({ success: false, error: { message: 'Failed to check registration status' } });
+  }
+});
+
 // @route   GET /api/tournaments/:id/participants
 // @desc    Get tournament participants
 // @access  Public
