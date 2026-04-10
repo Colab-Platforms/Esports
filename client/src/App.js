@@ -64,7 +64,7 @@ import ClanCreate from './pages/clans/ClanCreate';
 import ClanProfile from './pages/clans/ClanProfile';
 import ClanChat from './pages/clans/ClanChat';
 import ClanAdmin from './pages/clans/ClanAdmin';
-import ClanActivity from './pages/clans/ClanActivity';
+import ClanAnnouncements from './pages/clans/ClanAnnouncements';
 import ClanLayout from './components/clan/ClanLayout';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
@@ -80,8 +80,8 @@ import notificationService from './services/notificationService';
 // Game Router Component
 const GameRouter = () => {
   const { gameType } = useParams();
-  
-  switch(gameType?.toLowerCase()) {
+
+  switch (gameType?.toLowerCase()) {
     case 'bgmi':
     case 'battlegrounds mobile india':
       return <BGMIPage />;
@@ -108,39 +108,39 @@ const ProtectedRoute = ({ children }) => {
 // Admin Route component - checks for admin role
 const AdminRoute = ({ children }) => {
   const { isAuthenticated, user } = useSelector(selectAuth);
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   // Allow access only for admin, designer, and moderator roles
   const allowedRoles = ['admin', 'designer', 'moderator'];
   const hasAccess = user?.role && allowedRoles.includes(user.role);
-  
+
   if (!hasAccess) {
     console.log('❌ Access denied: User role is', user?.role);
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 };
 
 // Designer Route component - checks for designer or admin role
 const DesignerRoute = ({ children }) => {
   const { isAuthenticated, user } = useSelector(selectAuth);
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   // Allow access if user is designer or admin
   const canAccess = user?.role === 'designer' || user?.role === 'admin';
-  
+
   if (!canAccess) {
     console.log('❌ Access denied: User is not designer or admin');
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 };
 
@@ -160,7 +160,7 @@ function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
   const location = useLocation();
-  
+
   // Check if splash has been shown before (only show once per session)
   const [showSplash, setShowSplash] = React.useState(() => {
     const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
@@ -168,10 +168,10 @@ function App() {
   });
 
   // Check if current page is an auth page (hide footer on these pages)
-  const isAuthPage = location.pathname.startsWith('/login') || 
-                     location.pathname.startsWith('/register') || 
-                     location.pathname.startsWith('/forgot-password') || 
-                     location.pathname.startsWith('/reset-password');
+  const isAuthPage = location.pathname.startsWith('/login') ||
+    location.pathname.startsWith('/register') ||
+    location.pathname.startsWith('/forgot-password') ||
+    location.pathname.startsWith('/reset-password');
 
   useEffect(() => {
     // Monitor Web Vitals for performance tracking
@@ -220,10 +220,10 @@ function App() {
     // Initialize socket connection if authenticated
     if (isAuthenticated && user) {
       initializeSocket(user.id, dispatch);
-      
+
       // Initialize notification service
       notificationService.init(dispatch);
-      
+
       // Request notification permission
       notificationService.requestNotificationPermission();
     } else {
@@ -258,685 +258,685 @@ function App() {
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
-      {/* Navigation */}
-      <ClanProvider>
-      <Navbar />
-      
-      {/* Main Content */}
-      <main className="flex-1">
-        <AnimatePresence mode="wait">
-          <Routes>
-            {/* Public Routes */}
-            <Route 
-              path="/" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <HomePage />
-                </motion.div>
-              } 
-            />
+        {/* Navigation */}
+        <ClanProvider>
+          <Navbar />
 
-            {/* Clan Routes - Moved to top for priority */}
-            <Route path="/clans" element={<ProtectedRoute><ClanDiscovery /></ProtectedRoute>} />
-            <Route path="/clans/create" element={<ProtectedRoute><ClanCreate /></ProtectedRoute>} />
-            
-            {/* Unified Clan Hub Wrapper */}
-            <Route path="/clans/:id/*" element={
-              <ProtectedRoute>
-                <ClanLayout>
-                  <Routes>
-                    <Route path="chat" element={<ClanChat />} />
-                    <Route path="admin" element={<ClanAdmin />} />
-                    <Route path="activity" element={<ClanActivity />} />
-                    <Route path="" element={<ClanProfile />} />
-                  </Routes>
-                </ClanLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Auth Routes */}
-            <Route 
-              path="/login" 
-              element={
-                isAuthenticated ? (
-                  <Navigate to="/" replace />
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <LoginPage />
-                  </motion.div>
-                )
-              } 
-            />
-            
-            <Route 
-              path="/register" 
-              element={
-                isAuthenticated ? (
-                  <Navigate to="/" replace />
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <RegisterPage />
-                  </motion.div>
-                )
-              } 
-            />
-            
-            {/* Forgot Password Routes */}
-            <Route 
-              path="/forgot-password" 
-              element={
-                isAuthenticated ? (
-                  <Navigate to="/profile" replace />
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ForgotPasswordPage />
-                  </motion.div>
-                )
-              } 
-            />
-            
-            <Route 
-              path="/reset-password/:token" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ResetPasswordPage />
-                </motion.div>
-              } 
-            />
-            
-            {/* OAuth Routes */}
-            <Route 
-              path="/auth/success" 
-              element={<OAuthSuccess />} 
-            />
-            
-            <Route 
-              path="/auth/error" 
-              element={<OAuthError />} 
-            />
-            
-            {/* Games Route */}
-            <Route 
-              path="/games" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <GamesPage />
-                </motion.div>
-              } 
-            />
-            
-            {/* BGMI Route */}
-            <Route 
-              path="/bgmi" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <BGMIPage />
-                </motion.div>
-              } 
-            />
-            
-            {/* Free Fire Route */}
-            <Route 
-              path="/freefire" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <FreeFirePage />
-                </motion.div>
-              } 
-            />
-            
-            {/* BGMI Image Upload Route */}
-            <Route 
-              path="/bgmi/registration/:registrationId/upload-images" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <BGMIImageUpload />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
+          {/* Main Content */}
+          <main className="flex-1">
+            <AnimatePresence mode="wait">
+              <Routes>
+                {/* Public Routes */}
+                <Route
+                  path="/"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <HomePage />
+                    </motion.div>
+                  }
+                />
 
-            {/* CS2 Route */}
-            <Route 
-              path="/cs2" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <CS2Page />
-                </motion.div>
-              } 
-            />
+                {/* Clan Routes - Moved to top for priority */}
+                <Route path="/clans" element={<ProtectedRoute><ClanDiscovery /></ProtectedRoute>} />
+                <Route path="/clans/create" element={<ProtectedRoute><ClanCreate /></ProtectedRoute>} />
 
-            {/* Protected Routes */}
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <DashboardPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/tournaments" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <TournamentsPage />
-                </motion.div>
-              } 
-            />
-            
-            <Route 
-              path="/tournaments/:id" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <SingleTournamentPage />
-                </motion.div>
-              } 
-            />
-            
-            <Route 
-              path="/tournament/:id" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                 transition={{ duration: 0.3 }}
-                >
-                  <SingleTournamentPage />
-                </motion.div>
-              } 
-            />
-            
-            {/* Dynamic Game Route - Redirects to specific game pages */}
-            <Route 
-              path="/game/:gameType" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <GameRouter />
-                </motion.div>
-              } 
-            />
-            
-            <Route 
-              path="/leaderboard" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <LeaderboardPage />
-                </motion.div>
-              } 
-            />
-            
-            {/* Colab Coin Routes */}
-            <Route 
-              path="/wallet" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <WalletPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/store" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <StorePage />
-                </motion.div>
-              } 
-            />
-            
-            <Route 
-              path="/store/orders" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <OrdersPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            
-            <Route 
-              path="/profile" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ProfilePage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-             <Route 
-               path="/profile/settings" 
-               element={
-                 <ProtectedRoute>
-                   <motion.div
-                     initial={{ opacity: 0, y: 20 }}
-                     animate={{ opacity: 1, y: 0 }}
-                     exit={{ opacity: 0, y: -20 }}
-                     transition={{ duration: 0.3 }}
-                   >
-                     <ProfileSettingsPage />
-                   </motion.div>
-                 </ProtectedRoute>
-               } 
-             />
-             
+                {/* Unified Clan Hub Wrapper */}
+                <Route path="/clans/:id/*" element={
+                  <ProtectedRoute>
+                    <ClanLayout>
+                      <Routes>
+                        <Route path="chat" element={<ClanChat />} />
+                        <Route path="admin" element={<ClanAdmin />} />
+                        <Route path="announcements" element={<ClanAnnouncements />} />
+                        <Route path="" element={<ClanProfile />} />
+                      </Routes>
+                    </ClanLayout>
+                  </ProtectedRoute>
+                } />
 
-            
-            <Route 
-              path="/teams" 
-              element={
-                isAuthenticated?( <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <TeamsPage />
-                </motion.div>):(
-                 <Navigate to="/login" replace/>
-                )
-                
-              } 
-            />
-            
-            <Route 
-              path="/player/:username" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <PublicProfile />
-                </motion.div>
-              } 
-            />
-            
-            <Route 
-              path="/steam-settings" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <SteamSettingsPage />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Match Routes */}
-            <Route 
-              path="/matches" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <MatchHistory />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/matches/:id" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <MatchRoomWrapper />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Admin Routes */}
-            <Route 
-              path="/admin" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <AdminDashboard />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin/games" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <GamesManagement />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
+                {/* Auth Routes */}
+                <Route
+                  path="/login"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/" replace />
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <LoginPage />
+                      </motion.div>
+                    )
+                  }
+                />
 
-            <Route 
-              path="/admin/tournaments" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <TournamentManagement />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
+                <Route
+                  path="/register"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/" replace />
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <RegisterPage />
+                      </motion.div>
+                    )
+                  }
+                />
 
-            <Route 
-              path="/admin/claims" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ClaimsManager />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin/tournaments/:id/rewards" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <TournamentRewardDistribution />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
+                {/* Forgot Password Routes */}
+                <Route
+                  path="/forgot-password"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/profile" replace />
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ForgotPasswordPage />
+                      </motion.div>
+                    )
+                  }
+                />
 
-            <Route 
-              path="/admin/images" 
-              element={
-                <DesignerRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ImageManagement />
-                  </motion.div>
-                </DesignerRoute>
-              } 
-            />
+                <Route
+                  path="/reset-password/:token"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <ResetPasswordPage />
+                    </motion.div>
+                  }
+                />
 
-            <Route 
-              path="/admin/images" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ImageUploadPage />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
+                {/* OAuth Routes */}
+                <Route
+                  path="/auth/success"
+                  element={<OAuthSuccess />}
+                />
 
-            <Route 
-              path="/admin/bgmi-registrations" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <AdminBGMIRegistrations />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
+                <Route
+                  path="/auth/error"
+                  element={<OAuthError />}
+                />
 
-            <Route 
-              path="/admin/live-stream" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <AdminLiveStreamManager />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin/coin-config" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <CoinConfigPage />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin/store" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <StoreManagementPage />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/admin/winner-rewards" 
-              element={
-                <AdminRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <WinnerRewardPanel />
-                  </motion.div>
-                </AdminRoute>
-              } 
-            />
-            
-            <Route 
-              path="/matches/:id/submit-result" 
-              element={
-                <ProtectedRoute>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ResultSubmissionWrapper />
-                  </motion.div>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* 404 Route */}
-            <Route 
-              path="*" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <NotFoundPage />
-                </motion.div>
-              } 
-            />
-          </Routes>
-        </AnimatePresence>
-      </main>
-      
-      {/* Footer - Hidden on auth pages */}
-      {!isAuthPage && <Footer />}
-      </ClanProvider>
+                {/* Games Route */}
+                <Route
+                  path="/games"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <GamesPage />
+                    </motion.div>
+                  }
+                />
+
+                {/* BGMI Route */}
+                <Route
+                  path="/bgmi"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <BGMIPage />
+                    </motion.div>
+                  }
+                />
+
+                {/* Free Fire Route */}
+                <Route
+                  path="/freefire"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <FreeFirePage />
+                    </motion.div>
+                  }
+                />
+
+                {/* BGMI Image Upload Route */}
+                <Route
+                  path="/bgmi/registration/:registrationId/upload-images"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <BGMIImageUpload />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* CS2 Route */}
+                <Route
+                  path="/cs2"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <CS2Page />
+                    </motion.div>
+                  }
+                />
+
+                {/* Protected Routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <DashboardPage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/tournaments"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <TournamentsPage />
+                    </motion.div>
+                  }
+                />
+
+                <Route
+                  path="/tournaments/:id"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <SingleTournamentPage />
+                    </motion.div>
+                  }
+                />
+
+                <Route
+                  path="/tournament/:id"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <SingleTournamentPage />
+                    </motion.div>
+                  }
+                />
+
+                {/* Dynamic Game Route - Redirects to specific game pages */}
+                <Route
+                  path="/game/:gameType"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <GameRouter />
+                    </motion.div>
+                  }
+                />
+
+                <Route
+                  path="/leaderboard"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <LeaderboardPage />
+                    </motion.div>
+                  }
+                />
+
+                {/* Colab Coin Routes */}
+                <Route
+                  path="/wallet"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <WalletPage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/store"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <StorePage />
+                    </motion.div>
+                  }
+                />
+
+                <Route
+                  path="/store/orders"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <OrdersPage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ProfilePage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/profile/settings"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ProfileSettingsPage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+
+
+                <Route
+                  path="/teams"
+                  element={
+                    isAuthenticated ? (<motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <TeamsPage />
+                    </motion.div>) : (
+                      <Navigate to="/login" replace />
+                    )
+
+                  }
+                />
+
+                <Route
+                  path="/player/:username"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <PublicProfile />
+                    </motion.div>
+                  }
+                />
+
+                <Route
+                  path="/steam-settings"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <SteamSettingsPage />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Match Routes */}
+                <Route
+                  path="/matches"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <MatchHistory />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/matches/:id"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <MatchRoomWrapper />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Admin Routes */}
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AdminDashboard />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/games"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <GamesManagement />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/tournaments"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <TournamentManagement />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/claims"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ClaimsManager />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/tournaments/:id/rewards"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <TournamentRewardDistribution />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/images"
+                  element={
+                    <DesignerRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ImageManagement />
+                      </motion.div>
+                    </DesignerRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/images"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ImageUploadPage />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/bgmi-registrations"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AdminBGMIRegistrations />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/live-stream"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AdminLiveStreamManager />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/coin-config"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <CoinConfigPage />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/store"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <StoreManagementPage />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin/winner-rewards"
+                  element={
+                    <AdminRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <WinnerRewardPanel />
+                      </motion.div>
+                    </AdminRoute>
+                  }
+                />
+
+                <Route
+                  path="/matches/:id/submit-result"
+                  element={
+                    <ProtectedRoute>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <ResultSubmissionWrapper />
+                      </motion.div>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* 404 Route */}
+                <Route
+                  path="*"
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <NotFoundPage />
+                    </motion.div>
+                  }
+                />
+              </Routes>
+            </AnimatePresence>
+          </main>
+
+          {/* Footer - Hidden on auth pages */}
+          {!isAuthPage && <Footer />}
+        </ClanProvider>
       </div>
     </ThemeProvider>
   );

@@ -97,11 +97,11 @@ const ClanHeader = ({ clan, user, isMember, joining, onJoin, onChatNavigate, isO
                   {clan.tag || 'T1'}
                 </div>
               </div>
-              <div className="flex items-center gap-6 text-gray-500 font-black text-xs tracking-[0.2em] uppercase">
+              {/* <div className="flex items-center gap-6 text-gray-500 font-black text-xs tracking-[0.2em] uppercase">
                 <span className="flex items-center gap-2 text-gaming-gold/80"><FiTarget className="w-4 h-4" /> {clan.game} SECTOR</span>
                 <span className="flex items-center gap-2"><FiLock className="w-4 h-4" /> {clan.visibility}</span>
                 <span className="flex items-center gap-2 text-white/40">EST. {new Date(clan.createdAt).getFullYear()}</span>
-              </div>
+              </div> */}
             </div>
 
             {/* Strategic Actions */}
@@ -224,7 +224,7 @@ const ClanOverviewTab = ({ description, myRole, clanRules }) => {
       </div>
 
       {/* Trophy / Milestone Case */}
-      <div className="pt-12 border-t border-white/5">
+      {/* <div className="pt-12 border-t border-white/5">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <FiAward className="w-6 h-6 text-gaming-gold" />
@@ -261,7 +261,7 @@ const ClanOverviewTab = ({ description, myRole, clanRules }) => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
@@ -429,7 +429,7 @@ const ClanProfile = () => {
   if (loading || !clan) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 lg:px-12 py-10 custom-scrollbar bg-gaming-dark selection:bg-gaming-gold/30">
+    <div className="flex-1 px-4 lg:px-12 py-10 bg-gaming-dark selection:bg-gaming-gold/30">
       <div className="max-w-7xl mx-auto space-y-12">
         <ClanHeader
           clan={clan}
@@ -472,7 +472,7 @@ const ClanProfile = () => {
         {/* Standardized Navigation Container */}
         <div className="bg-gaming-charcoal/30 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-sm shadow-2xl">
           <div className="flex bg-black/20 p-2 md:p-4">
-            {['overview', 'members', 'tournaments', 'activity'].map(tab => (
+            {['overview', 'members',].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

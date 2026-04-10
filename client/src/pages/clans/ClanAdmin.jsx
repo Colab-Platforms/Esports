@@ -124,7 +124,7 @@ const ClanAdmin = () => {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-6 custom-scrollbar bg-hub-content-bg">
+    <div className="flex-1 px-4 lg:px-8 py-6 bg-hub-content-bg">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex items-end justify-between">
           <div>

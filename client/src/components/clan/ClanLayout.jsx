@@ -8,7 +8,7 @@ import styles from './ClanHub.module.css';
 
 const getAvatarColor = (char) => {
   const colors = [
-    '#6c5ce7', '#a29bfe', '#00b894', '#00cec9', 
+    '#6c5ce7', '#a29bfe', '#00b894', '#00cec9',
     '#0984e3', '#e17055', '#d63031', '#e84393',
     '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'
   ];
@@ -58,7 +58,7 @@ const ClanLayout = ({ children }) => {
   const navItems = [
     { id: 'chat', label: 'General Chat', icon: FiMessageSquare, path: `/clans/${clanId}/chat` },
     { id: 'profile', label: 'Clan Overview', icon: FiHexagon, path: `/clans/${clanId}` },
-    { id: 'activity', label: 'Activity Feed', icon: FiActivity, path: `/clans/${clanId}/activity` },
+    { id: 'announcements', label: 'Announcements', icon: FiActivity, path: `/clans/${clanId}/announcements` },
   ];
 
   // Add Admin if user has permissions
@@ -70,7 +70,7 @@ const ClanLayout = ({ children }) => {
   return (
     <div className={styles.hubContainer}>
       {/* Left Rail - Clan Icons */}
-      <div className={styles.leftRail}>
+      {/* <div className={styles.leftRail}>
         <NavLink to={`/clans/${clanId}`} className={({ isActive }) => 
           `${styles.clanIcon} ${isActive ? styles.clanIconActive : ''}`
         }>
@@ -79,7 +79,7 @@ const ClanLayout = ({ children }) => {
         <NavLink to="/clans" className={styles.clanIcon} title="Browse Clans">
           +
         </NavLink>
-      </div>
+      </div> */}
 
       {/* Navigation Sidebar */}
       <div className={styles.sidebar}>
@@ -92,7 +92,7 @@ const ClanLayout = ({ children }) => {
             <NavLink
               key={item.id}
               to={item.path}
-              className={({ isActive }) => 
+              className={({ isActive }) =>
                 `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
               }
             >
@@ -120,7 +120,7 @@ const ClanLayout = ({ children }) => {
               {onlineMembers.map(m => <MemberSidebarRow key={m._id} member={m} isOnline={true} />)}
             </>
           )}
-          
+
           {offlineMembers.length > 0 && (
             <>
               <div className={styles.sectionLabel} style={{ marginTop: '20px' }}>OFFLINE — {offlineMembers.length}</div>
