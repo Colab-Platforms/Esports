@@ -140,7 +140,7 @@ const HeroImageSlider = () => {
           imageKey: 'homepage-slide-1',
           cta: {
             text: 'Join Now',
-            link: '/register'
+            link: '/tournaments'
           },
           textColor: '#ffffff',
           position: 'left'
@@ -270,8 +270,8 @@ const HeroImageSlider = () => {
       <div className="absolute inset-0 z-10 flex items-center justify-center md:justify-start">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`max-w-2xl mx-auto ${currentSlideData.position === 'center' ? 'md:mx-auto text-center' :
-              currentSlideData.position === 'right' ? 'md:ml-auto md:text-right' :
-                'md:mx-0 md:text-left'
+            currentSlideData.position === 'right' ? 'md:ml-auto md:text-right' :
+              'md:mx-0 md:text-left'
             }`}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -281,8 +281,8 @@ const HeroImageSlider = () => {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
                 className={`space-y-4 sm:space-y-6 ${currentSlideData.position === 'center' ? 'text-center' :
-                    currentSlideData.position === 'right' ? 'text-right' :
-                      'text-center md:text-left'
+                  currentSlideData.position === 'right' ? 'text-right' :
+                    'text-center md:text-left'
                   }`}
                 style={{ color: currentSlideData.textColor }}
               >
@@ -348,8 +348,8 @@ const HeroImageSlider = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1, duration: 0.5, type: 'spring', stiffness: 200 }}
                   className={`pt-2 sm:pt-4 flex ${currentSlideData.position === 'center' ? 'justify-center' :
-                      currentSlideData.position === 'right' ? 'justify-center md:justify-end' :
-                        'justify-center md:justify-start'
+                    currentSlideData.position === 'right' ? 'justify-center md:justify-end' :
+                      'justify-center md:justify-start'
                     }`}
                 >
                   <a
@@ -390,8 +390,8 @@ const HeroImageSlider = () => {
                 key={index}
                 onClick={() => goToSlide(index)}
                 className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${index === currentSlide
-                    ? 'bg-gaming-neon scale-125'
-                    : 'bg-white/50 hover:bg-white/70'
+                  ? 'bg-gaming-neon scale-125'
+                  : 'bg-white/50 hover:bg-white/70'
                   }`}
               />
             ))}
@@ -404,8 +404,8 @@ const HeroImageSlider = () => {
         <button
           onClick={() => setAutoPlay(!autoPlay)}
           className={`p-3 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg hover:scale-110 ${autoPlay
-              ? 'bg-white/90 text-gaming-dark hover:bg-white'
-              : 'bg-gaming-gold/90 text-black hover:bg-gaming-gold'
+            ? 'bg-white/90 text-gaming-dark hover:bg-white'
+            : 'bg-gaming-gold/90 text-black hover:bg-gaming-gold'
             }`}
           title={autoPlay ? 'Pause slideshow' : 'Play slideshow'}
         >
