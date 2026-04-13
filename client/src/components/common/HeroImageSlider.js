@@ -57,21 +57,21 @@ const HeroImageSlider = () => {
   const fetchHeroData = async () => {
     try {
       setLoading(true);
-      
+
       // Get current siteImages from state
       const currentSiteImages = siteImages;
       console.log('🎬 Creating slides with siteImages:', currentSiteImages);
-      
+
       // Create slides from uploaded homepage slides
       const heroSlides = [];
-      
+
       // Default slide content (fallback)
       const defaultSlideContent = [
         {
           title: 'COLAB ESPORTS',
           subtitle: 'Ultimate Gaming Platform',
           description: 'Join thousands of gamers competing for glory and prizes',
-          cta: { text: 'Join Now', link: '/register' }
+          cta: { text: 'Join Now', link: '/tournaments' }
         },
         {
           title: 'EPIC TOURNAMENTS',
@@ -103,11 +103,11 @@ const HeroImageSlider = () => {
         const slideKey = `homepage-slide-${i}`;
         const slideImage = currentSiteImages[slideKey];
         const defaultContent = defaultSlideContent[i - 1];
-        
+
         if (slideImage?.imageUrl) {
           // Use text overlay from backend if available, otherwise use default
           const textOverlay = slideImage.textOverlay || {};
-          
+
           heroSlides.push({
             id: slideKey,
             type: 'custom',
@@ -126,7 +126,7 @@ const HeroImageSlider = () => {
           });
         }
       }
-      
+
       // If no custom slides, add default platform slide
       if (heroSlides.length === 0) {
         heroSlides.push({
@@ -146,7 +146,7 @@ const HeroImageSlider = () => {
           position: 'left'
         });
       }
-      
+
       console.log(`✅ Created ${heroSlides.length} slides for homepage`);
 
       setSlides(heroSlides);
@@ -202,7 +202,7 @@ const HeroImageSlider = () => {
     return (
       <div className="relative h-screen flex items-center justify-center bg-gaming-dark overflow-hidden">
         {/* Placeholder image - loads instantly */}
-        <img 
+        <img
           src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Web_banner_CP_new_-_1.2_new_size.jpg?v=1764574806"
           alt="Loading..."
           className="absolute inset-0 w-full h-full object-cover"
@@ -225,7 +225,7 @@ const HeroImageSlider = () => {
           initial={{ x: direction > 0 ? '100%' : '-100%' }}
           animate={{ x: 0 }}
           exit={{ x: direction > 0 ? '-100%' : '100%' }}
-          transition={{ 
+          transition={{
             type: 'tween',
             ease: 'easeInOut',
             duration: 0.6
@@ -240,7 +240,7 @@ const HeroImageSlider = () => {
                 hasResponsiveUrls,
                 responsiveUrls: currentSlideData.responsiveUrls
               });
-              
+
               return hasResponsiveUrls ? (
                 <ResponsiveImage
                   imageUrl={currentSlideData.image}
@@ -269,11 +269,10 @@ const HeroImageSlider = () => {
       {/* Text Content Overlay with Animations */}
       <div className="absolute inset-0 z-10 flex items-center justify-center md:justify-start">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`max-w-2xl mx-auto ${
-            currentSlideData.position === 'center' ? 'md:mx-auto text-center' :
-            currentSlideData.position === 'right' ? 'md:ml-auto md:text-right' :
-            'md:mx-0 md:text-left'
-          }`}>
+          <div className={`max-w-2xl mx-auto ${currentSlideData.position === 'center' ? 'md:mx-auto text-center' :
+              currentSlideData.position === 'right' ? 'md:ml-auto md:text-right' :
+                'md:mx-0 md:text-left'
+            }`}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentSlide}
@@ -281,11 +280,10 @@ const HeroImageSlider = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className={`space-y-4 sm:space-y-6 ${
-                  currentSlideData.position === 'center' ? 'text-center' :
-                  currentSlideData.position === 'right' ? 'text-right' :
-                  'text-center md:text-left'
-                }`}
+                className={`space-y-4 sm:space-y-6 ${currentSlideData.position === 'center' ? 'text-center' :
+                    currentSlideData.position === 'right' ? 'text-right' :
+                      'text-center md:text-left'
+                  }`}
                 style={{ color: currentSlideData.textColor }}
               >
                 {/* Subtitle with typing animation */}
@@ -295,7 +293,7 @@ const HeroImageSlider = () => {
                   transition={{ delay: 0.2, duration: 0.5 }}
                   className="overflow-hidden"
                 >
-                  <motion.p 
+                  <motion.p
                     className="text-gaming-neon text-base sm:text-lg md:text-xl font-semibold tracking-wider uppercase hero-subtitle-glow"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -349,11 +347,10 @@ const HeroImageSlider = () => {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1, duration: 0.5, type: 'spring', stiffness: 200 }}
-                  className={`pt-2 sm:pt-4 flex ${
-                    currentSlideData.position === 'center' ? 'justify-center' :
-                    currentSlideData.position === 'right' ? 'justify-center md:justify-end' :
-                    'justify-center md:justify-start'
-                  }`}
+                  className={`pt-2 sm:pt-4 flex ${currentSlideData.position === 'center' ? 'justify-center' :
+                      currentSlideData.position === 'right' ? 'justify-center md:justify-end' :
+                        'justify-center md:justify-start'
+                    }`}
                 >
                   <a
                     href={currentSlideData.cta.link}
@@ -378,7 +375,7 @@ const HeroImageSlider = () => {
           >
             <FiChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
-          
+
           <button
             onClick={nextSlide}
             className="hidden md:block absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 z-20 p-2 sm:p-3 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-all duration-200"
@@ -392,11 +389,10 @@ const HeroImageSlider = () => {
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${
-                  index === currentSlide
+                className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-200 ${index === currentSlide
                     ? 'bg-gaming-neon scale-125'
                     : 'bg-white/50 hover:bg-white/70'
-                }`}
+                  }`}
               />
             ))}
           </div>
@@ -407,11 +403,10 @@ const HeroImageSlider = () => {
       <div className="absolute top-4 right-4 z-20">
         <button
           onClick={() => setAutoPlay(!autoPlay)}
-          className={`p-3 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg hover:scale-110 ${
-            autoPlay 
-              ? 'bg-white/90 text-gaming-dark hover:bg-white' 
+          className={`p-3 rounded-full backdrop-blur-md transition-all duration-200 shadow-lg hover:scale-110 ${autoPlay
+              ? 'bg-white/90 text-gaming-dark hover:bg-white'
               : 'bg-gaming-gold/90 text-black hover:bg-gaming-gold'
-          }`}
+            }`}
           title={autoPlay ? 'Pause slideshow' : 'Play slideshow'}
         >
           <span className="text-xl">
