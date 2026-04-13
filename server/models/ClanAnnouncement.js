@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require('mongoose');
 
 const clanAnnouncementSchema = new mongoose.Schema({
     clanId: {
@@ -19,16 +19,6 @@ const clanAnnouncementSchema = new mongoose.Schema({
         ref: "User",
         required: true,
     },
-    // createdAt: {
-    //     type: Date,
-    //     default: Date.now,
-    // },
-    // updatedAt: {
-    //     type: Date,
-    //     default: Date.now,
-    // },
 }, { timestamps: true });
 
-const ClanAnnouncement = mongoose.model("ClanAnnouncement", clanAnnouncementSchema);
-
-export default ClanAnnouncement;
+module.exports = mongoose.model("ClanAnnouncement", clanAnnouncementSchema);

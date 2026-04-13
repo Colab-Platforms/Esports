@@ -7,6 +7,7 @@ const ClanCounter = require('../models/ClanCounter');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const ClanService = require('../services/clanService');
+const ClanAnnouncement = require('../models/ClanAnnouncement');
 
 const router = express.Router();
 
@@ -1974,4 +1975,183 @@ router.get('/:id/debug/membership', auth, async (req, res) => {
   }
 });
 
+
+// ============================================================================
+// CLAN ANNOUNCEMENTS
+// ============================================================================
+
+/**
+ * @route   GET /api/clans/:id/announcements
+ * @desc    Get all announcements for a clan
+ * @access  Private (user must be clan member)
+ */
+router.get('/:id/announcements', auth, checkClanRole(), async (req, res) => {
+  try {
+    const { id: clanId } = req.params;
+
+    const announcements = await ClanAnnouncement.find({ clanId })
+      .populate('author', 'username avatarUrl')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: announcements || [],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching announcements:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch announcements',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   POST /api/clans/:id/announcements
+ * @desc    Create a new announcement (admin/owner only)
+ * @access  Private
+ */
+router.post('/:id/announcements', auth, checkClanRole(['owner', 'admin']), [
+  body('title').trim().notEmpty().withMessage('Title is required'),
+  body('content').trim().notEmpty().withMessage('Content is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        details: errors.array(),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { id: clanId } = req.params;
+    const { title, content } = req.body;
+    const userId = req.user.userId;
+
+    const announcement = await ClanAnnouncement.create({
+      clanId,
+      title,
+      content,
+      author: userId
+    });
+
+    await announcement.populate('author', 'username avatarUrl');
+
+    console.log(`📢 New announcement created in clan ${clanId}`);
+
+    res.status(201).json({
+      success: true,
+      data: announcement,
+      message: '🎉 Announcement posted successfully!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error creating announcement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create announcement',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/clans/:id/announcements/:announcementId
+ * @desc    Update an announcement (admin/owner only)
+ * @access  Private
+ */
+router.patch('/:id/announcements/:announcementId', auth, checkClanRole(['owner', 'admin']), [
+  body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
+  body('content').optional().trim().notEmpty().withMessage('Content cannot be empty')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        details: errors.array(),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { id: clanId, announcementId } = req.params;
+    const { title, content } = req.body;
+
+    const announcement = await ClanAnnouncement.findOneAndUpdate(
+      { _id: announcementId, clanId },
+      { $set: { title, content } },
+      { new: true }
+    );
+
+    if (!announcement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Announcement not found',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log(`📝 Announcement ${announcementId} updated in clan ${clanId}`);
+
+    res.json({
+      success: true,
+      data: announcement,
+      message: '✅ Announcement updated',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error updating announcement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update announcement',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/clans/:id/announcements/:announcementId
+ * @desc    Delete an announcement (admin/owner only)
+ * @access  Private
+ */
+router.delete('/:id/announcements/:announcementId', auth, checkClanRole(['owner', 'admin']), async (req, res) => {
+  try {
+    const { id: clanId, announcementId } = req.params;
+
+    const announcement = await ClanAnnouncement.findOneAndDelete({
+      _id: announcementId,
+      clanId
+    });
+
+    if (!announcement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Announcement not found',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log(`🗑️ Announcement ${announcementId} deleted from clan ${clanId}`);
+
+    res.json({
+      success: true,
+      message: '✅ Announcement deleted successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error deleting announcement:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete announcement',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 module.exports = router;
+
