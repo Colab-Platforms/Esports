@@ -738,7 +738,7 @@ router.post('/validate-player', auth, async (req, res) => {
 // @route   POST /api/tournaments/:id/join-with-players
 // @desc    Join tournament with validated players (BGMI only)
 // @access  Private
-router.post('/:id/join-with-players', auth, [
+router.post('/:id/join-with-players', auth, [   
   body('teamPlayers')
     .isArray({ min: 3, max: 3 })
     .withMessage('Exactly 3 players are required')

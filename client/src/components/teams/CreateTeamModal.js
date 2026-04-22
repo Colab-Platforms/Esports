@@ -42,9 +42,9 @@ const validateUID = (uid) => {
   if (!/^\d+$/.test(uid)) {
     return { valid: false, message: 'UID must contain only numbers' };
   }
-  if (uid.length !== 11) {
-    return { valid: false, message: 'UID must be exactly 11 digits' };
-  }
+  // if (uid.length !== 11) {
+  //   return { valid: false, message: 'UID must be exactly 11 digits' };
+  // }
   return { valid: true, message: '' };
 };
 
@@ -88,11 +88,11 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
         const mid = m.userId._id || m.userId;
         return mid.toString() !== currentUserId?.toString();
       });
-      
+
       // Separate regular members and substitute
       const regularMembers = [];
       let substituteData = null;
-      
+
       otherMembers.forEach(m => {
         const u = m.userId;
         const gameInfo = getGameInfoFromPlayer(u, editTeam.game);
@@ -110,14 +110,14 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
           hasAllInfo,
           isSubstitute: m.isSubstitute || false
         };
-        
+
         if (m.isSubstitute) {
           substituteData = memberData;
         } else {
           regularMembers.push(memberData);
         }
       });
-      
+
       setSelectedMembers(regularMembers);
       if (substituteData) setSubstitute(substituteData);
     }
@@ -141,8 +141,8 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
         if (response.data.success) {
           const players = response.data.data.players || [];
           const filtered = players.filter(
-            player => !selectedMembers.some(m => m._id === player._id) && 
-                      (!substitute || substitute._id !== player._id)
+            player => !selectedMembers.some(m => m._id === player._id) &&
+              (!substitute || substitute._id !== player._id)
           );
           setSearchResults(filtered);
         }
@@ -176,8 +176,8 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
           const players = response.data.data.players || [];
           // Filter out: captain, all selected members, and current substitute
           const filtered = players.filter(
-            player => !selectedMembers.some(m => m._id === player._id) && 
-                      (!substitute || substitute._id !== player._id)
+            player => !selectedMembers.some(m => m._id === player._id) &&
+              (!substitute || substitute._id !== player._id)
           );
           setSubstituteSearchResults(filtered);
         }
@@ -387,67 +387,67 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
 
 
           {selectedMembers.length < maxAddable && (
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search players by username or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gaming-gold"
-                />
-                {searchLoading && (
-                  <div className="absolute right-3 top-2.5">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-gold"></div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <AnimatePresence>
-              {searchResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="mt-2 bg-gaming-charcoal border border-gaming-border rounded-lg overflow-hidden max-h-52 overflow-y-auto"
-                >
-                  {searchResults.map((player) => {
-                    const info = getGameInfoFromPlayer(player, formData.game);
-                    const hasInfo = currentGame.fields.some(f => info[f] && info[f].trim());
-                    return (
-                      <button
-                        key={player._id}
-                        type="button"
-                        onClick={() => handleAddMember(player)}
-                        className="w-full flex items-center space-x-3 px-3 py-2.5 hover:bg-gaming-dark transition-colors text-left border-b border-gaming-border/30 last:border-b-0"
-                      >
-                        <UserAvatar user={player} size="xs" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-sm font-medium truncate">{player.username}</p>
-                          {hasInfo ? (
-                            <p className="text-gaming-neon text-xs truncate">
-                              {currentGame.fields.map(f => info[f]).filter(Boolean).join(' | ')}
-                            </p>
-                          ) : (
-                            <p className="text-gray-500 text-xs">No {currentGame.name} info on profile</p>
-                          )}
-                        </div>
-                        <span className="text-gaming-gold text-xs font-medium shrink-0">+ Add</span>
-                      </button>
-                    );
-                  })}
-                </motion.div>
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search players by username or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gaming-charcoal border border-gaming-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gaming-gold"
+              />
+              {searchLoading && (
+                <div className="absolute right-3 top-2.5">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-gold"></div>
+                </div>
               )}
-            </AnimatePresence>
+            </div>
+          )}
 
-            {searchQuery.trim().length >= 1 && !searchLoading && searchResults.length === 0 && (
-              <p className="mt-2 text-gray-500 text-xs text-center py-2">No players found for "{searchQuery}"</p>
+          <AnimatePresence>
+            {searchResults.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="mt-2 bg-gaming-charcoal border border-gaming-border rounded-lg overflow-hidden max-h-52 overflow-y-auto"
+              >
+                {searchResults.map((player) => {
+                  const info = getGameInfoFromPlayer(player, formData.game);
+                  const hasInfo = currentGame.fields.some(f => info[f] && info[f].trim());
+                  return (
+                    <button
+                      key={player._id}
+                      type="button"
+                      onClick={() => handleAddMember(player)}
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 hover:bg-gaming-dark transition-colors text-left border-b border-gaming-border/30 last:border-b-0"
+                    >
+                      <UserAvatar user={player} size="xs" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{player.username}</p>
+                        {hasInfo ? (
+                          <p className="text-gaming-neon text-xs truncate">
+                            {currentGame.fields.map(f => info[f]).filter(Boolean).join(' | ')}
+                          </p>
+                        ) : (
+                          <p className="text-gray-500 text-xs">No {currentGame.name} info on profile</p>
+                        )}
+                      </div>
+                      <span className="text-gaming-gold text-xs font-medium shrink-0">+ Add</span>
+                    </button>
+                  );
+                })}
+              </motion.div>
             )}
+          </AnimatePresence>
+
+          {searchQuery.trim().length >= 1 && !searchLoading && searchResults.length === 0 && (
+            <p className="mt-2 text-gray-500 text-xs text-center py-2">No players found for "{searchQuery}"</p>
+          )}
 
 
 
-          
+
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -477,11 +477,10 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                   <button
                     type="button"
                     onClick={() => setEditingCaptain(v => !v)}
-                    className={`p-1.5 rounded transition-colors ${
-                      editingCaptain
+                    className={`p-1.5 rounded transition-colors ${editingCaptain
                         ? 'bg-gaming-gold/20 text-gaming-gold'
                         : 'text-gray-400 hover:text-white hover:bg-gaming-dark'
-                    }`}
+                      }`}
                     title="Edit your game info"
                   >
                     <FiEdit3 className="w-3.5 h-3.5" />
@@ -502,7 +501,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                         onChange={(e) => {
                           const value = e.target.value;
                           setCaptainGameInfo(prev => ({ ...prev, [field]: value }));
-                          
+
                           // Validate UID fields
                           if (field === 'uid' && value) {
                             const validation = validateUID(value);
@@ -524,11 +523,10 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                           }
                         }}
                         placeholder={`Enter your ${currentGame.labels[field]}`}
-                        className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${
-                          captainErrors[field]
+                        className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${captainErrors[field]
                             ? 'border-red-500 focus:border-red-500'
                             : 'border-gaming-border focus:border-gaming-gold'
-                        }`}
+                          }`}
                       />
                       {captainErrors[field] && (
                         <p className="text-xs text-red-400 mt-1">{captainErrors[field]}</p>
@@ -610,11 +608,10 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                                   value={member.gameInfo[field] || ''}
                                   onChange={(e) => handleUpdateGameInfo(member._id, field, e.target.value)}
                                   placeholder={`Enter ${currentGame.labels[field]}`}
-                                  className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${
-                                    memberErrors[member._id]?.[field]
+                                  className={`w-full px-2.5 py-1.5 bg-gaming-dark border rounded text-white text-sm focus:outline-none ${memberErrors[member._id]?.[field]
                                       ? 'border-red-500 focus:border-red-500'
                                       : 'border-gaming-border focus:border-gaming-gold'
-                                  }`}
+                                    }`}
                                 />
                                 {memberErrors[member._id]?.[field] && (
                                   <p className="text-xs text-red-400 mt-1">{memberErrors[member._id][field]}</p>
@@ -791,7 +788,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
               )}
             </div>
 
-            
+
           </div>
         </form>
 
