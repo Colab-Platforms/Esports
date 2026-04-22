@@ -41,20 +41,20 @@ router.post('/:tournamentId/register', auth, [
     .isLength({ min: 3, max: 50 })
     .withMessage('Team name must be 3-50 characters')
     .trim(),
-  
+
   // Team Leader Validation
   body('teamLeader.name')
     .isLength({ min: 2, max: 50 })
     .withMessage('Team leader name must be 2-50 characters')
     .trim(),
   body('teamLeader.freeFireId')
-    .isLength({ min: 3, max: 30 })
+    .isLength({ min: 2, max: 30 })
     .withMessage('Team leader Free Fire ID must be 3-30 characters')
     .trim(),
   body('teamLeader.phone')
     .matches(/^[6-9]\d{9}$/)
     .withMessage('Team leader phone must be a valid Indian number'),
-  
+
   // Team Members Validation (exactly 3 members)
   body('teamMembers')
     .isArray({ min: 3, max: 3 })
@@ -162,7 +162,7 @@ router.post('/:tournamentId/register', auth, [
 
     // Validate unique Free Fire IDs within the team
     const allFreeFireIds = [
-      teamLeader.freeFireId, 
+      teamLeader.freeFireId,
       ...teamMembers.map(m => m.freeFireId),
       ...(substitute ? [substitute.freeFireId] : [])  // ✅ Include substitute
     ];
@@ -180,7 +180,7 @@ router.post('/:tournamentId/register', auth, [
 
     // ✅ Check if any player is already registered in another team for this tournament
     const conflictingPlayers = [];
-    
+
     // Get all existing registrations for this tournament (exclude current user's own registration)
     const existingRegistrations = await TournamentRegistration.find({
       tournamentId,
@@ -247,7 +247,7 @@ router.post('/:tournamentId/register', auth, [
     // Award 50 coins to all team members (leader + members + substitute)
     try {
       const allTeamMemberIds = [req.user.userId]; // Team leader
-      
+
       // Find user IDs for team members by matching their Free Fire IDs
       if (teamMembers && teamMembers.length > 0) {
         for (const member of teamMembers) {
@@ -326,7 +326,7 @@ router.post('/:tournamentId/register', auth, [
 
   } catch (error) {
     console.error('❌ Free Fire registration error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -496,8 +496,8 @@ router.get('/admin/last-update', auth, async (req, res) => {
 
     let lastUpdate = null;
     if (lastRegistration && lastMessage) {
-      lastUpdate = lastRegistration.updatedAt > lastMessage.createdAt 
-        ? lastRegistration.updatedAt 
+      lastUpdate = lastRegistration.updatedAt > lastMessage.createdAt
+        ? lastRegistration.updatedAt
         : lastMessage.createdAt;
     } else if (lastRegistration) {
       lastUpdate = lastRegistration.updatedAt;
@@ -667,15 +667,15 @@ router.get('/admin/registrations', auth, [
       pending: await TournamentRegistration.countDocuments({ ...query, status: 'pending' }),
       imagesUploaded: await TournamentRegistration.countDocuments({ ...query, status: 'images_uploaded' }),
       verified: await TournamentRegistration.countDocuments({ ...query, status: 'verified' }),
-      rejected: await TournamentRegistration.countDocuments({ 
+      rejected: await TournamentRegistration.countDocuments({
         ...query,
-        status: 'rejected', 
-        rejectionReason: { $not: /^Not Verified/ } 
+        status: 'rejected',
+        rejectionReason: { $not: /^Not Verified/ }
       }),
-      notVerified: await TournamentRegistration.countDocuments({ 
+      notVerified: await TournamentRegistration.countDocuments({
         ...query,
-        status: 'rejected', 
-        rejectionReason: /^Not Verified/ 
+        status: 'rejected',
+        rejectionReason: /^Not Verified/
       })
     };
 
@@ -822,10 +822,10 @@ router.put('/admin/:registrationId/status', auth, [
 
     if (status === 'verified') {
       await registration.verify(req.user.userId);
-      
+
       try {
         console.log('🔄 Sending WhatsApp verification message to:', registration.whatsappNumber);
-        
+
         await WhatsAppMessage.createVerificationMessage(
           registration._id,
           registration.whatsappNumber,
@@ -859,7 +859,7 @@ router.put('/admin/:registrationId/status', auth, [
         });
       }
       await registration.reject(req.user.userId, rejectionReason);
-      
+
       try {
         await WhatsAppMessage.createVerificationRejectedMessage(
           registration._id,
@@ -888,7 +888,7 @@ router.put('/admin/:registrationId/status', auth, [
       registration.status = status;
       registration.rejectionReason = rejectionReason || null;
       await registration.save();
-      
+
       try {
         const whatsappResult = await whatsappService.sendPendingStatusMessage(
           registration.whatsappNumber,
@@ -909,7 +909,7 @@ router.put('/admin/:registrationId/status', auth, [
       registration.status = 'rejected';
       registration.rejectionReason = rejectionReason || 'Not Verified by Admin';
       await registration.save();
-      
+
       try {
         const whatsappResult = await whatsappService.sendVerificationRejected(
           registration.whatsappNumber,
@@ -1016,8 +1016,8 @@ router.get('/debug/registrations-count', auth, async (req, res) => {
   try {
     const total = await TournamentRegistration.countDocuments({});
     const registrations = await TournamentRegistration.find({}).limit(5);
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       total,
       sampleRegistrations: registrations.map(r => ({
         id: r._id,
@@ -1045,7 +1045,7 @@ router.get('/test', (req, res) => {
 router.get('/admin/test', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    
+
     res.json({
       success: true,
       message: 'Free Fire Admin route is working',
@@ -1070,8 +1070,8 @@ router.get('/admin/test', auth, async (req, res) => {
 router.get('/debug/user-role', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       user: {
         id: user._id,
         email: user.email,
@@ -1088,8 +1088,8 @@ router.get('/debug/user-role', auth, async (req, res) => {
 router.post('/make-admin', auth, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
-      req.user.userId, 
-      { role: 'admin' }, 
+      req.user.userId,
+      { role: 'admin' },
       { new: true }
     );
     res.json({ success: true, message: 'User made admin', user: { id: user._id, role: user.role } });
@@ -1135,7 +1135,7 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Team member Free Fire ID must be 3-30 characters')
     .trim(),
-  
+
   // Optional Substitute Validation
   body('substitutePlayer')
     .optional()
@@ -1151,7 +1151,7 @@ router.put('/admin/:registrationId', auth, [
     .isLength({ min: 3, max: 30 })
     .withMessage('Substitute Free Fire ID must be 3-30 characters')
     .trim(),
-  
+
   body('whatsappNumber')
     .optional()
     .matches(/^[6-9]\d{9}$/)
@@ -1189,9 +1189,9 @@ router.put('/admin/:registrationId', auth, [
 
     console.log('🔍 Finding registration:', registrationId);
     console.log('📝 Update data received:', JSON.stringify(updateData, null, 2));
-    
+
     const registration = await TournamentRegistration.findById(registrationId);
-    
+
     if (!registration) {
       console.log('❌ Registration not found');
       return res.status(404).json({
@@ -1207,20 +1207,20 @@ router.put('/admin/:registrationId', auth, [
     console.log('✅ Registration found, current data:');
     console.log('- Team Name:', registration.teamName);
     console.log('- Team Members Count:', registration.teamMembers.length);
-    
+
     // Validate unique Free Fire IDs if updating team data
     if (updateData.teamLeader || updateData.teamMembers || updateData.substitutePlayer) {
       const newTeamLeader = updateData.teamLeader || registration.teamLeader;
       const newTeamMembers = updateData.teamMembers || registration.teamMembers;
       const newSubstitute = 'substitutePlayer' in updateData ? updateData.substitutePlayer : registration.substitutePlayer;
-      
+
       const allFreeFireIds = [
         newTeamLeader.freeFireId,
         ...newTeamMembers.map(m => m.freeFireId),
         ...(newSubstitute ? [newSubstitute.freeFireId] : [])  // ✅ Include substitute
       ];
       const uniqueFreeFireIds = [...new Set(allFreeFireIds)];
-      
+
       if (allFreeFireIds.length !== uniqueFreeFireIds.length) {
         console.log('❌ Duplicate Free Fire IDs found:', allFreeFireIds);
         return res.status(400).json({
@@ -1233,17 +1233,17 @@ router.put('/admin/:registrationId', auth, [
         });
       }
     }
-    
+
     if (updateData.teamName) {
       console.log('📝 Updating team name:', updateData.teamName);
       registration.teamName = updateData.teamName;
     }
-    
+
     if (updateData.teamLeader) {
       console.log('📝 Updating team leader:', updateData.teamLeader);
       registration.teamLeader = { ...registration.teamLeader.toObject(), ...updateData.teamLeader };
     }
-    
+
     if (updateData.teamMembers) {
       console.log('📝 Updating team members:', updateData.teamMembers.length, 'members');
       if (updateData.teamMembers.length !== 3) {
@@ -1258,7 +1258,7 @@ router.put('/admin/:registrationId', auth, [
       }
       registration.teamMembers = updateData.teamMembers;
     }
-    
+
     if (updateData.whatsappNumber) {
       console.log('📝 Updating WhatsApp number:', updateData.whatsappNumber);
       registration.whatsappNumber = updateData.whatsappNumber;
@@ -1292,7 +1292,7 @@ router.put('/admin/:registrationId', auth, [
   } catch (error) {
     console.error('❌ Update registration error:', error);
     console.error('❌ Error stack:', error.stack);
-    
+
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
@@ -1303,7 +1303,7 @@ router.put('/admin/:registrationId', auth, [
         }
       });
     }
-    
+
     if (error.message?.includes('unique Free Fire IDs')) {
       return res.status(400).json({
         success: false,
@@ -1314,7 +1314,7 @@ router.put('/admin/:registrationId', auth, [
         }
       });
     }
-    
+
     if (error.message?.includes('exactly 3 members')) {
       return res.status(400).json({
         success: false,
@@ -1325,7 +1325,7 @@ router.put('/admin/:registrationId', auth, [
         }
       });
     }
-    
+
     res.status(500).json({
       success: false,
       error: {
@@ -1344,7 +1344,7 @@ router.put('/admin/:registrationId', auth, [
 router.delete('/admin/:registrationId', auth, async (req, res) => {
   try {
     console.log('🗑️ DELETE route hit:', req.params.registrationId);
-    
+
     const user = await User.findById(req.user.userId);
     console.log('👤 User role:', user?.role);
     if (!user || !['admin', 'moderator'].includes(user.role)) {
@@ -1460,7 +1460,7 @@ router.get('/:tournamentId/registrations', auth, [
         { whatsappNumber: phone }
       ];
     }
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const registrations = await TournamentRegistration.find(query)
       .populate('tournamentId', 'name gameType mode')
@@ -1567,20 +1567,20 @@ router.delete('/:registrationId', auth, async (req, res) => {
 router.get('/check-user/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
-    
+
     const registration = await TournamentRegistration.findOne({
       $or: [
         { whatsappNumber: phone },
         { 'teamLeader.phone': phone }
       ]
     });
-    
+
     res.json({
       success: true,
       isFreeFireUser: !!registration,
       phone: phone
     });
-    
+
   } catch (error) {
     console.error('❌ Check Free Fire user error:', error);
     res.status(500).json({
