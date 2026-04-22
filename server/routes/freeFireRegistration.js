@@ -64,8 +64,8 @@ router.post('/:tournamentId/register', auth, [
     .withMessage('Team member name must be 2-50 characters')
     .trim(),
   body('teamMembers.*.freeFireId')
-    .isLength({ min: 3, max: 30 })
-    .withMessage('Team member Free Fire ID must be 3-30 characters')
+    .isLength({ min: 2, max: 30 })
+    .withMessage('Team member Free Fire ID must be 2-30 characters')
     .trim(),
 
   // Optional Substitute Validation
