@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { store } from './store/store';
 import App from './App';
 import './index.css';
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 const container = document.getElementById('root');
 const root = createRoot(container);
@@ -60,3 +61,6 @@ root.render(
     </Provider>
   </React.StrictMode>
 );
+
+// Register the service worker for PWA support
+serviceWorkerRegistration.register();
