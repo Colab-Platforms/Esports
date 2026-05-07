@@ -13,7 +13,7 @@ class ApiService {
     return apiCallTracker.throttledCall(async () => {
       const url = `${this.baseURL}${endpoint}`;
       const token = localStorage.getItem('token');
-      
+
       const config = {
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -43,10 +43,10 @@ class ApiService {
 
       try {
         const response = await fetch(url, config);
-        
+
         // Clone response to read body multiple times if needed
         const responseClone = response.clone();
-        
+
         // Try to parse as JSON
         let data;
         try {
@@ -57,23 +57,23 @@ class ApiService {
           console.error('❌ Failed to parse response as JSON:', text.substring(0, 200));
           throw new Error(`Invalid response format. Status: ${response.status}`);
         }
-        
+
         // Handle token expiry or invalid token
         if (response.status === 401 && (
-          data.error?.code === 'TOKEN_EXPIRED' || 
+          data.error?.code === 'TOKEN_EXPIRED' ||
           data.error?.code === 'INVALID_TOKEN'
         )) {
           // Clear auth data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          
+
           // Redirect to login with appropriate message
           const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
           window.location.href = `/login?${reason}=true`;
-          
+
           throw new Error(data.error?.message || 'Session expired. Please login again.');
         }
-        
+
         if (!response.ok) {
           console.error('❌ API request failed:', {
             status: response.status,
@@ -82,11 +82,9 @@ class ApiService {
             url,
             method: config.method
           });
-          const err = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
-          err.response = { status: response.status, data };
-          throw err;
+          throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
         }
-        
+
         return data;
       } catch (error) {
         console.error('❌ API request failed:', error);
@@ -107,18 +105,18 @@ class ApiService {
   }
 
   async post(endpoint, data, options = {}) {
-    return this.request(endpoint, { 
-      method: 'POST', 
-      body: data, 
-      ...options 
+    return this.request(endpoint, {
+      method: 'POST',
+      body: data,
+      ...options
     });
   }
 
   async put(endpoint, data, options = {}) {
-    return this.request(endpoint, { 
-      method: 'PUT', 
-      body: data, 
-      ...options 
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: data,
+      ...options
     });
   }
 
@@ -164,20 +162,85 @@ class ApiService {
   async updateProfile(profileData) {
     try {
       const response = await this.put('/api/auth/profile', profileData);
-      
+
       // Update localStorage with new user data
       if (response.success && response.data.user) {
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const updatedUser = { ...currentUser, ...response.data.user };
         localStorage.setItem('user', JSON.stringify(updatedUser));
       }
-      
+
       return response;
     } catch (error) {
       console.error('Profile update failed:', error);
       throw error;
     }
   }
+}
+
+// Clan API
+async function createClan(clanData) {
+  return this.post('/api/clans', clanData);
+}
+
+async function getClan(clanId) {
+  return this.get(`/api/clans/${clanId}`);
+}
+
+async function getClans(params = {}) {
+  return this.get('/api/clans', { params });
+}
+
+async function updateClan(clanId, clanData) {
+  return this.put(`/api/clans/${clanId}`, clanData);
+}
+
+async function deleteClan(clanId) {
+  return this.delete(`/api/clans/${clanId}`);
+}
+
+async function getClanMembers(clanId) {
+  return this.get(`/api/clans/${clanId}/members`);
+}
+
+async function getClanMember(clanId, userId) {
+  return this.get(`/api/clans/${clanId}/members/${userId}`);
+}
+
+async function addClanMember(clanId, userId, role) {
+  return this.post(`/api/clans/${clanId}/members`, { userId, role });
+}
+
+async function removeClanMember(clanId, userId) {
+  return this.delete(`/api/clans/${clanId}/members/${userId}`);
+}
+
+async function updateClanMember(clanId, userId, role) {
+  return this.put(`/api/clans/${clanId}/members/${userId}`, { role });
+}
+
+async function getClanMessages(clanId, params = {}) {
+  return this.get(`/api/clans/${clanId}/messages`, { params });
+}
+
+async function sendClanMessage(clanId, message) {
+  return this.post(`/api/clans/${clanId}/messages`, { message });
+}
+
+async function deleteClanMessage(clanId, messageId) {
+  return this.delete(`/api/clans/${clanId}/messages/${messageId}`);
+}
+
+async function createClanAnnouncement(clanId, announcementData) {
+  return this.post(`/api/clans/${clanId}/announcements`, announcementData);
+}
+
+async function getClanAnnouncements(clanId) {
+  return this.get(`/api/clans/${clanId}/announcements`);
+}
+
+async function deleteClanAnnouncement(clanId, announcementId) {
+  return this.delete(`/api/clans/${clanId}/announcements/${announcementId}`);
 }
 
 const api = new ApiService();

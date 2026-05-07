@@ -194,6 +194,12 @@ const StorePage = () => {
         {/* Items Grid */}
         {loading ? (
           <div className="text-center py-12 text-theme-text-secondary">Loading items...</div>
+        ) : currentItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="text-6xl mb-4">🛍️</div>
+            <h3 className="text-2xl font-bold text-theme-text-primary mb-2">Store Items Coming Soon</h3>
+            <p className="text-theme-text-secondary max-w-sm">We're stocking up on exclusive rewards. Check back soon for amazing items to redeem with your Colab Coins.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {currentItems.map((item, index) => (

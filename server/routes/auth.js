@@ -594,7 +594,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
           referral.successfulReferrals += 1;
           referral.totalCoinsEarned += referrerReward;
           await referral.save(); // Save referral record
-          
+
           // Note: Wallet updates for referee and referrer will happen AFTER user is saved successfully
         }
       } catch (referralError) {
@@ -610,7 +610,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     // AFTER SUCCESSFUL USER SAVE: Handle Wallet and Referrer rewards
     try {
       const Wallet = require('../models/Wallet');
-      
+
       // 1. Give welcome bonus in wallet
       if (welcomeBonusSuccess) {
         let wallet = new Wallet({ userId: user._id });
@@ -627,7 +627,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       if (user.referralBonusReceived) {
         const Referral = require('../models/Referral');
         const referral = await Referral.findOne({ referralCode: user.referralCode });
-        
+
         if (referral) {
           const { CoinConfig } = require('../models/CoinConfig');
           const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
@@ -855,11 +855,11 @@ router.post('/login', decodeSensitiveData, [
     // Update login streak without triggering validation on other fields
     const now = new Date();
     const lastLogin = new Date(user.lastLogin);
-    
+
     // Strip time from dates to compare calendar days (Midnight to Midnight)
     const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const lastAtMidnight = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate());
-    
+
     // Calculate difference in calendar days
     const daysDiff = Math.floor((todayAtMidnight - lastAtMidnight) / (1000 * 60 * 60 * 24));
 
@@ -996,6 +996,29 @@ router.put('/profile', auth, async (req, res) => {
       });
     }
 
+    // CRITICAL: Migrate old gameIds format to new format FIRST
+    console.log('🔍 Current gameIds before migration:', user.gameIds);
+
+    if (user.gameIds) {
+      // Migrate old string format to new object format
+      if (typeof user.gameIds.bgmi === 'string') {
+        const oldBgmiUid = user.gameIds.bgmi;
+        user.gameIds.bgmi = { ign: user.bgmiIgnName || '', uid: oldBgmiUid };
+        console.log('🔄 Migrated BGMI from string to object:', user.gameIds.bgmi);
+      }
+
+      if (typeof user.gameIds.freefire === 'string') {
+        const oldFreefireUid = user.gameIds.freefire;
+        user.gameIds.freefire = { ign: user.freeFireIgnName || '', uid: oldFreefireUid };
+        console.log('🔄 Migrated Free Fire from string to object:', user.gameIds.freefire);
+      }
+    }
+
+    // Ensure fullName is always set (preserve existing or use username as fallback)
+    if (!user.fullName) {
+      user.fullName = user.username || 'User';
+    }
+
     // Check if username is already taken
     if (username && username !== user.username) {
       // Validate username length only
@@ -1031,25 +1054,28 @@ router.put('/profile', auth, async (req, res) => {
     if (favoriteGame !== undefined) user.favoriteGame = favoriteGame;
     if (profileVisibility !== undefined) user.profileVisibility = profileVisibility;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-    if (phone !== undefined) user.phone = phone;
+    if (phone !== undefined) {
+      // If phone is an empty string, set it to undefined to avoid duplicate key errors on the unique/sparse index
+      user.phone = (phone && typeof phone === 'string' && phone.trim() !== '') ? phone.trim() : undefined;
+    }
 
     // Update game IDs with new structure
     if (bgmiIgnName !== undefined || bgmiUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
 
-      // Convert old string format to new object format
-      if (typeof user.gameIds.bgmi === 'string') {
-        const oldBgmiId = user.gameIds.bgmi;
-        user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
-        console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+      // Convert old string format to new object format safely
+      let currentBgmi = user.toObject().gameIds?.bgmi;
+      if (typeof currentBgmi === 'string') {
+        user.set('gameIds.bgmi', { ign: '', uid: currentBgmi });
+        console.log('🔄 Migrated old BGMI string to object:', currentBgmi);
       }
 
       if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
         user.gameIds.bgmi = { ign: '', uid: '' };
       }
 
-      user.gameIds.bgmi.ign = bgmiIgnName !== undefined ? bgmiIgnName : (user.gameIds.bgmi.ign || '');
-      user.gameIds.bgmi.uid = bgmiUid !== undefined ? bgmiUid : (user.gameIds.bgmi.uid || '');
+      if (bgmiIgnName !== undefined) user.gameIds.bgmi.ign = bgmiIgnName;
+      if (bgmiUid !== undefined) user.gameIds.bgmi.uid = bgmiUid;
 
       // Mark nested object as modified for Mongoose
       user.markModified('gameIds.bgmi');
@@ -1059,25 +1085,24 @@ router.put('/profile', auth, async (req, res) => {
       user.bgmiUid = user.gameIds.bgmi.uid;
 
       console.log('🎮 BGMI data updated:', user.gameIds.bgmi);
-      console.log('🎮 Legacy fields updated:', { bgmiIgnName: user.bgmiIgnName, bgmiUid: user.bgmiUid });
     }
 
     if (freeFireIgnName !== undefined || freeFireUid !== undefined) {
       if (!user.gameIds) user.gameIds = {};
 
-      // Convert old string format to new object format
-      if (typeof user.gameIds.freefire === 'string') {
-        const oldFreefireId = user.gameIds.freefire;
-        user.gameIds.freefire = { ign: '', uid: oldFreefireId };
-        console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+      // Convert old string format to new object format safely
+      let currentFreefire = user.toObject().gameIds?.freefire;
+      if (typeof currentFreefire === 'string') {
+        user.set('gameIds.freefire', { ign: '', uid: currentFreefire });
+        console.log('🔄 Migrated old Free Fire string to object:', currentFreefire);
       }
 
       if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
         user.gameIds.freefire = { ign: '', uid: '' };
       }
 
-      user.gameIds.freefire.ign = freeFireIgnName !== undefined ? freeFireIgnName : (user.gameIds.freefire.ign || '');
-      user.gameIds.freefire.uid = freeFireUid !== undefined ? freeFireUid : (user.gameIds.freefire.uid || '');
+      if (freeFireIgnName !== undefined) user.gameIds.freefire.ign = freeFireIgnName;
+      if (freeFireUid !== undefined) user.gameIds.freefire.uid = freeFireUid;
 
       // Mark nested object as modified for Mongoose
       user.markModified('gameIds.freefire');
@@ -1087,7 +1112,6 @@ router.put('/profile', auth, async (req, res) => {
       user.freeFireUid = user.gameIds.freefire.uid;
 
       console.log('🔥 Free Fire data updated:', user.gameIds.freefire);
-      console.log('🔥 Legacy fields updated:', { freeFireIgnName: user.freeFireIgnName, freeFireUid: user.freeFireUid });
     }
 
     // Update social accounts
@@ -1110,11 +1134,11 @@ router.put('/profile', auth, async (req, res) => {
 
       // Handle bgmi if passed as object in gameIds
       if (gameIds.bgmi !== undefined) {
-        // Convert old string format to new object format
-        if (typeof user.gameIds.bgmi === 'string') {
-          const oldBgmiId = user.gameIds.bgmi;
-          user.gameIds.bgmi = { ign: '', uid: oldBgmiId };
-          console.log('🔄 Migrated old BGMI string to object:', oldBgmiId);
+        // Convert old string format to new object format safely
+        let currentBgmi = user.toObject().gameIds?.bgmi;
+        if (typeof currentBgmi === 'string') {
+          user.set('gameIds.bgmi', { ign: '', uid: currentBgmi });
+          console.log('🔄 Migrated old BGMI string to object (via gameIds):', currentBgmi);
         }
 
         if (typeof gameIds.bgmi === 'object') {
@@ -1126,9 +1150,7 @@ router.put('/profile', auth, async (req, res) => {
             uid: gameIds.bgmi.uid || user.gameIds.bgmi?.uid || ''
           };
 
-          // Mark nested object as modified for Mongoose
-          user.markModified('gameIds.bgmi');
-
+          user.markModified('gameIds');
           user.bgmiIgnName = user.gameIds.bgmi.ign;
           user.bgmiUid = user.gameIds.bgmi.uid;
 
@@ -1138,14 +1160,14 @@ router.put('/profile', auth, async (req, res) => {
 
       // Handle freefire if passed as object in gameIds
       if (gameIds.freefire !== undefined) {
-        // Convert old string format to new object format
-        if (typeof user.gameIds.freefire === 'string') {
-          const oldFreefireId = user.gameIds.freefire;
-          user.gameIds.freefire = { ign: '', uid: oldFreefireId };
-          console.log('🔄 Migrated old Free Fire string to object:', oldFreefireId);
+        // Convert old string format to new object format safely
+        let currentFreefire = user.toObject().gameIds?.freefire;
+        if (typeof currentFreefire === 'string') {
+          user.set('gameIds.freefire', { ign: '', uid: currentFreefire });
+          console.log('🔄 Migrated old Free Fire string to object (via gameIds):', currentFreefire);
         }
 
-        if (typeof gameIds.freefire === 'object') {
+        if (typeof gameIds.freefire === 'object' && gameIds.freefire !== null) {
           if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
             user.gameIds.freefire = { ign: '', uid: '' };
           }
@@ -1154,14 +1176,25 @@ router.put('/profile', auth, async (req, res) => {
             uid: gameIds.freefire.uid || user.gameIds.freefire?.uid || ''
           };
 
-          // Mark nested object as modified for Mongoose
-          user.markModified('gameIds.freefire');
-
+          user.markModified('gameIds');
           user.freeFireIgnName = user.gameIds.freefire.ign;
           user.freeFireUid = user.gameIds.freefire.uid;
 
           console.log('🔥 Free Fire updated via gameIds:', user.gameIds.freefire);
         }
+      }
+    }
+
+    // Ensure gameIds is properly structured before saving
+    if (user.gameIds) {
+      if (!user.gameIds.bgmi || typeof user.gameIds.bgmi !== 'object') {
+        user.gameIds.bgmi = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.freefire || typeof user.gameIds.freefire !== 'object') {
+        user.gameIds.freefire = { ign: '', uid: '' };
+      }
+      if (!user.gameIds.steam) {
+        user.gameIds.steam = '';
       }
     }
 
@@ -1214,7 +1247,24 @@ router.put('/profile', auth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Profile update error:', error);
+    console.error('❌ Profile update error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: messages.join(', '),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: {

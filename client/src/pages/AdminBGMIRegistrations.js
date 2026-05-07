@@ -1192,7 +1192,11 @@ const AdminBGMIRegistrations = () => {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{registration.teamLeader.name}</div>
-                          <div className="text-xs text-gray-400">{registration.teamLeader.bgmiId}</div>
+                          <div className="text-xs text-gray-400">
+                            {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                              ? registration.teamLeader.freeFireId 
+                              : registration.teamLeader.bgmiId}
+                          </div>
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">{registration.userId?.email || 'N/A'}</div>
@@ -1201,21 +1205,49 @@ const AdminBGMIRegistrations = () => {
                           <div className="text-sm text-white">
                             {registration.teamMembers?.[0]?.name || 'N/A'}
                           </div>
+                          {registration.teamMembers?.[0] && (
+                            <div className="text-xs text-gray-400">
+                              {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                                ? registration.teamMembers[0].freeFireId 
+                                : registration.teamMembers[0].bgmiId}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {registration.teamMembers?.[1]?.name || 'N/A'}
                           </div>
+                          {registration.teamMembers?.[1] && (
+                            <div className="text-xs text-gray-400">
+                              {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                                ? registration.teamMembers[1].freeFireId 
+                                : registration.teamMembers[1].bgmiId}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {registration.teamMembers?.[2]?.name || 'N/A'}
                           </div>
+                          {registration.teamMembers?.[2] && (
+                            <div className="text-xs text-gray-400">
+                              {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                                ? registration.teamMembers[2].freeFireId 
+                                : registration.teamMembers[2].bgmiId}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {registration.substitutePlayer?.name || '-'}
                           </div>
+                          {registration.substitutePlayer?.name && (
+                            <div className="text-xs text-gray-400">
+                              {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                                ? registration.substitutePlayer.freeFireId 
+                                : registration.substitutePlayer.bgmiId}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <div className="text-sm font-medium text-gaming-neon">{registration.group || 'Not Assigned'}</div>
@@ -1347,6 +1379,11 @@ const AdminBGMIRegistrations = () => {
                       <div>
                         <span className="text-gray-400">Leader:</span>
                         <div className="text-white">{registration.teamLeader.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                            ? registration.teamLeader.freeFireId 
+                            : registration.teamLeader.bgmiId}
+                        </div>
                       </div>
                       <div>
                         <span className="text-gray-400">Email:</span>
@@ -1355,18 +1392,46 @@ const AdminBGMIRegistrations = () => {
                       <div>
                         <span className="text-gray-400">Player 1 IGN:</span>
                         <div className="text-white">{registration.teamMembers?.[0]?.name || 'N/A'}</div>
+                        {registration.teamMembers?.[0] && (
+                          <div className="text-xs text-gray-500">
+                            {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                              ? registration.teamMembers[0].freeFireId 
+                              : registration.teamMembers[0].bgmiId}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400">Player 2 IGN:</span>
                         <div className="text-white">{registration.teamMembers?.[1]?.name || 'N/A'}</div>
+                        {registration.teamMembers?.[1] && (
+                          <div className="text-xs text-gray-500">
+                            {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                              ? registration.teamMembers[1].freeFireId 
+                              : registration.teamMembers[1].bgmiId}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400">Player 3 IGN:</span>
                         <div className="text-white">{registration.teamMembers?.[2]?.name || 'N/A'}</div>
+                        {registration.teamMembers?.[2] && (
+                          <div className="text-xs text-gray-500">
+                            {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                              ? registration.teamMembers[2].freeFireId 
+                              : registration.teamMembers[2].bgmiId}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400">Substitute:</span>
                         <div className="text-white">{registration.substitutePlayer?.name || '-'}</div>
+                        {registration.substitutePlayer?.name && (
+                          <div className="text-xs text-gray-500">
+                            {registration.tournamentId?.gameType?.toLowerCase() === 'freefire' 
+                              ? registration.substitutePlayer.freeFireId 
+                              : registration.substitutePlayer.bgmiId}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="text-gray-400">Group:</span>
@@ -1624,6 +1689,15 @@ const ImageVerificationModal = ({
   const [loadingChat, setLoadingChat] = useState(true);
   const [deletingImage, setDeletingImage] = useState(null);
   const [loadingImages, setLoadingImages] = useState(false);
+  
+  // Determine if this is a Free Fire registration
+  const tournament = tournaments.find(t => {
+    const tId = t._id?.toString() || t._id;
+    const regTId = registration.tournamentId?._id?.toString() || registration.tournamentId?.toString() || registration.tournamentId;
+    return tId === regTId;
+  });
+  const isFreeFire = tournament?.gameType?.toLowerCase() === 'freefire' || 
+                    registration.tournamentId?.gameType?.toLowerCase() === 'freefire';
 
   // Function to refresh registration data
   const refreshRegistrationData = async () => {
@@ -1948,19 +2022,23 @@ const ImageVerificationModal = ({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
                   {/* Team Leader */}
                   <div className="bg-gaming-neon/10 border border-gaming-neon/30 rounded p-1">
-                    <div className="text-gaming-neon font-medium text-xs">👑 Leader</div>
+                    <div className="text-gaming-neon font-medium text-xs">{isFreeFire ? '🔥 Leader' : '👑 Leader'}</div>
                     <div className="text-white text-xs font-medium truncate">{registration.teamLeader.name}</div>
-                    <div className="text-xs text-gray-400 truncate">{registration.teamLeader.bgmiId}</div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {isFreeFire ? registration.teamLeader.freeFireId : registration.teamLeader.bgmiId}
+                    </div>
                   </div>
                   
                   {/* Team Members */}
                   {registration.teamMembers.map((member, index) => (
                     <div key={index} className="rounded p-1 border bg-gaming-slate/50 border-gray-600">
                       <div className="font-medium text-xs text-gray-300">
-                        👤 M{index + 1}
+                        {isFreeFire ? `🔥 M${index + 1}` : `👤 M${index + 1}`}
                       </div>
                       <div className="text-white text-xs font-medium truncate">{member.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{member.bgmiId}</div>
+                      <div className="text-xs text-gray-400 truncate">
+                        {isFreeFire ? member.freeFireId : member.bgmiId}
+                      </div>
                     </div>
                   ))}
 
@@ -1969,7 +2047,9 @@ const ImageVerificationModal = ({
                     <div className="rounded p-1 border bg-yellow-500/10 border-yellow-500/30">
                       <div className="font-medium text-xs text-yellow-400">🔄 SUB</div>
                       <div className="text-white text-xs font-medium truncate">{registration.substitutePlayer.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{registration.substitutePlayer.bgmiId}</div>
+                      <div className="text-xs text-gray-400 truncate">
+                        {isFreeFire ? registration.substitutePlayer.freeFireId : registration.substitutePlayer.bgmiId}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2038,10 +2118,12 @@ const ImageVerificationModal = ({
                         <div className="p-2 bg-gaming-charcoal">
                           <div className="flex items-center justify-between">
                             <div className="text-xs text-white font-medium">
-                              {image.playerId === 'leader' ? '👑 Leader' : `👤 M${image.playerId.replace('member', '')}`}
+                              {image.playerId === 'leader' 
+                                ? (isFreeFire ? '🔥 Leader' : '👑 Leader') 
+                                : (isFreeFire ? `🔥 M${image.playerId.replace('member', '')}` : `👤 M${image.playerId.replace('member', '')}`)}
                             </div>
                             <div className="text-xs text-gray-400">
-                              {image.imageNumber === 1 ? '🆔 ID' : '🎮 BGMI'}
+                              {image.imageNumber === 1 ? '🆔 ID' : (isFreeFire ? '🎮 FF' : '🎮 BGMI')}
                             </div>
                           </div>
                           {image.caption && (

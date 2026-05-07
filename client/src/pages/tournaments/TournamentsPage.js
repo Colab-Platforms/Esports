@@ -30,7 +30,7 @@ const TournamentsPage = () => {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 12; // Increased from 6 to show more tournaments per page
 
   // Fetch site images for banners (uses cached data if available)
   useEffect(() => {
@@ -192,7 +192,7 @@ const TournamentsPage = () => {
   const categoryTabs = [
     { id: 'all', label: 'ALL GAMES' },
     { id: 'bgmi', label: 'BGMI' },
-    { id: 'valorant', label: 'VALORANT' },
+    { id: 'freefire', label: 'FREE FIRE' },
     { id: 'cs2', label: 'CS2' }
   ];
 
@@ -344,9 +344,9 @@ const TournamentsPage = () => {
                 BGMI
               </button>
               <button
-                onClick={() => setActiveCategoryTab('ff')}
+                onClick={() => setActiveCategoryTab('freefire')}
                 className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
-                  activeCategoryTab === 'ff'
+                  activeCategoryTab === 'freefire'
                     ? 'bg-gaming-gold text-black'
                     : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
                 }`}

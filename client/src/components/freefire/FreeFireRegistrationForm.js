@@ -112,7 +112,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       // Check if player already added (in teamMembers or as substitute)
       const alreadyInTeam = prev.teamMembers.some(m => m.name.toLowerCase() === player.name.toLowerCase());
       const alreadyAsSubstitute = prev.substitute && prev.substitute.name.toLowerCase() === player.name.toLowerCase();
-      
+
       if (alreadyInTeam || alreadyAsSubstitute) {
         setSnackbar({ message: 'Player already added', type: 'warning' });
         return prev;
@@ -186,9 +186,9 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
     if (!/^\d+$/.test(uid)) {
       return { valid: false, message: 'UID must contain only numbers' };
     }
-    if (uid.length !== 11) {
-      return { valid: false, message: 'UID must be exactly 11 digits' };
-    }
+    // if (uid.length !== 11) {
+    //   return { valid: false, message: 'UID must be exactly 11 digits' };
+    // }
     return { valid: true, message: '' };
   };
 
@@ -416,10 +416,10 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
     } catch (error) {
       console.error('❌ Registration error:', error);
       console.error('❌ Error response:', error.response?.data);
-      
+
       // Get detailed error message
       let errorMessage = 'Failed to register team';
-      
+
       if (error.response?.data?.error?.details) {
         // Show validation errors
         const details = error.response.data.error.details;
@@ -431,7 +431,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -576,7 +576,7 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-gray-300">
-                👥 Team Members ({(hasFreeFireCredentials ? 1 : 0) + formData.teamMembers.length}{ formData.substitute ? '+1 SUB' : ''}/4-5)
+                👥 Team Members ({(hasFreeFireCredentials ? 1 : 0) + formData.teamMembers.length}{formData.substitute ? '+1 SUB' : ''}/4-5)
               </label>
             </div>
 
@@ -585,11 +585,10 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`rounded-lg p-3 flex items-center justify-between transition-all ${
-                  formData.selectedLeaderIndex === null
+                className={`rounded-lg p-3 flex items-center justify-between transition-all ${formData.selectedLeaderIndex === null
                     ? 'bg-gaming-charcoal border border-orange-500/30'
                     : 'bg-gaming-charcoal border border-gaming-slate'
-                }`}
+                  }`}
               >
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
@@ -609,11 +608,10 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                   <button
                     type="button"
                     onClick={() => handleSelectLeader(-1)}
-                    className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                      formData.selectedLeaderIndex === null
+                    className={`px-3 py-1 rounded text-xs font-medium transition-all ${formData.selectedLeaderIndex === null
                         ? 'bg-orange-500/30 border border-orange-500 text-orange-500'
                         : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-orange-500/50'
-                    }`}
+                      }`}
                   >
                     {formData.selectedLeaderIndex === null ? '✓ Leader' : 'Set Leader'}
                   </button>
@@ -635,11 +633,10 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
-                      className={`rounded-lg p-3 flex items-center justify-between transition-all ${
-                        isSelectedLeader
+                      className={`rounded-lg p-3 flex items-center justify-between transition-all ${isSelectedLeader
                           ? 'bg-gaming-charcoal border border-orange-500/50'
                           : 'bg-gaming-charcoal border border-gaming-slate'
-                      }`}
+                        }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
@@ -659,11 +656,10 @@ const FreeFireRegistrationForm = ({ tournament, selectedTeam, onClose, onSuccess
                         <button
                           type="button"
                           onClick={() => handleSelectLeader(index)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                            isSelectedLeader
+                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${isSelectedLeader
                               ? 'bg-orange-500/30 border border-orange-500 text-orange-500'
                               : 'bg-gaming-slate/50 border border-gaming-slate text-gray-400 hover:border-orange-500/50'
-                          }`}
+                            }`}
                         >
                           {isSelectedLeader ? '✓ Leader' : 'Set Leader'}
                         </button>

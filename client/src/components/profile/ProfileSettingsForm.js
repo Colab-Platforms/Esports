@@ -29,7 +29,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
     };
     return countries[countryCode] || { flag: '🌍', name: countryCode || 'Not set' };
   };
-  
+
   const [profileData, setProfileData] = useState({
     username: user?.username || '',
     email: user?.email || '',
@@ -113,7 +113,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
 
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
-    
+
     // Also update gameIds when BGMI/Free Fire fields change
     if (field === 'bgmiIgnName') {
       setGameIds(prev => ({
@@ -145,7 +145,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
   const handleGameIdChange = (game, field, value) => {
     setGameIds(prev => ({
       ...prev,
-      [game]: typeof prev[game] === 'object' 
+      [game]: typeof prev[game] === 'object'
         ? { ...prev[game], [field]: value }
         : value
     }));
@@ -156,9 +156,9 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
     if (!/^\d+$/.test(uid)) {
       return { valid: false, message: 'UID must contain only numbers' };
     }
-    if (uid.length !== 11) {
-      return { valid: false, message: 'UID must be exactly 11 digits' };
-    }
+    // if (uid.length !== 11) {
+    //   return { valid: false, message: 'UID must be exactly 11 digits' };
+    // }
     return { valid: true, message: '' };
   };
 
@@ -171,19 +171,19 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
       setLoading(true);
       setError('');
       setSuccess('');
-      
+
       // Validate UIDs
       const bgmiUidError = getUIDError(gameIds.bgmi.uid);
       const freeFireUidError = getUIDError(gameIds.freefire.uid);
-      
+
       if (bgmiUidError || freeFireUidError) {
         setError(bgmiUidError || freeFireUidError);
         setLoading(false);
         return;
       }
-      
+
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-      
+
       const response = await axios.put(
         `${API_URL}/api/auth/profile`,
         {
@@ -216,9 +216,9 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
       }
     } catch (err) {
       console.error('Profile update error:', err);
-      const errorMessage = err.response?.data?.error?.message 
-        || err.response?.data?.message 
-        || err.message 
+      const errorMessage = err.response?.data?.error?.message
+        || err.response?.data?.message
+        || err.message
         || 'Failed to update profile';
       setError(errorMessage);
     } finally {
@@ -270,31 +270,28 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
         <div className="flex flex-wrap gap-2 mb-6 border-b border-gaming-border overflow-x-auto">
           <button
             onClick={() => setActiveSection('account')}
-            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
-              activeSection === 'account'
+            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${activeSection === 'account'
                 ? 'text-gaming-gold border-b-2 border-gaming-gold'
                 : 'text-gray-400 hover:text-white'
-            }`}
+              }`}
           >
             Account Info
           </button>
           <button
             onClick={() => setActiveSection('gameids')}
-            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
-              activeSection === 'gameids'
+            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${activeSection === 'gameids'
                 ? 'text-gaming-gold border-b-2 border-gaming-gold'
                 : 'text-gray-400 hover:text-white'
-            }`}
+              }`}
           >
             Game IDs
           </button>
           <button
             onClick={() => setActiveSection('social')}
-            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${
-              activeSection === 'social'
+            className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap text-sm md:text-base ${activeSection === 'social'
                 ? 'text-gaming-gold border-b-2 border-gaming-gold'
                 : 'text-gray-400 hover:text-white'
-            }`}
+              }`}
           >
             Social Media
           </button>
@@ -313,9 +310,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={profileData.username}
                   onChange={(e) => handleProfileChange('username', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                   placeholder="Username"
                 />
               </div>
@@ -341,9 +337,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={profileData.phone}
                   onChange={(e) => handleProfileChange('phone', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                   placeholder="Phone"
                 />
               </div>
@@ -366,9 +361,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={profileData.state}
                   onChange={(e) => handleProfileChange('state', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                 >
                   <option value="">Select your state</option>
                   {indianStates.map(state => (
@@ -385,9 +379,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={profileData.favoriteGame}
                   onChange={(e) => handleProfileChange('favoriteGame', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                 >
                   <option value="">Select your favorite game</option>
                   <option value="bgmi">BGMI</option>
@@ -406,9 +399,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 onChange={(e) => handleProfileChange('bio', e.target.value)}
                 disabled={!isEditing}
                 rows={4}
-                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                  isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  }`}
                 placeholder="Tell us about yourself..."
               />
             </div>
@@ -452,9 +444,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={gameIds.bgmi.ign}
                   onChange={(e) => handleGameIdChange('bgmi', 'ign', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                   placeholder="Your BGMI IGN"
                 />
                 <p className="text-xs text-gray-500 mt-1">Your in-game name for BGMI tournaments</p>
@@ -469,13 +460,11 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   value={gameIds.bgmi.uid}
                   onChange={(e) => handleGameIdChange('bgmi', 'uid', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  } ${
-                    getUIDError(gameIds.bgmi.uid) 
-                      ? 'border-red-500 focus:border-red-500' 
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    } ${getUIDError(gameIds.bgmi.uid)
+                      ? 'border-red-500 focus:border-red-500'
                       : 'border-gaming-border focus:border-gaming-gold'
-                  }`}
+                    }`}
                   placeholder="Your BGMI UID (11 digits)"
                 />
                 {getUIDError(gameIds.bgmi.uid) && (
@@ -491,7 +480,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 <span className="text-xl">🔥</span>
                 <span>Free Fire</span>
               </h4>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -502,9 +491,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                     value={gameIds.freefire.ign}
                     onChange={(e) => handleGameIdChange('freefire', 'ign', e.target.value)}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                      isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
                     placeholder="Your Free Fire IGN"
                   />
                   <p className="text-xs text-gray-500 mt-1">Your in-game name for Free Fire tournaments</p>
@@ -519,13 +507,11 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                     value={gameIds.freefire.uid}
                     onChange={(e) => handleGameIdChange('freefire', 'uid', e.target.value)}
                     disabled={!isEditing}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${
-                      isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                    } ${
-                      getUIDError(gameIds.freefire.uid) 
-                        ? 'border-red-500 focus:border-red-500' 
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      } ${getUIDError(gameIds.freefire.uid)
+                        ? 'border-red-500 focus:border-red-500'
                         : 'border-gaming-border focus:border-gaming-gold'
-                    }`}
+                      }`}
                     placeholder="Your Free Fire UID (11 digits)"
                   />
                   {getUIDError(gameIds.freefire.uid) && (
@@ -539,16 +525,15 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
             {/* Steam Section */}
             <div className="border-t border-gaming-border pt-6 mt-6">
               <h4 className="text-white font-medium mb-4">Steam ID</h4>
-              
+
               <div>
                 <input
                   type="text"
                   value={gameIds.steam}
                   onChange={(e) => handleGameIdChange('steam', null, e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                    isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                  }`}
+                  className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                    }`}
                   placeholder="Enter your Steam ID (e.g., 76561198123456789)"
                 />
                 <p className="text-xs text-gray-500 mt-1">Required for CS2 tournament participation</p>
@@ -594,9 +579,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 value={socialAccounts.twitter}
                 onChange={(e) => handleSocialChange('twitter', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                  isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  }`}
                 placeholder="@username"
               />
             </div>
@@ -612,9 +596,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 value={socialAccounts.instagram}
                 onChange={(e) => handleSocialChange('instagram', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                  isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  }`}
                 placeholder="@username"
               />
             </div>
@@ -630,9 +613,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 value={socialAccounts.github}
                 onChange={(e) => handleSocialChange('github', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                  isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  }`}
                 placeholder="username"
               />
             </div>
@@ -648,9 +630,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 value={socialAccounts.linkedin}
                 onChange={(e) => handleSocialChange('linkedin', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${
-                  isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
-                }`}
+                className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                  }`}
                 placeholder="username"
               />
             </div>
