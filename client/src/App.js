@@ -17,6 +17,7 @@ import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import DailyStreakToast from './components/common/DailyStreakToast';
+import InstallPWA from './components/common/InstallPWA';
 
 // Hooks
 import useDailyStreak from './hooks/useDailyStreak';
@@ -257,6 +258,7 @@ function App() {
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
+      <InstallPWA />
 
       {/* Daily Streak Toast */}
       {showToast && (
