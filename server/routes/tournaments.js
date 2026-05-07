@@ -14,7 +14,7 @@ const router = express.Router();
 // @desc    Get all tournaments with filtering
 // @access  Public
 router.get('/', [
-  query('gameType').optional().isIn(['bgmi', 'valorant', 'cs2', 'ff']),
+  query('gameType').optional().isIn(['bgmi', 'valorant', 'cs2', 'freefire', 'ff']),
   query('status').optional().custom((value) => {
     if (typeof value === 'string') {
       const statuses = value.split(',');
@@ -116,42 +116,55 @@ router.get('/', [
     console.log('  Filters:', JSON.stringify(filters));
     console.log('  Page:', page, 'Limit:', limit, 'Skip:', skip);
 
-    // Create cache key from filters and pagination
-    const cacheKey = `tournaments:${JSON.stringify(filters)}:${page}:${limit}`;
+    // Create cache key from filters ONLY (not page/limit)
+    // We cache the full result set, then paginate in memory
+    const cacheKey = `tournaments:${JSON.stringify(filters)}`;
     
     // Check Redis cache first (only for public requests)
     if (!isAdminRequest) {
       const cachedData = await redisService.get(cacheKey);
       if (cachedData) {
         console.log('Tournaments found in cache');
+        // Paginate from cached full result set
+        const paginatedTournaments = cachedData.tournaments.slice(skip, skip + parseInt(limit));
         return res.json({
           success: true,
-          data: cachedData,
+          data: {
+            tournaments: paginatedTournaments,
+            pagination: {
+              page: parseInt(page),
+              limit: parseInt(limit),
+              total: cachedData.pagination.total,
+              pages: Math.ceil(cachedData.pagination.total / parseInt(limit))
+            }
+          },
           timestamp: new Date().toISOString(),
           cached: true
         });
       }
     }
 
-    // Optimize query with lean() for better performance and select only needed fields
-    const tournaments = await Tournament.getFilteredTournaments(filters)
+    // Count total BEFORE applying skip/limit
+    const total = await Tournament.countDocuments(
+      Tournament.getFilterQuery(filters)
+    );
+
+    // Fetch ALL tournaments matching filters (no skip/limit for cache)
+    const allTournaments = await Tournament.getFilteredTournaments(filters)
       .select('-participants -matches -moderators -scoreboards') // Exclude heavy fields
       .lean() // Return plain objects for better performance
-      .skip(skip)
-      .limit(parseInt(limit));
+      .exec();
 
-    // Simple conversion without JSON stringify to avoid circular references
-    const tournamentsWithStringIds = tournaments.map(t => {
-      // Ensure _id is a string
+    // Convert all to string IDs
+    const allTournamentsWithStringIds = allTournaments.map(t => {
       if (t._id) {
         t._id = t._id.toString ? t._id.toString() : String(t._id);
       }
       return t;
     });
 
-    const total = await Tournament.countDocuments(
-      Tournament.getFilteredTournaments(filters).getQuery()
-    );
+    // NOW apply pagination in memory
+    const tournamentsWithStringIds = allTournamentsWithStringIds.slice(skip, skip + parseInt(limit));
 
     console.log(`Tournaments found: ${tournamentsWithStringIds.length} out of ${total} total`);
     console.log('Tournament IDs:', tournamentsWithStringIds.map(t => ({ id: t._id, name: t.name })));
@@ -173,9 +186,18 @@ router.get('/', [
       }
     };
 
-    // Cache the response (5 minutes TTL) for public requests
+    // Cache the FULL response (all tournaments) for public requests
     if (!isAdminRequest) {
-      await redisService.set(cacheKey, responseData, 300);
+      const fullResponseData = {
+        tournaments: allTournamentsWithStringIds,
+        pagination: {
+          page: 1,
+          limit: total,
+          total,
+          pages: 1
+        }
+      };
+      await redisService.set(cacheKey, fullResponseData, 300);
     }
 
     res.json({
@@ -2787,5 +2809,106 @@ router.get('/:id/teams', auth, async (req, res) => {
 });
 
 // Route moved to tournamentRewards.js
+
+// @route   GET /api/tournaments/debug/count
+// @desc    Debug endpoint to check tournament count in database (Admin only)
+// @access  Private (Admin)
+router.get('/debug/count', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Get counts by status
+    const statusCounts = {};
+    const statuses = ['upcoming', 'registration_open', 'registration_closed', 'active', 'completed', 'cancelled', 'inactive'];
+    
+    for (const status of statuses) {
+      statusCounts[status] = await Tournament.countDocuments({ status });
+    }
+
+    // Get counts by game type
+    const gameTypeCounts = {};
+    const gameTypes = ['bgmi', 'valorant', 'cs2', 'freefire'];
+    
+    for (const gameType of gameTypes) {
+      gameTypeCounts[gameType] = await Tournament.countDocuments({ gameType });
+    }
+
+    const totalCount = await Tournament.countDocuments({});
+
+    res.json({
+      success: true,
+      data: {
+        total: totalCount,
+        byStatus: statusCounts,
+        byGameType: gameTypeCounts,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting tournament count:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to get tournament count',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
+
+// @route   POST /api/tournaments/debug/clear-cache
+// @desc    Clear tournament cache (Admin only)
+// @access  Private (Admin)
+router.post('/debug/clear-cache', auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user.userId);
+    if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'Admin privileges required',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    // Clear all tournament-related cache
+    await redisService.deletePattern('tournaments:*');
+    await redisService.deletePattern('tournament:*');
+    await redisService.delete('platform:stats');
+
+    res.json({
+      success: true,
+      message: 'Tournament cache cleared successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error clearing tournament cache:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Failed to clear tournament cache',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+});
 
 module.exports = router;

@@ -713,4 +713,39 @@ tournamentSchema.statics.getFilteredTournaments = function(filters = {}) {
     .sort({ createdAt: -1 });
 };
 
+// Static method to get just the filter query object (for counting)
+tournamentSchema.statics.getFilterQuery = function(filters = {}) {
+  const query = {};
+  
+  if (filters.gameType) {
+    query.gameType = filters.gameType;
+  }
+  
+  if (filters.status) {
+    query.status = filters.status;
+  }
+  
+  if (filters.entryFeeMin !== undefined || filters.entryFeeMax !== undefined) {
+    query.entryFee = {};
+    if (filters.entryFeeMin !== undefined) query.entryFee.$gte = filters.entryFeeMin;
+    if (filters.entryFeeMax !== undefined) query.entryFee.$lte = filters.entryFeeMax;
+  }
+  
+  if (filters.prizePoolMin !== undefined || filters.prizePoolMax !== undefined) {
+    query.prizePool = {};
+    if (filters.prizePoolMin !== undefined) query.prizePool.$gte = filters.prizePoolMin;
+    if (filters.prizePoolMax !== undefined) query.prizePool.$lte = filters.prizePoolMax;
+  }
+  
+  if (filters.mode) {
+    query.mode = filters.mode;
+  }
+  
+  if (filters.featured !== undefined) {
+    query.featured = filters.featured;
+  }
+  
+  return query;
+};
+
 module.exports = mongoose.model('Tournament', tournamentSchema);

@@ -54,7 +54,7 @@ const FreeFirePage = () => {
     
     // Convert filter values to numbers if they're not empty
     const filterParams = {
-      gameType: 'ff',
+      gameType: 'freefire',
       status,
       page: 1,
       limit: 12
@@ -300,7 +300,7 @@ const FreeFirePage = () => {
                 onClick={() => {
                   dispatch(clearError());
                   dispatch(fetchTournaments({
-                    gameType: 'ff',
+                    gameType: 'freefire',
                     status: getStatusFromTab(activeTab),
                     ...filters
                   }));
@@ -381,7 +381,7 @@ const FreeFirePage = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => dispatch(fetchTournaments({
-                    gameType: 'ff',
+                    gameType: 'freefire',
                     status: getStatusFromTab(activeTab),
                     ...filters,
                     page: pagination.page - 1
@@ -405,7 +405,7 @@ const FreeFirePage = () => {
                 
                 <button
                   onClick={() => dispatch(fetchTournaments({
-                    gameType: 'ff',
+                    gameType: 'freefire',
                     status: getStatusFromTab(activeTab),
                     ...filters,
                     page: pagination.page + 1
