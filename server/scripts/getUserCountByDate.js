@@ -9,8 +9,8 @@ async function getUserCountByDate() {
     console.log('✅ Connected to MongoDB');
 
     // Date range: 19 Feb 2026 to 28 Feb 2026 (inclusive)
-    const startDate = new Date('2026-04-01T00:00:00Z');
-    const endDate = new Date('2026-04-16T23:59:59Z');
+    const startDate = new Date('2026-04-16T00:00:00Z');
+    const endDate = new Date('2026-04-24T23:59:59Z');
 
     console.log(`\n📊 User Count Report`);
     console.log(`📅 Date Range: 01 Jan 2026 to 16 Apr 2026`);

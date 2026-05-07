@@ -30,7 +30,7 @@ const TournamentsPage = () => {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12; // Increased from 6 to show more tournaments per page
+  const itemsPerPage = 6; // 6 tournaments per page
 
   // Fetch site images for banners (uses cached data if available)
   useEffect(() => {
