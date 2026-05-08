@@ -434,7 +434,7 @@ function App() {
             />
 
             {/* CS2 Route */}
-            <Route 
+            {/* <Route 
               path="/cs2" 
               element={
                 <motion.div
@@ -446,7 +446,7 @@ function App() {
                   <CS2Page />
                 </motion.div>
               } 
-            />
+            /> */}
 
             {/* Protected Routes */}
             <Route 

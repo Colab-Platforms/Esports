@@ -221,7 +221,7 @@ const CompleteLandingPage = () => {
     // { name: 'Apex Legends', gameType: 'apex', status: 'Coming Q2 2025', color: 'from-orange-500 to-red-500' },
     { name: 'Free Fire', gameType: 'freefire', status: 'Coming Soon ', color: 'from-yellow-500 to-orange-500' },
     // { name: 'Rainbow Six', gameType: 'rainbow6', status: 'Coming Q3 2025', color: 'from-blue-500 to-purple-500' },
-    { name: 'Counter Strike 2', gameType: 'cs2', status: 'Coming Soon', color: 'from-green-500 to-blue-500' }
+    // { name: 'Counter Strike 2', gameType: 'cs2', status: 'Coming Sooncolor: 'from-green-500 to-blue-500' }
   ];
 
   // Initial data fetch on component mount - with cache checking
@@ -977,7 +977,7 @@ const CompleteLandingPage = () => {
             <p className="text-gray-400 text-lg font-gaming">Real-time rankings • Updated every match</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8">
             {/* BGMI Leaderboard - Gaming Console Style */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
@@ -1099,140 +1099,7 @@ const CompleteLandingPage = () => {
               </div>
             </motion.div>
 
-            {/* CS2 Leaderboard - Gaming Console Style */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
-              {/* Console Border Effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-2xl filter blur-xl"></div>
-              
-              <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-2xl p-6 shadow-2xl">
-                {/* Console Header */}
-                <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-blue-500/20">
-                  <div className="flex items-center space-x-3">
-                    <motion.div
-                      animate={{ rotate: [0, -360] }}
-                      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
-                    >
-                      <GameIcon gameType="cs2" size="lg" />
-                    </motion.div>
-                    <div>
-                      <h3 className="text-2xl font-gaming font-bold text-white">CS2</h3>
-                      <p className="text-xs text-gray-400">Counter-Strike 2</p>
-                    </div>
-                  </div>
-                  <Link to="/leaderboard" className="text-gaming-gold hover:text-gaming-accent text-sm font-bold flex items-center group">
-                    View All 
-                    <motion.div
-                      animate={{ x: [0, 5, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      <FiArrowRight className="ml-1" />
-                    </motion.div>
-                  </Link>
-                </div>
-
-                {/* Leaderboard Entries */}
-                <div className="space-y-3">
-                  {loading ? (
-                    [1,2,3].map(i => (
-                      <div key={i} className="bg-gaming-dark/50 rounded-lg p-4 animate-pulse">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gray-700 rounded-lg"></div>
-                          <div className="flex-1">
-                            <div className="h-4 bg-gray-700 rounded w-24 mb-2"></div>
-                            <div className="h-3 bg-gray-700 rounded w-16"></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : cs2Leaderboard.length > 0 ? (
-                    cs2Leaderboard.map((player, idx) => (
-                      <motion.div
-                        key={player.username || idx}
-                        initial={{ opacity: 0, x: 20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: idx * 0.1 }}
-                        whileHover={{ scale: 1.02, x: -5 }}
-                        className="relative group"
-                      >
-                        {/* Rank Glow */}
-                        {idx < 3 && (
-                          <div className={`absolute inset-0 rounded-lg filter blur-md ${
-                            idx === 0 ? 'bg-yellow-500/20' :
-                            idx === 1 ? 'bg-gray-400/20' :
-                            'bg-orange-500/20'
-                          }`}></div>
-                        )}
-                        
-                        <div className="relative bg-gaming-dark/70 rounded-lg p-4 border border-gray-700 group-hover:border-gaming-gold/50 transition-all backdrop-blur-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              {/* Rank Badge */}
-                              <motion.div
-                                whileHover={{ rotate: [0, -10, 10, -10, 0] }}
-                                className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg shadow-lg ${
-                                  idx === 0 ? 'text-black' :
-                                  idx === 1 ? 'text-black' :
-                                  idx === 2 ? 'text-black' :
-                                  'bg-gray-700 text-white'
-                                }`}
-                              >
-                                {getMedalIcon(idx) ? <img src={getMedalIcon(idx)} alt={`Medal ${idx + 1}`} /> : idx + 1}
-                              </motion.div>
-                              
-                              <div>
-                                <div className="font-bold text-white group-hover:text-gaming-gold transition-colors">
-                                  {player.username}
-                                </div>
-                                <div className="text-xs text-gray-400 flex items-center">
-                                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                                  Rank #{idx + 1}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <motion.div
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity, delay: idx * 0.2 }}
-                                className="text-xl font-bold text-gaming-gold"
-                              >
-                                {player.kills || player.totalKills || 0}
-                              </motion.div>
-                              <div className="text-xs text-gray-400">Kills</div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <div className="text-center py-12 text-gray-400">
-                      <div className="text-4xl mb-4">
-                        <GameIcon gameType="cs2" size="xl" />
-                      </div>
-                      <p>No leaderboard data yet</p>
-                      <p className="text-sm mt-2">Be the first to compete!</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Console Footer */}
-                <div className="mt-6 pt-4 border-t-2 border-blue-500/20">
-                  <Link
-                    to="/leaderboard"
-                    className="block w-full text-center py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 hover:from-blue-500/20 hover:to-cyan-500/20 border-2 border-blue-500/30 rounded-lg text-blue-400 font-bold transition-all"
-                  >
-                    View Full Leaderboard
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
+            
 
             {/* FreeFire Leaderboard - Gaming Console Style */}
             <motion.div
@@ -1476,7 +1343,7 @@ const CompleteLandingPage = () => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: <img src={getCdnIcon('features', 'tournaments')} className="w-10 h-10" alt="Tournaments" />, title: 'Tournaments', desc: 'Compete in CS2 & BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
+              { icon: <img src={getCdnIcon('features', 'tournaments')} className="w-10 h-10" alt="Tournaments" />, title: 'Tournaments', desc: 'Compete in BGMI', color: 'from-yellow-500 to-orange-500', stat: stats.activeTournaments + ' Active' },
               { icon: <img src={getCdnIcon('features', 'leaderboards')} className="w-10 h-10" alt="Leaderboards" />, title: 'Live Leaderboards', desc: 'Real-time rankings', color: 'from-yellow-500 to-orange-500', stat: 'Updated Live' },
               { icon: <img src={getCdnIcon('features', 'servers')} className="w-10 h-10" alt="Servers" />, title: 'Dedicated Servers', desc: 'Auto stats tracking', color: 'from-yellow-500 to-orange-500', stat: '2 Servers' },
               { icon: <FiUsers className="w-10 h-10" />, title: 'Team System', desc: 'Create & compete', color: 'from-yellow-500 to-orange-500', stat: stats.totalPlayers + ' Players' }

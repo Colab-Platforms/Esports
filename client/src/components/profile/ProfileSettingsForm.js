@@ -523,7 +523,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
             </div>
 
             {/* Steam Section */}
-            <div className="border-t border-gaming-border pt-6 mt-6">
+            {/* <div className="border-t border-gaming-border pt-6 mt-6">
               <h4 className="text-white font-medium mb-4">Steam ID</h4>
 
               <div>
@@ -538,7 +538,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 />
                 <p className="text-xs text-gray-500 mt-1">Required for CS2 tournament participation</p>
               </div>
-            </div>
+            </div> */}
 
             {isEditing && (
               <div className="flex justify-end space-x-3 pt-4">

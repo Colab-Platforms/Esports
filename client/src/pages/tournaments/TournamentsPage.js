@@ -353,7 +353,7 @@ const TournamentsPage = () => {
               >
                 FREE FIRE
               </button>
-              <button
+              {/* <button
                 onClick={() => setActiveCategoryTab('cs2')}
                 className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
                   activeCategoryTab === 'cs2'
@@ -362,7 +362,7 @@ const TournamentsPage = () => {
                 }`}
               >
                 CS2
-              </button>
+              </button> */}
             </div>
           </div>
         </div>

@@ -266,7 +266,7 @@ const LeaderboardPage = () => {
         <div className="bg-theme-bg-card rounded-xl border border-theme-border p-6 mb-6">
           <h2 className="text-xl font-bold text-theme-text-primary mb-4">Select Game</h2>
           <div className="flex flex-wrap gap-4">
-            {['bgmi', 'freefire', 'cs2'].map((game) => (
+            {['bgmi', 'freefire'].map((game) => (
               <button
                 key={game}
                 onClick={() => handleGameChange(game)}
@@ -284,7 +284,7 @@ const LeaderboardPage = () => {
         </div>
 
         {/* CS2 Stats Cards */}
-        {selectedGame === 'cs2' && cs2Stats && (
+        {/* {selectedGame === 'cs2' && cs2Stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-theme-bg-card rounded-xl border border-theme-border p-4">
               <div className="flex items-center space-x-3">
@@ -334,7 +334,7 @@ const LeaderboardPage = () => {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Leaderboard Type Tabs - Hide for CS2, BGMI, and FreeFire */}
         {selectedGame !== 'cs2' && selectedGame !== 'bgmi' && selectedGame !== 'freefire' && (
