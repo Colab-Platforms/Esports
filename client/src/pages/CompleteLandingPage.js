@@ -1436,7 +1436,7 @@ const CompleteLandingPage = () => {
       </section>
 
       {/* CS2 Servers - Only show if servers exist */}
-      {servers.length > 0 && (
+      {/* {servers.length > 0 && (
         <section className="py-20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-gaming-dark via-blue-900/10 to-gaming-dark"></div>
           
@@ -1473,9 +1473,9 @@ const CompleteLandingPage = () => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl filter blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   
-                  <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl">
+                  <div className="relative bg-gaming-charcoal border-2 border-blue-500/30 rounded-xl p-6 shadow-2xl"> */}
                     {/* Server Status Indicator */}
-                    <div className="absolute top-4 right-4">
+                    {/* <div className="absolute top-4 right-4">
                       <motion.div
                         animate={{ scale: [1, 1.2, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
@@ -1544,7 +1544,7 @@ const CompleteLandingPage = () => {
             </motion.div>
           </div>
         </section>
-      )}
+      )} */}
 
 
 
