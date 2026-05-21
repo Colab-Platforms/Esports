@@ -4,8 +4,9 @@ const urlsToCache = [
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/logo192.png',
-  '/logo512.png',
+  // '/logo192.png',
+  // '/logo512.png',
+  '/colab_esport_logo.png',
   // Add other static assets here if known, 
   // but for a dynamic React app, we'll rely on runtime caching
 ];
