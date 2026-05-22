@@ -3,6 +3,16 @@
 
 <head>
   <meta charset="utf-8" />
+  <!-- CRITICAL: Capture beforeinstallprompt BEFORE React loads so it is never missed -->
+  <script>
+    window.__pwaInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      window.__pwaInstallPrompt = e;
+      // Dispatch a custom event so React components can react if they mounted late
+      window.dispatchEvent(new CustomEvent('pwaInstallReady'));
+    });
+  </script>
   <link rel="icon"
     href="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +20,7 @@
   <meta name="description" content="Colab Esports - Gaming Platform" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/colab_esport_logo.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Colab Esports" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
