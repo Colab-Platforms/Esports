@@ -1,43 +1,59 @@
 {
   "short_name": "Colab",
   "name": "Colab Esports",
-  "description": "Premium Esports Tournament Platform",
+  "description": "Premium Esports Tournament Platform — BGMI, Free Fire, CS2 Tournaments",
   "icons": [
     {
       "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "64x64",
       "type": "image/x-icon"
     },
     {
-      "src": "colab_esport_logo.png",
+      "src": "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "colab_esport_logo.png",
+      "src": "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "maskable"
     },
     {
-      "src": "colab_esport_logo.png",
+      "src": "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "colab_esport_logo.png",
+      "src": "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log_Yellow_Icon_71c2aba7-0781-416e-91d4-100180fcc560.png?v=1764826140",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Colab Esports — Desktop Tournament Hub"
+    },
+    {
+      "src": "screenshot-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Colab Esports — Mobile Tournament View"
     }
   ],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#000000",
+  "background_color": "#0a0a14",
   "orientation": "portrait",
   "categories": ["games", "sports", "entertainment"]
 }
