@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Colab",
+  "name": "Colab Esports",
+  "description": "Premium Esports Tournament Platform",
   "icons": [
     {
       "src": "favicon.ico",
@@ -8,18 +9,35 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
+      "src": "colab_esport_logo.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "logo512.png",
+      "src": "colab_esport_logo.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "colab_esport_logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "colab_esport_logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "background_color": "#000000",
+  "orientation": "portrait",
+  "categories": ["games", "sports", "entertainment"]
 }
