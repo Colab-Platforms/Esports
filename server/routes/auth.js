@@ -571,6 +571,25 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       });
     }
 
+    // Block registration if email OTP has not been verified
+    const OTP = require('../models/OTP');
+    const verifiedOTP = await OTP.findOne({
+      email: email.toLowerCase(),
+      verified: true,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!verifiedOTP) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Please verify your email address with the OTP before registering',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
     // Phone validation - Indian mobile numbers
     if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({
@@ -741,6 +760,9 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     console.log('💾 Saving user to database...');
     await user.save();
     console.log('✅ User saved successfully');
+
+    // Clean up the verified OTP record so it cannot be reused
+    await OTP.deleteOne({ email: email.toLowerCase(), verified: true });
 
     // AFTER SUCCESSFUL USER SAVE: Handle Wallet and Referrer rewards
     try {
