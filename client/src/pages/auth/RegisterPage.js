@@ -5,14 +5,15 @@ import { motion } from 'framer-motion';
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import secureRequest from '../../utils/secureRequest';
+import EmailOTPModal from '../../components/common/EmailOTPModal';
 
-import { 
-  registerStart, 
-  registerSuccess, 
-  registerFailure, 
-  selectAuthLoading, 
+import {
+  registerStart,
+  registerSuccess,
+  registerFailure,
+  selectAuthLoading,
   selectAuthError,
-  clearError 
+  clearError
 } from '../../store/slices/authSlice';
 
 import { updateWalletBalance } from '../../store/slices/walletSlice';
@@ -41,6 +42,10 @@ const RegisterPage = () => {
     message: '',
     referrerName: ''
   });
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [isSendingOTP, setIsSendingOTP] = useState(false);
+  // Holds the validated request payload so it can be submitted after OTP passes
+  const [pendingRequestData, setPendingRequestData] = useState(null);
 
 
 
@@ -173,76 +178,75 @@ const RegisterPage = () => {
       return true;
     };
 
+  // Step 1: Validate form → send OTP → open modal
   const handleSubmit = async (e) => {
-      e.preventDefault();
+    e.preventDefault();
 
-      if (!validateForm()) return;
+    if (!validateForm()) return;
 
-      dispatch(registerStart());
-
-      // Show warning if referral code is provided but invalid
-      if (formData.referralCode && referralValidation.isValid === false) {
-        toast.error('Invalid referral code will be ignored. Registration will continue without referral bonus.', {
-          duration: 4000
-        });
-      }
-
-      try {
-        const requestData = {
-          username: formData.fullName, // Temporarily use fullName as username for production
-          fullName: formData.fullName,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          referralCode: (formData.referralCode && referralValidation.isValid === true) 
-            ? formData.referralCode 
-            : undefined // Only send referral code if it's validated as valid
-        };
-
-        // Use secure request utility to hide sensitive data
-        const data = await secureRequest.post('/api/auth/register', requestData);
-
-        if (data.success) {
-          dispatch(registerSuccess(data.data));
-          
-          // Check if welcome bonus was credited
-          if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
-            // Calculate total bonus amount (welcome + referral)
-            const totalBonusAmount = data.data.welcomeBonus.amount + (data.data.referralBonus?.received ? data.data.referralBonus.amount : 0);
-            
-            // Update wallet balance in Redux
-            dispatch(updateWalletBalance({
-              balance: totalBonusAmount,
-              totalEarned: totalBonusAmount
-            }));
-            
-            // Store welcome bonus data in localStorage for home page
-            localStorage.setItem('welcomeBonus', JSON.stringify({
-              amount: data.data.welcomeBonus.amount,
-              message: data.data.welcomeBonus.message,
-              userName: data.data.user.fullName,
-              referralBonus: data.data.referralBonus || null,
-              timestamp: Date.now()
-            }));
-            
-            toast.success('Registration successful! 🎮');
-            navigate('/');
-          } else {
-            // No welcome bonus, show regular success and redirect
-            toast.success('Sign up successful! Welcome to the arena! 🎮');
-            navigate('/');
-          }
-        } else {
-          dispatch(registerFailure(data.error));
-        }
-      } catch (error) {
-        console.error('Registration error:', error);
-        dispatch(registerFailure({
-          code: 'NETWORK_ERROR',
-          message: 'Network error. Please check your connection.'
-        }));
-      }
+    const requestData = {
+      username: formData.fullName,
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      referralCode: (formData.referralCode && referralValidation.isValid === true)
+        ? formData.referralCode
+        : undefined
     };
+
+    setIsSendingOTP(true);
+    try {
+      const otpRes = await secureRequest.post('/api/auth/send-email-otp', { email: formData.email });
+      if (otpRes.success) {
+        setPendingRequestData(requestData);
+        setShowOTPModal(true);
+        toast.success(otpRes.message || 'Verification code sent to your email! 📧');
+      } else {
+        toast.error(otpRes.error?.message || 'Failed to send OTP. Please try again.');
+      }
+    } catch {
+      toast.error('Failed to send OTP. Please check your connection.');
+    } finally {
+      setIsSendingOTP(false);
+    }
+  };
+
+  // Step 2: OTP verified → complete registration
+  const handleOTPVerified = async () => {
+    setShowOTPModal(false);
+    dispatch(registerStart());
+
+    try {
+      const data = await secureRequest.post('/api/auth/register', pendingRequestData);
+
+      if (data.success) {
+        dispatch(registerSuccess(data.data));
+
+        if (data.data.welcomeBonus && data.data.welcomeBonus.success) {
+          const totalBonusAmount = data.data.welcomeBonus.amount + (data.data.referralBonus?.received ? data.data.referralBonus.amount : 0);
+          dispatch(updateWalletBalance({ balance: totalBonusAmount, totalEarned: totalBonusAmount }));
+          localStorage.setItem('welcomeBonus', JSON.stringify({
+            amount: data.data.welcomeBonus.amount,
+            message: data.data.welcomeBonus.message,
+            userName: data.data.user.fullName,
+            referralBonus: data.data.referralBonus || null,
+            timestamp: Date.now()
+          }));
+          toast.success('Registration successful! 🎮');
+        } else {
+          toast.success('Sign up successful! Welcome to the arena! 🎮');
+        }
+        navigate('/');
+      } else {
+        dispatch(registerFailure(data.error));
+        toast.error(data.error?.message || 'Registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      dispatch(registerFailure({ code: 'NETWORK_ERROR', message: 'Network error. Please check your connection.' }));
+    }
+  };
 
   return (
     <div className="h-screen bg-gaming-dark flex items-center justify-center px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -751,11 +755,16 @@ const RegisterPage = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isSendingOTP}
               title="Create your account"
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-gaming-dark bg-gradient-neon hover:shadow-gaming focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gaming-neon disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {isLoading ? (
+              {isSendingOTP ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-dark mr-2"></div>
+                  Sending OTP...
+                </div>
+              ) : isLoading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gaming-dark mr-2"></div>
                   Creating account...
@@ -837,7 +846,13 @@ const RegisterPage = () => {
         </motion.form>
       </motion.div>
 
-
+      {showOTPModal && (
+        <EmailOTPModal
+          email={formData.email}
+          onVerified={handleOTPVerified}
+          onClose={() => setShowOTPModal(false)}
+        />
+      )}
     </div>
   );
 };

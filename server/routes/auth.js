@@ -571,25 +571,6 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       });
     }
 
-    // Block registration if email OTP has not been verified
-    const OTP = require('../models/OTP');
-    const verifiedOTP = await OTP.findOne({
-      email: email.toLowerCase(),
-      verified: true,
-      expiresAt: { $gt: new Date() }
-    });
-
-    if (!verifiedOTP) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'EMAIL_NOT_VERIFIED',
-          message: 'Please verify your email address with the OTP before registering',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
     // Phone validation - Indian mobile numbers
     if (!/^[6-9]\d{9}$/.test(phone)) {
       return res.status(400).json({
@@ -619,6 +600,26 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     const generatedUsername = generateUsername(fullName);
     console.log('✅ Generated username:', generatedUsername);
 
+    // [ANTI-BYPASS] Check if email is verified via OTP
+    const OTPModel = require('../models/OTP');
+    const verifiedOTP = await OTPModel.findOne({
+      email: email.toLowerCase(),
+      verified: true
+    });
+
+    if (!verifiedOTP) {
+      console.log('❌ Registration blocked: Email not verified for', email);
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Please verify your email address via OTP before creating an account.',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    console.log('✅ Email verification confirmed');
     console.log('✅ Basic validation passed');
 
     // Check if user already exists
@@ -656,6 +657,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
       username: generatedUsername,
       email,
       phone,
+      isEmailVerified: true,
       passwordHash: password, // Will be hashed by pre-save middleware
       gameIds: {
         steam: '',
@@ -761,9 +763,6 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     await user.save();
     console.log('✅ User saved successfully');
 
-    // Clean up the verified OTP record so it cannot be reused
-    await OTP.deleteOne({ email: email.toLowerCase(), verified: true });
-
     // AFTER SUCCESSFUL USER SAVE: Handle Wallet and Referrer rewards
     try {
       const Wallet = require('../models/Wallet');
@@ -819,9 +818,17 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
     }
 
     // Generate token
-    console.log('🔑 Generating JWT token...');
     const token = generateToken(user._id);
     console.log('✅ Token generated');
+
+    // [CLEANUP] Remove the verified OTP record so it can't be reused
+    try {
+      const OTPModel = require('../models/OTP');
+      await OTPModel.deleteMany({ email: email.toLowerCase() });
+      console.log('🧹 Verified OTP records cleared for', email);
+    } catch (cleanupError) {
+      console.error('⚠️ OTP cleanup error (non-fatal):', cleanupError);
+    }
 
     res.status(201).json({
       success: true,
