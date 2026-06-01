@@ -44,6 +44,10 @@ const referralSchema = new mongoose.Schema({
   totalCoinsEarned: {
     type: Number,
     default: 0
+  },
+  maxUses: {
+    type: Number,
+    default: 10
   }
 }, {
   timestamps: true

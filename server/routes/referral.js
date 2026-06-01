@@ -134,6 +134,16 @@ router.post('/apply', async (req, res) => {
       });
     }
 
+    if (referral.totalReferrals >= referral.maxUses) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'REFERRAL_LIMIT_REACHED',
+          message: 'This referral code has reached its maximum usage limit'
+        }
+      });
+    }
+
     // Add to referred users
     referral.referredUsers.push({
       userId: newUserId,

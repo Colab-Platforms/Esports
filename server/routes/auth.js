@@ -131,6 +131,16 @@ router.get('/validate-referral/:code', async (req, res) => {
       });
     }
 
+    if (referral.totalReferrals >= referral.maxUses) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'REFERRAL_LIMIT_REACHED',
+          message: 'This referral code has reached its maximum usage limit of 10'
+        }
+      });
+    }
+
     const referrer = referral.userId;
 
     res.json({
@@ -138,7 +148,8 @@ router.get('/validate-referral/:code', async (req, res) => {
       data: {
         isValid: true,
         referrerName: referrer ? (referrer.fullName || referrer.username) : 'A friend',
-        referralCode: referral.referralCode
+        referralCode: referral.referralCode,
+        usesRemaining: referral.maxUses - referral.totalReferrals
       }
     });
 
@@ -390,6 +401,130 @@ router.post('/reset-password', decodeSensitiveData, async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/send-email-otp
+// @desc    Generate and send a 6-digit OTP to the given email for verification
+// @access  Public
+router.post('/send-email-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_EMAIL', message: 'Please provide a valid email address' }
+      });
+    }
+
+    const OTP = require('../models/OTP');
+
+    // Delete any existing unverified OTP for this email
+    await OTP.deleteMany({ email: email.toLowerCase(), verified: false });
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await OTP.create({
+      email: email.toLowerCase(),
+      otp: otpCode,
+      expiresAt
+    });
+
+    // Optionally get username if user already exists (for email personalisation)
+    const user = await User.findOne({ email: email.toLowerCase() });
+    const username = user ? user.username : 'User';
+
+    await emailService.sendOTPEmail(email, otpCode, username);
+
+    res.json({
+      success: true,
+      message: 'OTP sent to your email address. It is valid for 10 minutes.',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to send OTP. Please try again.' }
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-email-otp
+// @desc    Verify the OTP and mark the email as verified on the user record
+// @access  Public
+router.post('/verify-email-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'MISSING_FIELDS', message: 'Email and OTP are required' }
+      });
+    }
+
+    const OTP = require('../models/OTP');
+    const record = await OTP.findOne({
+      email: email.toLowerCase(),
+      verified: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'OTP_EXPIRED', message: 'OTP has expired or does not exist. Please request a new one.' }
+      });
+    }
+
+    // Allow at most 3 wrong attempts before invalidating the OTP
+    if (record.attempts >= 3) {
+      await OTP.deleteOne({ _id: record._id });
+      return res.status(400).json({
+        success: false,
+        error: { code: 'OTP_MAX_ATTEMPTS', message: 'Too many incorrect attempts. Please request a new OTP.' }
+      });
+    }
+
+    if (record.otp !== otp.toString()) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_OTP',
+          message: 'Incorrect OTP',
+          attemptsLeft: 3 - record.attempts
+        }
+      });
+    }
+
+    // OTP correct — mark as verified and clean up
+    record.verified = true;
+    await record.save();
+
+    // If a user account exists for this email, flip isEmailVerified
+    await User.updateOne(
+      { email: email.toLowerCase() },
+      { isEmailVerified: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully.',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to verify OTP. Please try again.' }
+    });
+  }
+});
+
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
@@ -569,7 +704,7 @@ router.post('/register', decodeSensitiveData, async (req, res) => {
         const Referral = require('../models/Referral');
         const referral = await Referral.findOne({ referralCode: referralCode.toUpperCase() });
 
-        if (referral) {
+        if (referral && referral.totalReferrals < referral.maxUses) {
           const { CoinConfig } = require('../models/CoinConfig');
           const referrerConfig = await CoinConfig.findOne({ key: 'referrer_reward' });
           const refereeConfig = await CoinConfig.findOne({ key: 'referee_reward' });
