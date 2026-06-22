@@ -82,6 +82,13 @@ class ApiService {
             url,
             method: config.method
           });
+          
+          // ✅ For registration errors with error codes, return the data object
+          // This allows proper error handling in components (e.g., showing conflicting players)
+          if (data.error?.code === 'PLAYER_ALREADY_REGISTERED') {
+            return data; // Return full response with error details
+          }
+          
           throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
         }
 
