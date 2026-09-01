@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiTwitter, FiInstagram, FiYoutube, FiMail } from 'react-icons/fi';
+import { FiInstagram, FiYoutube, FiMail } from 'react-icons/fi';
+import { FaXTwitter, FaFacebook, FaRedditAlien, FaDiscord } from 'react-icons/fa6';
 
 const Footer = () => {
   // Environment indicator
@@ -35,16 +36,25 @@ const Footer = () => {
               Win real money prizes and climb the leaderboards.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
-                <FiTwitter className="w-5 h-5" />
+              <a href="https://x.com/colabesports" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+                <FaXTwitter className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+              <a href="https://www.instagram.com/colabesports/" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FiInstagram className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+              <a href="https://www.youtube.com/@ColabEsports" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FiYoutube className="w-5 h-5" />
               </a>
-              <a href="#" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+              <a href="https://www.facebook.com/profile.php?id=61577401352848" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+                <FaFacebook className="w-5 h-5" />
+              </a>
+              <a href="https://www.reddit.com/user/Colab_Esports/" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+                <FaRedditAlien className="w-5 h-5" />
+              </a>
+              <a href="https://discord.gg/ug3vMxhPdQ" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+                <FaDiscord className="w-5 h-5" />
+              </a>
+              <a href="mailto:Colabesports@gmail.com" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FiMail className="w-5 h-5" />
               </a>
             </div>
