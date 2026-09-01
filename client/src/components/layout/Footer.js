@@ -54,9 +54,23 @@ const Footer = () => {
               <a href="https://discord.gg/ug3vMxhPdQ" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FaDiscord className="w-5 h-5" />
               </a>
-              <a href="mailto:Colabesports@gmail.com" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
+              {/* <a href="mailto:Colabesports@gmail.com" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FiMail className="w-5 h-5" />
-              </a>
+              </a> */}
+            </div>
+
+            <div>
+              <p className="text-gray-400 text-sm mt-4">
+                For inquiries,<br/> Email us at: 
+                <a href="#'" className="text-gaming-neon hover:underline ml-1">
+                  Colabesports@gmail.com
+                </a>
+                <p> Contact us:
+                  <a href="#" className="text-gaming-neon hover:underline ml-1">
+                     +91 8976968901
+                  </a>
+                </p>
+              </p>
             </div>
           </div>
 

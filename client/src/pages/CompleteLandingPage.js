@@ -1411,7 +1411,7 @@ const CompleteLandingPage = () => {
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-10 rounded-xl filter blur-xl transition-opacity`}></div>
                 
-                <div className="relative bg-gaming-charcoal border-2 border-gray-700 group-hover:border-gaming-gold/50 rounded-xl p-6 transition-all h-80 flex flex-col">
+                <div className="relative bg-gaming-charcoal border-2   rounded-xl p-6 transition-all h-80 flex flex-col">
                   <motion.div
                     whileHover={{ rotate: [0, -10, 10, -10, 0], scale: 1.2 }}
                     className="text-5xl mb-4"
@@ -1788,10 +1788,10 @@ const CompleteLandingPage = () => {
             <div className="hidden md:block overflow-hidden rounded-3xl">
               <motion.div
                 className="flex"
-                animate={{ 
-                  x: ['0%', '-33.33%', '-66.66%', '0%']
+                animate={{
+                  x: ['0%', '-100%']
                 }}
-                transition={{ 
+                transition={{
                   duration: 12,
                   repeat: Infinity,
                   ease: "linear"
