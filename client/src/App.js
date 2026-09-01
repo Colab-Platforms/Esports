@@ -57,6 +57,7 @@ import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
 import WinnerRewardPanel from './pages/admin/WinnerRewardPanel';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import BGMIPage from './pages/BGMIPage';
 import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
@@ -907,9 +908,24 @@ function App() {
               } 
             />
             
+            {/* Legal Routes */}
+            <Route
+              path="/privacy"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <PrivacyPolicyPage />
+                </motion.div>
+              }
+            />
+
             {/* 404 Route */}
-            <Route 
-              path="*" 
+            <Route
+              path="*"
               element={
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
