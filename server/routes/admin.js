@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Wallet = require('../models/Wallet');
 const PaymentService = require('../services/paymentService');
+const whatsappService = require('../services/whatsappService');
 
 // Admin authentication middleware
 const isAdmin = async (req, res, next) => {
@@ -298,6 +299,44 @@ router.post('/users/:userId/wallet/adjust', auth, isAdmin, async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/admin/tournaments/:tournamentId/announce
+// @desc    Manually (re)trigger WhatsApp bulk announcement for a tournament
+// @access  Private (Admin)
+router.post('/tournaments/:tournamentId/announce', auth, adminAuth, async (req, res) => {
+  try {
+    const { tournamentId } = req.params;
+
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tournament not found'
+      });
+    }
+
+    if (!['bgmi', 'freefire'].includes(tournament.gameType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tournament announcements are only supported for BGMI and Free Fire tournaments'
+      });
+    }
+
+    const eligibleUsers = await whatsappService.getEligibleUsersForGame(tournament.gameType);
+    const result = await whatsappService.sendTournamentAnnouncementBulk(eligibleUsers, tournament);
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Tournament announcement sent: ${result.sent}/${result.total} delivered`
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
       message: error.message
     });

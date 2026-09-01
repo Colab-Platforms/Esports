@@ -4,13 +4,30 @@ const whatsAppMessageSchema = new mongoose.Schema({
   registrationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'TournamentRegistration',
-    required: [true, 'Registration ID is required']
+    // Not tied to a registration for bulk tournament_announcement messages
+    required: function() {
+      return this.messageType !== 'tournament_announcement';
+    }
   },
-  
+
+  // Set for tournament_announcement messages (the tournament being announced)
+  tournamentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tournament',
+    default: null
+  },
+
+  // Set for tournament_announcement messages (the recipient user)
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+
   // Message Details
   messageType: {
     type: String,
-    enum: ['registration_success', 'verification_approved', 'verification_rejected', 'tournament_update', 'admin_message', 'text_received', 'text_sent', 'image_received'],
+    enum: ['registration_success', 'verification_approved', 'verification_rejected', 'tournament_update', 'admin_message', 'text_received', 'text_sent', 'image_received', 'tournament_announcement'],
     required: [true, 'Message type is required']
   },
   
@@ -125,6 +142,7 @@ whatsAppMessageSchema.index({ messageType: 1 });
 whatsAppMessageSchema.index({ status: 1 });
 whatsAppMessageSchema.index({ recipientPhone: 1 });
 whatsAppMessageSchema.index({ queuedAt: 1 });
+whatsAppMessageSchema.index({ tournamentId: 1 });
 
 // Virtual for delivery duration
 whatsAppMessageSchema.virtual('deliveryDuration').get(function() {

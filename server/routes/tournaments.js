@@ -6,6 +6,7 @@ const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const WalletService = require('../services/walletService');
 const redisService = require('../services/redisService');
+const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -1136,6 +1137,18 @@ router.post('/', auth, [
 
     const tournament = new Tournament(tournamentData);
     await tournament.save();
+
+    // Notify past players of this game about the new tournament (non-blocking)
+    if (tournament.gameType === 'bgmi' || tournament.gameType === 'freefire') {
+      setImmediate(async () => {
+        try {
+          const eligibleUsers = await whatsappService.getEligibleUsersForGame(tournament.gameType);
+          await whatsappService.sendTournamentAnnouncementBulk(eligibleUsers, tournament);
+        } catch (announceError) {
+          console.error('❌ Tournament announcement bulk send failed:', announceError);
+        }
+      });
+    }
 
     await tournament.populate('createdBy', 'username avatarUrl');
 

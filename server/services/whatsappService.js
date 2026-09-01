@@ -1,5 +1,8 @@
 const axios = require('axios');
 const WhatsAppMessage = require('../models/WhatsAppMessage');
+const Tournament = require('../models/Tournament');
+const TournamentRegistration = require('../models/TournamentRegistration');
+const User = require('../models/User');
 
 class WhatsAppService {
   constructor() {
@@ -15,7 +18,9 @@ class WhatsAppService {
       registration_success: 'game_greeting', // Registration successful message
       verification_approved: 'verified', // Verification approved message
       verification_rejected: 'not_eligible', // Verification rejected message
-      tournament_update: 'pending' // Tournament update message
+      tournament_update: 'pending', // Tournament update message
+      tournament_announcement_bgmi: 'bgmi_new_tournament', // New BGMI tournament announcement
+      tournament_announcement_freefire: 'freefire_new_tournament' // New Free Fire tournament announcement
     };
     
     // Rate limiting
@@ -511,6 +516,117 @@ Contact support if you need help.`;
   }
 
   /**
+   * Find users eligible for a new-tournament announcement: previously registered
+   * for a past tournament of this gameType, has a usable phone number, and has
+   * opted into tournament notifications.
+   * @param {string} gameType - 'bgmi' or 'freefire'
+   * @returns {Array} - Lean user docs ({_id, username, phone})
+   */
+  async getEligibleUsersForGame(gameType) {
+    try {
+      const tournaments = await Tournament.find({ gameType }).select('_id').lean();
+      const tournamentIds = tournaments.map(t => t._id);
+
+      if (tournamentIds.length === 0) {
+        return [];
+      }
+
+      const userIds = await TournamentRegistration.find({
+        tournamentId: { $in: tournamentIds }
+      }).distinct('userId');
+
+      if (userIds.length === 0) {
+        return [];
+      }
+
+      const users = await User.find({
+        _id: { $in: userIds },
+        phone: { $exists: true, $ne: '' },
+        'preferences.notifications.tournaments': true
+      }).select('_id username phone').lean();
+
+      return users;
+    } catch (error) {
+      console.error('❌ getEligibleUsersForGame error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Send a new-tournament announcement to a batch of users
+   * @param {Array} users - User docs ({_id, phone, username})
+   * @param {Object} tournament - Tournament document
+   * @returns {Object} - { total, sent, failed }
+   */
+  async sendTournamentAnnouncementBulk(users, tournament) {
+    const results = { total: users.length, sent: 0, failed: 0 };
+
+    const templateName = tournament.gameType === 'bgmi'
+      ? this.templates.tournament_announcement_bgmi
+      : this.templates.tournament_announcement_freefire;
+
+    if (!templateName) {
+      console.warn(`⚠️ No announcement template configured for gameType: ${tournament.gameType}`);
+      return results;
+    }
+
+    const prizePoolText = `₹${tournament.prizePool}`;
+    const startDateText = tournament.startDate
+      ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'TBD';
+
+    console.log(`📢 Starting tournament announcement bulk send: ${users.length} users, template=${templateName}`);
+
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+
+      try {
+        const result = await this.sendTemplateMessage(
+          user.phone,
+          templateName,
+          [tournament.name, prizePoolText, startDateText]
+        );
+
+        await WhatsAppMessage.create({
+          messageType: 'tournament_announcement',
+          tournamentId: tournament._id,
+          userId: user._id,
+          recipientPhone: user.phone,
+          templateName,
+          templateParams: new Map([
+            ['tournament_name', tournament.name],
+            ['prize_pool', prizePoolText],
+            ['start_date', startDateText]
+          ]),
+          messageContent: `New ${tournament.gameType.toUpperCase()} tournament: ${tournament.name}`,
+          // Left 'queued' on failure so the periodic queue processor retries it
+          status: result.success ? 'sent' : 'queued',
+          whatsappMessageId: result.messageId || null,
+          sentAt: result.success ? new Date() : null,
+          errorMessage: result.success ? null : result.error
+        });
+
+        if (result.success) {
+          results.sent++;
+        } else {
+          results.failed++;
+        }
+      } catch (error) {
+        console.error(`❌ Tournament announcement failed for user ${user._id}:`, error.message);
+        results.failed++;
+      }
+
+      // Respect Meta rate limits between messages
+      if (i < users.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    console.log(`📢 Tournament announcement bulk send complete: ${results.sent} sent, ${results.failed} failed of ${results.total}`);
+    return results;
+  }
+
+  /**
    * Process queued WhatsApp messages
    * This should be called periodically by a cron job
    */
@@ -566,6 +682,19 @@ Contact support if you need help.`;
                 rejectedParams.get('team_name'),
                 rejectedParams.get('tournament_name'),
                 rejectedParams.get('rejection_reason')
+              );
+              break;
+
+            case 'tournament_announcement':
+              const announceParams = message.templateParams;
+              result = await this.sendTemplateMessage(
+                message.recipientPhone,
+                message.templateName,
+                [
+                  announceParams.get('tournament_name'),
+                  announceParams.get('prize_pool'),
+                  announceParams.get('start_date')
+                ]
               );
               break;
 
