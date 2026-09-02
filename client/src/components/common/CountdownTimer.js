@@ -4,12 +4,13 @@ import { motion } from 'framer-motion';
 const CountdownTimer = ({
   targetDate,
   onComplete,
-  format = 'full', // 'full', 'compact', 'minimal'
+  format = 'full', // 'full', 'compact', 'minimal', 'boxed'
   size = 'md',
   showLabels = true,
   className = '',
   completedLabel = 'EXPIRED',
-  completedTone = 'red' // 'red' | 'green'
+  completedTone = 'red', // 'red' | 'green'
+  eyebrow = '' // optional small label shown before the boxed cells, e.g. "Starts in"
 }) => {
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
@@ -96,6 +97,49 @@ const CountdownTimer = ({
           {totalHours > 0 && `${totalHours}h `}
           {formatNumber(timeLeft.minutes)}m {formatNumber(timeLeft.seconds)}s
         </span>
+      </div>
+    );
+  }
+
+  if (format === 'boxed') {
+    const cells = [
+      { value: timeLeft.days, label: 'Days' },
+      { value: timeLeft.hours, label: 'Hrs' },
+      { value: timeLeft.minutes, label: 'Min' },
+      { value: timeLeft.seconds, label: 'Sec' }
+    ];
+
+    const boxedSizeClasses = {
+      sm: { eyebrow: 'text-[10px] mb-1.5', cell: 'px-2.5 py-1.5 min-w-[44px]', num: 'text-lg', label: 'text-[8px] mt-0.5', colon: 'text-base' },
+      md: { eyebrow: 'text-[11px] mb-2', cell: 'px-3 py-2 min-w-[56px]', num: 'text-2xl', label: 'text-[9px] mt-1', colon: 'text-xl' },
+      lg: { eyebrow: 'text-xs mb-3', cell: 'px-4 py-3 sm:px-5 sm:py-4 min-w-[64px] sm:min-w-[80px]', num: 'text-3xl sm:text-5xl', label: 'text-[10px] sm:text-xs mt-1.5', colon: 'text-2xl sm:text-4xl' }
+    };
+    const boxedSize = boxedSizeClasses[size] || boxedSizeClasses.md;
+
+    return (
+      <div className={`flex flex-col items-center ${className}`}>
+        {eyebrow && (
+          <span className={`text-gaming-gold font-gaming font-bold uppercase tracking-[0.15em] ${boxedSize.eyebrow}`}>
+            {eyebrow}
+          </span>
+        )}
+        <div className="flex items-center">
+          {cells.map((cell, index) => (
+            <React.Fragment key={cell.label}>
+              {index > 0 && (
+                <span className={`text-gaming-gold/60 font-gaming font-bold mx-1.5 sm:mx-2.5 ${boxedSize.colon}`}>:</span>
+              )}
+              <div className={`bg-black/45 backdrop-blur-sm border border-gaming-gold/35 rounded-lg text-center ${boxedSize.cell}`}>
+                <div className={`text-gaming-gold font-gaming font-bold text-glow-gold leading-none ${boxedSize.num}`}>
+                  {formatNumber(cell.value)}
+                </div>
+                <div className={`text-gray-400 uppercase tracking-wider ${boxedSize.label}`}>
+                  {cell.label}
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     );
   }

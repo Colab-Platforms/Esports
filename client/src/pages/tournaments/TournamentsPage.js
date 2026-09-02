@@ -230,7 +230,7 @@ const TournamentsPage = () => {
   return (
     <div className="min-h-screen bg-gaming-dark">
       {/* Hero Banner Carousel - live countdown to each admin-featured tournament */}
-      <section className="relative h-80 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+      <section className="relative h-[420px] sm:h-[460px] overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
         {bannerTournaments.length > 0 && bannerTournaments[currentBanner] ? (
           <>
           {(() => {
@@ -259,28 +259,32 @@ const TournamentsPage = () => {
                   {/* Scrim so text stays legible over any banner image */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
 
-                  <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-16">
-                    <div className="flex items-center gap-2 mb-2">
-                      <GameIcon gameType={tournament.gameType} size="sm" />
-                      <span className="text-xs font-gaming font-bold uppercase tracking-wider text-gaming-gold">
-                        {tournament.gameType}
-                      </span>
-                    </div>
-                    <h2 className="text-2xl md:text-3xl font-gaming font-bold text-white mb-3 max-w-2xl">
-                      {tournament.name}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-4">
-                      <CountdownTimer
-                        targetDate={tournament.startDate}
-                        format="compact"
-                        size="md"
-                        completedLabel="LIVE NOW"
-                        completedTone="green"
-                        onComplete={() => dispatch(fetchBannerTournaments())}
-                      />
+                  <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-6 sm:gap-8">
+                    <CountdownTimer
+                      targetDate={tournament.startDate}
+                      format="boxed"
+                      size="lg"
+                      eyebrow="Starts in"
+                      completedLabel="LIVE NOW"
+                      completedTone="green"
+                      onComplete={() => dispatch(fetchBannerTournaments())}
+                    />
+
+                    <div className="w-full max-w-2xl flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <GameIcon gameType={tournament.gameType} size="sm" />
+                          <span className="text-xs font-gaming font-bold uppercase tracking-wider text-gaming-gold">
+                            {tournament.gameType}
+                          </span>
+                        </div>
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-gaming font-bold text-white truncate">
+                          {tournament.name}
+                        </h2>
+                      </div>
                       <Link
                         to={`/tournaments/${tournament._id}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-gaming-gold text-black rounded-lg font-gaming font-bold text-sm hover:bg-gaming-accent transition-colors"
+                        className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-gaming-gold text-black rounded-lg font-gaming font-bold text-sm hover:bg-gaming-accent transition-colors"
                       >
                         View Tournament
                         <FiArrowRight className="h-4 w-4" />

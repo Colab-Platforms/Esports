@@ -40,6 +40,7 @@ const TournamentManagement = () => {
       registrationDeadline: '',
       rules: '',
       status: 'registration_open',
+      featured: false,
       roomDetails: {
         cs2: {
           serverName: '',
@@ -320,6 +321,7 @@ const TournamentManagement = () => {
       })() : '',
       rules: tournament.rules || '',
       status: tournament.status || 'registration_open',
+      featured: tournament.featured || false,
       // CS2 server details
       roomDetails: {
         cs2: {
@@ -437,6 +439,7 @@ const TournamentManagement = () => {
                 registrationDeadline: '',
                 rules: '',
                 status: 'registration_open',
+                featured: false,
                 roomDetails: {
                   cs2: {
                     serverName: '',
@@ -495,6 +498,7 @@ const TournamentManagement = () => {
                   registrationDeadline: '',
                   rules: '',
                   status: 'registration_open',
+                  featured: false,
                   roomDetails: {
                     cs2: {
                       serverName: '',
@@ -1146,6 +1150,24 @@ const TournamentManagement = () => {
                       </>
                     )}
                   </select>
+                </div>
+
+                {/* Featured on Tournament Banner */}
+                <div className="bg-gaming-slate/30 border border-gaming-slate rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('featured')}
+                      id="tournament-featured"
+                      className="w-4 h-4 rounded border-gray-600 text-gaming-neon focus:ring-gaming-neon"
+                    />
+                    <label htmlFor="tournament-featured" className="text-sm font-medium text-gray-300">
+                      Feature on Tournaments page banner
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Shows this tournament with a live countdown in the banner carousel while it's upcoming or open for registration.
+                  </p>
                 </div>
 
                 {/* CS2 Specific Fields */}
