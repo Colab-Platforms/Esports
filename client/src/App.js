@@ -215,10 +215,12 @@ function App() {
     };
   }, []);
 
+  const userId = user?.id || user?._id;
+
   useEffect(() => {
     // Initialize socket connection if authenticated
-    if (isAuthenticated && user) {
-      initializeSocket(user.id, dispatch);
+    if (isAuthenticated && userId) {
+      initializeSocket(userId, dispatch);
       
       // Initialize notification service
       notificationService.init(dispatch);
@@ -235,7 +237,7 @@ function App() {
       disconnectSocket();
       notificationService.stopTournamentMonitoring();
     };
-  }, [isAuthenticated, user, dispatch]);
+  }, [isAuthenticated, userId, dispatch]);
 
   // Show splash screen on first load only
   if (showSplash) {

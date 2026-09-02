@@ -3,6 +3,10 @@ import { io } from 'socket.io-client';
 let socket = null;
 
 export const initializeSocket = (userId, dispatch) => {
+  if (socket && socket.connected && socket.currentUserId === userId) {
+    return socket;
+  }
+
   if (socket) {
     socket.disconnect();
   }
@@ -12,6 +16,8 @@ export const initializeSocket = (userId, dispatch) => {
       userId
     }
   });
+
+  socket.currentUserId = userId;
 
   socket.on('connect', () => {
     console.log('🔌 Connected to server');
