@@ -68,11 +68,7 @@ class ApiService {
           localStorage.removeItem('user');
           localStorage.removeItem('userId');
 
-<<<<<<< Updated upstream
           // Only redirect if NOT already on login page to prevent infinite refresh loop
-=======
-          // Only redirect if not already on login page to prevent infinite reload loop
->>>>>>> Stashed changes
           if (!window.location.pathname.startsWith('/login')) {
             const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
             window.location.href = `/login?${reason}=true`;
