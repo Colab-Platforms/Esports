@@ -119,6 +119,11 @@ class NotificationService {
     // Create toast element
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-gaming-card border border-gaming-neon rounded-lg p-4 shadow-lg z-50 max-w-sm transform translate-x-full transition-transform duration-300';
+    
+    const messageContent = notification.isHtml 
+      ? notification.message 
+      : `<p class="text-sm text-gray-300 mt-1">${notification.message}</p>`;
+    
     toast.innerHTML = `
       <div class="flex items-start space-x-3">
         <div class="flex-shrink-0">
@@ -128,7 +133,7 @@ class NotificationService {
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white">${notification.title}</p>
-          <p class="text-sm text-gray-300 mt-1">${notification.message}</p>
+          ${messageContent}
           <div class="mt-2 flex space-x-2">
             ${notification.actionUrl ? `<button class="text-xs text-gaming-neon hover:text-gaming-neon/80 font-medium" onclick="window.location.href='${notification.actionUrl}'">View</button>` : ''}
             <button class="text-xs text-gray-400 hover:text-gray-300" onclick="this.closest('.fixed').remove()">
@@ -172,7 +177,7 @@ class NotificationService {
   }
 
   // Show custom notification
-  showCustomNotification(type, title, message, actionUrl = null) {
+  showCustomNotification(type, title, message, actionUrl = null, isHtml = false) {
     if (!this.dispatch) return;
 
     const notification = {
@@ -182,7 +187,8 @@ class NotificationService {
       message,
       isRead: false,
       createdAt: new Date().toISOString(),
-      actionUrl
+      actionUrl,
+      isHtml
     };
 
     this.dispatch(addNotification(notification));

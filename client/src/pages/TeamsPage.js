@@ -51,7 +51,7 @@ const TeamsPage = () => {
   const games = [
     { id: 'all', name: 'All Games' },
     { id: 'bgmi', name: 'BGMI' },
-    { id: 'cs2', name: 'CS2' },
+    // { id: 'cs2', name: 'CS2' },
     { id: 'valorant', name: 'Valorant' }
   ];
 

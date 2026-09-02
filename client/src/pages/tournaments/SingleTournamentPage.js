@@ -713,11 +713,11 @@ const SingleTournamentPage = () => {
             console.log('❌ Conflicting players:', err.conflictingPlayers);
             if (err.code === 'PLAYER_ALREADY_REGISTERED') {
               const playerLines = (err.conflictingPlayers || [])
-                .map(p => `• ${p.playerName} (UID: ${p.freeFireId || p.bgmiId}) in team: ${p.existingTeam}`)
-                .join('\n');
-              const msg = `These players are already registered:\n${playerLines}`;
+                .map(p => `<div class="ml-4 mt-1">• <span class="text-yellow-400">${p.playerName}</span> <span class="text-gray-400">(UID: ${p.freeFireId || p.bgmiId})</span> in team: <span class="text-yellow-400">${p.existingTeam}</span></div>`)
+                .join('');
+              const msg = `<div class="text-red-400 font-semibold mb-2">These players are already registered:</div>${playerLines}`;
               console.log('❌ Showing conflict notification:', msg);
-              notificationService.showCustomNotification("error", "Registration Failed", msg);
+              notificationService.showCustomNotification("error", "Registration Failed", msg, null, true);
               setRegistering(false);
               return;
             }
@@ -768,11 +768,11 @@ const SingleTournamentPage = () => {
             console.log('❌ Conflicting players:', err.conflictingPlayers);
             if (err.code === 'PLAYER_ALREADY_REGISTERED') {
               const playerLines = (err.conflictingPlayers || [])
-                .map(p => `• ${p.playerName} (UID: ${p.freeFireId || p.bgmiId}) in team: ${p.existingTeam}`)
-                .join('\n');
-              const msg = `These players are already registered:\n${playerLines}`;
+                .map(p => `<div class="ml-4 mt-1">• <span class="text-yellow-400">${p.playerName}</span> <span class="text-gray-400">(UID: ${p.freeFireId || p.bgmiId})</span> in team: <span class="text-yellow-400">${p.existingTeam}</span></div>`)
+                .join('');
+              const msg = `<div class="text-red-400 font-semibold mb-2">These players are already registered:</div>${playerLines}`;
               console.log('❌ Showing conflict notification:', msg);
-              notificationService.showCustomNotification("error", "Registration Failed", msg);
+              notificationService.showCustomNotification("error", "Registration Failed", msg, null, true);
               setRegistering(false);
               return;
             }

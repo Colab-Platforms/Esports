@@ -281,15 +281,27 @@ class WhatsAppService {
    * @param {string} phoneNumber - Recipient phone number
    * @param {string} teamName - Team name
    * @param {string} tournamentName - Tournament name
+   * @param {string} gameType - Game type (bgmi/freefire) for image selection
    * @returns {Object} - Send result
    */
-  async sendRegistrationSuccess(phoneNumber, teamName, tournamentName) {
+  async sendRegistrationSuccess(phoneNumber, teamName, tournamentName, gameType = 'bgmi') {
     try {
       console.log('📱 Sending registration success message:', {
         phone: phoneNumber,
         team: teamName,
-        tournament: tournamentName
+        tournament: tournamentName,
+        gameType: gameType
       });
+
+      // Select image based on game type
+      const gameImages = {
+        bgmi: process.env.WHATSAPP_BGMI_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Battleground_Mobile_India.webp?v=1782124493',
+        freefire: process.env.WHATSAPP_FREEFIRE_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775740198940.jpg?v=1775740788'
+      };
+
+      const headerImage = gameImages[gameType.toLowerCase()] || gameImages.bgmi;
+
+      console.log(`🎮 Using ${gameType.toUpperCase()} image:`, headerImage);
 
       // Try template with header image (like your working code)
       let result;
@@ -300,7 +312,7 @@ class WhatsAppService {
           this.templates.registration_success,
           [], // No body parameters for game_greeting
           {
-            headerImage: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775740198940.jpg?v=1775740788'
+            headerImage: headerImage
           }
         );
         
@@ -317,7 +329,7 @@ Team: ${teamName}
 Tournament: ${tournamentName}
 
 📸 Next Step: Send 8 verification images via WhatsApp:
-• 2 images per player (ID proof + BGMI screenshot)
+• 2 images per player (ID proof + Game screenshot)
 • Send images one by one to this number
 • We'll automatically organize them by player
 
@@ -539,10 +551,12 @@ Contact support if you need help.`;
           switch (message.messageType) {
             case 'registration_success':
               const regParams = message.templateParams;
+              const gameType = regParams.get('game_type') || 'bgmi'; // Get game type from params
               result = await this.sendRegistrationSuccess(
                 message.recipientPhone,
                 regParams.get('team_name'),
-                regParams.get('tournament_name')
+                regParams.get('tournament_name'),
+                gameType // Pass game type
               );
               break;
 

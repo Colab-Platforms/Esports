@@ -87,6 +87,7 @@ function checkValidServiceWorker(swUrl, config) {
           });
         }
       } else {
+        sessionStorage.removeItem('sw-reload-attempted');
         registerValidSW(swUrl, config);
       }
     })

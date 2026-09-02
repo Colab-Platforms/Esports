@@ -308,23 +308,25 @@ router.post('/:tournamentId/register', auth, [
 
     // Send WhatsApp "Registration Successful" message
     try {
-      // Create message record in database
+      // Create message record in database with game type
       await WhatsAppMessage.createRegistrationSuccessMessage(
         registration._id,
         whatsappNumber,
         teamName,
-        tournament.name
+        tournament.name,
+        'bgmi' // Pass game type
       );
 
-      // Send WhatsApp message immediately
+      // Send WhatsApp message immediately with BGMI image
       const whatsappResult = await whatsappService.sendRegistrationSuccess(
         whatsappNumber,
         teamName,
-        tournament.name
+        tournament.name,
+        'bgmi' // Pass game type for BGMI image
       );
 
       if (whatsappResult.success) {
-        console.log('✅ WhatsApp registration success message sent');
+        console.log('✅ WhatsApp registration success message sent with BGMI image');
       } else {
         console.error('❌ WhatsApp message send failed:', whatsappResult.error);
       }

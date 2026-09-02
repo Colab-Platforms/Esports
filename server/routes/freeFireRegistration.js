@@ -292,21 +292,25 @@ router.post('/:tournamentId/register', auth, [
 
     // Send WhatsApp "Registration Successful" message
     try {
+      // Create message record in database with game type
       await WhatsAppMessage.createRegistrationSuccessMessage(
         registration._id,
         whatsappNumber,
         teamName,
-        tournament.name
+        tournament.name,
+        'freefire' // Pass game type
       );
 
+      // Send WhatsApp message immediately with FreeFire image
       const whatsappResult = await whatsappService.sendRegistrationSuccess(
         whatsappNumber,
         teamName,
-        tournament.name
+        tournament.name,
+        'freefire' // Pass game type for FreeFire image
       );
 
       if (whatsappResult.success) {
-        console.log('✅ WhatsApp registration success message sent');
+        console.log('✅ WhatsApp registration success message sent with FreeFire image');
       } else {
         console.error('❌ WhatsApp message send failed:', whatsappResult.error);
       }

@@ -179,7 +179,7 @@ whatsAppMessageSchema.methods.canRetry = function() {
 };
 
 // Static method to create registration success message
-whatsAppMessageSchema.statics.createRegistrationSuccessMessage = function(registrationId, recipientPhone, teamName, tournamentName) {
+whatsAppMessageSchema.statics.createRegistrationSuccessMessage = function(registrationId, recipientPhone, teamName, tournamentName, gameType = 'bgmi') {
   const messageContent = `🎮 Registration Successful! 
 
 Team: ${teamName}
@@ -199,7 +199,8 @@ Good luck! 🏆`;
     templateName: 'registration_success',
     templateParams: new Map([
       ['team_name', teamName],
-      ['tournament_name', tournamentName]
+      ['tournament_name', tournamentName],
+      ['game_type', gameType] // Store game type for queue processing
     ]),
     messageContent
   });
