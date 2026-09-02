@@ -99,6 +99,35 @@ export const fetchTournaments = createAsyncThunk(
   }
 );
 
+// Fetches the admin-featured, upcoming/registration-open tournaments used by the
+// tournaments-page banner carousel. Kept separate from fetchTournaments so the
+// banner's poll cycle and the grid's filtered fetch never cancel one another.
+export const fetchBannerTournaments = createAsyncThunk(
+  'tournaments/fetchBannerTournaments',
+  async (_, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams({
+        featured: 'true',
+        status: 'upcoming,registration_open',
+        limit: '10'
+      });
+
+      const response = await axiosInstance.get(`/api/tournaments?${params}`);
+      const tournaments = (response.data.data.tournaments || [])
+        .filter(t => t.startDate)
+        .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+        .slice(0, 5);
+
+      return tournaments;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || {
+        code: 'FETCH_FAILED',
+        message: 'Failed to fetch banner tournaments'
+      });
+    }
+  }
+);
+
 export const fetchTournamentById = createAsyncThunk(
   'tournaments/fetchTournamentById',
   async (tournamentId, { rejectWithValue, getState }) => {
@@ -152,6 +181,11 @@ const initialState = {
     limit: 12,
     total: 0,
     totalPages: 0
+  },
+  bannerTournaments: {
+    items: [],
+    isLoading: false,
+    error: null
   }
 };
 
@@ -271,7 +305,25 @@ const tournamentSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload;
       })
-      
+
+      // Fetch banner tournaments (tournaments-page carousel)
+      .addCase(fetchBannerTournaments.pending, (state) => {
+        // Only show a loading flag on the very first load - later polls should
+        // never blank out slides that are already on screen.
+        if (state.bannerTournaments.items.length === 0) {
+          state.bannerTournaments.isLoading = true;
+        }
+        state.bannerTournaments.error = null;
+      })
+      .addCase(fetchBannerTournaments.fulfilled, (state, action) => {
+        state.bannerTournaments.isLoading = false;
+        state.bannerTournaments.items = action.payload;
+      })
+      .addCase(fetchBannerTournaments.rejected, (state, action) => {
+        state.bannerTournaments.isLoading = false;
+        state.bannerTournaments.error = action.payload;
+      })
+
       // Fetch tournament by ID
       .addCase(fetchTournamentById.pending, (state) => {
         state.isLoading = true;
@@ -338,6 +390,8 @@ export const selectTournamentFilters = (state) => state.tournaments.filters;
 export const selectTournamentLoading = (state) => state.tournaments.isLoading;
 export const selectTournamentError = (state) => state.tournaments.error;
 export const selectTournamentPagination = (state) => state.tournaments.pagination;
+export const selectBannerTournaments = (state) => state.tournaments.bannerTournaments.items;
+export const selectBannerTournamentsLoading = (state) => state.tournaments.bannerTournaments.isLoading;
 
 // Filtered tournaments selector
 export const selectFilteredTournaments = (state) => {

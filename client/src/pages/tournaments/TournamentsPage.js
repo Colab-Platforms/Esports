@@ -2,18 +2,24 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
 import GameIcon from '../../components/common/GameIcon';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import CountdownTimer from '../../components/common/CountdownTimer';
 import TournamentCardProfessional from '../../components/tournaments/TournamentCardProfessional';
-import imageService from '../../services/imageService';
-import { 
-  fetchTournaments, 
-  selectTournaments, 
-  selectTournamentLoading, 
+import {
+  fetchTournaments,
+  selectTournaments,
+  selectTournamentLoading,
   selectTournamentError,
-  selectTournamentPagination
+  selectTournamentPagination,
+  fetchBannerTournaments,
+  selectBannerTournaments
 } from '../../store/slices/tournamentSlice';
+
+// How often the banner re-polls for newly-featured tournaments while the tab is visible.
+const BANNER_POLL_INTERVAL_MS = 45000;
+const BANNER_AUTO_ADVANCE_MS = 8000;
 
 const TournamentsPage = () => {
   const dispatch = useDispatch();
@@ -21,65 +27,69 @@ const TournamentsPage = () => {
   const loading = useSelector(selectTournamentLoading);
   const error = useSelector(selectTournamentError);
   const pagination = useSelector(selectTournamentPagination);
-  
+  const bannerTournaments = useSelector(selectBannerTournaments);
+
   const [currentBanner, setCurrentBanner] = useState(0);
   const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [siteImages, setSiteImages] = useState({});
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6; // 6 tournaments per page
 
-  // Fetch site images for banners (uses cached data if available)
+  // Fetch admin-featured tournaments for the banner carousel, then keep polling
+  // so a newly-published tournament shows up without a manual refresh. Polling
+  // pauses while the tab isn't visible to avoid wasted requests.
   useEffect(() => {
-    const fetchSiteImages = async () => {
-      const result = await imageService.getAllImages();
-      if (result.success) {
-        setSiteImages(result.data);
+    dispatch(fetchBannerTournaments());
+
+    let intervalId = null;
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        dispatch(fetchBannerTournaments());
+      }, BANNER_POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
       }
     };
-    fetchSiteImages();
-  }, []);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        dispatch(fetchBannerTournaments());
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
 
-  // handleImageUpdate removed - banners managed via Controls/Banners page
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [dispatch]);
 
-  // Tournament banners from ImageManagement (tournaments-slide-1, 2, 3)
-  const banners = [
-    {
-      id: 1,
-      imageKey: 'tournaments-slide-1',
-      image: siteImages['tournaments-slide-1']?.imageUrl
-    },
-    {
-      id: 2,
-      imageKey: 'tournaments-slide-2',
-      image: siteImages['tournaments-slide-2']?.imageUrl
-    },
-    {
-      id: 3,
-      imageKey: 'tournaments-slide-3',
-      image: siteImages['tournaments-slide-3']?.imageUrl
-    }
-  ].filter(banner => banner.image); // Only show uploaded banners
-
-  // Reset currentBanner if out of bounds
+  // Reset currentBanner if out of bounds (e.g. a tournament drops out of the featured list)
   useEffect(() => {
-    if (banners.length > 0 && currentBanner >= banners.length) {
+    if (bannerTournaments.length > 0 && currentBanner >= bannerTournaments.length) {
       setCurrentBanner(0);
     }
-  }, [banners.length, currentBanner]);
+  }, [bannerTournaments.length, currentBanner]);
 
   // Auto-slide banners
   useEffect(() => {
-    if (banners.length === 0) return;
-    
+    if (bannerTournaments.length <= 1) return;
+
     const interval = setInterval(() => {
-      setCurrentBanner((prev) => (prev + 1) % banners.length);
-    }, 5000);
+      setCurrentBanner((prev) => (prev + 1) % bannerTournaments.length);
+    }, BANNER_AUTO_ADVANCE_MS);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [bannerTournaments.length]);
 
   // Fetch tournaments on component mount and when filters or page change
   useEffect(() => {
@@ -197,11 +207,11 @@ const TournamentsPage = () => {
   ];
 
   const nextBanner = () => {
-    setCurrentBanner((prev) => (prev + 1) % banners.length);
+    setCurrentBanner((prev) => (prev + 1) % bannerTournaments.length);
   };
 
   const prevBanner = () => {
-    setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
+    setCurrentBanner((prev) => (prev - 1 + bannerTournaments.length) % bannerTournaments.length);
   };
 
   // This is already defined above, so we can remove this duplicate
@@ -219,36 +229,71 @@ const TournamentsPage = () => {
 
   return (
     <div className="min-h-screen bg-gaming-dark">
-      {/* Hero Banner Carousel - Plain images like homepage */}
+      {/* Hero Banner Carousel - live countdown to each admin-featured tournament */}
       <section className="relative h-80 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
-        {banners.length > 0 && banners[currentBanner] ? (
+        {bannerTournaments.length > 0 && bannerTournaments[currentBanner] ? (
           <>
-          {/* Banner with images */}
-          <AnimatePresence initial={false}>
-            <motion.div
-              key={currentBanner}
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ 
-                type: 'tween',
-                ease: 'easeInOut',
-                duration: 0.6
-              }}
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${banners[currentBanner]?.image || ''})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
-            >
-              {/* No text overlay - clean images */}
-              {/* Camera icon removed - manage via Controls/Banners */}
-            </motion.div>
-          </AnimatePresence>
+          {(() => {
+            const tournament = bannerTournaments[currentBanner];
+            return (
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={tournament._id}
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{
+                    type: 'tween',
+                    ease: 'easeInOut',
+                    duration: 0.6
+                  }}
+                  className="absolute inset-0"
+                  style={tournament.bannerImage ? {
+                    backgroundImage: `url(${tournament.bannerImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  } : {
+                    background: getBackgroundGradient(tournament.gameType)
+                  }}
+                >
+                  {/* Scrim so text stays legible over any banner image */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+
+                  <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-16">
+                    <div className="flex items-center gap-2 mb-2">
+                      <GameIcon gameType={tournament.gameType} size="sm" />
+                      <span className="text-xs font-gaming font-bold uppercase tracking-wider text-gaming-gold">
+                        {tournament.gameType}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-gaming font-bold text-white mb-3 max-w-2xl">
+                      {tournament.name}
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <CountdownTimer
+                        targetDate={tournament.startDate}
+                        format="compact"
+                        size="md"
+                        completedLabel="LIVE NOW"
+                        completedTone="green"
+                        onComplete={() => dispatch(fetchBannerTournaments())}
+                      />
+                      <Link
+                        to={`/tournaments/${tournament._id}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gaming-gold text-black rounded-lg font-gaming font-bold text-sm hover:bg-gaming-accent transition-colors"
+                      >
+                        View Tournament
+                        <FiArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            );
+          })()}
 
           {/* Navigation Arrows */}
-          {banners.length > 1 && (
+          {bannerTournaments.length > 1 && (
             <>
               <button
                 onClick={prevBanner}
@@ -256,7 +301,7 @@ const TournamentsPage = () => {
               >
                 <FiChevronLeft className="h-6 w-6" />
               </button>
-              
+
               <button
                 onClick={nextBanner}
                 className="absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-3 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all duration-200"
@@ -266,7 +311,7 @@ const TournamentsPage = () => {
 
               {/* Banner Indicators */}
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2">
-                {banners.map((_, index) => (
+                {bannerTournaments.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setCurrentBanner(index)}
@@ -290,9 +335,7 @@ const TournamentsPage = () => {
             <p className="text-gray-400 max-w-md">
               Compete in exciting tournaments and win amazing prizes
             </p>
-            <div className="mt-6 text-sm text-gray-500">
-              Banner images can be uploaded via Admin Panel → Image Management
-            </div>
+
           </div>
         )}
       </section>

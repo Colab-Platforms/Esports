@@ -66,10 +66,17 @@ class ApiService {
           // Clear auth data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          localStorage.removeItem('userId');
 
-          // Redirect to login with appropriate message
-          const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
-          window.location.href = `/login?${reason}=true`;
+<<<<<<< Updated upstream
+          // Only redirect if NOT already on login page to prevent infinite refresh loop
+=======
+          // Only redirect if not already on login page to prevent infinite reload loop
+>>>>>>> Stashed changes
+          if (!window.location.pathname.startsWith('/login')) {
+            const reason = data.error?.code === 'TOKEN_EXPIRED' ? 'expired' : 'invalid';
+            window.location.href = `/login?${reason}=true`;
+          }
 
           throw new Error(data.error?.message || 'Session expired. Please login again.');
         }

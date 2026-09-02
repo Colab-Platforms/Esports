@@ -78,12 +78,29 @@ function checkValidServiceWorker(swUrl, config) {
         response.status === 404 ||
         (contentType != null && contentType.indexOf('javascript') === -1)
       ) {
-        // SW file not found — unregister and reload
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.unregister().then(() => {
-            window.location.reload();
+<<<<<<< Updated upstream
+        // SW file not found — unregister without forcing page reload
+=======
+        console.warn(
+          '[PWA] Service worker check failed — status:', response.status,
+          'content-type:', contentType
+        );
+        // Only reload once per session — otherwise a persistently failing
+        // check (e.g. dev server misconfiguration) causes an infinite reload loop
+        if (sessionStorage.getItem('sw-reload-attempted')) {
+          console.error('[PWA] Service worker check failed — skipping reload to avoid continuous reload loop.');
+          return;
+        }
+        sessionStorage.setItem('sw-reload-attempted', '1');
+
+>>>>>>> Stashed changes
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
           });
-        });
+        }
       } else {
         registerValidSW(swUrl, config);
       }

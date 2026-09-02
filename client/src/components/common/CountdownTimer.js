@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const CountdownTimer = ({ 
-  targetDate, 
-  onComplete, 
+const CountdownTimer = ({
+  targetDate,
+  onComplete,
   format = 'full', // 'full', 'compact', 'minimal'
   size = 'md',
   showLabels = true,
-  className = ''
+  className = '',
+  completedLabel = 'EXPIRED',
+  completedTone = 'red' // 'red' | 'green'
 }) => {
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
@@ -69,14 +71,18 @@ const CountdownTimer = ({
   };
 
   if (isComplete) {
+    const toneClasses = completedTone === 'green'
+      ? 'bg-green-500/20 border-green-500/30 text-green-400'
+      : 'bg-red-500/20 border-red-500/30 text-red-400';
+
     return (
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className={`flex items-center space-x-2 ${className}`}
       >
-        <div className="px-3 py-1 bg-red-500/20 border border-red-500/30 rounded-lg">
-          <span className="text-red-400 font-semibold text-sm">EXPIRED</span>
+        <div className={`px-3 py-1 border rounded-lg ${toneClasses}`}>
+          <span className="font-semibold text-sm">{completedLabel}</span>
         </div>
       </motion.div>
     );

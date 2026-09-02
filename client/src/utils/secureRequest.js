@@ -16,13 +16,13 @@ class SecureRequest {
       
       if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
         // Development fallback - use the same origin but check for standard ports
-        // If we are on 3000, the backend is likely on 5001 or 5003
-        this.API_URL = `${protocol}//${hostname}:5003`;
+        // Backend is running on port 5001
+        this.API_URL = `${protocol}//${hostname}:5001`;
       } else {
         this.API_URL = `${protocol}//${hostname}`;
       }
     } else {
-      this.API_URL = 'http://localhost:5003';
+      this.API_URL = 'http://localhost:5001';
     }
     
     console.log('🔗 API URL configured:', this.API_URL);
