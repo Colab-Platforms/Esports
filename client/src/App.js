@@ -58,6 +58,9 @@ import WinnerRewardPanel from './pages/admin/WinnerRewardPanel';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import RefundPolicyPage from './pages/RefundPolicyPage';
+import RulesGuidelinesPage from './pages/RulesGuidelinesPage';
 import BGMIPage from './pages/BGMIPage';
 import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
@@ -921,6 +924,45 @@ function App() {
                   transition={{ duration: 0.3 }}
                 >
                   <PrivacyPolicyPage />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <TermsOfServicePage />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/refund"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <RefundPolicyPage />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/rules"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <RulesGuidelinesPage />
                 </motion.div>
               }
             />
