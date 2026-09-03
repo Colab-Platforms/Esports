@@ -21,6 +21,24 @@ import {
 const BANNER_POLL_INTERVAL_MS = 45000;
 const BANNER_AUTO_ADVANCE_MS = 8000;
 
+const BANNER_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+// Locale-independent "DD MON" formatting so the date always reads day-first regardless of browser locale.
+const formatBannerDate = (date, withYear = false) => {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = BANNER_MONTHS[d.getMonth()];
+  return withYear ? `${day} ${month} ${d.getFullYear()}` : `${day} ${month}`;
+};
+
+const formatBannerDateRange = (startDate, endDate) =>
+  `${formatBannerDate(startDate)} - ${formatBannerDate(endDate, true)}`;
+
+const truncateTagline = (text, maxLength = 140) => {
+  if (!text) return '';
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}…` : text;
+};
+
 const TournamentsPage = () => {
   const dispatch = useDispatch();
   const tournaments = useSelector(selectTournaments);
@@ -230,7 +248,7 @@ const TournamentsPage = () => {
   return (
     <div className="min-h-screen bg-gaming-dark">
       {/* Hero Banner Carousel - live countdown to each admin-featured tournament */}
-      <section className="relative h-[420px] sm:h-[460px] overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+      <section className="relative h-[75vh] min-h-[600px] max-h-[820px] overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
         {bannerTournaments.length > 0 && bannerTournaments[currentBanner] ? (
           <>
           {(() => {
@@ -259,37 +277,47 @@ const TournamentsPage = () => {
                   {/* Scrim so text stays legible over any banner image */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
 
-                  <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center gap-6 sm:gap-8">
+                  <div className="relative h-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center gap-4 sm:gap-5">
+                    {tournament.startDate && tournament.endDate && (
+                      <span className="inline-flex items-center bg-gradient-to-br from-gaming-accent to-gaming-gold-dark text-black font-gaming font-bold text-xs tracking-wider px-4 py-1.5 rounded-full">
+                        {formatBannerDateRange(tournament.startDate, tournament.endDate)}
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <GameIcon gameType={tournament.gameType} size="sm" />
+                      <span className="text-xs font-gaming font-bold uppercase tracking-[0.2em] text-gaming-gold">
+                        {tournament.gameType}
+                      </span>
+                    </div>
+
+                    <h2 className="font-gaming font-black uppercase text-3xl sm:text-4xl md:text-5xl leading-tight tracking-wide bg-gradient-to-b from-white via-[#ffe9a8] to-gaming-gold bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(241,196,15,0.3)] line-clamp-2 max-w-3xl">
+                      {tournament.name}
+                    </h2>
+
+                    {tournament.description && (
+                      <p className="text-gray-300 text-sm sm:text-base max-w-xl line-clamp-2">
+                        {truncateTagline(tournament.description)}
+                      </p>
+                    )}
+
                     <CountdownTimer
                       targetDate={tournament.startDate}
-                      format="boxed"
-                      size="lg"
+                      format="panel"
                       eyebrow="Starts in"
                       completedLabel="LIVE NOW"
                       completedTone="green"
                       onComplete={() => dispatch(fetchBannerTournaments())}
+                      className="mt-2"
                     />
 
-                    <div className="w-full max-w-2xl flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <GameIcon gameType={tournament.gameType} size="sm" />
-                          <span className="text-xs font-gaming font-bold uppercase tracking-wider text-gaming-gold">
-                            {tournament.gameType}
-                          </span>
-                        </div>
-                        <h2 className="text-lg sm:text-xl md:text-2xl font-gaming font-bold text-white truncate">
-                          {tournament.name}
-                        </h2>
-                      </div>
-                      <Link
-                        to={`/tournaments/${tournament._id}`}
-                        className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-gaming-gold text-black rounded-lg font-gaming font-bold text-sm hover:bg-gaming-accent transition-colors"
-                      >
-                        View Tournament
-                        <FiArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
+                    <Link
+                      to={`/tournaments/${tournament._id}`}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gaming-gold text-black rounded-lg font-gaming font-bold text-sm uppercase tracking-wide hover:bg-gaming-accent transition-colors mt-1"
+                    >
+                      View Tournament
+                      <FiArrowRight className="h-4 w-4" />
+                    </Link>
                   </div>
                 </motion.div>
               </AnimatePresence>

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm, Controller } from 'react-hook-form';
-import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock, FiGift } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCalendar, FiDollarSign, FiClock, FiGift, FiUpload, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import imageService from '../../services/imageService';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -18,6 +19,8 @@ const TournamentManagement = () => {
   const [editingTournament, setEditingTournament] = useState(null);
   const [formStep, setFormStep] = useState(1); // 1: Game Selection, 2: Tournament Details
   const [selectedGame, setSelectedGame] = useState(null);
+  const [bannerImagePreview, setBannerImagePreview] = useState('');
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   // React Hook Form
   const { register, handleSubmit, reset, setValue, watch, control, formState: { errors, isSubmitting } } = useForm({
@@ -41,6 +44,7 @@ const TournamentManagement = () => {
       rules: '',
       status: 'registration_open',
       featured: false,
+      bannerImage: '',
       roomDetails: {
         cs2: {
           serverName: '',
@@ -164,6 +168,43 @@ const TournamentManagement = () => {
       console.error('Failed to fetch games:', error);
       toast.error('Failed to load games. Check console for details.');
     }
+  };
+
+  const handleBannerImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be under 10MB');
+      return;
+    }
+
+    setUploadingBanner(true);
+    try {
+      const result = await imageService.uploadToCloudinary(file);
+      if (result.success) {
+        setValue('bannerImage', result.imageUrl);
+        setBannerImagePreview(result.imageUrl);
+        toast.success('Banner image uploaded');
+      } else {
+        toast.error(result.error || 'Failed to upload banner image');
+      }
+    } catch (error) {
+      console.error('Banner image upload failed:', error);
+      toast.error('Failed to upload banner image');
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveBannerImage = () => {
+    setValue('bannerImage', '');
+    setBannerImagePreview('');
   };
 
   const onSubmit = async (data) => {
@@ -322,6 +363,7 @@ const TournamentManagement = () => {
       rules: tournament.rules || '',
       status: tournament.status || 'registration_open',
       featured: tournament.featured || false,
+      bannerImage: tournament.bannerImage || '',
       // CS2 server details
       roomDetails: {
         cs2: {
@@ -332,13 +374,14 @@ const TournamentManagement = () => {
         }
       }
     });
-    
+    setBannerImagePreview(tournament.bannerImage || '');
+
     // Store the string ID in editingTournament
     setEditingTournament({
       ...tournament,
       _id: tournamentId
     });
-    
+
     setShowModal(true);
   };
 
@@ -440,6 +483,7 @@ const TournamentManagement = () => {
                 rules: '',
                 status: 'registration_open',
                 featured: false,
+                bannerImage: '',
                 roomDetails: {
                   cs2: {
                     serverName: '',
@@ -459,6 +503,7 @@ const TournamentManagement = () => {
                   }
                 }
               });
+              setBannerImagePreview('');
               setShowModal(true);
             }}
             className="btn-gaming flex items-center space-x-2"
@@ -499,6 +544,7 @@ const TournamentManagement = () => {
                   rules: '',
                   status: 'registration_open',
                   featured: false,
+                  bannerImage: '',
                   roomDetails: {
                     cs2: {
                       serverName: '',
@@ -518,6 +564,7 @@ const TournamentManagement = () => {
                     }
                   }
                 });
+                setBannerImagePreview('');
                 setShowModal(true);
               }}
               className="btn-gaming"
@@ -1314,6 +1361,55 @@ const TournamentManagement = () => {
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Get from YouTube URL: youtube.com/watch?v=<span className="text-gaming-neon">VIDEO_ID</span>
+                  </p>
+                </div>
+
+                {/* Banner Image - Optional */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Banner Image (Optional)
+                  </label>
+                  <input type="hidden" {...register('bannerImage')} />
+                  {bannerImagePreview ? (
+                    <div className="relative mb-3">
+                      <img
+                        src={bannerImagePreview}
+                        alt="Banner preview"
+                        className="w-full h-40 object-cover rounded-lg border border-gaming-slate"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveBannerImage}
+                        className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-red-500/80 text-white rounded-full transition-colors"
+                      >
+                        <FiX className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="banner-image-upload"
+                      className="flex items-center justify-center w-full h-40 border-2 border-dashed border-gaming-slate rounded-lg cursor-pointer hover:border-gaming-gold transition-colors mb-3"
+                    >
+                      <div className="text-center text-gray-500">
+                        <FiUpload className="h-6 w-6 mx-auto mb-1" />
+                        <span className="text-sm">
+                          {uploadingBanner ? 'Uploading…' : 'Click to upload banner image'}
+                        </span>
+                      </div>
+                    </label>
+                  )}
+                  <input
+                    type="file"
+                    id="banner-image-upload"
+                    accept="image/*"
+                    onChange={handleBannerImageUpload}
+                    disabled={uploadingBanner}
+                    className="hidden"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Shown as the full-bleed background on the Tournaments page banner when this tournament is featured.
+                    Use a wide landscape image (1920×1080 or larger) — text sits over a dark gradient near the bottom,
+                    so avoid important detail low in the frame. Falls back to a game-themed gradient if left empty.
                   </p>
                 </div>
 

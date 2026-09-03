@@ -93,11 +93,7 @@ const Footer = () => {
                   Rules & Guidelines
                 </Link>
               </li>
-              <li>
-                <Link to="/support" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200 text-sm">
-                  Support
-                </Link>
-              </li>
+              
             </ul>
           </div>
 
@@ -120,11 +116,7 @@ const Footer = () => {
                   Refund Policy
                 </Link>
               </li>
-              <li>
-                <Link to="/responsible-gaming" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200 text-sm">
-                  Responsible Gaming
-                </Link>
-              </li>
+            
             </ul>
           </div>
         </div>
