@@ -9,6 +9,7 @@ export const gameAssets = {
     thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop&crop=center',
     icon: '🎮', // Keep emoji as fallback
     cdnIcon: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391', // BGMI actual CDN icon
+    video: '/videos/bgmi.mp4', // Background video for expanded game card
     color: '#FF6B35',
     gradient: 'from-orange-500 to-red-600',
     category: 'mobile',
@@ -47,6 +48,7 @@ export const gameAssets = {
     thumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop&crop=center',
     icon: '🎯', // Keep emoji as fallback
     cdnIcon: '', // No specific CDN icon for Valorant yet
+    video: '/videos/valorant.mp4', // Background video for expanded game card
     color: '#FF4655',
     gradient: 'from-red-500 to-pink-600',
     category: 'pc',
@@ -66,6 +68,7 @@ export const gameAssets = {
     thumbnail: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=300&fit=crop&crop=center',
     icon: '🔥', // Keep emoji as fallback
     cdnIcon: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/66fdaaad-5750-4895-a5ee-ecd301571f47_1_-Photoroom.png?v=1774943820', // No specific CDN icon for Free Fire yet
+    video: '/videos/freefire.mp4', // Background video for expanded game card
     color: '#FF8C00',
     gradient: 'from-orange-600 to-yellow-500',
     category: 'mobile',

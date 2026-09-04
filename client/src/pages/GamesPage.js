@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiChevronDown } from 'react-icons/fi';
 import api from '../services/api';
 import imageService from '../services/imageService';
 import GameIcon from '../components/common/GameIcon';
+import { getGameAsset } from '../assets/gameAssets';
 
 const GamesPage = () => {
     const [currentBanner, setCurrentBanner] = useState(0);
@@ -12,7 +13,8 @@ const GamesPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [siteImages, setSiteImages] = useState({});
-    const [selectedGameFilter, setSelectedGameFilter] = useState('all');
+    const [dropdownOpen, setDropdownOpen] = useState(true);
+    const [activeGameType, setActiveGameType] = useState(null);
 
     // Cache utility functions
     const getCachedGames = () => {
@@ -223,77 +225,109 @@ const GamesPage = () => {
         return 'bgmi';
     };
 
-    // Filter games based on selected filter
-    const filteredGames = selectedGameFilter === 'all' 
-        ? games 
-        : games.filter(game => getGameType(game) === selectedGameFilter);
-
     // Get unique game types from database
-    const gameTypes = ['all', ...new Set(games.map(game => getGameType(game)))];
+    const availableGameTypes = [...new Set(games.map(game => getGameType(game)))];
 
-    const GameCard = ({ game }) => {
-        // Map game types to their route paths
-        const getRoutePath = (game) => {
-            const gameType = getGameType(game);
-            // Map gameType to route path
-            if (gameType === 'freefire') {
-                return 'ff'; // Use 'ff' for Free Fire route
-            }
-            return gameType;
-        };
-        
+    // Auto-select the first game once games have loaded
+    useEffect(() => {
+        if (!activeGameType && availableGameTypes.length > 0) {
+            setActiveGameType(availableGameTypes[0]);
+        }
+    }, [games]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const activeGame = games.find(game => getGameType(game) === activeGameType);
+
+    // Expanded card shown on the right once a game is selected from the dropdown.
+    // Background is the game's mp4 (once added); falls back to the static
+    // gradient/thumbnail if no video is set yet or it fails to load.
+    const ExpandedGameCard = ({ game }) => {
+        const [videoError, setVideoError] = useState(false);
+        const gameType = getGameType(game);
+        const videoSrc = getGameAsset(gameType, 'video');
+        const posterSrc = getGameAsset(gameType, 'thumbnail');
+        const hasVideo = Boolean(videoSrc) && !videoError;
+
         return (
-        <Link to={`/tournaments`}>
-            <motion.div
-                whileHover={{ y: -8, scale: 1.02 }}
-                className="relative overflow-hidden rounded-xl border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"
-                style={{ background: game.background }}
-            >
-                <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-all duration-300" />
-
-                <div className="relative p-6 h-64 flex flex-col justify-between bg-gradient-to-br from-gaming-charcoal to-gaming-slate border border-gaming-gold/20 hover:border-gaming-gold/50 transition-all duration-300">
-                    {/* Game Icon & Category */}
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center justify-center">
-                            <GameIcon 
-                                gameType={getGameType(game)} 
-                                size="2xl" 
-                                style="cdn"
+            <Link to="/tournaments" className="block h-full">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative h-full min-h-[420px] sm:min-h-[480px] rounded-xl overflow-hidden border border-gaming-border hover:border-gaming-gold/50 transition-all duration-300 group cursor-pointer"
+                >
+                    {/* Background: video when available, otherwise gradient + thumbnail */}
+                    <div
+                        className="absolute inset-0 bg-gradient-to-br from-gaming-charcoal to-gaming-slate"
+                        style={!hasVideo ? { background: game.background } : undefined}
+                    >
+                        {hasVideo && (
+                            <video
+                                key={videoSrc}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                src={videoSrc}
+                                poster={posterSrc}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                onError={() => setVideoError(true)}
                             />
-                        </div>
-                        <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
-                            {game.category}
-                        </span>
+                        )}
+                        {!hasVideo && posterSrc && (
+                            <img
+                                src={posterSrc}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover opacity-40"
+                            />
+                        )}
                     </div>
 
-                    {/* Game Info */}
-                    <div>
-                        <h3 className="text-2xl font-gaming font-bold text-white mb-2 group-hover:text-gaming-gold transition-colors duration-300">
-                            {game.name}
-                        </h3>
-                        <p className="text-gray-300 text-sm mb-4 line-clamp-2">
-                            {game.description}
-                        </p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 group-hover:from-black/85 group-hover:via-black/40 transition-all duration-300" />
 
-                        {/* Stats */}
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div className="text-center">
-                                <div className="text-gaming-gold font-bold">{game.tournaments}</div>
-                                <div className="text-gray-400">Tournaments</div>
+                    <div className="relative h-full p-6 sm:p-8 flex flex-col justify-between">
+                        {/* Game Icon & Category */}
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center justify-center">
+                                <GameIcon
+                                    gameType={gameType}
+                                    size="2xl"
+                                    style="cdn"
+                                />
                             </div>
-                            <div className="text-center">
-                                <div className="text-gaming-gold font-bold">{game.activePlayers}</div>
-                                <div className="text-gray-400">Players</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-gaming-gold font-bold">{game.totalPrize}</div>
-                                <div className="text-gray-400">Prize Pool</div>
+                            <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
+                                {game.category}
+                            </span>
+                        </div>
+
+                        {/* Game Info */}
+                        <div>
+                            <h3 className="text-3xl sm:text-4xl font-gaming font-bold text-white mb-2 group-hover:text-gaming-gold transition-colors duration-300">
+                                {game.name}
+                            </h3>
+                            <p className="text-gray-300 mb-6 max-w-xl">
+                                {game.description}
+                            </p>
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-3 gap-4 max-w-md text-sm">
+                                <div>
+                                    <div className="text-gaming-gold font-bold text-lg">{game.tournaments}</div>
+                                    <div className="text-gray-400">Tournaments</div>
+                                </div>
+                                <div>
+                                    <div className="text-gaming-gold font-bold text-lg">{game.activePlayers}</div>
+                                    <div className="text-gray-400">Players</div>
+                                </div>
+                                <div>
+                                    <div className="text-gaming-gold font-bold text-lg">{game.totalPrize}</div>
+                                    <div className="text-gray-400">Prize Pool</div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </motion.div>
-        </Link>
+                </motion.div>
+            </Link>
         );
     };
 
@@ -467,37 +501,53 @@ const GamesPage = () => {
                         </p>
                     </motion.div>
 
-                    {/* Game Filter Buttons - Only show if multiple games */}
-                    {games.length > 1 && (
-                        <div className="mb-8 flex flex-wrap gap-2 justify-center">
-                            {gameTypes.map((gameType) => (
+                    {games.length > 0 ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
+                            {/* Left: expandable game dropdown */}
+                            <div className="lg:col-span-1 h-full bg-gradient-to-br from-gaming-charcoal to-gaming-slate border border-gaming-border rounded-xl overflow-hidden flex flex-col">
                                 <button
-                                    key={gameType}
-                                    onClick={() => setSelectedGameFilter(gameType)}
-                                    className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${
-                                        selectedGameFilter === gameType
-                                            ? 'bg-gaming-gold text-black'
-                                            : 'bg-gaming-charcoal text-white hover:bg-gaming-slate border border-gaming-border'
-                                    }`}
+                                    onClick={() => setDropdownOpen((open) => !open)}
+                                    className="flex items-center justify-between p-5 text-white font-gaming font-bold text-lg hover:text-gaming-gold transition-colors duration-200"
                                 >
-                                    {gameType === 'all' ? 'All Games' : gameType.toUpperCase()}
+                                    <span>All Games</span>
+                                    <FiChevronDown
+                                        className={`h-5 w-5 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`}
+                                    />
                                 </button>
-                            ))}
-                        </div>
-                    )}
+                                <AnimatePresence initial={false}>
+                                    {dropdownOpen && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.25 }}
+                                            className="overflow-hidden"
+                                        >
+                                            {availableGameTypes.map((gameType) => (
+                                                <button
+                                                    key={gameType}
+                                                    onClick={() => setActiveGameType(gameType)}
+                                                    className={`w-full flex items-center gap-3 px-5 py-4 border-t border-gaming-border transition-colors duration-200 ${
+                                                        activeGameType === gameType
+                                                            ? 'bg-gaming-gold/10 text-gaming-gold'
+                                                            : 'text-gray-300 hover:bg-gaming-slate/50 hover:text-white'
+                                                    }`}
+                                                >
+                                                    <GameIcon gameType={gameType} size="md" style="cdn" />
+                                                    <span className="font-semibold">{gameType.toUpperCase()}</span>
+                                                </button>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
 
-                    {filteredGames.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {filteredGames.map((game, index) => (
-                                <motion.div
-                                    key={game.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                >
-                                    <GameCard game={game} />
-                                </motion.div>
-                            ))}
+                            {/* Right: selected game's card with video background */}
+                            <div className="lg:col-span-3">
+                                <AnimatePresence mode="wait">
+                                    {activeGame && <ExpandedGameCard key={activeGame.id} game={activeGame} />}
+                                </AnimatePresence>
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center py-12">

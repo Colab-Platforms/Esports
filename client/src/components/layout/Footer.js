@@ -32,7 +32,7 @@ const Footer = () => {
               </span>
             </div>
             <p className="text-gray-400 text-sm mb-4 max-w-md">
-              India's premier esports tournament platform. Compete in BGMI, Valorant, and CS2 tournaments. 
+              India's premier esports tournament platform. Compete in BGMI, Free Fire, and Valorant tournaments. 
               Win real money prizes and climb the leaderboards.
             </p>
             <div className="flex space-x-4">
@@ -54,9 +54,7 @@ const Footer = () => {
               <a href="https://discord.gg/ug3vMxhPdQ" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FaDiscord className="w-5 h-5" />
               </a>
-              {/* <a href="mailto:Colabesports@gmail.com" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
-                <FiMail className="w-5 h-5" />
-              </a> */}
+            
             </div>
 
             <div>
