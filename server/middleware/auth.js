@@ -18,19 +18,49 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+    // Verify token - algorithms pinned so a token signed (or forged) with a
+    // different algorithm is rejected outright, rather than trusting
+    // whatever jsonwebtoken defaults to.
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+
     // Check if user still exists and is active
-    const user = await User.findById(decoded.userId).select('isActive role');
-    
-    if (!user || !user.isActive) {
+    const user = await User.findById(decoded.userId).select('isActive role banReason bannedAt banExpiresAt');
+
+    if (!user) {
       return res.status(401).json({
         success: false,
         error: {
           code: 'INVALID_TOKEN',
           message: 'Access denied. Invalid or expired token.',
           timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    if (!user.isActive) {
+      // isActive is set false by the ban flow (services/securityService.js) -
+      // surface the actual reason/duration here instead of a generic
+      // "invalid token", since this is the one place in the request
+      // pipeline that reliably runs with req.user populated (see the
+      // security-hardening notes on middleware/securityTracking.js's
+      // checkBannedUser, which never actually runs due to its mount order).
+      const isPermanent = !user.banExpiresAt;
+      const banMessage = isPermanent
+        ? `Account permanently banned. Reason: ${user.banReason || 'Violation of terms'}`
+        : `Account temporarily banned until ${user.banExpiresAt.toISOString()}. Reason: ${user.banReason || 'Violation of terms'}`;
+
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ACCOUNT_BANNED',
+          message: banMessage,
+          timestamp: new Date().toISOString(),
+          banDetails: {
+            reason: user.banReason,
+            bannedAt: user.bannedAt,
+            expiresAt: user.banExpiresAt,
+            isPermanent
+          }
         }
       });
     }

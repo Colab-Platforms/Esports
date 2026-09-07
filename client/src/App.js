@@ -67,6 +67,7 @@ import CS2Page from './pages/CS2Page';
 import FreeFirePage from './pages/FreeFirePage';
 import TournamentDetails from './pages/tournaments/TournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
+import ConnectedAccountsPage from './pages/ConnectedAccountsPage';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
 
@@ -655,8 +656,8 @@ function App() {
               } 
             />
             
-            <Route 
-              path="/steam-settings" 
+            <Route
+              path="/steam-settings"
               element={
                 <ProtectedRoute>
                   <motion.div
@@ -668,7 +669,23 @@ function App() {
                     <SteamSettingsPage />
                   </motion.div>
                 </ProtectedRoute>
-              } 
+              }
+            />
+
+            <Route
+              path="/connected-accounts"
+              element={
+                <ProtectedRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ConnectedAccountsPage />
+                  </motion.div>
+                </ProtectedRoute>
+              }
             />
             
             {/* Match Routes */}

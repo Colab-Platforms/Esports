@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiExternalLink, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import api from '../../services/api';
-import { getSteamAuthUrl } from '../../utils/apiConfig';
+import { startSteamConnect } from '../../utils/apiConfig';
 
 const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) => {
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   const checkSteamStatus = async () => {
     try {
       setLoading(true);
-      const status = await api.get('/api/steam/status');
+      const status = await api.get('/api/accounts/steam/status');
       setSteamStatus(status);
       
       // If already connected and eligible, close modal
@@ -35,34 +35,18 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   };
 
   const connectSteam = () => {
-    // Get userId from auth token
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Please log in first');
       return;
     }
-    
-    // Decode token to get userId
-    let userId;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      userId = payload.userId || payload.id;
-    } catch (error) {
-      setError('Invalid authentication. Please log in again.');
-      return;
-    }
-    
-    if (!userId) {
-      setError('Please log in first');
-      return;
-    }
-    
+
     // Try to open Steam app first (if installed)
-    const openSteamApp = () => {
+    const openSteamApp = async () => {
       try {
         // Steam protocol URL to open Steam client
         const steamUrl = 'steam://open/main';
-        
+
         // Create a temporary link to trigger Steam app
         const link = document.createElement('a');
         link.href = steamUrl;
@@ -70,20 +54,19 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Show user-friendly message
         setError('');
         setLoading(true);
-        
-        // Wait a moment then redirect to web OAuth as fallback - uses dynamic URL
+
+        // Wait a moment then start the web connect flow as fallback
         setTimeout(() => {
-          window.location.href = getSteamAuthUrl(userId);
+          startSteamConnect().catch(() => setError('Failed to start Steam connection. Please try again.'));
         }, 1500);
-        
+
       } catch (error) {
         console.log('Steam app not available, using web OAuth');
-        // Fallback to web OAuth - uses dynamic URL
-        window.location.href = getSteamAuthUrl(userId);
+        startSteamConnect().catch(() => setError('Failed to start Steam connection. Please try again.'));
       }
     };
 
@@ -105,7 +88,7 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   const checkEligibility = async () => {
     try {
       setLoading(true);
-      const eligibility = await api.get('/api/steam/cs2/eligibility');
+      const eligibility = await api.get('/api/cs2/eligibility');
       
       if (eligibility.eligible) {
         onSuccess(eligibility);

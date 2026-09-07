@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
 const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -17,34 +18,44 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Seed data utility removed - use admin panel to create tournaments and games
 
+// Shared CORS allow-list logic for both the Express app and Socket.IO below.
+// Previously both origin callbacks called `callback(null, true)` in their
+// `else` branch too - meaning the allow-list check was computed but never
+// actually enforced, and every origin was accepted regardless. This keeps
+// development fully permissive (matching the original intent) but actually
+// enforces the allow-list in every other environment.
+const isOriginAllowed = (origin) => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://esports-62sh.vercel.app',
+    'https://esports-eciq.vercel.app',
+    'https://www.colabesports.in',
+    'https://colabesports.in',
+    process.env.CLIENT_URL
+  ];
+
+  return allowedOrigins.includes(origin) ||
+    /^http:\/\/[\d.]+:3000$/.test(origin) || // any LAN IP on port 3000 (covers the old hardcoded 192.168.1.109 entry too)
+    /^https:\/\/.*\.vercel\.app$/.test(origin) ||
+    /^https:\/\/.*\.colabesports\.in$/.test(origin);
+};
+
+const corsOriginHandler = (origin, callback) => {
+  if (!origin) return callback(null, true); // mobile apps / curl / server-to-server have no Origin header
+
+  if (isOriginAllowed(origin) || process.env.NODE_ENV === 'development') {
+    return callback(null, true);
+  }
+
+  console.warn('🚫 CORS blocked origin:', origin);
+  callback(new Error('Not allowed by CORS'));
+};
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps)
-      if (!origin) return callback(null, true);
-      
-      const allowedOrigins = [
-        'http://192.168.1.109:3000',
-        'http://localhost:3000',
-        'https://esports-62sh.vercel.app',
-        'https://esports-eciq.vercel.app',
-        'https://www.colabesports.in',
-        'https://colabesports.in',
-        process.env.CLIENT_URL
-      ];
-      
-      // Allow all Vercel domains, localhost, and production domains
-      if (allowedOrigins.includes(origin) || 
-          origin.match(/^http:\/\/[\d.]+:3000$/) ||
-          origin.match(/^https:\/\/.*\.vercel\.app$/) ||
-          origin.match(/^https:\/\/.*\.colabesports\.in$/)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // For development, allow all
-      }
-    },
+    origin: corsOriginHandler,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -64,30 +75,7 @@ app.use(headersMiddleware);
 
 // Dynamic CORS configuration - allows access from any IP on port 3000 and Vercel
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow localhost, any IP address on port 3000, Vercel domains, and production domain
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'https://esports-62sh.vercel.app',
-      'https://esports-eciq.vercel.app',
-      'https://www.colabesports.in',
-      'https://colabesports.in',
-      process.env.CLIENT_URL
-    ];
-    
-    // Check if origin matches allowed patterns
-    if (allowedOrigins.includes(origin) || 
-        origin.match(/^http:\/\/[\d.]+:3000$/) ||
-        origin.match(/^https:\/\/.*\.vercel\.app$/) ||
-        origin.match(/^https:\/\/.*\.colabesports\.in$/)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // For development, allow all origins
-    }
-  },
+  origin: corsOriginHandler,
   credentials: true
 }));
 
@@ -135,9 +123,36 @@ const oauthLimiter = rateLimit({
   }
 });
 
+// Dedicated brute-force protection for credential-based auth endpoints -
+// these previously only had the generic 1000-req/15min limiter shared with
+// every other API route, same as e.g. browsing tournaments.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per IP per 15 minutes
+  message: {
+    success: false,
+    error: {
+      code: 'AUTH_RATE_LIMIT_EXCEEDED',
+      message: 'Too many attempts. Please try again in a few minutes.',
+      timestamp: new Date().toISOString()
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'development'
+});
+
 app.use('/api/', limiter);
 app.use('/api/auth/google', oauthLimiter);
 app.use('/api/auth/steam', oauthLimiter);
+app.use('/api/auth/facebook', oauthLimiter);
+app.use('/api/auth/xbox', oauthLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/auth/send-email-otp', authLimiter);
+app.use('/api/auth/verify-email-otp', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -167,9 +182,21 @@ app.use(compression({
 const noCache = require('./middleware/noCache');
 app.use('/api', noCache);
 
-// Session middleware (required for Steam OAuth)
+// Session middleware (required for Steam's OpenID handshake and the OAuth
+// state / connect-intent mechanisms used by Google/Facebook/Steam/Xbox).
+// Backed by MongoDB (not the default in-memory MemoryStore, which leaks
+// memory, doesn't survive a restart, and doesn't work at all across more
+// than one server instance) via the same connection this app already uses.
+// The secret is now its own SESSION_SECRET rather than reusing JWT_SECRET -
+// so a compromise of one mechanism doesn't automatically compromise the
+// other.
 app.use(session({
-  secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esports',
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60 // seconds - matches the cookie maxAge below
+  }),
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -244,7 +271,9 @@ app.use(checkBannedUser);
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/games', require('./routes/games'));
-// app.use('/api/steam', require('./routes/steam'));
+app.use('/api/accounts', require('./routes/accounts'));
+app.use('/api/cs2/eligibility', require('./routes/cs2Eligibility'));
+// app.use('/api/steam', require('./routes/steam')); // superseded by /api/accounts/steam/* — see the auth architecture migration
 app.use('/api/users', require('./routes/users'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/notifications', require('./routes/notifications'));

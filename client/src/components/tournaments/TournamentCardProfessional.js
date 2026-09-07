@@ -7,7 +7,7 @@ import CountdownTimer from "../common/CountdownTimer";
 import SteamLinkingModal from "./SteamLinkingModal";
 import { selectAuth } from "../../store/slices/authSlice";
 import notificationService from "../../services/notificationService";
-import { getSteamAuthUrl } from "../../utils/apiConfig";
+import { startSteamConnect } from "../../utils/apiConfig";
 
 
 
@@ -26,9 +26,7 @@ const TournamentCardProfessional = ({
   const isRegistrationClosed = tournament.status === "registration_closed";
 
   const handleSteamLink = React.useCallback(() => {
-    const userId = user?.id || user?._id;
-
-    if (!userId) {
+    if (!user) {
       notificationService.showCustomNotification(
         "error",
         "Error",
@@ -39,8 +37,13 @@ const TournamentCardProfessional = ({
 
     setShowSteamModal(false);
 
-    // Direct redirect to Steam OAuth
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournament._id}`);
+    startSteamConnect(`/tournaments/${tournament._id}`).catch(() => {
+      notificationService.showCustomNotification(
+        "error",
+        "Error",
+        "Failed to start Steam connection. Please try again."
+      );
+    });
   }, [user, tournament._id]);
 
   const handleJoinTournament = React.useCallback(async () => {

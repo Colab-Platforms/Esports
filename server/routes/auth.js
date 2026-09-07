@@ -6,6 +6,11 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const passport = require('../config/passport');
 const emailService = require('../services/emailService');
+const { isProviderEnabled, PROVIDERS, providers } = require('../config/providers.config');
+const oauthStateService = require('../services/auth/oauth-state.service');
+const authCodeService = require('../services/auth/auth-code.service');
+const authService = require('../services/auth/auth.service');
+const accountLinkingService = require('../services/auth/account-linking.service');
 
 const router = express.Router();
 
@@ -30,10 +35,19 @@ const decodeSensitiveData = (req, res, next) => {
 };
 
 // Generate JWT token
+// Adds standard iss/aud claims for defense in depth (a token minted for a
+// different purpose/audience would carry different claims here) - not yet
+// enforced in middleware/auth.js's verify call, since every token already
+// issued before this change lacks them and would otherwise be rejected,
+// forcing every currently-logged-in user to re-login. Safe to start
+// enforcing later once JWT_EXPIRE (7d/30d) has had time to cycle out
+// pre-existing tokens.
 const generateToken = (userId, rememberMe = false) => {
   const expiresIn = rememberMe ? '30d' : (process.env.JWT_EXPIRE || '7d');
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn
+    expiresIn,
+    issuer: 'colab-esports',
+    audience: 'colab-esports-client'
   });
 };
 
@@ -1445,8 +1459,7 @@ router.put('/profile', auth, async (req, res) => {
 // @desc    Google OAuth login
 // @access  Public
 router.get('/google', (req, res, next) => {
-  // Check if Google OAuth is properly configured
-  if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your-google-client-id') {
+  if (!isProviderEnabled(PROVIDERS.GOOGLE)) {
     return res.status(503).json({
       success: false,
       error: {
@@ -1457,53 +1470,269 @@ router.get('/google', (req, res, next) => {
     });
   }
 
+  // A direct hit here always means "log in with Google" - clear any stale
+  // connect-intent from an abandoned settings-page connect attempt (see
+  // account-linking.service.js's handleConnectCallback).
+  if (req.session) {
+    req.session.connectIntent = undefined;
+  }
+
+  const state = oauthStateService.issue(req, PROVIDERS.GOOGLE);
+
   passport.authenticate('google', {
-    scope: ['profile', 'email']
+    scope: ['profile', 'email'],
+    state
   })(req, res, next);
 });
 
 // @route   GET /api/auth/google/callback
-// @desc    Google OAuth callback
+// @desc    Google OAuth callback - resolves the normalized identity from
+//          passport to an application User via auth.service.js, then hands
+//          the frontend a one-time code (not the JWT itself) to exchange.
 // @access  Public
 router.get('/google/callback', (req, res, next) => {
-  // Check if Google OAuth is properly configured
-  if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your-google-client-id') {
-    const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!isProviderEnabled(PROVIDERS.GOOGLE)) {
     return res.redirect(`${CLIENT_URL}/auth/error?message=Google OAuth not configured`);
   }
 
-  passport.authenticate('google', { session: false }, async (err, user, info) => {
+  passport.authenticate('google', { session: false }, async (err, normalizedIdentity) => {
+    if (await accountLinkingService.handleConnectCallback(req, res, PROVIDERS.GOOGLE, err, normalizedIdentity)) {
+      return;
+    }
+
     try {
-      if (err) {
-        console.error('❌ Google OAuth authentication error:', err);
-        const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+      if (err || !normalizedIdentity) {
+        console.error('❌ Google OAuth authentication error:', err && err.message);
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
       }
 
-      if (!user) {
-        console.error('❌ Google OAuth: No user returned');
-        const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+      if (!oauthStateService.verify(req, PROVIDERS.GOOGLE, req.query.state)) {
+        console.error('❌ Google OAuth: invalid or expired state');
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Your login attempt expired. Please try again.&reason=OAUTH_STATE_INVALID`);
       }
 
-      console.log('✅ Google OAuth user authenticated:', user.username);
+      const { user, isNewUser } = await authService.loginWithIdentity(PROVIDERS.GOOGLE, normalizedIdentity);
+      const code = await authCodeService.issueCode({ userId: user._id, provider: PROVIDERS.GOOGLE, isNewUser });
 
-      // Generate JWT token
-      const token = generateToken(user._id, false);
-      console.log('🔑 JWT token generated for user:', user._id);
-
-      // Redirect to frontend with token
-      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-      const redirectUrl = `${CLIENT_URL}/auth/success?token=${token}&provider=google`;
-      console.log('🔄 Redirecting to:', redirectUrl);
-      res.redirect(redirectUrl);
-
+      res.redirect(`${CLIENT_URL}/auth/success?code=${code}&provider=google`);
     } catch (error) {
+      if (error.code === 'ACCOUNT_LINK_REQUIRED') {
+        return res.redirect(`${CLIENT_URL}/auth/error?message=${encodeURIComponent(error.message)}&reason=ACCOUNT_LINK_REQUIRED&email=${encodeURIComponent(error.email || '')}`);
+      }
       console.error('❌ Google OAuth callback error:', error);
-      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
     }
   })(req, res, next);
+});
+
+// @route   GET /api/auth/facebook
+// @desc    Facebook OAuth login
+// @access  Public
+router.get('/facebook', (req, res, next) => {
+  if (!isProviderEnabled(PROVIDERS.FACEBOOK)) {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'OAUTH_NOT_CONFIGURED',
+        message: 'Facebook OAuth is not properly configured. Please contact support.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // A direct hit here always means "log in with Facebook" - clear any stale
+  // connect-intent from an abandoned settings-page connect attempt.
+  if (req.session) {
+    req.session.connectIntent = undefined;
+  }
+
+  const state = oauthStateService.issue(req, PROVIDERS.FACEBOOK);
+
+  passport.authenticate('facebook', {
+    scope: ['email'],
+    state
+  })(req, res, next);
+});
+
+// @route   GET /api/auth/facebook/callback
+// @desc    Facebook OAuth callback - same shape as Google's: resolves the
+//          normalized identity to an application User via auth.service.js,
+//          then hands the frontend a one-time code to exchange.
+// @access  Public
+router.get('/facebook/callback', (req, res, next) => {
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!isProviderEnabled(PROVIDERS.FACEBOOK)) {
+    return res.redirect(`${CLIENT_URL}/auth/error?message=Facebook OAuth not configured`);
+  }
+
+  passport.authenticate('facebook', { session: false }, async (err, normalizedIdentity) => {
+    if (await accountLinkingService.handleConnectCallback(req, res, PROVIDERS.FACEBOOK, err, normalizedIdentity)) {
+      return;
+    }
+
+    try {
+      if (err || !normalizedIdentity) {
+        console.error('❌ Facebook OAuth authentication error:', err && err.message);
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+      }
+
+      if (!oauthStateService.verify(req, PROVIDERS.FACEBOOK, req.query.state)) {
+        console.error('❌ Facebook OAuth: invalid or expired state');
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Your login attempt expired. Please try again.&reason=OAUTH_STATE_INVALID`);
+      }
+
+      const { user, isNewUser } = await authService.loginWithIdentity(PROVIDERS.FACEBOOK, normalizedIdentity);
+      const code = await authCodeService.issueCode({ userId: user._id, provider: PROVIDERS.FACEBOOK, isNewUser });
+
+      res.redirect(`${CLIENT_URL}/auth/success?code=${code}&provider=facebook`);
+    } catch (error) {
+      if (error.code === 'ACCOUNT_LINK_REQUIRED') {
+        return res.redirect(`${CLIENT_URL}/auth/error?message=${encodeURIComponent(error.message)}&reason=ACCOUNT_LINK_REQUIRED&email=${encodeURIComponent(error.email || '')}`);
+      }
+      console.error('❌ Facebook OAuth callback error:', error);
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+    }
+  })(req, res, next);
+});
+
+// @route   GET /api/auth/xbox
+// @desc    Xbox login. Note this requests only Xbox Live-scoped access (see
+//          providers.config.js) - there is no separate "Microsoft login"
+//          step, and no email is ever available from this flow.
+// @access  Public
+router.get('/xbox', (req, res, next) => {
+  if (!isProviderEnabled(PROVIDERS.XBOX)) {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'OAUTH_NOT_CONFIGURED',
+        message: 'Xbox login is not properly configured. Please contact support.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // A direct hit here always means "log in with Xbox" - clear any stale
+  // connect-intent from an abandoned settings-page connect attempt.
+  if (req.session) {
+    req.session.connectIntent = undefined;
+  }
+
+  const state = oauthStateService.issue(req, PROVIDERS.XBOX);
+
+  passport.authenticate('xbox', {
+    scope: providers[PROVIDERS.XBOX].scope,
+    state
+  })(req, res, next);
+});
+
+// @route   GET /api/auth/xbox/callback
+// @desc    Xbox OAuth callback. Unlike the other providers, a failure here
+//          (err.code === 'XBOX_PROFILE_UNAVAILABLE') usually means the
+//          Microsoft account simply has no Xbox profile, not a real error -
+//          surfaced with its own reason code so the frontend can show a
+//          specific, actionable message instead of a generic failure.
+// @access  Public
+router.get('/xbox/callback', (req, res, next) => {
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!isProviderEnabled(PROVIDERS.XBOX)) {
+    return res.redirect(`${CLIENT_URL}/auth/error?message=Xbox login not configured`);
+  }
+
+  passport.authenticate('xbox', { session: false }, async (err, normalizedIdentity) => {
+    if (await accountLinkingService.handleConnectCallback(req, res, PROVIDERS.XBOX, err, normalizedIdentity)) {
+      return;
+    }
+
+    try {
+      if (err && err.code === 'XBOX_PROFILE_UNAVAILABLE') {
+        console.error('❌ Xbox profile unavailable:', err.message);
+        return res.redirect(`${CLIENT_URL}/auth/error?message=${encodeURIComponent(err.message)}&reason=XBOX_PROFILE_UNAVAILABLE`);
+      }
+
+      if (err || !normalizedIdentity) {
+        console.error('❌ Xbox OAuth authentication error:', err && err.message);
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+      }
+
+      if (!oauthStateService.verify(req, PROVIDERS.XBOX, req.query.state)) {
+        console.error('❌ Xbox OAuth: invalid or expired state');
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Your login attempt expired. Please try again.&reason=OAUTH_STATE_INVALID`);
+      }
+
+      const { user, isNewUser } = await authService.loginWithIdentity(PROVIDERS.XBOX, normalizedIdentity);
+      const code = await authCodeService.issueCode({ userId: user._id, provider: PROVIDERS.XBOX, isNewUser });
+
+      res.redirect(`${CLIENT_URL}/auth/success?code=${code}&provider=xbox`);
+    } catch (error) {
+      if (error.code === 'ACCOUNT_LINK_REQUIRED') {
+        return res.redirect(`${CLIENT_URL}/auth/error?message=${encodeURIComponent(error.message)}&reason=ACCOUNT_LINK_REQUIRED&email=${encodeURIComponent(error.email || '')}`);
+      }
+      console.error('❌ Xbox OAuth callback error:', error);
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+    }
+  })(req, res, next);
+});
+
+// @route   POST /api/auth/exchange
+// @desc    Trade a one-time OAuth code (from the /auth/success redirect) for
+//          the actual JWT + user - keeps the JWT out of the redirect URL.
+// @access  Public
+router.post('/exchange', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    const record = await authCodeService.exchangeCode(code);
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'AUTH_CODE_EXPIRED',
+          message: 'This login link has expired or was already used. Please try again.',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const user = await User.findById(record.userId);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'IDENTITY_NOT_FOUND',
+          message: 'We could not find your account. Please try again.',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const token = generateToken(user._id, false);
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user,
+        provider: record.provider,
+        isNewUser: record.isNewUser
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Auth code exchange error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'PROVIDER_AUTH_FAILED',
+        message: 'Something went wrong completing sign-in. Please try again.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
 });
 
 // @route   PUT /api/auth/change-password
@@ -1594,29 +1823,71 @@ router.put('/change-password', auth, decodeSensitiveData, async (req, res) => {
 // @route   GET /api/auth/steam
 // @desc    Steam OAuth login
 // @access  Public
-router.get('/steam', passport.authenticate('steam'));
+router.get('/steam', (req, res, next) => {
+  if (!isProviderEnabled(PROVIDERS.STEAM)) {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'OAUTH_NOT_CONFIGURED',
+        message: 'Steam login is not properly configured. Please contact support.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  // Steam uses OpenID, not OAuth2 - passport-steam/node-openid already
+  // perform their own association/nonce handshake as part of the protocol,
+  // so this doesn't need the same app-level `state` param as Google.
+  //
+  // A direct hit here always means "log in with Steam" - clear any stale
+  // connect-intent from an abandoned settings-page connect attempt so it
+  // can't get mistakenly consumed by this unrelated login (see the intent
+  // branch in /steam/return below).
+  if (req.session) {
+    req.session.connectIntent = undefined;
+  }
+
+  passport.authenticate('steam')(req, res, next);
+});
 
 // @route   GET /api/auth/steam/return
-// @desc    Steam OAuth callback
+// @desc    Steam OAuth callback. passport-steam's returnURL is fixed at
+//          strategy-registration time, so this single route is the target
+//          for BOTH "log in with Steam" (/api/auth/steam) and "connect Steam"
+//          (POST /api/accounts/steam/connect/start) - it branches on whether
+//          a connect intent was recorded on the session immediately before
+//          this handshake started. Login issues a one-time code the same way
+//          Google's callback does; connect attaches the identity to the
+//          already-authenticated user and redirects back into the app.
 // @access  Public
-router.get('/steam/return',
-  passport.authenticate('steam', { session: false }),
-  async (req, res) => {
-    try {
-      // Generate JWT token
-      const token = generateToken(req.user._id, false);
+router.get('/steam/return', (req, res, next) => {
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
 
-      // Redirect to frontend with token-1
-      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-      res.redirect(`${CLIENT_URL}/auth/success?token=${token}&provider=steam`);
-
-    } catch (error) {
-      console.error('Steam OAuth callback error:', error);
-      const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed`);
-    }
+  if (!isProviderEnabled(PROVIDERS.STEAM)) {
+    return res.redirect(`${CLIENT_URL}/auth/error?message=Steam login not configured`);
   }
-);
+
+  passport.authenticate('steam', { session: false }, async (err, normalizedIdentity) => {
+    if (await accountLinkingService.handleConnectCallback(req, res, PROVIDERS.STEAM, err, normalizedIdentity)) {
+      return;
+    }
+
+    try {
+      if (err || !normalizedIdentity) {
+        console.error('❌ Steam OAuth authentication error:', err && err.message);
+        return res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+      }
+
+      const { user, isNewUser } = await authService.loginWithIdentity(PROVIDERS.STEAM, normalizedIdentity);
+      const code = await authCodeService.issueCode({ userId: user._id, provider: PROVIDERS.STEAM, isNewUser });
+
+      res.redirect(`${CLIENT_URL}/auth/success?code=${code}&provider=steam`);
+    } catch (error) {
+      console.error('❌ Steam OAuth callback error:', error);
+      res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
+    }
+  })(req, res, next);
+});
 
 module.exports = router;
 

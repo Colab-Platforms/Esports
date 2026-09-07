@@ -149,19 +149,19 @@ class ApiService {
 
   // Steam API
   async getSteamStatus() {
-    return this.get('/api/steam/status');
+    return this.get('/api/accounts/steam/status');
   }
 
   async getCS2Eligibility() {
-    return this.get('/api/steam/cs2/eligibility');
+    return this.get('/api/cs2/eligibility');
   }
 
   async syncSteamData() {
-    return this.post('/api/steam/sync');
+    return this.post('/api/accounts/steam/sync');
   }
 
   async disconnectSteam() {
-    return this.post('/api/steam/disconnect');
+    return this.post('/api/accounts/steam/disconnect');
   }
 
   async getUserTournaments() {

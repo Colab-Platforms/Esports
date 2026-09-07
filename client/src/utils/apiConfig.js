@@ -2,6 +2,7 @@
  * API Configuration Utility
  * Handles dynamic API URL resolution for different environments
  */
+import api from '../services/api';
 
 // Get the API base URL from environment or construct from window.location
 export const getApiBaseUrl = () => {
@@ -61,24 +62,34 @@ export const getApiEndpoint = (path) => {
   return `${baseUrl}/${cleanPath}`;
 };
 
-// Helper to construct Steam OAuth URL
-export const getSteamAuthUrl = (userId, redirectPath = '') => {
-  const serverUrl = getServerBaseUrl();
-  // Remove trailing slash if present
-  const cleanServerUrl = serverUrl.endsWith('/') ? serverUrl.slice(0, -1) : serverUrl;
-  let url = `${cleanServerUrl}/api/steam/auth?state=${userId}`;
-  
-  if (redirectPath) {
-    url += `&redirect=${redirectPath}`;
+// Starts a "connect <provider> to my account" flow: records the intent
+// server-side (authenticated via the normal Bearer header) then hands back
+// a URL to full-page-redirect to. Works for any provider (google, facebook,
+// steam, xbox) - identifies the user via the session set by this
+// authenticated call, not a client-supplied id (unlike the old Steam-only
+// getSteamAuthUrl, which used an unauthenticated `?state=<userId>` query
+// param that anyone could pass any user's id into).
+export const startProviderConnect = async (provider, redirectPath = '') => {
+  const response = await api.post(`/api/accounts/${provider}/connect/start`, { redirectPath });
+  const connectUrl = response && response.data && response.data.connectUrl;
+
+  if (!connectUrl) {
+    throw new Error(`Failed to start ${provider} connection`);
   }
-  
-  return url;
+
+  window.location.href = connectUrl;
 };
+
+// Kept for the existing Steam call sites (SteamSettingsPage,
+// SteamConnectionModal/Widget, tournament registration flows) - a thin
+// wrapper so none of them need to change.
+export const startSteamConnect = (redirectPath = '') => startProviderConnect('steam', redirectPath);
 
 export default {
   getApiBaseUrl,
   getServerBaseUrl,
   getClientBaseUrl,
   getApiEndpoint,
-  getSteamAuthUrl
+  startProviderConnect,
+  startSteamConnect
 };

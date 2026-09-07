@@ -19,7 +19,7 @@ import SteamConnectionModal from '../components/steam/SteamConnectionModal';
 import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
 import CountdownTimer from '../components/common/CountdownTimer';
 import api from '../services/api';
-import { getSteamAuthUrl } from '../utils/apiConfig';
+import { startSteamConnect } from '../utils/apiConfig';
 import { getServerStatusBadge, getServerStats } from '../utils/cs2ServerStatus';
 
 const CS2Page = () => {
@@ -192,18 +192,17 @@ const CS2Page = () => {
   };
 
   const handleSteamLink = () => {
-    const userId = user?.id || user?._id;
-    
-    if (!userId) {
+    if (!user) {
       alert('Please login again to continue');
       navigate('/login');
       return;
     }
 
     setShowSteamModal(false);
-    
-    // Direct redirect to Steam OAuth - uses dynamic URL
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?._id}`);
+
+    startSteamConnect(`/tournaments/${selectedTournament?._id}`).catch(() => {
+      alert('Failed to start Steam connection. Please try again.');
+    });
   };
 
   const handleJoinTournament = async (tournament) => {
@@ -214,7 +213,7 @@ const CS2Page = () => {
 
     // Check Steam integration before joining CS2 tournament
     try {
-      const steamStatus = await api.get('/api/steam/status');
+      const steamStatus = await api.get('/api/accounts/steam/status');
 
       if (!steamStatus.isConnected) {
         // Directly open Steam instead of showing modal
@@ -223,7 +222,7 @@ const CS2Page = () => {
       }
 
       // Check CS2 eligibility
-      const eligibility = await api.get('/api/steam/cs2/eligibility');
+      const eligibility = await api.get('/api/cs2/eligibility');
 
       if (!eligibility.eligible) {
         setShowSteamModal(true);

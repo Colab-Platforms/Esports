@@ -22,7 +22,7 @@ import { getRandomBanner } from "../../assets/tournamentBanners";
 import { getGameAsset } from "../../assets/gameAssets";
 import OptimizedImage from "../../components/common/OptimizedImage";
 import CountdownTimer from "../../components/common/CountdownTimer";
-import { getSteamAuthUrl } from "../../utils/apiConfig";
+import { startSteamConnect } from "../../utils/apiConfig";
 import {
   getServerStats,
   getServerPlayers,
@@ -508,9 +508,7 @@ const SingleTournamentPage = () => {
 
   // Memoize handler functions BEFORE any conditional returns
   const handleSteamLink = React.useCallback(() => {
-    const userId = user?.id || user?._id;
-
-    if (!userId) {
+    if (!user) {
       alert("Authentication error. Please login again.");
       navigate("/login");
       return;
@@ -518,8 +516,9 @@ const SingleTournamentPage = () => {
 
     setShowSteamModal(false);
 
-    // Direct redirect to Steam OAuth - uses dynamic URL
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${id}`);
+    startSteamConnect(`/tournaments/${id}`).catch(() => {
+      alert("Failed to start Steam connection. Please try again.");
+    });
   }, [user, navigate, id]);
 
   const handleJoinTournament = React.useCallback(async () => {

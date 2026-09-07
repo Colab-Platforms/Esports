@@ -11,64 +11,53 @@ const OAuthSuccess = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    const code = searchParams.get('code');
+    const legacyToken = searchParams.get('token'); // still used by Steam until Phase 4 of the auth migration
     const provider = searchParams.get('provider');
 
-    console.log('🔐 OAuthSuccess component loaded');
-    console.log('📍 Token from URL:', token ? 'Present' : 'Missing');
-    console.log('📍 Provider:', provider);
+    const finishLogin = async (token) => {
+      try {
+        // Store token temporarily so the /api/users/me call below is authenticated
+        localStorage.setItem('token', token);
 
-    if (token) {
-      const completeOAuth = async () => {
-        try {
-          console.log('💾 Storing token in localStorage...');
-          // Store token temporarily
-          localStorage.setItem('token', token);
-          
-          console.log('🔄 Fetching user data from /api/users/me...');
-          // Fetch user data using the token
-          const response = await api.get('/api/users/me');
-          
-          console.log('📦 API Response:', response);
-          console.log('📦 Response.data:', response.data);
-          console.log('📦 Response.data.user:', response.data?.user);
-          
-          // The API returns: { success: true, data: { user: {...} }, timestamp: '...' }
-          // So we need to access response.data.user (not response.data.data.user)
-          if (response.data && response.data.user) {
-            const user = response.data.user;
-            
-            console.log('👤 User data received:', user.username);
-            
-            // Dispatch login success with user data
-            dispatch(loginSuccess({
-              token,
-              user
-            }));
-            
-            const providerName = provider === 'google' ? 'Google' : 'Steam';
-            toast.success(`🎉 Welcome back, ${user.username}!`);
-            
-            console.log('🚀 Redirecting to home page...');
-            // Redirect to home page instead of dashboard for better UX
-            navigate('/', { replace: true });
-          } else {
-            console.error('❌ Invalid response structure:', response);
-            console.error('Expected response.data.user but got:', response.data);
-            throw new Error('No user data received');
-          }
-        } catch (error) {
-          console.error('❌ OAuth success error:', error);
-          console.error('Error details:', error.message);
-          toast.error('Authentication failed. Please try again.');
-          localStorage.removeItem('token');
-          navigate('/login', { replace: true });
+        const response = await api.get('/api/users/me');
+
+        // The API returns: { success: true, data: { user: {...} }, timestamp: '...' }
+        if (response.data && response.data.user) {
+          const user = response.data.user;
+
+          dispatch(loginSuccess({ token, user }));
+          toast.success(`🎉 Welcome back, ${user.username}!`);
+          navigate('/', { replace: true });
+        } else {
+          throw new Error('No user data received');
         }
-      };
-      
-      completeOAuth();
+      } catch (error) {
+        console.error('❌ OAuth success error:', error.message);
+        toast.error('Authentication failed. Please try again.');
+        localStorage.removeItem('token');
+        navigate('/login', { replace: true });
+      }
+    };
+
+    if (code) {
+      // New flow: exchange the one-time code for a JWT server-side, so the
+      // token itself never travels through the URL/browser history.
+      api.post('/api/auth/exchange', { code, provider })
+        .then((response) => {
+          const token = response.data && response.data.token;
+          if (!token) throw new Error('No token received from exchange');
+          return finishLogin(token);
+        })
+        .catch((error) => {
+          console.error('❌ OAuth code exchange failed:', error.message);
+          toast.error('Your login link expired or was already used. Please try again.');
+          navigate('/login', { replace: true });
+        });
+    } else if (legacyToken) {
+      finishLogin(legacyToken);
     } else {
-      console.error('❌ No token in URL');
+      console.error('❌ No code or token in URL');
       toast.error('Authentication failed. Please try again.');
       navigate('/login', { replace: true });
     }
