@@ -296,7 +296,8 @@ class WhatsAppService {
       // Select image based on game type
       const gameImages = {
         bgmi: process.env.WHATSAPP_BGMI_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Battleground_Mobile_India.webp?v=1782124493',
-        freefire: process.env.WHATSAPP_FREEFIRE_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775740198940.jpg?v=1775740788'
+        freefire: process.env.WHATSAPP_FREEFIRE_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775740198940.jpg?v=1775740788',
+        valorant: process.env.WHATSAPP_VALORANT_IMAGE || 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Battleground_Mobile_India.webp?v=1782124493'
       };
 
       const headerImage = gameImages[gameType.toLowerCase()] || gameImages.bgmi;

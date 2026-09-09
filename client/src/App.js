@@ -34,6 +34,7 @@ import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import ExplorePage from './pages/ExplorePage';
 // import WalletPage from './pages/WalletPage';
 import WalletPage from './pages/wallet/WalletPage';
 import StorePage from './pages/store/StorePage';
@@ -53,6 +54,7 @@ import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
+import AdminValorantRegistrations from './pages/AdminValorantRegistrations';
 import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
 import WinnerRewardPanel from './pages/admin/WinnerRewardPanel';
 import SingleTournamentPage from './pages/tournaments/SingleTournamentPage';
@@ -65,6 +67,7 @@ import BGMIPage from './pages/BGMIPage';
 import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
 import FreeFirePage from './pages/FreeFirePage';
+import ValorantPage from './pages/ValorantPage';
 import TournamentDetails from './pages/tournaments/TournamentDetails';
 import SteamSettingsPage from './pages/SteamSettingsPage';
 import ConnectedAccountsPage from './pages/ConnectedAccountsPage';
@@ -95,7 +98,7 @@ const GameRouter = () => {
     case 'counter strike 2':
       return <CS2Page />;
     case 'valorant':
-      return <Navigate to="/games" replace />;
+      return <ValorantPage />;
     default:
       return <Navigate to="/games" replace />;
   }
@@ -425,6 +428,21 @@ function App() {
               } 
             />
             
+            {/* Valorant Route */}
+            <Route
+              path="/valorant"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ValorantPage />
+                </motion.div>
+              }
+            />
+
             {/* BGMI Image Upload Route */}
             <Route 
               path="/bgmi/registration/:registrationId/upload-images" 
@@ -541,6 +559,20 @@ function App() {
                   transition={{ duration: 0.3 }}
                 >
                   <LeaderboardPage />
+                </motion.div>
+              } 
+            />
+
+             <Route 
+              path="/explore" 
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ExplorePage />
                 </motion.div>
               } 
             />
@@ -847,11 +879,27 @@ function App() {
                     <AdminBGMIRegistrations />
                   </motion.div>
                 </AdminRoute>
-              } 
+              }
             />
 
-            <Route 
-              path="/admin/live-stream" 
+            <Route
+              path="/admin/valorant-registrations"
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AdminValorantRegistrations />
+                  </motion.div>
+                </AdminRoute>
+              }
+            />
+
+            <Route
+              path="/admin/live-stream"
               element={
                 <AdminRoute>
                   <motion.div

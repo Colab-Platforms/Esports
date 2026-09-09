@@ -96,6 +96,7 @@ const Navbar = () => {
     { to: "/tournaments", label: "TOURNAMENTS" },
     { to: "/teams", label: "FRIENDS" },
     { to: "/leaderboard", label: "LEADERBOARD" },
+    { to: "/explore", label: "EXPLORE" },
     { to: "/store", label: "STORE" },
   ];
 
@@ -120,6 +121,7 @@ const Navbar = () => {
       links.push(
         { to: "/admin/tournaments", label: "Tournaments" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
+        { to: "/admin/valorant-registrations", label: "Valorant Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
@@ -132,6 +134,7 @@ const Navbar = () => {
         { to: "/admin/games", label: "Games" },
         { to: "/admin/tournaments", label: "Tournaments" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
+        { to: "/admin/valorant-registrations", label: "Valorant Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/coin-config", label: "Coin Config" },
         { to: "/admin/store", label: "Store Items" },

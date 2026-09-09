@@ -221,6 +221,7 @@ const TournamentsPage = () => {
     { id: 'all', label: 'ALL GAMES' },
     { id: 'bgmi', label: 'BGMI' },
     { id: 'freefire', label: 'FREE FIRE' },
+    { id: 'valorant', label: 'VALORANT' },
     { id: 'cs2', label: 'CS2' }
   ];
 
@@ -427,6 +428,16 @@ const TournamentsPage = () => {
                 }`}
               >
                 FREE FIRE
+              </button>
+              <button
+                onClick={() => setActiveCategoryTab('valorant')}
+                className={`px-6 py-3 rounded-lg font-gaming font-bold transition-colors duration-200 whitespace-nowrap ${
+                  activeCategoryTab === 'valorant'
+                    ? 'bg-gaming-gold text-black'
+                    : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+                }`}
+              >
+                VALORANT
               </button>
               {/* <button
                 onClick={() => setActiveCategoryTab('cs2')}

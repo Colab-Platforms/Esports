@@ -171,6 +171,8 @@ const SingleTournamentPage = () => {
 
       if (tournament?.gameType === "bgmi") {
         endpoint = `/api/bgmi-registration/tournament/${id}/teams`;
+      } else if (tournament?.gameType === "valorant") {
+        endpoint = `/api/valorant-registration/tournament/${id}/teams`;
       }
 
       const data = await secureRequest.get(endpoint);
@@ -656,7 +658,10 @@ const SingleTournamentPage = () => {
               gameId: u?.gameIds?.steam || u?.steamProfile?.steamId || "",
             };
           } else if (gameType === "valorant") {
-            return { name: "", gameId: u?.gameIds?.valorant || "" };
+            return {
+              name: u?.username || "",
+              gameId: u?.gameIds?.valorant || "",
+            };
           }
           return { name: "", gameId: "" };
         };
@@ -777,6 +782,59 @@ const SingleTournamentPage = () => {
             }
             throw new Error(err.message || 'Registration failed');
           }
+        } else if (gameType === "valorant") {
+          // Separate regular members and substitute
+          const regularMembers = otherMembers.filter(m => !m.isSubstitute);
+          const substituteMember = otherMembers.find(m => m.isSubstitute);
+
+          // gameIds.valorant is stored as a flat "name#tag" string; split it
+          // into the {name, tag} shape the Valorant registration API expects.
+          const parseRiotId = (gameId) => {
+            if (!gameId || typeof gameId !== "string" || !gameId.includes("#")) {
+              return { name: "", tag: "" };
+            }
+            const [riotName, riotTag] = gameId.split("#");
+            return { name: (riotName || "").trim(), tag: (riotTag || "").trim() };
+          };
+
+          const registrationData = {
+            teamName: team.name,
+            teamLeader: {
+              name: leaderInfo.name,
+              riotId: parseRiotId(leaderInfo.gameId),
+              phone: phoneNumber || user?.phone || "",
+            },
+            teamMembers: regularMembers.map((m) => {
+              const info = getInfo(m);
+              return { name: info.name, riotId: parseRiotId(info.gameId) };
+            }),
+            ...(substituteMember && {
+              substitute: {
+                name: getInfo(substituteMember).name,
+                riotId: parseRiotId(getInfo(substituteMember).gameId),
+              }
+            }),
+            whatsappNumber: phoneNumber || user?.phone || "",
+          };
+
+          const valorantResponse = await api.post(
+            `/api/valorant-registration/${tournament._id}/register`,
+            registrationData,
+          );
+          const valorantData = valorantResponse.data || valorantResponse;
+          if (valorantData?.success === false) {
+            const err = valorantData.error || {};
+            if (err.code === 'PLAYER_ALREADY_REGISTERED') {
+              const playerLines = (err.conflictingPlayers || [])
+                .map(p => `<div class="ml-4 mt-1">• <span class="text-yellow-400">${p.playerName}</span> <span class="text-gray-400">(Riot ID: ${p.riotId || 'N/A'})</span> in team: <span class="text-yellow-400">${p.existingTeam}</span></div>`)
+                .join('');
+              const msg = `<div class="text-red-400 font-semibold mb-2">These players are already registered:</div>${playerLines}`;
+              notificationService.showCustomNotification("error", "Registration Failed", msg, null, true);
+              setRegistering(false);
+              return;
+            }
+            throw new Error(err.message || 'Registration failed');
+          }
         } else if (gameType === "cs2") {
           const steamId =
             leaderInfo.gameId ||
@@ -860,6 +918,8 @@ const SingleTournamentPage = () => {
                 return `Team Leader phone number is invalid`;
               if (path.includes("teamLeader.freeFireId"))
                 return `Team Leader is missing Free Fire UID`;
+              if (path.includes("teamLeader.riotId"))
+                return `Team Leader is missing a Riot ID (name and tag)`;
               if (path.includes("teamMembers")) {
                 const match = path.match(/teamMembers\[?(\d+)\]?/);
                 const idx = match ? parseInt(match[1]) + 1 : "";
@@ -867,6 +927,8 @@ const SingleTournamentPage = () => {
                   return `Member ${idx} is missing BGMI UID`;
                 if (path.includes("freeFireId"))
                   return `Member ${idx} is missing Free Fire UID`;
+                if (path.includes("riotId"))
+                  return `Member ${idx} is missing a Riot ID (name and tag)`;
                 if (path.includes("name"))
                   return `Member ${idx} is missing IGN`;
                 return d.msg;
@@ -1302,11 +1364,21 @@ const SingleTournamentPage = () => {
                           <div className="flex flex-col space-y-1">
                             <span>
                               Leader:{" "}
-                              {team.teamLeader?.bgmiId || team.gameId || "N/A"}
+                              {team.teamLeader?.bgmiId ||
+                                team.teamLeader?.freeFireId ||
+                                (team.teamLeader?.riotId?.name &&
+                                  `${team.teamLeader.riotId.name}#${team.teamLeader.riotId.tag}`) ||
+                                team.gameId ||
+                                "N/A"}
                             </span>
                             {team.teamMembers?.map((member, idx) => (
                               <span key={idx}>
-                                P{idx + 1}: {member.bgmiId || "N/A"}
+                                P{idx + 1}:{" "}
+                                {member.bgmiId ||
+                                  member.freeFireId ||
+                                  (member.riotId?.name &&
+                                    `${member.riotId.name}#${member.riotId.tag}`) ||
+                                  "N/A"}
                               </span>
                             ))}
                           </div>

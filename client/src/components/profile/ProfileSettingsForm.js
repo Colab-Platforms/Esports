@@ -54,7 +54,9 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
       ign: user?.gameIds?.freefire?.ign || user?.freeFireIgnName || '',
       uid: user?.gameIds?.freefire?.uid || user?.freeFireUid || ''
     },
-    steam: user?.gameIds?.steam || ''
+    steam: user?.gameIds?.steam || '',
+    // Stored as a flat "name#tag" string, matching the existing gameIds.valorant convention
+    valorant: user?.gameIds?.valorant || ''
   });
 
   const indianStates = [
@@ -106,10 +108,20 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
           ign: user.gameIds?.freefire?.ign || user.freeFireIgnName || '',
           uid: user.gameIds?.freefire?.uid || user.freeFireUid || ''
         },
-        steam: user.gameIds?.steam || ''
+        steam: user.gameIds?.steam || '',
+        valorant: user.gameIds?.valorant || ''
       });
     }
   }, [user]);
+
+  // gameIds.valorant is stored as a flat "name#tag" string; split it for the two-field UI
+  const [valorantName, valorantTag] = (gameIds.valorant || '').split('#');
+  const handleValorantChange = (field, value) => {
+    const newName = field === 'name' ? value : (valorantName || '');
+    const newTag = field === 'tag' ? value : (valorantTag || '');
+    const combined = newTag ? `${newName}#${newTag}` : newName;
+    handleGameIdChange('valorant', null, combined);
+  };
 
   const handleProfileChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -520,6 +532,46 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   <p className="text-xs text-gray-500 mt-1">Your unique Free Fire user ID for verification (11 digits, numbers only)</p>
                 </div>
               </div>
+            </div>
+
+            {/* Valorant Section */}
+            <div className="border-t border-gaming-border pt-6 mt-6">
+              <h4 className="text-white font-medium mb-4 flex items-center space-x-2">
+                <span className="text-xl">🎯</span>
+                <span>Valorant</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Riot ID Name
+                  </label>
+                  <input
+                    type="text"
+                    value={valorantName || ''}
+                    onChange={(e) => handleValorantChange('name', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                    placeholder="e.g. TenZ"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Riot ID Tag
+                  </label>
+                  <input
+                    type="text"
+                    value={valorantTag || ''}
+                    onChange={(e) => handleValorantChange('tag', e.target.value.replace('#', ''))}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
+                      }`}
+                    placeholder="e.g. 1234"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Your Riot ID for Valorant tournaments (Name + Tag, e.g. TenZ#1234)</p>
             </div>
 
             {/* Steam Section */}

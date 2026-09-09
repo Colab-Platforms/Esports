@@ -21,16 +21,16 @@ const GamesPage = () => {
         try {
             const cached = localStorage.getItem('games_cache');
             if (!cached) return null;
-            
+
             const { data, timestamp } = JSON.parse(cached);
             const cacheAge = Date.now() - timestamp;
             const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-            
+
             if (cacheAge > CACHE_TTL) {
                 localStorage.removeItem('games_cache');
                 return null;
             }
-            
+
             console.log('📦 Using cached games data');
             return data;
         } catch (err) {
@@ -55,16 +55,16 @@ const GamesPage = () => {
         try {
             const cached = localStorage.getItem('site_images_cache');
             if (!cached) return null;
-            
+
             const { data, timestamp } = JSON.parse(cached);
             const cacheAge = Date.now() - timestamp;
             const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-            
+
             if (cacheAge > CACHE_TTL) {
                 localStorage.removeItem('site_images_cache');
                 return null;
             }
-            
+
             console.log('📦 Using cached site images');
             return data;
         } catch (err) {
@@ -92,7 +92,7 @@ const GamesPage = () => {
                 // Check cache first
                 const cachedGames = getCachedGames();
                 const cachedImages = getCachedImages();
-                
+
                 if (cachedGames && cachedImages) {
                     // Use cached data immediately
                     setGames(cachedGames);
@@ -100,36 +100,36 @@ const GamesPage = () => {
                     setLoading(false);
                     return;
                 }
-                
+
                 setLoading(true);
-                
+
                 // Fetch games and site images in parallel (no artificial delays)
                 const [gamesResponse, imagesResult] = await Promise.all([
                     api.getGames(),
                     imageService.getAllImages()
                 ]);
-                
+
                 const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
                 setGames(gamesArray);
-                
+
                 // Set site images if fetch was successful
                 if (imagesResult.success) {
                     setSiteImages(imagesResult.data);
                     setCachedImages(imagesResult.data);
                 }
-                
+
                 // Cache games data
                 setCachedGames(gamesArray);
-                
+
                 setError(null);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching games:', err);
-                
+
                 // Try to use stale cache on error
                 const cachedGames = getCachedGames();
                 const cachedImages = getCachedImages();
-                
+
                 if (cachedGames && cachedImages) {
                     console.log('⚠️ Using stale cache due to error');
                     setGames(cachedGames);
@@ -137,7 +137,7 @@ const GamesPage = () => {
                     setLoading(false);
                     return;
                 }
-                
+
                 setError('Failed to load games. Please try again later.');
                 setLoading(false);
             }
@@ -175,7 +175,7 @@ const GamesPage = () => {
     // Auto-slide banners
     useEffect(() => {
         if (banners.length === 0) return;
-        
+
         const interval = setInterval(() => {
             setCurrentBanner((prev) => (prev + 1) % banners.length);
         }, 5000);
@@ -194,7 +194,7 @@ const GamesPage = () => {
     const getGameType = (game) => {
         const name = game.name?.toLowerCase() || '';
         const id = game.id?.toLowerCase() || '';
-        
+
         // Map common game names to gameAssets keys
         if (name.includes('bgmi') || name.includes('battlegrounds') || id.includes('bgmi')) {
             return 'bgmi';
@@ -220,7 +220,7 @@ const GamesPage = () => {
         if (name.includes('fc 24') || name.includes('fifa') || id.includes('fc24')) {
             return 'fc24';
         }
-        
+
         // Default fallback
         return 'bgmi';
     };
@@ -418,72 +418,69 @@ const GamesPage = () => {
             <section className="relative h-96 overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
                 {banners.length > 0 && banners[currentBanner] ? (
                     <>
-                    {/* Banner with images */}
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentBanner}
-                            initial={{ opacity: 0, x: 300 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -300 }}
-                            transition={{ duration: 0.5 }}
-                            className="absolute inset-0 flex items-center justify-center"
-                            style={{
-                                backgroundImage: `url(${banners[currentBanner]?.image || ''})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center'
-                            }}
-                        >
-                            {/* No dark overlay - show clean images */}
-                            {/* Camera icon removed - manage via Controls/Banners */}
-                        </motion.div>
-                    </AnimatePresence>
-
-                    {/* Navigation Arrows - Only show if multiple banners */}
-                    {banners.length > 1 && (
-                        <>
-                            <button
-                                onClick={prevBanner}
-                                className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
+                        {/* Banner with images */}
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={currentBanner}
+                                initial={{ opacity: 0, x: 300 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -300 }}
+                                transition={{ duration: 0.5 }}
+                                className="absolute inset-0 flex items-center justify-center"
+                                style={{
+                                    backgroundImage: `url(${banners[currentBanner]?.image || ''})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                }}
                             >
-                                <FiChevronLeft className="h-6 w-6" />
-                            </button>
+                                {/* No dark overlay - show clean images */}
+                                {/* Camera icon removed - manage via Controls/Banners */}
+                            </motion.div>
+                        </AnimatePresence>
 
-                            <button
-                                onClick={nextBanner}
-                                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
-                            >
-                                <FiChevronRight className="h-6 w-6" />
-                            </button>
+                        {/* Navigation Arrows - Only show if multiple banners */}
+                        {banners.length > 1 && (
+                            <>
+                                <button
+                                    onClick={prevBanner}
+                                    className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
+                                >
+                                    <FiChevronLeft className="h-6 w-6" />
+                                </button>
 
-                            {/* Banner Indicators */}
-                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
-                                {banners.map((_, index) => (
-                                    <button
-                                        key={index}
-                                        onClick={() => setCurrentBanner(index)}
-                                        className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
-                                            }`}
-                                    />
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </>
-            ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-                    <div className="text-6xl mb-4">🎮</div>
-                    <h2 className="text-3xl font-gaming font-bold text-white mb-2">
-                        Games Portal
-                    </h2>
-                    <p className="text-gray-400 max-w-md">
-                        Explore all available games and join tournaments
-                    </p>
-                    <div className="mt-6 text-sm text-gray-500">
-                        Banner images can be uploaded via Admin Panel → Image Management
+                                <button
+                                    onClick={nextBanner}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 bg-gaming-card/80 hover:bg-gaming-card text-white rounded-full border border-gaming-border transition-all duration-200 shadow-lg z-10"
+                                >
+                                    <FiChevronRight className="h-6 w-6" />
+                                </button>
+
+                                {/* Banner Indicators */}
+                                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+                                    {banners.map((_, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setCurrentBanner(index)}
+                                            className={`w-3 h-3 rounded-full transition-all duration-200 ${index === currentBanner ? 'bg-gaming-gold' : 'bg-white/30'
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </>
+                ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                        <div className="text-6xl mb-4">🎮</div>
+                        <h2 className="text-3xl font-gaming font-bold text-white mb-2">
+                            Games Portal
+                        </h2>
+                        <p className="text-gray-400 max-w-md">
+                            Explore all available games and join tournaments
+                        </p>
                     </div>
-                </div>
-            )}
-        </section>
+                )}
+            </section>
 
             {/* Games Grid */}
             <section className="py-16">
@@ -527,11 +524,10 @@ const GamesPage = () => {
                                                 <button
                                                     key={gameType}
                                                     onClick={() => setActiveGameType(gameType)}
-                                                    className={`w-full flex items-center gap-3 px-5 py-4 border-t border-gaming-border transition-colors duration-200 ${
-                                                        activeGameType === gameType
+                                                    className={`w-full flex items-center gap-3 px-5 py-4 border-t border-gaming-border transition-colors duration-200 ${activeGameType === gameType
                                                             ? 'bg-gaming-gold/10 text-gaming-gold'
                                                             : 'text-gray-300 hover:bg-gaming-slate/50 hover:text-white'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <GameIcon gameType={gameType} size="md" style="cdn" />
                                                     <span className="font-semibold">{gameType.toUpperCase()}</span>

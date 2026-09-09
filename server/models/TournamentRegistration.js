@@ -36,14 +36,20 @@ const tournamentRegistrationSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    // Valorant Riot ID (name + tag, e.g. "TenZ" + "1234"). Kept as a
+    // nested object instead of a flat string per game-account convention.
+    riotId: {
+      name: { type: String, trim: true },
+      tag: { type: String, trim: true }
+    },
     phone: {
       type: String,
       required: [true, 'Team leader phone is required'],
       match: [/^[6-9]\d{9}$/, 'Please enter a valid Indian phone number']
     }
   },
-  
-  // Team Members (exactly 3 required players)
+
+  // Team Members (exact count is game-specific, see TEAM_MEMBER_REQUIREMENTS below)
   teamMembers: [{
     name: {
       type: String,
@@ -57,15 +63,23 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     freeFireId: {
       type: String,
       trim: true
+    },
+    riotId: {
+      name: { type: String, trim: true },
+      tag: { type: String, trim: true }
     }
   }],
-  
+
   // Substitute Player (optional - 1 backup player)
   substitutePlayer: {
     type: {
       name: { type: String, trim: true },
       bgmiId: { type: String, trim: true },
-      freeFireId: { type: String, trim: true }
+      freeFireId: { type: String, trim: true },
+      riotId: {
+        name: { type: String, trim: true },
+        tag: { type: String, trim: true }
+      }
     },
     default: null
   },
@@ -200,21 +214,32 @@ tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
   return members;
 });
 
+// Required team member count (excluding leader) per game. Any gameType not
+// listed here defaults to 3, preserving the original behavior for games
+// (e.g. cs2) that predate this lookup.
+const TEAM_MEMBER_REQUIREMENTS = {
+  bgmi: 3,
+  freefire: 3,
+  valorant: 4
+};
+
 // Pre-save middleware to update tournament participant count
 tournamentRegistrationSchema.pre('save', async function(next) {
-  // Ensure exactly 3 team members (plus leader = 4 total, plus optional substitute = 5 max)
-  if (this.teamMembers.length !== 3) {
-    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
-  }
-  
   // Get tournament to check game type
   const Tournament = require('./Tournament');
   const tournament = await Tournament.findById(this.tournamentId);
-  
+
   if (!tournament) {
     return next(new Error('Tournament not found'));
   }
-  
+
+  // Ensure the correct number of team members for this game
+  // (plus leader, plus optional substitute)
+  const requiredMembers = TEAM_MEMBER_REQUIREMENTS[tournament.gameType] ?? 3;
+  if (this.teamMembers.length !== requiredMembers) {
+    return next(new Error(`Team must have exactly ${requiredMembers} members (plus leader = ${requiredMembers + 1} total players)`));
+  }
+
   // Validate unique IDs based on game type
   if (tournament.gameType === 'bgmi') {
     // Collect all BGMI IDs to check for duplicates (including substitute if exists)
@@ -260,8 +285,43 @@ tournamentRegistrationSchema.pre('save', async function(next) {
         return next(new Error('All team members must have Free Fire IDs for Free Fire tournaments'));
       }
     }
+  } else if (tournament.gameType === 'valorant') {
+    // Normalize a Riot ID (name + tag) into a single comparable key
+    const normalizeRiotId = (riotId) => {
+      if (!riotId || !riotId.name || !riotId.tag) return null;
+      const name = riotId.name.trim().toLowerCase();
+      const tag = riotId.tag.trim().toLowerCase();
+      if (!name || !tag) return null;
+      return `${name}#${tag}`;
+    };
+
+    // Ensure leader and every member have a complete Riot ID
+    if (!normalizeRiotId(this.teamLeader.riotId)) {
+      return next(new Error('Team leader Riot ID (name and tag) is required for Valorant tournaments'));
+    }
+    for (const member of this.teamMembers) {
+      if (!normalizeRiotId(member.riotId)) {
+        return next(new Error('All team members must have a Riot ID (name and tag) for Valorant tournaments'));
+      }
+    }
+    // Substitute is optional, but if provided must be complete (not half-filled)
+    if (this.substitutePlayer && (this.substitutePlayer.riotId?.name || this.substitutePlayer.riotId?.tag) && !normalizeRiotId(this.substitutePlayer.riotId)) {
+      return next(new Error('Substitute Riot ID must include both name and tag'));
+    }
+
+    // Collect all Riot IDs to check for duplicates within the team (including substitute if present)
+    const allRiotIds = [
+      normalizeRiotId(this.teamLeader.riotId),
+      ...this.teamMembers.map(m => normalizeRiotId(m.riotId)),
+      ...(this.substitutePlayer?.riotId ? [normalizeRiotId(this.substitutePlayer.riotId)] : [])
+    ].filter(Boolean);
+    const uniqueRiotIds = new Set(allRiotIds);
+
+    if (allRiotIds.length !== uniqueRiotIds.size) {
+      return next(new Error('All team members must have unique Riot IDs'));
+    }
   }
-  
+
   next();
 });
 
@@ -270,22 +330,26 @@ tournamentRegistrationSchema.post('save', async function(doc) {
   try {
     const Tournament = require('./Tournament');
     const tournament = await Tournament.findById(doc.tournamentId);
-    
-    if (tournament && tournament.gameType === 'bgmi') {
+
+    // Participant-count sync applies to bgmi and valorant (both need an
+    // accurate currentParticipants/maxParticipants display). Free Fire is
+    // intentionally left as-is (pre-existing behavior, unrelated to this change).
+    if (tournament && ['bgmi', 'valorant'].includes(tournament.gameType)) {
       // Count active registrations
       const registrationCount = await this.constructor.countDocuments({
         tournamentId: doc.tournamentId,
         status: { $in: ['pending', 'images_uploaded', 'verified'] }
       });
-      
+
       // Update tournament participant count
       tournament.currentParticipants = registrationCount;
       await tournament.save();
-      
+
       console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount}`);
-      
+
       // Auto-assign groups if grouping is enabled and this registration doesn't have a group
-      if (tournament.grouping && tournament.grouping.enabled && !doc.group) {
+      // (grouping is a BGMI-specific large-bracket feature; not extended to Valorant for MVP)
+      if (tournament.gameType === 'bgmi' && tournament.grouping && tournament.grouping.enabled && !doc.group) {
         await this.constructor.assignGroups(doc.tournamentId);
       }
     }
@@ -300,8 +364,8 @@ tournamentRegistrationSchema.post('findOneAndDelete', async function(doc) {
     try {
       const Tournament = require('./Tournament');
       const tournament = await Tournament.findById(doc.tournamentId);
-      
-      if (tournament && tournament.gameType === 'bgmi') {
+
+      if (tournament && ['bgmi', 'valorant'].includes(tournament.gameType)) {
         // Count active registrations
         const registrationCount = await mongoose.model('TournamentRegistration').countDocuments({
           tournamentId: doc.tournamentId,

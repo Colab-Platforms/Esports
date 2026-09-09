@@ -322,6 +322,16 @@ try {
   console.error('❌ Failed to load Free Fire Registration routes:', error);
   console.error('❌ Error details:', error.message);
 }
+
+console.log('🔄 Loading Valorant Registration routes...');
+try {
+  const valorantRoutes = require('./routes/valorantRegistration');
+  app.use('/api/valorant-registration', valorantRoutes);
+  console.log('✅ Valorant Registration routes loaded successfully');
+} catch (error) {
+  console.error('❌ Failed to load Valorant Registration routes:', error);
+  console.error('❌ Error details:', error.message);
+}
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
 app.use('/api/servers', require('./routes/servers'));
