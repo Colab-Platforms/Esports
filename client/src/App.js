@@ -36,7 +36,7 @@ import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ExplorePage from './features/explore/pages/ExplorePage';
 // import WalletPage from './pages/WalletPage';
-import WalletPage from './features/wallet/pages/WalletPage';
+import WalletPage from './pages/wallet/WalletPage';
 import StorePage from './pages/store/StorePage';
 import OrdersPage from './pages/store/OrdersPage';
 import CoinConfigPage from './pages/admin/CoinConfigPage';

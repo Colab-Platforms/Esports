@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const authRouteSource = fs.readFileSync(path.join(__dirname, 'auth.js'), 'utf8');
 const accountsRouteSource = fs.readFileSync(path.join(__dirname, 'accounts.js'), 'utf8');
-const teamsRouteSource = fs.readFileSync(path.join(__dirname, 'teams.js'), 'utf8');
+const teamsServiceSource = fs.readFileSync(path.join(__dirname, '../features/teams/teams.service.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
 const identityModelSource = fs.readFileSync(path.join(__dirname, '../models/Identity.js'), 'utf8');
 const profileFormSource = fs.readFileSync(
@@ -37,9 +37,9 @@ test('Profile UI prevents manual Valorant edits when Riot is verified', () => {
 test('profile and teams routes use centralized Riot-aware Valorant write guard', () => {
   assert.equal(authRouteSource.includes("require('../services/auth/verified-game-id.service')"), true);
   assert.equal(authRouteSource.includes('applyUntrustedValorantUpdate(req.user.userId'), true);
-  assert.equal(teamsRouteSource.includes("require('../services/auth/verified-game-id.service')"), true);
-  assert.equal(teamsRouteSource.includes('applyUntrustedValorantUpdate(info.userId'), true);
-  assert.equal(teamsRouteSource.includes('applyUntrustedValorantUpdate(captainId'), true);
+  assert.equal(teamsServiceSource.includes("require('../../services/auth/verified-game-id.service')"), true);
+  assert.equal(teamsServiceSource.includes('applyUntrustedValorantUpdate(userId'), true);
+  assert.equal(teamsServiceSource.includes('applyGameInfoUpdate(captainId'), true);
 });
 
 test('Riot auth route is covered by shared OAuth limiter', () => {
