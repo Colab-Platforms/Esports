@@ -13,7 +13,7 @@ const identitySchema = new mongoose.Schema({
   },
   provider: {
     type: String,
-    enum: ['google', 'facebook', 'steam', 'xbox'],
+    enum: ['google', 'facebook', 'steam', 'xbox', 'riot'],
     required: [true, 'provider is required']
   },
   // The provider's stable identifier for this account (Google sub, Facebook
@@ -87,5 +87,12 @@ const identitySchema = new mongoose.Schema({
 
 // A given external account can only ever belong to one Colab Esports user.
 identitySchema.index({ provider: 1, providerId: 1 }, { unique: true });
+// Riot verification is one-to-one in both directions for Phase 1:
+// a platform user may connect at most one Riot account. Other providers keep
+// the existing behavior.
+identitySchema.index(
+  { userId: 1, provider: 1 },
+  { unique: true, partialFilterExpression: { provider: 'riot' } }
+);
 
 module.exports = mongoose.model('Identity', identitySchema);

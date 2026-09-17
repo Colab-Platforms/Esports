@@ -8,7 +8,8 @@ import ProfileSettingsForm from '../components/profile/ProfileSettingsForm';
 const ProfileSettingsPage = () => {
   const { user } = useSelector(selectAuth);
   const location = useLocation();
-  const initialTab = location.state?.activeTab || 'account';
+  const queryTab = new URLSearchParams(location.search).get('tab');
+  const initialTab = location.state?.activeTab || queryTab || 'account';
 
   const getCountryInfo = (countryCode) => {
     const countries = {

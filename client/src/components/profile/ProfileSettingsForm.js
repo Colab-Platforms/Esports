@@ -1,14 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { FiSettings, FiTwitter, FiInstagram, FiGithub, FiLinkedin } from 'react-icons/fi';
 import { selectAuth, updateProfile } from '../../store/slices/authSlice';
+import api from '../../services/api';
+import { startProviderConnect } from '../../utils/apiConfig';
+
+const RIOT_CONNECT_ERROR_MESSAGES = {
+  auth_failed: 'Riot verification failed. Please try again.',
+  already_linked: 'This Riot account is already linked to another account.',
+  riot_already_connected: 'A different Riot account is already connected. Disconnect it before connecting another Riot account.',
+  connect_failed: 'Riot verification failed. Please try again.',
+  connect_expired: 'Your Riot verification attempt expired. Please try again.',
+  connect_not_started: 'Please start Riot verification from this page.',
+  not_configured: 'Riot verification is not configured yet.',
+  state_mismatch: 'Riot verification could not be confirmed. Please try again.'
+};
 
 const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
   const { user, token } = useSelector(selectAuth);
   const dispatch = useDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [riotConnecting, setRiotConnecting] = useState(false);
+  const [riotDisconnecting, setRiotDisconnecting] = useState(false);
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [accountsLoadError, setAccountsLoadError] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [activeSection, setActiveSection] = useState(initialTab);
@@ -76,6 +96,61 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
     github: user?.socialAccounts?.github || '',
     linkedin: user?.socialAccounts?.linkedin || ''
   });
+
+  const riotAccount = connectedAccounts.find((account) => account.provider === 'riot');
+  const verifiedRiotId = riotAccount?.displayName
+    || (riotAccount?.profile?.gameName && riotAccount?.profile?.tagLine
+      ? `${riotAccount.profile.gameName}#${riotAccount.profile.tagLine}`
+      : '');
+  const manualRiotId = gameIds.valorant || '';
+  const shownRiotId = verifiedRiotId || manualRiotId;
+  const isRiotVerified = Boolean(riotAccount);
+
+  const fetchConnectedAccounts = async () => {
+    if (!token) return;
+    try {
+      setAccountsLoading(true);
+      const response = await api.get('/api/accounts');
+      const accounts = (response.data && response.data.accounts) || [];
+      const riot = accounts.find((account) => account.provider === 'riot');
+      setConnectedAccounts(accounts);
+      setAccountsLoadError(false);
+      if (riot?.displayName) {
+        setGameIds(prev => ({ ...prev, valorant: riot.displayName }));
+      }
+    } catch (err) {
+      console.error('Connected accounts fetch error:', err);
+      setAccountsLoadError(true);
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConnectedAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const connectError = searchParams.get('connect_error');
+
+    if (connected === 'riot') {
+      setActiveSection('gameids');
+      setSuccess('Riot account verified successfully!');
+      fetchConnectedAccounts();
+    } else if (connectError) {
+      setActiveSection('gameids');
+      setError(RIOT_CONNECT_ERROR_MESSAGES[connectError] || 'Riot verification failed. Please try again.');
+    }
+
+    if (connected || connectError) {
+      searchParams.delete('connected');
+      searchParams.delete('connect_error');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -161,6 +236,34 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
         ? { ...prev[game], [field]: value }
         : value
     }));
+  };
+
+  const handleRiotVerify = async () => {
+    try {
+      setRiotConnecting(true);
+      setError('');
+      await startProviderConnect('riot', '/profile/settings?tab=gameids');
+    } catch (err) {
+      console.error('Riot connect start error:', err);
+      setError('Failed to start Riot verification. Please try again.');
+      setRiotConnecting(false);
+    }
+  };
+
+  const handleRiotDisconnect = async () => {
+    try {
+      setRiotDisconnecting(true);
+      setError('');
+      await api.post('/api/accounts/riot/disconnect');
+      await fetchConnectedAccounts();
+      setSuccess('Riot account disconnected. Your last Riot ID is now marked as not verified.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Riot disconnect error:', err);
+      setError(err.message || 'Failed to disconnect Riot account.');
+    } finally {
+      setRiotDisconnecting(false);
+    }
   };
 
   const validateUID = (uid) => {
@@ -541,6 +644,42 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                 <span>Valorant</span>
               </h4>
 
+              <div className="mb-4 p-3 bg-gaming-dark border border-gaming-border rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Riot ID</p>
+                    <p className="text-white font-medium">
+                      {accountsLoadError
+                        ? 'Unable to load Riot verification status. Please try again.'
+                        : (shownRiotId || 'Connect your Riot account to verify your Valorant identity.')}
+                    </p>
+                    <p className={`text-xs mt-1 ${isRiotVerified ? 'text-green-400' : (accountsLoadError ? 'text-red-400' : 'text-yellow-400')}`}>
+                      {accountsLoadError ? 'Status unavailable' : (isRiotVerified ? 'Verified with Riot' : (manualRiotId ? 'Not verified' : 'Not connected'))}
+                    </p>
+                  </div>
+
+                  {isRiotVerified ? (
+                    <button
+                      type="button"
+                      onClick={handleRiotDisconnect}
+                      disabled={riotDisconnecting}
+                      className="px-4 py-2 bg-gaming-slate hover:bg-red-500/20 hover:text-red-400 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+                    >
+                      {riotDisconnecting ? 'Disconnecting...' : 'Disconnect Riot'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRiotVerify}
+                      disabled={riotConnecting || accountsLoading || accountsLoadError}
+                      className="btn-gaming text-sm disabled:opacity-50"
+                    >
+                      {riotConnecting ? 'Connecting to Riot...' : 'Verify with Riot'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -550,7 +689,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                     type="text"
                     value={valorantName || ''}
                     onChange={(e) => handleValorantChange('name', e.target.value)}
-                    disabled={!isEditing}
+                    disabled={!isEditing || isRiotVerified}
                     className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
                       }`}
                     placeholder="e.g. TenZ"
@@ -564,7 +703,7 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                     type="text"
                     value={valorantTag || ''}
                     onChange={(e) => handleValorantChange('tag', e.target.value.replace('#', ''))}
-                    disabled={!isEditing}
+                    disabled={!isEditing || isRiotVerified}
                     className={`w-full px-3 py-2 border border-gaming-border rounded-lg focus:border-gaming-gold focus:outline-none ${isEditing ? 'bg-gaming-charcoal text-white' : 'bg-gaming-dark text-gray-400 cursor-not-allowed'
                       }`}
                     placeholder="e.g. 1234"

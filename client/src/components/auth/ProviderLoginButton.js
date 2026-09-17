@@ -28,7 +28,8 @@ const ProviderLoginButton = ({ provider, mode = 'login', redirectPath = '', labe
       // pre-flight pattern already used for Google.
       const response = await fetch(`${API_URL}/api/auth/${provider}`, {
         method: 'GET',
-        redirect: 'manual'
+        redirect: 'manual',
+        credentials: 'include'
       });
 
       if (response.status === 503) {

@@ -147,6 +147,7 @@ app.use('/api/auth/google', oauthLimiter);
 app.use('/api/auth/steam', oauthLimiter);
 app.use('/api/auth/facebook', oauthLimiter);
 app.use('/api/auth/xbox', oauthLimiter);
+app.use('/api/auth/riot', oauthLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
@@ -190,6 +191,11 @@ app.use('/api', noCache);
 // The secret is now its own SESSION_SECRET rather than reusing JWT_SECRET -
 // so a compromise of one mechanism doesn't automatically compromise the
 // other.
+const configuredSameSite = (process.env.SESSION_COOKIE_SAMESITE || '').toLowerCase();
+const sessionCookieSameSite = ['lax', 'strict', 'none'].includes(configuredSameSite)
+  ? configuredSameSite
+  : (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
+
 app.use(session({
   secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'your-secret-key-change-in-production',
   store: MongoStore.create({
@@ -202,6 +208,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
     httpOnly: true,
+    sameSite: sessionCookieSameSite,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -295,6 +302,7 @@ app.use('/api/security', require('./routes/security'));
 // app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
 app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
+app.use('/api/explore', require('./routes/explore'));
 console.log('🔄 Loading BGMI Registration routes...');
 try {
   // Check if file exists

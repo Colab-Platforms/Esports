@@ -22,6 +22,7 @@ class ApiService {
           ...(token && { Authorization: `Bearer ${token}` }),
           ...options.headers,
         },
+        credentials: 'include',
         cache: 'no-store', // Disable browser caching
         ...options,
       };

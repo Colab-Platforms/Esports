@@ -8,18 +8,30 @@ class IdentityAlreadyLinkedError extends Error {
   }
 }
 
+class RiotAccountAlreadyConnectedError extends Error {
+  constructor() {
+    super('A different Riot account is already connected. Disconnect it before connecting another Riot account.');
+    this.name = 'RiotAccountAlreadyConnectedError';
+    this.code = 'RIOT_ACCOUNT_ALREADY_CONNECTED';
+  }
+}
+
+function applySession(query, session) {
+  return session && typeof query.session === 'function' ? query.session(session) : query;
+}
+
 /**
  * Find the Identity for a given (provider, providerId) pair, or null.
  */
-async function findByProviderIdentity(provider, providerId) {
-  return Identity.findOne({ provider, providerId });
+async function findByProviderIdentity(provider, providerId, { session } = {}) {
+  return applySession(Identity.findOne({ provider, providerId }), session);
 }
 
 /**
  * All identities connected to a given application user.
  */
-async function findByUser(userId) {
-  return Identity.find({ userId }).sort({ createdAt: 1 });
+async function findByUser(userId, { session } = {}) {
+  return applySession(Identity.find({ userId }).sort({ createdAt: 1 }), session);
 }
 
 /**
@@ -43,9 +55,9 @@ async function createIdentity({
   profile = {},
   metadata = {},
   linkedVia = 'signup'
-}) {
+}, { session } = {}) {
   try {
-    return await Identity.create({
+    const doc = {
       userId,
       provider,
       providerId,
@@ -59,25 +71,35 @@ async function createIdentity({
       metadata,
       linkedVia,
       lastUsedAt: new Date()
-    });
+    };
+
+    if (session) {
+      const identities = await Identity.create([doc], { session });
+      return identities[0];
+    }
+
+    return await Identity.create(doc);
   } catch (error) {
     if (error && error.code === 11000) {
+      if (provider === 'riot' && error.keyPattern && error.keyPattern.userId && error.keyPattern.provider) {
+        throw new RiotAccountAlreadyConnectedError();
+      }
       throw new IdentityAlreadyLinkedError(provider);
     }
     throw error;
   }
 }
 
-async function updateIdentity(identityId, updates) {
-  return Identity.findByIdAndUpdate(identityId, { $set: updates }, { new: true });
+async function updateIdentity(identityId, updates, { session } = {}) {
+  return applySession(Identity.findByIdAndUpdate(identityId, { $set: updates }, { new: true }), session);
 }
 
-async function touchLastUsed(identityId) {
-  return Identity.findByIdAndUpdate(identityId, { $set: { lastUsedAt: new Date() } });
+async function touchLastUsed(identityId, { session } = {}) {
+  return applySession(Identity.findByIdAndUpdate(identityId, { $set: { lastUsedAt: new Date() } }), session);
 }
 
-async function deleteIdentity(identityId) {
-  return Identity.findByIdAndDelete(identityId);
+async function deleteIdentity(identityId, { session } = {}) {
+  return applySession(Identity.findByIdAndDelete(identityId), session);
 }
 
 module.exports = {
@@ -87,5 +109,6 @@ module.exports = {
   updateIdentity,
   touchLastUsed,
   deleteIdentity,
-  IdentityAlreadyLinkedError
+  IdentityAlreadyLinkedError,
+  RiotAccountAlreadyConnectedError
 };

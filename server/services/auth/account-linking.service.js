@@ -1,6 +1,8 @@
 const User = require('../../models/User');
+const mongoose = require('mongoose');
 const identityService = require('./identity.service');
-const { IdentityAlreadyLinkedError } = identityService;
+const verifiedGameIdService = require('./verified-game-id.service');
+const { IdentityAlreadyLinkedError, RiotAccountAlreadyConnectedError } = identityService;
 
 const CONNECT_INTENT_SESSION_KEY = 'connectIntent';
 const CONNECT_INTENT_TTL_MS = 10 * 60 * 1000;
@@ -12,21 +14,36 @@ const CONNECT_INTENT_TTL_MS = 10 * 60 * 1000;
  * merge accounts automatically.
  */
 async function connectIdentity(userId, provider, normalizedIdentity) {
+  if (provider === 'riot') {
+    return connectRiotIdentity(userId, normalizedIdentity);
+  }
+
   const existing = await identityService.findByProviderIdentity(provider, normalizedIdentity.providerId);
 
   if (existing) {
     if (String(existing.userId) !== String(userId)) {
       throw new IdentityAlreadyLinkedError(provider);
     }
-    await identityService.touchLastUsed(existing._id);
-    return { identity: existing, alreadyConnected: true };
+    const updates = { lastUsedAt: new Date() };
+    if (provider === 'riot') {
+      updates.canLogin = false;
+      updates.displayName = normalizedIdentity.displayName || existing.displayName || '';
+      updates.profile = normalizedIdentity.profile || existing.profile || {};
+      updates.metadata = {
+        ...(existing.metadata || {}),
+        ...(normalizedIdentity.metadata || {}),
+        verifiedAt: normalizedIdentity.metadata?.verifiedAt || new Date()
+      };
+    }
+    const identity = await identityService.updateIdentity(existing._id, updates);
+    return { identity, alreadyConnected: true };
   }
 
   const identity = await identityService.createIdentity({
     userId,
     provider,
     providerId: normalizedIdentity.providerId,
-    canLogin: true,
+    canLogin: normalizedIdentity.canLogin !== undefined ? Boolean(normalizedIdentity.canLogin) : true,
     email: normalizedIdentity.email || '',
     emailVerifiedByProvider: Boolean(normalizedIdentity.emailVerifiedByProvider),
     displayName: normalizedIdentity.displayName || '',
@@ -38,6 +55,153 @@ async function connectIdentity(userId, provider, normalizedIdentity) {
   });
 
   return { identity, alreadyConnected: false };
+}
+
+function buildIdentityPayload(userId, provider, normalizedIdentity) {
+  return {
+    userId,
+    provider,
+    providerId: normalizedIdentity.providerId,
+    canLogin: normalizedIdentity.canLogin !== undefined ? Boolean(normalizedIdentity.canLogin) : true,
+    email: normalizedIdentity.email || '',
+    emailVerifiedByProvider: Boolean(normalizedIdentity.emailVerifiedByProvider),
+    displayName: normalizedIdentity.displayName || '',
+    username: normalizedIdentity.username || '',
+    avatarUrl: normalizedIdentity.avatarUrl || '',
+    profile: normalizedIdentity.profile || {},
+    metadata: normalizedIdentity.metadata || {},
+    linkedVia: 'manual-connect'
+  };
+}
+
+function isTransactionUnsupportedError(error) {
+  const message = (error && error.message) || '';
+  return message.includes('Transaction numbers are only allowed') ||
+    message.includes('transactions are not supported') ||
+    message.includes('Transaction not supported');
+}
+
+async function connectRiotIdentity(userId, normalizedIdentity) {
+  let session;
+  try {
+    if (mongoose.connection.readyState === 1 && mongoose.connection.client) {
+      session = await mongoose.startSession();
+      let result;
+      await session.withTransaction(async () => {
+        result = await connectRiotIdentityUnit(userId, normalizedIdentity, { session });
+      });
+      return result;
+    }
+  } catch (error) {
+    if (!isTransactionUnsupportedError(error)) {
+      throw error;
+    }
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+
+  return connectRiotIdentityWithRollback(userId, normalizedIdentity);
+}
+
+async function connectRiotIdentityUnit(userId, normalizedIdentity, { session } = {}) {
+  const existingExternal = await identityService.findByProviderIdentity('riot', normalizedIdentity.providerId, { session });
+
+  if (existingExternal && String(existingExternal.userId) !== String(userId)) {
+    throw new IdentityAlreadyLinkedError('riot');
+  }
+
+  const existingUserRiot = (await identityService.findByUser(userId, { session }))
+    .find((identity) => identity.provider === 'riot');
+
+  if (existingUserRiot && existingUserRiot.providerId !== normalizedIdentity.providerId) {
+    throw new RiotAccountAlreadyConnectedError();
+  }
+
+  if (existingExternal) {
+    const updates = {
+      lastUsedAt: new Date(),
+      canLogin: false,
+      displayName: normalizedIdentity.displayName || existingExternal.displayName || '',
+      profile: normalizedIdentity.profile || existingExternal.profile || {},
+      metadata: {
+        ...(existingExternal.metadata || {}),
+        ...(normalizedIdentity.metadata || {}),
+        verifiedAt: normalizedIdentity.metadata?.verifiedAt || new Date()
+      }
+    };
+    const identity = await identityService.updateIdentity(existingExternal._id, updates, { session });
+    await verifiedGameIdService.syncTrustedRiotGameId(userId, normalizedIdentity, { session });
+    return { identity, alreadyConnected: true };
+  }
+
+  const identity = await identityService.createIdentity(
+    buildIdentityPayload(userId, 'riot', { ...normalizedIdentity, canLogin: false }),
+    { session }
+  );
+  await verifiedGameIdService.syncTrustedRiotGameId(userId, normalizedIdentity, { session });
+  return { identity, alreadyConnected: false };
+}
+
+async function connectRiotIdentityWithRollback(userId, normalizedIdentity) {
+  let createdIdentity = null;
+  let existingIdentity = null;
+  let previousIdentityState = null;
+
+  try {
+    const existingExternal = await identityService.findByProviderIdentity('riot', normalizedIdentity.providerId);
+
+    if (existingExternal && String(existingExternal.userId) !== String(userId)) {
+      throw new IdentityAlreadyLinkedError('riot');
+    }
+
+    const existingUserRiot = (await identityService.findByUser(userId))
+      .find((identity) => identity.provider === 'riot');
+
+    if (existingUserRiot && existingUserRiot.providerId !== normalizedIdentity.providerId) {
+      throw new RiotAccountAlreadyConnectedError();
+    }
+
+    if (existingExternal) {
+      existingIdentity = existingExternal;
+      previousIdentityState = {
+        canLogin: existingExternal.canLogin,
+        displayName: existingExternal.displayName,
+        profile: existingExternal.profile || {},
+        metadata: existingExternal.metadata || {},
+        lastUsedAt: existingExternal.lastUsedAt
+      };
+
+      const identity = await identityService.updateIdentity(existingExternal._id, {
+        lastUsedAt: new Date(),
+        canLogin: false,
+        displayName: normalizedIdentity.displayName || existingExternal.displayName || '',
+        profile: normalizedIdentity.profile || existingExternal.profile || {},
+        metadata: {
+          ...(existingExternal.metadata || {}),
+          ...(normalizedIdentity.metadata || {}),
+          verifiedAt: normalizedIdentity.metadata?.verifiedAt || new Date()
+        }
+      });
+      await verifiedGameIdService.syncTrustedRiotGameId(userId, normalizedIdentity);
+      return { identity, alreadyConnected: true };
+    }
+
+    createdIdentity = await identityService.createIdentity(
+      buildIdentityPayload(userId, 'riot', { ...normalizedIdentity, canLogin: false })
+    );
+    await verifiedGameIdService.syncTrustedRiotGameId(userId, normalizedIdentity);
+    return { identity: createdIdentity, alreadyConnected: false };
+  } catch (error) {
+    if (createdIdentity && createdIdentity._id) {
+      await identityService.deleteIdentity(createdIdentity._id).catch(() => {});
+    }
+    if (existingIdentity && previousIdentityState) {
+      await identityService.updateIdentity(existingIdentity._id, previousIdentityState).catch(() => {});
+    }
+    throw error;
+  }
 }
 
 /**
@@ -83,13 +247,29 @@ async function disconnectIdentity(userId, provider) {
  * supplied id (unlike the old, spoofable `?state=<userId>` pattern this
  * replaces - see the dead routes/steam.js this superseded).
  */
+function sanitizeRedirectPath(redirectPath = '') {
+  if (typeof redirectPath !== 'string') return '';
+  if (!redirectPath.startsWith('/')) return '';
+  if (redirectPath.startsWith('//')) return '';
+  if (redirectPath.includes('\\')) return '';
+  return redirectPath;
+}
+
 function issueConnectIntent(req, userId, provider, redirectPath = '') {
   req.session[CONNECT_INTENT_SESSION_KEY] = {
     userId: String(userId),
     provider,
-    redirectPath: redirectPath || '',
+    redirectPath: sanitizeRedirectPath(redirectPath),
     issuedAt: Date.now()
   };
+}
+
+function hasValidConnectIntent(req, provider) {
+  const stored = req.session && req.session[CONNECT_INTENT_SESSION_KEY];
+  if (!stored) return false;
+  if (stored.provider !== provider) return false;
+  if (Date.now() - stored.issuedAt > CONNECT_INTENT_TTL_MS) return false;
+  return true;
 }
 
 /**
@@ -139,6 +319,8 @@ async function handleConnectCallback(req, res, provider, err, normalizedIdentity
   } catch (error) {
     if (error.code === 'IDENTITY_ALREADY_LINKED') {
       res.redirect(`${CLIENT_URL}${redirectTarget}?connect_error=already_linked`);
+    } else if (error.code === 'RIOT_ACCOUNT_ALREADY_CONNECTED') {
+      res.redirect(`${CLIENT_URL}${redirectTarget}?connect_error=riot_already_connected`);
     } else {
       console.error(`❌ ${provider} connect callback error:`, error);
       res.redirect(`${CLIENT_URL}${redirectTarget}?connect_error=connect_failed`);
@@ -152,5 +334,7 @@ module.exports = {
   disconnectIdentity,
   issueConnectIntent,
   consumeConnectIntent,
+  hasValidConnectIntent,
+  sanitizeRedirectPath,
   handleConnectCallback
 };

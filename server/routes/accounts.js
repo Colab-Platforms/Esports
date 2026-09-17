@@ -7,6 +7,61 @@ const identityService = require('../services/auth/identity.service');
 const accountLinkingService = require('../services/auth/account-linking.service');
 const steamProvider = require('../services/auth/providers/steam.provider');
 
+function serializeConnectedAccount(identity) {
+  const base = {
+    provider: identity.provider,
+    displayName: identity.displayName,
+    avatarUrl: identity.avatarUrl,
+    canLogin: identity.canLogin,
+    connectedAt: identity.createdAt,
+    lastUsedAt: identity.lastUsedAt
+  };
+
+  if (identity.provider === 'riot') {
+    return {
+      ...base,
+      profile: {
+        gameName: identity.profile?.gameName || '',
+        tagLine: identity.profile?.tagLine || ''
+      },
+      metadata: {
+        verifiedAt: identity.metadata?.verifiedAt || null
+      }
+    };
+  }
+
+  if (identity.provider === 'steam') {
+    return {
+      ...base,
+      profile: {
+        profileUrl: identity.profile?.profileUrl || '',
+        realName: identity.profile?.realName || '',
+        countryCode: identity.profile?.countryCode || ''
+      },
+      metadata: {
+        lastSync: identity.metadata?.lastSync || null
+      }
+    };
+  }
+
+  if (identity.provider === 'xbox') {
+    return {
+      ...base,
+      profile: {
+        gamertag: identity.profile?.gamertag || '',
+        xuid: identity.profile?.xuid || ''
+      },
+      metadata: {}
+    };
+  }
+
+  return {
+    ...base,
+    profile: {},
+    metadata: {}
+  };
+}
+
 // @route   GET /api/accounts
 // @desc    List every provider identity connected to the current user
 // @access  Private
@@ -17,14 +72,7 @@ router.get('/', auth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        accounts: identities.map((identity) => ({
-          provider: identity.provider,
-          displayName: identity.displayName,
-          avatarUrl: identity.avatarUrl,
-          canLogin: identity.canLogin,
-          connectedAt: identity.createdAt,
-          lastUsedAt: identity.lastUsedAt
-        }))
+        accounts: identities.map(serializeConnectedAccount)
       },
       timestamp: new Date().toISOString()
     });
@@ -113,9 +161,10 @@ router.post('/:provider/connect/start', auth, (req, res) => {
   }
 
   if (!isProviderEnabled(provider)) {
+    const code = provider === 'riot' ? 'RIOT_OAUTH_NOT_CONFIGURED' : 'OAUTH_NOT_CONFIGURED';
     return res.status(503).json({
       success: false,
-      error: { code: 'OAUTH_NOT_CONFIGURED', message: `${providers[provider].label} is not properly configured.`, timestamp: new Date().toISOString() }
+      error: { code, message: `${providers[provider].label} is not properly configured.`, timestamp: new Date().toISOString() }
     });
   }
 

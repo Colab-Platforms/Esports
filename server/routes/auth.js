@@ -11,6 +11,8 @@ const oauthStateService = require('../services/auth/oauth-state.service');
 const authCodeService = require('../services/auth/auth-code.service');
 const authService = require('../services/auth/auth.service');
 const accountLinkingService = require('../services/auth/account-linking.service');
+const verifiedGameIdService = require('../services/auth/verified-game-id.service');
+const riotProvider = require('../services/auth/providers/riot.provider');
 
 const router = express.Router();
 
@@ -1310,6 +1312,12 @@ router.put('/profile', auth, async (req, res) => {
         user.gameIds.steam = gameIds.steam;
       }
 
+      if (gameIds.valorant !== undefined) {
+        const update = {};
+        await verifiedGameIdService.applyUntrustedValorantUpdate(req.user.userId, update, gameIds.valorant);
+        user.gameIds.valorant = update['gameIds.valorant'];
+      }
+
       // Handle bgmi if passed as object in gameIds
       if (gameIds.bgmi !== undefined) {
         // Convert old string format to new object format safely
@@ -1676,6 +1684,68 @@ router.get('/xbox/callback', (req, res, next) => {
       res.redirect(`${CLIENT_URL}/auth/error?message=Authentication failed&reason=PROVIDER_AUTH_FAILED`);
     }
   })(req, res, next);
+});
+
+// @route   GET /api/auth/riot
+// @desc    Riot RSO account verification start. Phase 1 intentionally supports
+//          connecting Riot to an already-authenticated platform account only;
+//          it is not a website login/signup provider.
+// @access  Public (requires a server-side connect intent created by /api/accounts/riot/connect/start)
+router.get('/riot', (req, res) => {
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!isProviderEnabled(PROVIDERS.RIOT)) {
+    return res.status(503).json({
+      success: false,
+      error: {
+        code: 'RIOT_OAUTH_NOT_CONFIGURED',
+        message: 'Riot verification is not properly configured. Please contact support.',
+        timestamp: new Date().toISOString()
+      }
+    });
+  }
+
+  if (!accountLinkingService.hasValidConnectIntent(req, PROVIDERS.RIOT)) {
+    return res.redirect(`${CLIENT_URL}/profile/settings?connect_error=connect_not_started`);
+  }
+
+  const state = oauthStateService.issue(req, PROVIDERS.RIOT);
+  return res.redirect(riotProvider.buildAuthorizationUrl(state));
+});
+
+// @route   GET /api/auth/riot/callback
+// @desc    Riot RSO callback for account verification. Does not call
+//          loginWithIdentity in Phase 1, so Riot cannot create/login website
+//          accounts by hitting this callback.
+// @access  Public
+router.get('/riot/callback', async (req, res) => {
+  const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+
+  if (!isProviderEnabled(PROVIDERS.RIOT)) {
+    return res.redirect(`${CLIENT_URL}/profile/settings?connect_error=not_configured`);
+  }
+
+  if (!oauthStateService.verify(req, PROVIDERS.RIOT, req.query.state)) {
+    return res.redirect(`${CLIENT_URL}/profile/settings?connect_error=state_mismatch`);
+  }
+
+  if (!accountLinkingService.hasValidConnectIntent(req, PROVIDERS.RIOT)) {
+    return res.redirect(`${CLIENT_URL}/profile/settings?connect_error=connect_expired`);
+  }
+
+  try {
+    const normalizedIdentity = await riotProvider.getIdentityFromAuthorizationCode(req.query.code);
+    await accountLinkingService.handleConnectCallback(
+      req,
+      res,
+      PROVIDERS.RIOT,
+      null,
+      normalizedIdentity
+    );
+  } catch (error) {
+    console.error('Riot verification callback error:', error.message);
+    await accountLinkingService.handleConnectCallback(req, res, PROVIDERS.RIOT, error, null);
+  }
 });
 
 // @route   POST /api/auth/exchange

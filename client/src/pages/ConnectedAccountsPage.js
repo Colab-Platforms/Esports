@@ -10,6 +10,7 @@ import ProviderLoginButton from '../components/auth/ProviderLoginButton';
 const CONNECT_ERROR_MESSAGES = {
   auth_failed: 'Authentication failed. Please try again.',
   already_linked: 'That account is already connected to a different Colab Esports account.',
+  riot_already_connected: 'A different Riot account is already connected. Disconnect it before connecting another Riot account.',
   connect_failed: 'Something went wrong connecting that account. Please try again.',
   connect_expired: 'Your connection attempt expired. Please try again.',
   connect_not_started: 'Please start the connection from this page rather than visiting that link directly.'
@@ -97,7 +98,7 @@ const ConnectedAccountsPage = () => {
       >
         <h1 className="text-2xl font-bold text-white mb-2">Connected Accounts</h1>
         <p className="text-gray-400 mb-8">
-          Manage which external accounts can sign you in to Colab Esports.
+          Manage accounts connected to your profile. Some providers can be used to sign in, while others are connected for game verification.
         </p>
 
         <div className="space-y-4">
@@ -127,7 +128,7 @@ const ConnectedAccountsPage = () => {
                     {account ? (
                       <div className="text-green-400 text-sm flex items-center">
                         <FiCheck className="h-3 w-3 mr-1" />
-                        Connected{account.displayName ? ` as ${account.displayName}` : ''}
+                        {account.canLogin ? 'Sign-in connected' : 'Verification connected'}{account.displayName ? ` as ${account.displayName}` : ''}
                       </div>
                     ) : (
                       <div className="text-gray-500 text-sm flex items-center">

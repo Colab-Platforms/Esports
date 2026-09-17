@@ -113,7 +113,10 @@ const Navbar = () => {
 
     // Designer sees only Banner Management
     if (user.role === "designer") {
-      links.push({ to: "/admin/images", label: "Banners" });
+      links.push(
+        { to: "/admin/images", label: "Banners" },
+        { to: "/admin/explore", label: "Explore Content" },
+      );
     }
 
     // Moderator sees registrations and tournaments
@@ -124,6 +127,7 @@ const Navbar = () => {
         { to: "/admin/valorant-registrations", label: "Valorant Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/winner-rewards", label: " Winner Rewards" },
+        { to: "/admin/explore", label: "Explore Content" },
       );
     }
 
@@ -138,6 +142,7 @@ const Navbar = () => {
         { to: "/admin/claims", label: "Claims Manager" },
         { to: "/admin/coin-config", label: "Coin Config" },
         { to: "/admin/store", label: "Store Items" },
+        { to: "/admin/explore", label: "Explore Content" },
         // { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
     }

@@ -4,6 +4,7 @@ const Team = require('../models/Team');
 const TeamInvitation = require('../models/TeamInvitation');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const verifiedGameIdService = require('../services/auth/verified-game-id.service');
 
 // @route   POST /api/teams
 // @desc    Create a new team
@@ -295,7 +296,7 @@ router.put('/:id', auth, async (req, res) => {
           }
         }
         if (info.steamId !== undefined) update['gameIds.steam'] = info.steamId;
-        if (info.valorantId !== undefined) update['gameIds.valorant'] = info.valorantId;
+        await verifiedGameIdService.applyUntrustedValorantUpdate(info.userId, update, info.valorantId);
         if (Object.keys(update).length > 0) {
           await User.findByIdAndUpdate(info.userId, { $set: update });
         }
@@ -327,7 +328,7 @@ router.put('/:id', auth, async (req, res) => {
       } else if (team.game === 'cs2' && captainGameInfo.steamId !== undefined) {
         update['gameIds.steam'] = captainGameInfo.steamId;
       } else if (team.game === 'valorant' && captainGameInfo.valorantId !== undefined) {
-        update['gameIds.valorant'] = captainGameInfo.valorantId;
+        await verifiedGameIdService.applyUntrustedValorantUpdate(captainId, update, captainGameInfo.valorantId);
       }
       if (Object.keys(update).length > 0) {
         await User.findByIdAndUpdate(captainId, { $set: update });

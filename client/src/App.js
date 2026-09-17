@@ -34,9 +34,9 @@ import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
 import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
-import ExplorePage from './pages/ExplorePage';
+import ExplorePage from './features/explore/pages/ExplorePage';
 // import WalletPage from './pages/WalletPage';
-import WalletPage from './pages/wallet/WalletPage';
+import WalletPage from './features/wallet/pages/WalletPage';
 import StorePage from './pages/store/StorePage';
 import OrdersPage from './pages/store/OrdersPage';
 import CoinConfigPage from './pages/admin/CoinConfigPage';
@@ -53,6 +53,7 @@ import TournamentManagement from './pages/admin/TournamentManagement';
 import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
+import ExploreContentManagement from './features/explore/pages/ExploreContentManagement';
 import AdminBGMIRegistrations from './pages/AdminBGMIRegistrations';
 import AdminValorantRegistrations from './pages/AdminValorantRegistrations';
 import AdminLiveStreamManager from './pages/admin/AdminLiveStreamManager';
@@ -930,8 +931,8 @@ function App() {
               } 
             />
             
-            <Route 
-              path="/admin/store" 
+            <Route
+              path="/admin/store"
               element={
                 <AdminRoute>
                   <motion.div
@@ -943,7 +944,23 @@ function App() {
                     <StoreManagementPage />
                   </motion.div>
                 </AdminRoute>
-              } 
+              }
+            />
+
+            <Route
+              path="/admin/explore"
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ExploreContentManagement />
+                  </motion.div>
+                </AdminRoute>
+              }
             />
             
             <Route 

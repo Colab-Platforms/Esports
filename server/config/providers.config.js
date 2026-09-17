@@ -8,7 +8,8 @@ const PROVIDERS = {
   GOOGLE: 'google',
   FACEBOOK: 'facebook',
   STEAM: 'steam',
-  XBOX: 'xbox'
+  XBOX: 'xbox',
+  RIOT: 'riot'
 };
 
 const isPlaceholder = (value, placeholder) => !value || value === placeholder;
@@ -64,6 +65,19 @@ const providers = {
     authorizationURL: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
     tokenURL: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
     scope: 'XboxLive.signin XboxLive.offline_access'
+  },
+  [PROVIDERS.RIOT]: {
+    id: PROVIDERS.RIOT,
+    label: 'Riot',
+    protocol: 'oauth2',
+    enabled: Boolean(process.env.RIOT_CLIENT_ID && process.env.RIOT_CLIENT_SECRET && process.env.RIOT_REDIRECT_URI),
+    clientId: process.env.RIOT_CLIENT_ID,
+    clientSecret: process.env.RIOT_CLIENT_SECRET,
+    callbackUrl: process.env.RIOT_REDIRECT_URI,
+    authorizationURL: 'https://auth.riotgames.com/authorize',
+    tokenURL: 'https://auth.riotgames.com/token',
+    accountUrl: process.env.RIOT_ACCOUNT_URL || 'https://asia.api.riotgames.com/riot/account/v1/accounts/me',
+    scope: 'openid offline_access'
   }
 };
 
