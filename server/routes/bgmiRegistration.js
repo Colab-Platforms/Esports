@@ -1164,20 +1164,6 @@ router.get('/debug/user-role', auth, async (req, res) => {
   }
 });
 
-// Temporary endpoint to make user admin
-router.post('/make-admin', auth, async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.user.userId, 
-      { role: 'admin' }, 
-      { new: true }
-    );
-    res.json({ success: true, message: 'User made admin', user: { id: user._id, role: user.role } });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // @route   PUT /api/bgmi-registration/admin/:registrationId
 // @desc    Update registration (Admin only)
 // @access  Private (Admin)
