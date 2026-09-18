@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Tournament = require('../models/Tournament');
+const auth = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 
 // Update CS2 tournaments status (active/inactive)
-router.post('/update-cs2-status', async (req, res) => {
+router.post('/update-cs2-status', auth, adminAuth, async (req, res) => {
   try {
     const { status = 'active', tournamentId } = req.body;
     

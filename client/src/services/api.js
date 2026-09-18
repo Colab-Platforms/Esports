@@ -169,6 +169,10 @@ class ApiService {
     return this.get('/api/tournaments/my-tournaments');
   }
 
+  async getCompetitionDashboard() {
+    return this.get('/api/competition-dashboard');
+  }
+
   // Profile API
   async updateProfile(profileData) {
     try {
