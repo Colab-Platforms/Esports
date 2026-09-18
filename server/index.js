@@ -303,6 +303,7 @@ app.use('/api/security', require('./routes/security'));
 app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/explore', require('./routes/explore'));
+app.use('/api/competition-dashboard', require('./features/competition-dashboard/competition-dashboard.routes'));
 console.log('🔄 Loading BGMI Registration routes...');
 try {
   // Check if file exists
