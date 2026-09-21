@@ -304,6 +304,8 @@ app.use('/api/admin', require('./routes/updateCS2Status'));
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/explore', require('./routes/explore'));
 app.use('/api/competition-dashboard', require('./features/competition-dashboard/competition-dashboard.routes'));
+app.use('/api/players', require('./features/player-competitive-profile/player-competitive-profile.routes'));
+app.use('/api/players', require('./features/competitive-history/competitive-history.routes'));
 console.log('🔄 Loading BGMI Registration routes...');
 try {
   // Check if file exists

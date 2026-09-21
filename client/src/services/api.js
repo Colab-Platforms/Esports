@@ -173,6 +173,14 @@ class ApiService {
     return this.get('/api/competition-dashboard');
   }
 
+  async getPlayerCompetitiveProfile(username) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-profile`);
+  }
+
+  async getPlayerCompetitiveHistory(username, params = {}) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-history`, { params });
+  }
+
   // Profile API
   async updateProfile(profileData) {
     try {
