@@ -307,6 +307,7 @@ app.use('/api/competition-dashboard', require('./features/competition-dashboard/
 app.use('/api/freefire-results', require('./features/freefire-results/freefire-results.routes'));
 app.use('/api/valorant-results', require('./features/valorant-results/valorant-results.routes'));
 app.use('/api', require('./features/statistics/statistics.routes'));
+app.use('/api/teams', require('./features/team-competitive-profile/team-competitive-profile.routes'));
 app.use('/api/players', require('./features/player-competitive-profile/player-competitive-profile.routes'));
 app.use('/api/players', require('./features/competitive-history/competitive-history.routes'));
 console.log('🔄 Loading BGMI Registration routes...');

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiLogOut, FiAward, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiLogOut, FiAward, FiChevronDown, FiChevronUp, FiEye } from 'react-icons/fi';
 import UserAvatar from '../common/UserAvatar';
 import CreateTeamModal from './CreateTeamModal';
 import { updateProfile } from '../../store/slices/authSlice';
@@ -239,6 +239,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token, currentUser
             <TeamRow
               key={team._id}
               team={team}
+              onView={() => navigate(`/team/${team._id}`)}
               onEdit={() => setEditTeam(team)}
               onDelete={() => handleDeleteTeam(team._id)}
               onLeave={() => handleLeaveTeam(team._id)}
@@ -282,7 +283,7 @@ const MyTeamsTab = ({ teams, invitations, loading, onRefresh, token, currentUser
   );
 };
 
-const TeamRow = ({ team, onEdit, onDelete, onLeave }) => {
+const TeamRow = ({ team, onView, onEdit, onDelete, onLeave }) => {
   const [expanded, setExpanded] = useState(false);
   const currentUserId = localStorage.getItem('userId');
 
@@ -316,6 +317,14 @@ const TeamRow = ({ team, onEdit, onDelete, onLeave }) => {
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
+          <button
+            onClick={onView}
+            className="p-2 text-gray-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+            title="View public profile"
+          >
+            <FiEye className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setExpanded(!expanded)}
             className="p-2 text-gray-400 hover:text-white hover:bg-gaming-dark rounded-lg transition-colors"
