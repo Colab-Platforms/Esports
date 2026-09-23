@@ -189,6 +189,10 @@ class ApiService {
     return this.get(`/api/teams/${encodeURIComponent(teamId)}/statistics`);
   }
 
+  async getTeamCompetitiveProfile(teamId) {
+    return this.get(`/api/teams/${encodeURIComponent(teamId)}/competitive-profile`);
+  }
+
   async getFreeFireTournamentResults(tournamentId, params = {}) {
     return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
   }

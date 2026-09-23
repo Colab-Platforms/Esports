@@ -47,6 +47,7 @@ import ProfileSettingsPage from './pages/ProfileSettingsPage';
 import GamesPage from './pages/GamesPage';
 import TeamsPage from './pages/TeamsPage';
 import PublicProfile from './pages/PublicProfile';
+import TeamCompetitiveProfile from './pages/TeamCompetitiveProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
@@ -688,6 +689,20 @@ function App() {
                   <PublicProfile />
                 </motion.div>
               } 
+            />
+
+            <Route
+              path="/team/:teamId"
+              element={
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <TeamCompetitiveProfile />
+                </motion.div>
+              }
             />
             
             <Route
