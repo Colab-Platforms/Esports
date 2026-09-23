@@ -173,6 +173,62 @@ class ApiService {
     return this.get('/api/competition-dashboard');
   }
 
+  async getPlayerCompetitiveProfile(username) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-profile`);
+  }
+
+  async getPlayerCompetitiveHistory(username, params = {}) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-history`, { params });
+  }
+
+  async getPlayerStatistics(username) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/statistics`);
+  }
+
+  async getTeamStatistics(teamId) {
+    return this.get(`/api/teams/${encodeURIComponent(teamId)}/statistics`);
+  }
+
+  async getFreeFireTournamentResults(tournamentId, params = {}) {
+    return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
+  }
+
+  async createFreeFireResult(data) {
+    return this.post('/api/freefire-results', data);
+  }
+
+  async updateFreeFireResult(resultId, data) {
+    return this.put(`/api/freefire-results/${resultId}`, data);
+  }
+
+  async verifyFreeFireResult(resultId) {
+    return this.post(`/api/freefire-results/${resultId}/verify`);
+  }
+
+  async voidFreeFireResult(resultId) {
+    return this.post(`/api/freefire-results/${resultId}/void`);
+  }
+
+  async getValorantTournamentResults(tournamentId, params = {}) {
+    return this.get(`/api/valorant-results/tournament/${tournamentId}`, { params });
+  }
+
+  async createValorantResult(data) {
+    return this.post('/api/valorant-results', data);
+  }
+
+  async updateValorantResult(resultId, data) {
+    return this.put(`/api/valorant-results/${resultId}`, data);
+  }
+
+  async verifyValorantResult(resultId) {
+    return this.post(`/api/valorant-results/${resultId}/verify`);
+  }
+
+  async voidValorantResult(resultId) {
+    return this.post(`/api/valorant-results/${resultId}/void`);
+  }
+
   // Profile API
   async updateProfile(profileData) {
     try {
