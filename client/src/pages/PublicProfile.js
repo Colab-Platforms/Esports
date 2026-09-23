@@ -5,6 +5,7 @@ import {
   FiActivity,
   FiArrowLeft,
   FiAward,
+  FiBarChart2,
   FiCalendar,
   FiCheckCircle,
   FiClock,
@@ -144,6 +145,80 @@ const StatCard = ({ icon: Icon, label, value }) => (
   </div>
 );
 
+const metricText = (value, suffix = '') => {
+  if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) {
+    return value.supported ? `${value.value ?? '-'}${suffix}` : 'Unavailable';
+  }
+  if (value === null || value === undefined) return '-';
+  return `${value}${suffix}`;
+};
+
+const MetricTile = ({ label, value, suffix }) => (
+  <div className="rounded-lg border border-gaming-border bg-gaming-dark/70 px-3.5 py-3">
+    <p className="text-[11px] uppercase font-semibold text-gray-500">{label}</p>
+    <p className="text-xl font-bold text-white mt-1">{metricText(value, suffix)}</p>
+  </div>
+);
+
+const hasUsefulStats = (gameStats) => {
+  if (!gameStats) return false;
+  const performance = gameStats.performance || {};
+  const participation = gameStats.participation || {};
+  return [...Object.values(performance), ...Object.values(participation)].some((value) => {
+    if (typeof value === 'number') return value > 0;
+    if (Array.isArray(value)) return value.length > 0;
+    if (value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value')) {
+      return value.supported && typeof value.value === 'number' && value.value > 0;
+    }
+    return false;
+  });
+};
+
+const GameStatisticsCard = ({ title, gameKey, stats }) => {
+  const performance = stats?.performance || {};
+  const participation = stats?.participation || {};
+
+  if (gameKey === 'freefire') {
+    return (
+      <div className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-4">
+        <p className="text-sm font-bold text-gaming-gold uppercase">{title}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          <MetricTile label="Matches" value={performance.matchesParticipated} />
+          <MetricTile label="Top 3" value={performance.top3Participations} />
+          <MetricTile label="Avg Placement" value={performance.averageTeamPlacementWhileRostered} />
+          <MetricTile label="Team Points" value={performance.teamPointsWhileRostered} />
+        </div>
+      </div>
+    );
+  }
+
+  if (gameKey === 'valorant') {
+    return (
+      <div className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-4">
+        <p className="text-sm font-bold text-gaming-gold uppercase">{title}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+          <MetricTile label="Matches" value={performance.matchesParticipated} />
+          <MetricTile label="Wins" value={performance.winsParticipated} />
+          <MetricTile label="Losses" value={performance.lossesParticipated} />
+          <MetricTile label="Win Rate" value={performance.winRateParticipated} suffix="%" />
+          <MetricTile label="Round Diff" value={performance.roundDifferentialWhileRostered} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-4">
+      <p className="text-sm font-bold text-gaming-gold uppercase">{title}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+        <MetricTile label="Registered Teams" value={participation.registeredTeams} />
+        <MetricTile label="Matches" value={performance.matchesPlayed} />
+        <MetricTile label="Avg Placement" value={performance.averagePlacement} />
+      </div>
+    </div>
+  );
+};
+
 const TeamCard = ({ team }) => (
   <div className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-4">
     <div className="flex items-center gap-3 min-w-0">
@@ -266,6 +341,30 @@ const HistoryResult = ({ item }) => {
     );
   }
 
+  if (item.result.type === 'head_to_head') {
+    const data = item.result.data || {};
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 text-sm">
+        <div>
+          <p className="text-gray-500">Score</p>
+          <p className="text-white font-bold">{data.scoreFor ?? '-'} - {data.scoreAgainst ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Opponent</p>
+          <p className="text-white font-bold truncate">{data.opponent || '-'}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Map</p>
+          <p className="text-white font-bold">{data.map || '-'}</p>
+        </div>
+        <div>
+          <p className="text-gray-500">Winner</p>
+          <p className="text-white font-bold truncate">{data.winner || '-'}</p>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 };
 
@@ -297,6 +396,7 @@ const PublicProfile = () => {
   const { username } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const [statistics, setStatistics] = useState(null);
   const [competitiveHistory, setCompetitiveHistory] = useState([]);
   const [historyPagination, setHistoryPagination] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -309,12 +409,14 @@ const PublicProfile = () => {
       try {
         setLoading(true);
         setError('');
-        const [profileResponse, historyResponse] = await Promise.all([
+        const [profileResponse, historyResponse, statisticsResponse] = await Promise.all([
           api.getPlayerCompetitiveProfile(username),
-          api.getPlayerCompetitiveHistory(username, { limit: 8 })
+          api.getPlayerCompetitiveHistory(username, { limit: 8 }),
+          api.getPlayerStatistics(username).catch(() => null)
         ]);
         if (mounted) {
           setProfile(profileResponse.data);
+          setStatistics(statisticsResponse?.data || null);
           setCompetitiveHistory(historyResponse.data?.history || []);
           setHistoryPagination(historyResponse.data?.pagination || null);
         }
@@ -322,6 +424,7 @@ const PublicProfile = () => {
         if (mounted) {
           setError(err.message || 'Player profile is unavailable right now.');
           setProfile(null);
+          setStatistics(null);
           setCompetitiveHistory([]);
           setHistoryPagination(null);
         }
@@ -360,6 +463,11 @@ const PublicProfile = () => {
   const { player, accounts, games, overview, teams, tournamentHistory, achievements } = profile;
   const visibleTeams = teams.slice(0, 3);
   const hiddenTeamCount = Math.max(teams.length - visibleTeams.length, 0);
+  const statisticsGames = [
+    { key: 'bgmi', title: 'BGMI', stats: statistics?.games?.bgmi },
+    { key: 'freefire', title: 'Free Fire', stats: statistics?.games?.freefire },
+    { key: 'valorant', title: 'Valorant', stats: statistics?.games?.valorant }
+  ].filter((game) => hasUsefulStats(game.stats));
 
   return (
     <div className="min-h-screen bg-gaming-dark py-8">
@@ -437,6 +545,28 @@ const PublicProfile = () => {
               )}
             </MotionSection>
 
+            <MotionSection className="card-gaming p-6" delay={0.08}>
+              <SectionHeader title="Statistics" icon={FiBarChart2} />
+              {statisticsGames.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-400">{statistics?.coverage?.note}</p>
+                  {statisticsGames.map((game) => (
+                    <GameStatisticsCard
+                      key={game.key}
+                      title={game.title}
+                      gameKey={game.key}
+                      stats={game.stats}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No verified statistics yet"
+                  description="Stats appear after verified results are available for active games."
+                />
+              )}
+            </MotionSection>
+
             <MotionSection className="card-gaming p-6" delay={0.1}>
               <SectionHeader title="Tournament History" icon={FiCalendar} />
               {tournamentHistory.length > 0 ? (
@@ -469,7 +599,7 @@ const PublicProfile = () => {
               ) : (
                 <EmptyState
                   title="No competitive history yet"
-                  description="Tournament participation and verified BGMI results will appear here when public-safe history is available."
+                  description="Tournament participation and verified match results will appear here when public-safe history is available."
                 />
               )}
             </MotionSection>

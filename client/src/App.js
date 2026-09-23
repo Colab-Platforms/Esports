@@ -50,6 +50,7 @@ import PublicProfile from './pages/PublicProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
 import TournamentManagement from './pages/admin/TournamentManagement';
+import AdminGameResults from './pages/admin/AdminGameResults';
 import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
 import ImageManagement from './pages/admin/ImageManagement';
@@ -801,6 +802,22 @@ function App() {
                   </motion.div>
                 </AdminRoute>
               } 
+            />
+
+            <Route
+              path="/admin/results"
+              element={
+                <AdminRoute>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <AdminGameResults />
+                  </motion.div>
+                </AdminRoute>
+              }
             />
 
             <Route 

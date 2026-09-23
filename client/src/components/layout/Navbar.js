@@ -123,6 +123,7 @@ const Navbar = () => {
     if (user.role === "moderator") {
       links.push(
         { to: "/admin/tournaments", label: "Tournaments" },
+        { to: "/admin/results", label: "Match Results" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
         { to: "/admin/valorant-registrations", label: "Valorant Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },
@@ -137,6 +138,7 @@ const Navbar = () => {
         { to: "/admin/images", label: "Banners" },
         { to: "/admin/games", label: "Games" },
         { to: "/admin/tournaments", label: "Tournaments" },
+        { to: "/admin/results", label: "Match Results" },
         { to: "/admin/bgmi-registrations", label: "Registrations" },
         { to: "/admin/valorant-registrations", label: "Valorant Registrations" },
         { to: "/admin/claims", label: "Claims Manager" },

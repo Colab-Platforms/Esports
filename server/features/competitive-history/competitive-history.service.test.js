@@ -11,6 +11,12 @@ const {
   getCs2History,
   resolveSteamAccountId
 } = require('./adapters/cs2-history.adapter');
+const {
+  normalizeFreeFireMatchResult
+} = require('./adapters/freefire-history.adapter');
+const {
+  normalizeValorantMatchResult
+} = require('./adapters/valorant-history.adapter');
 
 const findOneModel = (value) => ({
   findOne: () => ({
@@ -33,7 +39,9 @@ const baseUser = {
 const emptyAdapters = {
   getTournamentHistory: async () => [],
   getBgmiHistory: async () => [],
-  getCs2History: async () => []
+  getCs2History: async () => [],
+  getFreeFireHistory: async () => [],
+  getValorantHistory: async () => []
 };
 
 test('unknown user returns a 404-shaped error', async () => {
@@ -147,6 +155,78 @@ test('CS2 mapped history aggregates final per-match server-log rows', async () =
   assert.equal(history[0].result.data.matchId, 'dust2-1');
 });
 
+test('Free Fire verified match history exposes placement result only', () => {
+  const event = normalizeFreeFireMatchResult({
+    match: {
+      _id: 'freefire-result-a',
+      tournamentId: { _id: 'tournament-a', name: 'Free Fire Finals' },
+      playedAt: '2026-01-07T00:00:00.000Z',
+      adminNotesPrivate: 'private'
+    },
+    teamResult: {
+      registrationId: 'registration-a',
+      canonicalTeamId: 'team-a',
+      teamNameSnapshot: 'Booyah Squad',
+      placement: 2,
+      kills: 11,
+      placementPoints: 9,
+      killPoints: 11,
+      totalPoints: 20,
+      rosterSnapshot: [{ displayName: 'Hidden phone should not exist' }]
+    }
+  });
+
+  assert.equal(event.gameType, 'freefire');
+  assert.equal(event.level, 'match');
+  assert.equal(event.confidence, 'verified_result');
+  assert.equal(event.result.type, 'placement');
+  assert.deepEqual(event.result.data, {
+    placement: 2,
+    kills: 11,
+    placementPoints: 9,
+    killPoints: 11,
+    points: 20
+  });
+  assert.equal(JSON.stringify(event).includes('private'), false);
+});
+
+test('Valorant verified match history exposes head-to-head result only', () => {
+  const event = normalizeValorantMatchResult({
+    match: {
+      _id: 'valorant-result-a',
+      tournamentId: { _id: 'tournament-a', name: 'Valorant Cup' },
+      winnerRegistrationId: 'registration-a',
+      map: 'Ascent',
+      playedAt: '2026-01-08T00:00:00.000Z',
+      adminNotesPrivate: 'private'
+    },
+    side: {
+      registrationId: 'registration-a',
+      canonicalTeamId: 'team-a',
+      teamNameSnapshot: 'Five Stack',
+      score: 13
+    },
+    opponent: {
+      registrationId: 'registration-b',
+      teamNameSnapshot: 'Retake Club',
+      score: 8
+    }
+  });
+
+  assert.equal(event.gameType, 'valorant');
+  assert.equal(event.level, 'match');
+  assert.equal(event.status, 'won');
+  assert.equal(event.result.type, 'head_to_head');
+  assert.deepEqual(event.result.data, {
+    scoreFor: 13,
+    scoreAgainst: 8,
+    opponent: 'Retake Club',
+    map: 'Ascent',
+    winner: 'Five Stack'
+  });
+  assert.equal(JSON.stringify(event).includes('private'), false);
+});
+
 test('Steam mapping failure omits CS2 history instead of guessing', async () => {
   assert.equal(resolveSteamAccountId({
     steamProfile: { isConnected: false, steamId: '' },
@@ -186,7 +266,9 @@ test('deduplication, newest-first ordering, and pagination are applied globally'
       ],
       getCs2History: async () => [
         { id: 'middle', occurredAt: '2026-01-02T00:00:00.000Z' }
-      ]
+      ],
+      getFreeFireHistory: async () => [],
+      getValorantHistory: async () => []
     }
   });
 
