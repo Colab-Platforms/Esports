@@ -32,7 +32,6 @@ const statusStyles = {
 const formatStatus = (status) => (status || 'unknown').replace(/_/g, ' ');
 
 const formatAccountStatus = (account) => {
-  if (account.verificationStatus === 'verified_game_identity') return 'Verified';
   if (account.connectionStatus === 'linked') return 'Linked';
   return 'Saved ID';
 };

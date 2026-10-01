@@ -5,90 +5,41 @@ const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const Team = require('../features/teams/team.model');
 const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
+const {
+  registerValorantTeam,
+  rejectValorantRegistration,
+  cancelValorantRegistration
+} = require('../services/valorant-registration.service');
 
 const router = express.Router();
 
 console.log('🎯 Valorant Registration routes loading...');
 
-// Normalize a Riot ID (name + tag) into a single comparable key
-const normalizeRiotId = (riotId) => {
-  if (!riotId || !riotId.name || !riotId.tag) return null;
-  const name = riotId.name.trim().toLowerCase();
-  const tag = riotId.tag.trim().toLowerCase();
-  if (!name || !tag) return null;
-  return `${name}#${tag}`;
+const sendRegistrationError = (res, error, fallbackCode = 'REGISTRATION_FAILED', fallbackMessage = 'Failed to register team') => {
+  const status = error.status || 500;
+  return res.status(status).json({
+    success: false,
+    error: {
+      code: error.code || fallbackCode,
+      message: error.message || fallbackMessage,
+      ...(error.conflictingPlayers && { conflictingPlayers: error.conflictingPlayers }),
+      ...(error.duplicateUserIds && { duplicateUserIds: error.duplicateUserIds }),
+      details: process.env.NODE_ENV === 'development' ? error.details : undefined,
+      timestamp: new Date().toISOString()
+    }
+  });
 };
 
 // @route   POST /api/valorant-registration/:tournamentId/register
-// @desc    Register a 5-player team (4 members + captain) for a Valorant tournament,
-//          with an optional substitute
+// @desc    Register an authoritative 5+1 Valorant roster from a saved Team
 // @access  Private
 router.post('/:tournamentId/register', auth, [
-  body('teamName')
-    .isLength({ min: 3, max: 50 })
-    .withMessage('Team name must be 3-50 characters')
-    .trim(),
-
-  // Team Leader / Captain
-  body('teamLeader.name')
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Team leader name must be 2-50 characters')
-    .trim(),
-  body('teamLeader.riotId.name')
-    .isLength({ min: 1, max: 30 })
-    .withMessage('Team leader Riot ID name is required (max 30 characters)')
-    .trim(),
-  body('teamLeader.riotId.tag')
-    .isLength({ min: 1, max: 10 })
-    .withMessage('Team leader Riot ID tag is required (max 10 characters)')
-    .trim(),
-  body('teamLeader.phone')
-    .matches(/^[6-9]\d{9}$/)
-    .withMessage('Team leader phone must be a valid Indian number'),
-
-  // Team Members - Valorant requires exactly 4 members in addition to the captain
-  body('teamMembers')
-    .isArray({ min: 4, max: 4 })
-    .withMessage('Team must have exactly 4 members (plus captain = 5 starters)'),
-  body('teamMembers.*.name')
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Team member name must be 2-50 characters')
-    .trim(),
-  body('teamMembers.*.riotId.name')
-    .isLength({ min: 1, max: 30 })
-    .withMessage('Team member Riot ID name is required (max 30 characters)')
-    .trim(),
-  body('teamMembers.*.riotId.tag')
-    .isLength({ min: 1, max: 10 })
-    .withMessage('Team member Riot ID tag is required (max 10 characters)')
-    .trim(),
-
-  // Optional Substitute
-  body('substitute')
-    .optional()
-    .isObject()
-    .withMessage('Substitute must be an object'),
-  body('substitute.name')
-    .optional()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Substitute name must be 2-50 characters')
-    .trim(),
-  body('substitute.riotId.name')
-    .optional()
-    .isLength({ min: 1, max: 30 })
-    .withMessage('Substitute Riot ID name must be 1-30 characters')
-    .trim(),
-  body('substitute.riotId.tag')
-    .optional()
-    .isLength({ min: 1, max: 10 })
-    .withMessage('Substitute Riot ID tag must be 1-10 characters')
-    .trim(),
-
-  body('whatsappNumber')
-    .matches(/^[6-9]\d{9}$/)
-    .withMessage('WhatsApp number must be a valid Indian number')
+  body('teamId')
+    .isMongoId()
+    .withMessage('A valid teamId is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -105,174 +56,25 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
+    const { teamId } = req.body;
 
-    // Substitute, if present, must have a complete Riot ID (not half-filled)
-    if (substitute && (substitute.riotId?.name || substitute.riotId?.tag) && !normalizeRiotId(substitute.riotId)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Substitute Riot ID must include both name and tag',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Check tournament exists and is Valorant
-    const tournament = await Tournament.findById(tournamentId);
-    if (!tournament) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'TOURNAMENT_NOT_FOUND',
-          message: 'Tournament not found',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    if (tournament.gameType !== 'valorant') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_GAME_TYPE',
-          message: 'This endpoint is only for Valorant tournaments',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Check if registration is open
-    if (!tournament.isRegistrationOpen) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'REGISTRATION_CLOSED',
-          message: 'Registration is not open for this tournament',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Check for duplicate registration (only block active registrations, not rejected ones)
-    const existingRegistration = await TournamentRegistration.findOne({
+    const prepared = await registerValorantTeam({
       tournamentId,
-      userId: req.user.userId,
-      status: { $in: ['pending', 'images_uploaded', 'verified'] }
-    });
-
-    if (existingRegistration) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'DUPLICATE_REGISTRATION',
-          message: 'You have already registered for this tournament',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Validate unique Riot IDs within the team (including substitute)
-    const allRiotIds = [
-      normalizeRiotId(teamLeader.riotId),
-      ...teamMembers.map(m => normalizeRiotId(m.riotId)),
-      ...(substitute ? [normalizeRiotId(substitute.riotId)] : [])
-    ].filter(Boolean);
-    const uniqueRiotIds = new Set(allRiotIds);
-    if (allRiotIds.length !== uniqueRiotIds.size) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'DUPLICATE_RIOT_ID',
-          message: 'All team members must have unique Riot IDs',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Check if any player is already registered in another team for this tournament
-    const existingRegistrations = await TournamentRegistration.find({
-      tournamentId,
-      userId: { $ne: req.user.userId },
-      status: { $in: ['pending', 'images_uploaded', 'verified'] }
-    });
-
-    const newPlayers = [
-      { riotKey: normalizeRiotId(teamLeader.riotId), name: teamLeader.name, role: 'Team Captain' },
-      ...teamMembers.map(m => ({ riotKey: normalizeRiotId(m.riotId), name: m.name, role: 'Team Member' })),
-      ...(substitute ? [{ riotKey: normalizeRiotId(substitute.riotId), name: substitute.name, role: 'Substitute' }] : [])
-    ].filter(p => p.riotKey);
-
-    const conflictingPlayers = [];
-    for (const existingReg of existingRegistrations) {
-      const existingRiotKeys = [
-        normalizeRiotId(existingReg.teamLeader?.riotId),
-        ...existingReg.teamMembers.map(m => normalizeRiotId(m.riotId)),
-        ...(existingReg.substitutePlayer?.riotId ? [normalizeRiotId(existingReg.substitutePlayer.riotId)] : [])
-      ].filter(Boolean);
-
-      for (const newPlayer of newPlayers) {
-        if (existingRiotKeys.includes(newPlayer.riotKey)) {
-          conflictingPlayers.push({
-            riotId: newPlayer.riotKey,
-            playerName: newPlayer.name,
-            existingTeam: existingReg.teamName,
-            role: newPlayer.role
-          });
-        }
+      requesterUserId: req.user.userId,
+      teamId,
+      models: {
+        Tournament,
+        Team,
+        User,
+        TournamentRegistration
       }
-    }
-
-    if (conflictingPlayers.length > 0) {
-      console.warn('⚠️ Valorant player conflict detected:', conflictingPlayers);
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'PLAYER_ALREADY_REGISTERED',
-          message: 'One or more players are already registered in another team for this tournament',
-          conflictingPlayers,
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    // Create registration
-    const registration = new TournamentRegistration({
-      tournamentId,
-      userId: req.user.userId,
-      teamName,
-      teamLeader,
-      teamMembers,
-      ...(substitute && { substitutePlayer: substitute }),
-      whatsappNumber,
-      status: 'pending'
     });
+    const { registration } = prepared;
 
-    await registration.save();
-
-    // Award 50 coins to team members whose Riot ID matches an existing platform account
+    // Award 50 coins to authoritative roster users
     // (best-effort; must never block registration if it fails)
     try {
-      const allTeamMemberIds = [req.user.userId]; // Team captain
-
-      const matchableMembers = [
-        ...teamMembers,
-        ...(substitute ? [substitute] : [])
-      ];
-
-      for (const member of matchableMembers) {
-        const riotKey = normalizeRiotId(member.riotId);
-        if (!riotKey) continue;
-        const memberUser = await User.findOne({
-          'gameIds.valorant': { $regex: new RegExp(`^${riotKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
-        });
-        if (memberUser) {
-          allTeamMemberIds.push(memberUser._id);
-        }
-      }
-
-      for (const memberId of allTeamMemberIds) {
+      for (const memberId of prepared.rosterUserIds) {
         const memberWallet = await Wallet.findOne({ userId: memberId });
         if (memberWallet) {
           await memberWallet.addCoins(
@@ -295,16 +97,16 @@ router.post('/:tournamentId/register', auth, [
     try {
       await WhatsAppMessage.createRegistrationSuccessMessage(
         registration._id,
-        whatsappNumber,
-        teamName,
-        tournament.name,
+        prepared.snapshot.whatsappNumber,
+        prepared.snapshot.teamName,
+        prepared.tournament.name,
         'valorant'
       );
 
       const whatsappResult = await whatsappService.sendRegistrationSuccess(
-        whatsappNumber,
-        teamName,
-        tournament.name,
+        prepared.snapshot.whatsappNumber,
+        prepared.snapshot.teamName,
+        prepared.tournament.name,
         'valorant'
       );
 
@@ -339,15 +141,11 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'REGISTRATION_FAILED',
-        message: 'Failed to register team',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        timestamp: new Date().toISOString()
-      }
-    });
+    if (error.code) {
+      return sendRegistrationError(res, error);
+    }
+
+    return sendRegistrationError(res, error, 'REGISTRATION_FAILED', 'Failed to register team');
   }
 });
 
@@ -475,41 +273,14 @@ router.delete('/:registrationId', auth, async (req, res) => {
   try {
     const { registrationId } = req.params;
 
-    const registration = await TournamentRegistration.findById(registrationId);
-    if (!registration) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: 'REGISTRATION_NOT_FOUND',
-          message: 'Registration not found',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    if (registration.userId.toString() !== req.user.userId) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'ACCESS_DENIED',
-          message: 'You can only cancel your own registrations',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    if (registration.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'CANCELLATION_NOT_ALLOWED',
-          message: 'Registration can only be cancelled when status is pending',
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
-
-    await TournamentRegistration.findByIdAndDelete(registrationId);
+    await cancelValorantRegistration({
+      registrationId,
+      requesterUserId: req.user.userId,
+      models: {
+        Tournament,
+        TournamentRegistration
+      }
+    });
 
     res.json({
       success: true,
@@ -519,14 +290,7 @@ router.delete('/:registrationId', auth, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Cancel Valorant registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'CANCELLATION_FAILED',
-        message: 'Failed to cancel registration',
-        timestamp: new Date().toISOString()
-      }
-    });
+    return sendRegistrationError(res, error, 'CANCELLATION_FAILED', 'Failed to cancel registration');
   }
 });
 
@@ -588,7 +352,7 @@ const requireAdmin = async (req, res) => {
 // @desc    Get all Valorant registrations for admin dashboard
 // @access  Private (Admin)
 router.get('/admin/registrations', auth, [
-  query('status').optional().isIn(['pending', 'images_uploaded', 'verified', 'rejected', 'not_verified']),
+  query('status').optional().isIn(['pending', 'images_uploaded', 'verified', 'rejected']),
   query('tournamentId').optional().isMongoId(),
   query('teamName').optional().isLength({ min: 1, max: 50 }),
   query('playerName').optional().isLength({ min: 1, max: 50 }),
@@ -722,11 +486,11 @@ router.get('/admin/registrations/:registrationId', auth, async (req, res) => {
 });
 
 // @route   PUT /api/valorant-registration/admin/:registrationId/status
-// @desc    Verify or reject a Valorant registration (Admin only)
+// @desc    Accept or reject a Valorant registration (Admin only)
 // @access  Private (Admin)
 router.put('/admin/:registrationId/status', auth, [
   body('status')
-    .isIn(['pending', 'images_uploaded', 'verified', 'rejected', 'not_verified'])
+    .isIn(['pending', 'images_uploaded', 'verified', 'rejected'])
     .withMessage('Invalid status'),
   body('rejectionReason')
     .optional()
@@ -784,9 +548,9 @@ router.put('/admin/:registrationId/status', auth, [
       } catch (whatsappError) {
         console.error('❌ WhatsApp verification message error:', whatsappError.message);
       }
-    } else if (status === 'rejected' || status === 'not_verified') {
-      const reason = rejectionReason || (status === 'not_verified' ? 'Not Verified by Admin' : null);
-      if (status === 'rejected' && !reason) {
+    } else if (status === 'rejected') {
+      const reason = rejectionReason;
+      if (!reason) {
         return res.status(400).json({
           success: false,
           error: {
@@ -796,7 +560,19 @@ router.put('/admin/:registrationId/status', auth, [
           }
         });
       }
-      await registration.reject(req.user.userId, reason);
+      await rejectValorantRegistration({
+        registrationId,
+        adminUserId: req.user.userId,
+        reason,
+        models: {
+          Tournament,
+          TournamentRegistration
+        }
+      });
+      registration.status = 'rejected';
+      registration.verifiedBy = req.user.userId;
+      registration.verificationDate = new Date();
+      registration.rejectionReason = reason;
 
       try {
         await WhatsAppMessage.createVerificationRejectedMessage(

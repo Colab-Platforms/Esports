@@ -3,7 +3,6 @@ const TeamInvitation = require('./team-invitation.model');
 const User = require('../../models/User');
 const Notification = require('../../models/Notification');
 const TournamentRegistration = require('../../models/TournamentRegistration');
-const verifiedGameIdService = require('../../services/auth/verified-game-id.service');
 const { TEAM_POPULATE_FIELDS } = require('./teams.constants');
 
 const createError = (code, message, status = 400) => {
@@ -45,7 +44,7 @@ const buildGameInfoUpdate = async (userId, game, info) => {
   }
 
   if (info.steamId !== undefined) update['gameIds.steam'] = info.steamId;
-  await verifiedGameIdService.applyUntrustedValorantUpdate(userId, update, info.valorantId);
+  if (info.valorantId !== undefined) update['gameIds.valorant'] = info.valorantId;
 
   return update;
 };
@@ -59,7 +58,20 @@ const applyGameInfoUpdate = async (userId, game, info) => {
 };
 
 const createTeam = async (userId, data) => {
-  const { name, tag, game, logo, description, maxMembers, privacy, memberIds, substituteId } = data;
+  const {
+    name,
+    tag,
+    game,
+    logo,
+    description,
+    maxMembers,
+    privacy,
+    memberIds,
+    substituteId,
+    membersGameInfo,
+    substituteGameInfo,
+    captainGameInfo
+  } = data;
 
   const members = [{
     userId,
@@ -103,6 +115,18 @@ const createTeam = async (userId, data) => {
         isSubstitute: true
       });
     }
+  }
+
+  if (captainGameInfo) {
+    await applyGameInfoUpdate(userId, game, captainGameInfo);
+  }
+
+  if (membersGameInfo && Array.isArray(membersGameInfo)) {
+    await Promise.all(membersGameInfo.map((info) => applyGameInfoUpdate(info.userId, game, info)));
+  }
+
+  if (substituteGameInfo && substituteGameInfo.userId) {
+    await applyGameInfoUpdate(substituteGameInfo.userId, game, substituteGameInfo);
   }
 
   const team = new Team({

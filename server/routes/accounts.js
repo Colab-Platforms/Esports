@@ -17,19 +17,6 @@ function serializeConnectedAccount(identity) {
     lastUsedAt: identity.lastUsedAt
   };
 
-  if (identity.provider === 'riot') {
-    return {
-      ...base,
-      profile: {
-        gameName: identity.profile?.gameName || '',
-        tagLine: identity.profile?.tagLine || ''
-      },
-      metadata: {
-        verifiedAt: identity.metadata?.verifiedAt || null
-      }
-    };
-  }
-
   if (identity.provider === 'steam') {
     return {
       ...base,
@@ -161,10 +148,9 @@ router.post('/:provider/connect/start', auth, (req, res) => {
   }
 
   if (!isProviderEnabled(provider)) {
-    const code = provider === 'riot' ? 'RIOT_OAUTH_NOT_CONFIGURED' : 'OAUTH_NOT_CONFIGURED';
     return res.status(503).json({
       success: false,
-      error: { code, message: `${providers[provider].label} is not properly configured.`, timestamp: new Date().toISOString() }
+      error: { code: 'OAUTH_NOT_CONFIGURED', message: `${providers[provider].label} is not properly configured.`, timestamp: new Date().toISOString() }
     });
   }
 

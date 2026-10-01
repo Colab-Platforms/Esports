@@ -57,6 +57,39 @@ const AdminValorantRegistrations = () => {
     return `${riotId.name}#${riotId.tag}`;
   };
 
+  const rosterRows = (reg) => {
+    if (Array.isArray(reg.roster) && reg.roster.length > 0) {
+      const starters = reg.roster.filter(player => player.role === 'starter');
+      const substitutes = reg.roster.filter(player => player.role === 'substitute');
+      return [
+        ...starters.map((player, index) => ({
+          label: index === 0 ? 'Captain' : `Player ${index + 1}`,
+          name: player.username,
+          riotId: player.riotId || 'N/A'
+        })),
+        ...substitutes.map(player => ({
+          label: 'Substitute',
+          name: player.username,
+          riotId: player.riotId || 'N/A'
+        }))
+      ];
+    }
+
+    return [
+      { label: 'Captain', name: reg.teamLeader?.name, riotId: riotIdLabel(reg.teamLeader?.riotId) },
+      ...(reg.teamMembers || []).map((player, index) => ({
+        label: `Player ${index + 2}`,
+        name: player.name,
+        riotId: riotIdLabel(player.riotId)
+      })),
+      ...(reg.substitutePlayer ? [{
+        label: 'Substitute',
+        name: reg.substitutePlayer.name,
+        riotId: riotIdLabel(reg.substitutePlayer.riotId)
+      }] : [])
+    ];
+  };
+
   return (
     <div className="min-h-screen bg-gaming-dark p-6">
       <div className="max-w-6xl mx-auto">
@@ -69,7 +102,7 @@ const AdminValorantRegistrations = () => {
           {[
             { label: 'Total', value: stats.total },
             { label: 'Pending', value: stats.pending },
-            { label: 'Verified', value: stats.verified },
+            { label: 'Accepted', value: stats.verified },
             { label: 'Rejected', value: stats.rejected }
           ].map((s) => (
             <div key={s.label} className="card-gaming p-4 text-center">
@@ -120,24 +153,16 @@ const AdminValorantRegistrations = () => {
                     reg.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
                     'bg-yellow-500/20 text-yellow-400'
                   }`}>
-                    {reg.status.toUpperCase()}
+                    {reg.status === 'verified' ? 'ACCEPTED' : reg.status.toUpperCase()}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mb-4">
-                  <div className="text-gray-300">
-                    <span className="text-red-400 font-semibold">Captain:</span> {reg.teamLeader?.name} ({riotIdLabel(reg.teamLeader?.riotId)})
-                  </div>
-                  {reg.teamMembers?.map((m, i) => (
-                    <div key={i} className="text-gray-300">
-                      <span className="text-red-400 font-semibold">Player {i + 2}:</span> {m.name} ({riotIdLabel(m.riotId)})
+                  {rosterRows(reg).map((player, index) => (
+                    <div key={`${player.label}-${index}`} className="text-gray-300">
+                      <span className="text-red-400 font-semibold">{player.label}:</span> {player.name || 'N/A'} ({player.riotId})
                     </div>
                   ))}
-                  {reg.substitutePlayer && (
-                    <div className="text-gray-300">
-                      <span className="text-red-400 font-semibold">Substitute:</span> {reg.substitutePlayer.name} ({riotIdLabel(reg.substitutePlayer.riotId)})
-                    </div>
-                  )}
                   <div className="text-gray-400">WhatsApp: {reg.whatsappNumber}</div>
                 </div>
 
@@ -147,7 +172,7 @@ const AdminValorantRegistrations = () => {
                       onClick={() => updateStatus(reg._id, 'verified')}
                       className="px-3 py-1.5 bg-green-500/20 border border-green-500 text-green-400 rounded text-sm font-medium hover:bg-green-500/30"
                     >
-                      ✓ Verify
+                      Accept
                     </button>
                     <button
                       onClick={() => setRejectingId(reg._id)}
@@ -186,7 +211,7 @@ const AdminValorantRegistrations = () => {
                 )}
 
                 {reg.status === 'verified' && (
-                  <div className="text-xs text-green-400">Verified by {reg.verifiedBy?.username || 'admin'}</div>
+                  <div className="text-xs text-green-400">Accepted by {reg.verifiedBy?.username || 'admin'}</div>
                 )}
               </div>
             ))}

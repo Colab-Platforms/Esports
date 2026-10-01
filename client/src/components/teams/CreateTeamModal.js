@@ -48,6 +48,11 @@ const validateUID = (uid) => {
   return { valid: true, message: '' };
 };
 
+const isValidRiotId = (value = '') => {
+  const parts = value.trim().split('#');
+  return parts.length === 2 && parts.every(part => part.trim());
+};
+
 const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam = null, currentUser = null }) => {
   const isEdit = !!editTeam;
 
@@ -75,6 +80,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
   const [substituteSearchLoading, setSubstituteSearchLoading] = useState(false);
 
   const currentGame = GAMES.find(g => g.id === formData.game) || GAMES[0];
+  const isValorant = currentGame.id === 'valorant';
   const maxAddable = currentGame.minMembers - 1;
   const canAddSubstitute = selectedMembers.length === maxAddable && !substitute;
 
@@ -276,7 +282,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
       toast.error('Team name is required', { position: 'top-center' });
       return;
     }
-    if (selectedMembers.length < maxAddable) {
+    if (!isValorant && selectedMembers.length < maxAddable) {
       toast.error(`Team must have at least ${currentGame.minMembers} players`, { position: 'top-center' });
       return;
     }
@@ -306,6 +312,25 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
       const substituteUidValidation = validateUID(substitute.gameInfo.uid);
       if (!substituteUidValidation.valid) {
         toast.error(`Substitute UID: ${substituteUidValidation.message}`, { position: 'top-center' });
+        return;
+      }
+    }
+
+    if (isValorant) {
+      if (captainGameInfo.valorantId?.trim() && !isValidRiotId(captainGameInfo.valorantId)) {
+        toast.error('Captain Valorant ID must use Name#Tag format', { position: 'top-center' });
+        return;
+      }
+
+      for (const member of selectedMembers) {
+        if (member.gameInfo.valorantId?.trim() && !isValidRiotId(member.gameInfo.valorantId)) {
+          toast.error(`${member.username} Valorant ID must use Name#Tag format`, { position: 'top-center' });
+          return;
+        }
+      }
+
+      if (substitute?.gameInfo.valorantId?.trim() && !isValidRiotId(substitute.gameInfo.valorantId)) {
+        toast.error('Substitute Valorant ID must use Name#Tag format', { position: 'top-center' });
         return;
       }
     }
@@ -381,7 +406,9 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
               </select>
             )}
             <p className="text-gray-500 text-xs mt-1">
-              {currentGame.name} teams have {currentGame.minMembers}-{currentGame.maxMembers} players ({currentGame.minMembers} required + 1 optional substitute)
+              {isValorant
+                ? 'Valorant teams can be saved early; tournament registration requires 5 starters including captain plus 1 substitute'
+                : `${currentGame.name} teams have ${currentGame.minMembers}-${currentGame.maxMembers} players (${currentGame.minMembers} required + 1 optional substitute)`}
             </p>
           </div>
 
@@ -567,7 +594,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                         )}
                       </div>
                       <div className="flex items-center space-x-1 shrink-0">
-                        {/* <button
+                        <button
                           type="button"
                           onClick={() => setEditingMember(editingMember === member._id ? null : member._id)}
                           className={`p-1.5 rounded transition-colors ${
@@ -578,7 +605,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
                           title="Edit game info"
                         >
                           <FiEdit3 className="w-3.5 h-3.5" />
-                        </button> */}
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleRemoveMember(member._id)}

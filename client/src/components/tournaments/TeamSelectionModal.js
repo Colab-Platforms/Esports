@@ -16,6 +16,11 @@ const GAME_FIELDS = {
   valorant: { idLabel: 'Valorant ID', nameLabel: 'IGN', idKey: 'valorantId', nameKey: 'name' },
 };
 
+const isValidRiotId = (value = '') => {
+  const parts = value.trim().split('#');
+  return parts.length === 2 && parts.every(part => part.trim());
+};
+
 const getGameInfo = (memberUser, gameType) => {
   const u = memberUser;
   if (!u) return { name: '', gameId: '' };
@@ -78,6 +83,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const getMemberInfo = (member) => {
     const memberId = member.userId?._id || member.userId;
     if (!memberId) return getGameInfo(member.userId, gameType);
+    if (gameType === 'valorant') return getGameInfo(member.userId, gameType);
     const edited = memberEdits[memberId];
     if (edited) return edited;
     return getGameInfo(member.userId, gameType);
@@ -90,19 +96,31 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     if (!selectedTeam) return [];
     const warnings = [];
     const needsName = gameType !== 'cs2' && gameType !== 'valorant';
+    if (gameType === 'valorant') {
+      const starters = selectedTeam.members?.filter(m => !m.isSubstitute) || [];
+      const substitutes = selectedTeam.members?.filter(m => m.isSubstitute) || [];
+      if (starters.length !== 5) warnings.push('Valorant registration requires exactly 5 starters including the captain');
+      if (substitutes.length !== 1) warnings.push('Valorant registration requires exactly 1 substitute');
+      if (!user?.phone || !/^[6-9]\d{9}$/.test(user.phone)) {
+        warnings.push('Captain profile must have a valid WhatsApp number');
+      }
+    }
     selectedTeam.members?.forEach(m => {
       if (!m.userId) return;
       const info = getMemberInfo(m);
       const memberName = m.userId?.username || 'Unknown';
-      const role = isCaptain(m) ? 'Team Leader' : 'Member';
+      const role = isCaptain(m) ? 'Team Leader' : (m.isSubstitute ? 'Substitute' : 'Member');
       if (needsName && !info.name?.trim()) warnings.push(`${role} "${memberName}" is missing ${fields.nameLabel}`);
       if (!info.gameId?.trim()) warnings.push(`${role} "${memberName}" is missing ${fields.idLabel}`);
+      if (gameType === 'valorant' && info.gameId?.trim() && !isValidRiotId(info.gameId)) {
+        warnings.push(`${role} "${memberName}" must use Riot ID format Name#Tag`);
+      }
     });
     if (needsPhone && !/^[6-9]\d{9}$/.test(phoneNumber)) {
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, gameType]);
+  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, gameType, user?.phone]);
 
   useEffect(() => {
     fetchTeams();
@@ -327,6 +345,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                 <UserAvatar user={member.userId} size="xs" />
                                 <span className="text-gray-300">{member.userId.username}</span>
                                 {member.role === 'captain' && <FiAward className="w-3 h-3 text-gaming-gold" />}
+                                {member.isSubstitute && <span className="text-[9px] text-blue-300">SUB</span>}
                               </div>
                             )
                           ))}
@@ -367,23 +386,29 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                       {isLeader && (
                                         <span className="text-[10px] bg-gaming-gold/20 text-gaming-gold px-1.5 py-0.5 rounded font-bold">LEADER</span>
                                       )}
+                                      {member.isSubstitute && (
+                                        <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">SUBSTITUTE</span>
+                                      )}
                                     </div>
-                                    {/* <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingMemberId(isEditing ? null : memberId);
-                                        if (!isEditing && !memberEdits[memberId]) {
-                                          setMemberEdits(prev => ({
-                                            ...prev,
-                                            [memberId]: { name: info.name, gameId: info.gameId }
-                                          }));
-                                        }
-                                      }}
-                                      className={`p-1.5 rounded transition-colors ${isEditing ? 'bg-gaming-gold/20 text-gaming-gold' : 'text-gray-500 hover:text-gaming-gold'}`}
-                                    >
-                                      <FiEdit2 className="w-3.5 h-3.5" />
-                                    </button> */}
+                                    {gameType !== 'valorant' && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingMemberId(isEditing ? null : memberId);
+                                          if (!isEditing && !memberEdits[memberId]) {
+                                            setMemberEdits(prev => ({
+                                              ...prev,
+                                              [memberId]: { name: info.name, gameId: info.gameId }
+                                            }));
+                                          }
+                                        }}
+                                        className={`p-1.5 rounded transition-colors ${isEditing ? 'bg-gaming-gold/20 text-gaming-gold' : 'text-gray-500 hover:text-gaming-gold'}`}
+                                        title="Edit game info"
+                                      >
+                                        <FiEdit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
 
                                   {isEditing ? (
@@ -448,7 +473,9 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
                                     <div className="flex items-center space-x-1 mt-1.5 text-[11px] text-red-400">
                                       <FiAlertTriangle className="w-3 h-3 shrink-0" />
                                       <span>
-                                        Missing: {[missingName && fields.nameLabel, missingId && fields.idLabel].filter(Boolean).join(' & ')} — click edit to fix
+                                        {gameType === 'valorant'
+                                          ? `Missing: ${fields.idLabel} on player profile`
+                                          : `Missing: ${[missingName && fields.nameLabel, missingId && fields.idLabel].filter(Boolean).join(' & ')} - click edit to fix`}
                                       </span>
                                     </div>
                                   )}

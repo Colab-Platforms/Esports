@@ -783,48 +783,14 @@ const SingleTournamentPage = () => {
             throw new Error(err.message || 'Registration failed');
           }
         } else if (gameType === "valorant") {
-          // Separate regular members and substitute
-          const regularMembers = otherMembers.filter(m => !m.isSubstitute);
-          const substituteMember = otherMembers.find(m => m.isSubstitute);
-
-          // gameIds.valorant is stored as a flat "name#tag" string; split it
-          // into the {name, tag} shape the Valorant registration API expects.
-          const parseRiotId = (gameId) => {
-            if (!gameId || typeof gameId !== "string" || !gameId.includes("#")) {
-              return { name: "", tag: "" };
-            }
-            const [riotName, riotTag] = gameId.split("#");
-            return { name: (riotName || "").trim(), tag: (riotTag || "").trim() };
-          };
-
-          const registrationData = {
-            teamName: team.name,
-            teamLeader: {
-              name: leaderInfo.name,
-              riotId: parseRiotId(leaderInfo.gameId),
-              phone: phoneNumber || user?.phone || "",
-            },
-            teamMembers: regularMembers.map((m) => {
-              const info = getInfo(m);
-              return { name: info.name, riotId: parseRiotId(info.gameId) };
-            }),
-            ...(substituteMember && {
-              substitute: {
-                name: getInfo(substituteMember).name,
-                riotId: parseRiotId(getInfo(substituteMember).gameId),
-              }
-            }),
-            whatsappNumber: phoneNumber || user?.phone || "",
-          };
-
           const valorantResponse = await api.post(
             `/api/valorant-registration/${tournament._id}/register`,
-            registrationData,
+            { teamId: team._id },
           );
           const valorantData = valorantResponse.data || valorantResponse;
           if (valorantData?.success === false) {
             const err = valorantData.error || {};
-            if (err.code === 'PLAYER_ALREADY_REGISTERED') {
+            if (err.code === 'PLAYER_ALREADY_REGISTERED' || err.code === 'RIOT_ID_ALREADY_REGISTERED') {
               const playerLines = (err.conflictingPlayers || [])
                 .map(p => `<div class="ml-4 mt-1">• <span class="text-yellow-400">${p.playerName}</span> <span class="text-gray-400">(Riot ID: ${p.riotId || 'N/A'})</span> in team: <span class="text-yellow-400">${p.existingTeam}</span></div>`)
                 .join('');
@@ -889,7 +855,7 @@ const SingleTournamentPage = () => {
         const errData = error.response?.data?.error;
         console.log('❌ Registration catch error:', errData);
 
-        if (errData?.code === 'PLAYER_ALREADY_REGISTERED') {
+        if (errData?.code === 'PLAYER_ALREADY_REGISTERED' || errData?.code === 'RIOT_ID_ALREADY_REGISTERED') {
           const playerLines = (errData.conflictingPlayers || [])
             .map(p => `<div style="margin-top:4px">• <span style="color:#f97316;font-weight:600">${p.playerName}</span> (UID: ${p.freeFireId || p.bgmiId})<br>&nbsp;&nbsp;Team: <span style="color:#3b82f6;font-style:italic">${p.existingTeam}</span></div>`)
             .join('');

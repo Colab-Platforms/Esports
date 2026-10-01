@@ -147,7 +147,6 @@ app.use('/api/auth/google', oauthLimiter);
 app.use('/api/auth/steam', oauthLimiter);
 app.use('/api/auth/facebook', oauthLimiter);
 app.use('/api/auth/xbox', oauthLimiter);
-app.use('/api/auth/riot', oauthLimiter);
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);

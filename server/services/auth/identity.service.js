@@ -8,14 +8,6 @@ class IdentityAlreadyLinkedError extends Error {
   }
 }
 
-class RiotAccountAlreadyConnectedError extends Error {
-  constructor() {
-    super('A different Riot account is already connected. Disconnect it before connecting another Riot account.');
-    this.name = 'RiotAccountAlreadyConnectedError';
-    this.code = 'RIOT_ACCOUNT_ALREADY_CONNECTED';
-  }
-}
-
 function applySession(query, session) {
   return session && typeof query.session === 'function' ? query.session(session) : query;
 }
@@ -81,9 +73,6 @@ async function createIdentity({
     return await Identity.create(doc);
   } catch (error) {
     if (error && error.code === 11000) {
-      if (provider === 'riot' && error.keyPattern && error.keyPattern.userId && error.keyPattern.provider) {
-        throw new RiotAccountAlreadyConnectedError();
-      }
       throw new IdentityAlreadyLinkedError(provider);
     }
     throw error;
@@ -109,6 +98,5 @@ module.exports = {
   updateIdentity,
   touchLastUsed,
   deleteIdentity,
-  IdentityAlreadyLinkedError,
-  RiotAccountAlreadyConnectedError
+  IdentityAlreadyLinkedError
 };

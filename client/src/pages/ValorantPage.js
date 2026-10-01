@@ -3,12 +3,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PageBannerSlider from '../components/common/PageBannerSlider';
-import ValorantRegistrationForm from '../components/valorant/ValorantRegistrationForm';
+import TeamSelectionModal from '../components/tournaments/TeamSelectionModal';
 import GameIcon from '../components/common/GameIcon';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import CountdownTimer from '../components/common/CountdownTimer';
 import { getCdnIcon } from '../assets/gameAssets';
 import { selectUser } from '../store/slices/authSlice';
+import api from '../services/api';
+import notificationService from '../services/notificationService';
 import {
   fetchTournaments,
   selectTournaments,
@@ -31,6 +33,7 @@ const ValorantPage = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [registering, setRegistering] = useState(false);
 
   useEffect(() => {
     const status = getStatusFromTab(activeTab);
@@ -97,11 +100,56 @@ const ValorantPage = () => {
   const handleRegistrationSuccess = () => {
     setShowRegistrationForm(false);
     setSelectedTournament(null);
+    notificationService.showCustomNotification(
+      'success',
+      'Registration Successful!',
+      'Your Valorant team has been registered.'
+    );
   };
 
   const handleCloseRegistrationForm = () => {
     setShowRegistrationForm(false);
     setSelectedTournament(null);
+  };
+
+  const handleTeamRegister = async (team) => {
+    if (!selectedTournament || !team) return;
+    setRegistering(true);
+    try {
+      const response = await api.post(
+        `/api/valorant-registration/${selectedTournament._id}/register`,
+        { teamId: team._id }
+      );
+      const data = response.data || response;
+      if (data?.success === false) {
+        const registrationError = new Error(data.error?.message || 'Registration failed');
+        registrationError.response = { data };
+        throw registrationError;
+      }
+      handleRegistrationSuccess();
+    } catch (err) {
+      const error = err.response?.data?.error;
+      if (error?.code === 'PLAYER_ALREADY_REGISTERED' || error?.code === 'RIOT_ID_ALREADY_REGISTERED') {
+        const playerLines = (error.conflictingPlayers || [])
+          .map(player => `<div class="mt-1"><span class="text-yellow-400">${player.playerName}</span> (${player.riotId || 'Riot ID unavailable'}) in <span class="text-yellow-400">${player.existingTeam}</span></div>`)
+          .join('');
+        notificationService.showCustomNotification(
+          'error',
+          'Registration Failed',
+          `<div class="text-red-400 font-semibold mb-2">These players are already registered:</div>${playerLines}`,
+          null,
+          true
+        );
+      } else {
+        notificationService.showCustomNotification(
+          'error',
+          'Registration Failed',
+          error?.message || err.message || 'Failed to register team'
+        );
+      }
+    } finally {
+      setRegistering(false);
+    }
   };
 
   if (!tournaments) {
@@ -207,10 +255,12 @@ const ValorantPage = () => {
         </div>
 
         {showRegistrationForm && selectedTournament && (
-          <ValorantRegistrationForm
-            tournament={selectedTournament}
+          <TeamSelectionModal
+            tournament={{ ...selectedTournament, gameType: 'valorant' }}
+            token={localStorage.getItem('token')}
+            registering={registering}
             onClose={handleCloseRegistrationForm}
-            onSuccess={handleRegistrationSuccess}
+            onRegister={handleTeamRegister}
           />
         )}
 
@@ -260,7 +310,7 @@ const ValorantPage = () => {
               <span>Valorant Tournament Rules</span>
             </h3>
             <div className="space-y-2 text-sm text-gray-300">
-              <div>• Team rosters (5 starters + optional substitute) are locked after registration deadline</div>
+              <div>• Team rosters require 5 starters plus 1 substitute and are locked after registration deadline</div>
               <div>• Match/server details will be shared before your match</div>
               <div>• No third-party apps or cheats allowed</div>
               <div>• Disputes must be raised within 24 hours</div>
@@ -273,10 +323,10 @@ const ValorantPage = () => {
               <span>How to Register</span>
             </h3>
             <div className="space-y-2 text-sm text-gray-300">
-              <div>1. Register your 5-player team (Riot ID for each player)</div>
-              <div>2. Add a substitute if you have one (optional)</div>
-              <div>3. Wait for admin to verify your roster</div>
-              <div>4. Receive match details via WhatsApp once verified</div>
+              <div>1. Register your 5 starters plus 1 substitute (Riot ID for each player)</div>
+              <div>2. Choose your mandatory substitute</div>
+              <div>3. Wait for admin to review and accept your registration</div>
+              <div>4. Receive match details via WhatsApp once accepted</div>
             </div>
           </div>
         </div>

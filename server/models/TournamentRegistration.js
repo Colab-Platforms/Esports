@@ -97,6 +97,36 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     ref: 'Team',
     default: null
   },
+
+  // Authoritative Valorant roster snapshot. New Valorant registrations derive
+  // this from Team + User documents at registration time; BGMI/Free Fire do
+  // not depend on this field.
+  roster: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    username: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    riotId: {
+      type: String,
+      trim: true
+    },
+    normalizedRiotId: {
+      type: String,
+      trim: true,
+      lowercase: true
+    },
+    role: {
+      type: String,
+      enum: ['starter', 'substitute'],
+      required: true
+    }
+  }],
   
   // Group Assignment (for tournaments with grouping enabled)
   group: {
@@ -163,13 +193,14 @@ const tournamentRegistrationSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Compound unique index to prevent duplicate registrations
-tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 }, { unique: true });
-
 // Indexes for efficient queries
+tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 });
 tournamentRegistrationSchema.index({ tournamentId: 1, status: 1 });
 tournamentRegistrationSchema.index({ userId: 1 });
 tournamentRegistrationSchema.index({ teamId: 1, status: 1 });
+tournamentRegistrationSchema.index({ tournamentId: 1, teamId: 1, status: 1 });
+tournamentRegistrationSchema.index({ tournamentId: 1, 'roster.userId': 1, status: 1 });
+tournamentRegistrationSchema.index({ tournamentId: 1, 'roster.normalizedRiotId': 1, status: 1 });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
 
@@ -286,6 +317,25 @@ tournamentRegistrationSchema.pre('save', async function(next) {
       }
     }
   } else if (tournament.gameType === 'valorant') {
+    if (Array.isArray(this.roster) && this.roster.length > 0) {
+      const starters = this.roster.filter(member => member.role === 'starter');
+      const substitutes = this.roster.filter(member => member.role === 'substitute');
+
+      if (this.roster.length !== 6 || starters.length !== 5 || substitutes.length !== 1) {
+        return next(new Error('Valorant registration requires exactly 5 starters and 1 substitute'));
+      }
+
+      const rosterUserIds = this.roster.map(member => member.userId?.toString()).filter(Boolean);
+      if (new Set(rosterUserIds).size !== rosterUserIds.length) {
+        return next(new Error('Valorant roster users must be unique'));
+      }
+
+      const rosterRiotIds = this.roster.map(member => member.normalizedRiotId).filter(Boolean);
+      if (rosterRiotIds.length !== 6 || new Set(rosterRiotIds).size !== rosterRiotIds.length) {
+        return next(new Error('Valorant roster Riot IDs must be present and unique'));
+      }
+    }
+
     // Normalize a Riot ID (name + tag) into a single comparable key
     const normalizeRiotId = (riotId) => {
       if (!riotId || !riotId.name || !riotId.tag) return null;
@@ -328,6 +378,8 @@ tournamentRegistrationSchema.pre('save', async function(next) {
 // Post-save middleware to sync tournament participant count and assign groups
 tournamentRegistrationSchema.post('save', async function(doc) {
   try {
+    if (doc.$locals?.skipParticipantSync) return;
+
     const Tournament = require('./Tournament');
     const tournament = await Tournament.findById(doc.tournamentId);
 
