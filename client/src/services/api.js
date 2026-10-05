@@ -173,6 +173,14 @@ class ApiService {
     return this.get('/api/competition-dashboard');
   }
 
+  async checkInActivityStreak() {
+    return this.post('/api/streak/check-in', {});
+  }
+
+  async getActivityStreakLeaderboard(params = {}) {
+    return this.get('/api/streak/leaderboard', { params });
+  }
+
   async getPlayerCompetitiveProfile(username) {
     return this.get(`/api/players/${encodeURIComponent(username)}/competitive-profile`);
   }

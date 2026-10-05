@@ -290,6 +290,7 @@ app.use('/api/matches', require('./routes/matches'));
 app.use('/api/bgmi-matches', require('./routes/bgmiMatches'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
+app.use('/api/streak', require('./features/streak/streak.routes'));
 app.use('/api/referral', require('./routes/referral'));
 app.use('/api/store', require('./routes/store'));
 // Register more specific admin routes BEFORE general admin route

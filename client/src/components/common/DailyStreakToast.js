@@ -46,7 +46,7 @@ const DailyStreakToast = ({ streak = 1, coins = 10, onClaim, onClose, claiming =
               className="text-xs font-bold tracking-widest uppercase"
               style={{ color: '#f1c40f', fontFamily: 'Orbitron, sans-serif', fontSize: '10px' }}
             >
-              Day {displayStreak} Streak
+              Day {displayStreak} Reward Streak
             </span>
             {/* Streak dots */}
             <div className="flex gap-1">

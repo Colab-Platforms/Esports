@@ -402,7 +402,7 @@ const WalletPage = () => {
               <div>
 
                 <p className="text-gray-400 text-sm mb-1">
-                  7 Day Login Streak
+                  7 Day Reward Streak
                 </p>
 
                 <div className="flex items-end space-x-2">
@@ -476,10 +476,10 @@ const WalletPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold text-white mb-2">
-                🎁 Daily Login Reward
+                🎁 Daily Reward
               </h3>
               <p className="text-gray-400">
-                Claim your daily coins and keep your streak going!
+                Claim your daily coins and keep your reward streak going!
               </p>
             </div>
             <button

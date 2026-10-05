@@ -21,6 +21,7 @@ import InstallPWA from './components/common/InstallPWA';
 
 // Hooks
 import useDailyStreak from './hooks/useDailyStreak';
+import useActivityStreakCheckIn from './hooks/useActivityStreakCheckIn';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -169,6 +170,7 @@ function App() {
   const { isAuthenticated, isLoading, user } = useSelector(selectAuth);
   const location = useLocation();
   const { showToast, streakData, claiming, handleClaim, handleClose } = useDailyStreak();
+  useActivityStreakCheckIn();
   
   // Check if splash has been shown before (only show once per session)
   const [showSplash, setShowSplash] = React.useState(() => {
