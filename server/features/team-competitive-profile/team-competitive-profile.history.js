@@ -2,6 +2,7 @@ const BGMIMatch = require('../../models/BGMIMatch');
 const TournamentRegistration = require('../../models/TournamentRegistration');
 const FreeFireMatchResult = require('../freefire-results/freefire-match-result.model');
 const ValorantMatchResult = require('../valorant-results/valorant-match-result.model');
+const TournamentFinalResult = require('../tournament-final-results/tournament-final-result.model');
 const { RESULT_STATUSES } = require('../game-results/game-results.utils');
 const { HISTORY_LIMIT } = require('./team-competitive-profile.constants');
 const { sortNewestFirst, toId } = require('./team-competitive-profile.utils');
@@ -106,6 +107,69 @@ const normalizeValorantEvent = ({ match, side, opponent }) => {
   };
 };
 
+const normalizeTournamentFinalEvent = ({ finalResult, standing }) => ({
+  id: `team-tournament-final-${toId(finalResult)}-${toId(standing.registrationId || standing.canonicalTeamId)}`,
+  source: { type: 'tournament_final_result', id: toId(finalResult) },
+  level: 'tournament',
+  gameType: finalResult.gameType,
+  tournament: finalResult.tournamentId ? {
+    id: toId(finalResult.tournamentId),
+    name: finalResult.tournamentId.name || ''
+  } : null,
+  team: {
+    entityType: standing.canonicalTeamId ? 'team' : 'registration',
+    entityId: toId(standing.canonicalTeamId || standing.registrationId),
+    name: standing.teamNameSnapshot || ''
+  },
+  occurredAt: finalResult.publishedAt || finalResult.updatedAt || finalResult.createdAt,
+  status: finalResult.status,
+  confidence: 'verified_result',
+  result: {
+    type: 'tournament_placement',
+    data: {
+      placement: standing.rank,
+      matchesPlayed: standing.matchesPlayed,
+      wins: standing.wins,
+      kills: standing.kills,
+      placementPoints: standing.placementPoints,
+      killPoints: standing.killPoints,
+      points: standing.totalPoints,
+      roundsWon: standing.roundsWon,
+      roundsLost: standing.roundsLost,
+      roundDifference: standing.roundDifference
+    }
+  }
+});
+
+const getTournamentFinalTeamHistory = async ({ teamId, registrationIds = [], limit = HISTORY_LIMIT, models = {} }) => {
+  const FinalResultModel = models.TournamentFinalResult || TournamentFinalResult;
+  const teamIdString = toId(teamId);
+  const registrationIdSet = new Set(registrationIds.map(toId).filter(Boolean));
+  const or = [{ 'standings.canonicalTeamId': teamId }];
+  if (registrationIdSet.size > 0) {
+    or.push({ 'standings.registrationId': { $in: Array.from(registrationIdSet) } });
+  }
+
+  const finalResults = await FinalResultModel.find({
+    status: { $in: ['published', 'needs_republish'] },
+    $or: or
+  })
+    .select('tournamentId gameType status standings publishedAt updatedAt createdAt')
+    .populate('tournamentId', 'name gameType')
+    .sort({ publishedAt: -1, updatedAt: -1 })
+    .limit(limit * 2)
+    .lean();
+
+  return sortNewestFirst(finalResults.flatMap((finalResult) => (
+    (finalResult.standings || [])
+      .filter((standing) => (
+        toId(standing.canonicalTeamId) === teamIdString ||
+        registrationIdSet.has(toId(standing.registrationId))
+      ))
+      .map((standing) => normalizeTournamentFinalEvent({ finalResult, standing }))
+  ))).slice(0, limit);
+};
+
 const getBgmiTeamHistory = async ({ teamId, limit = HISTORY_LIMIT, models = {} }) => {
   const MatchModel = models.BGMIMatch || BGMIMatch;
   const teamIdString = toId(teamId);
@@ -206,19 +270,20 @@ const getValorantTeamHistory = async ({ teamId, registrationIds = [], limit = HI
 const getTeamCompetitiveHistory = async ({ team, limit = HISTORY_LIMIT, models = {} }) => {
   const registrationIds = await getRegistrationIdsForTeam({ teamId: team._id, models });
 
+  const tournamentFinalHistory = await getTournamentFinalTeamHistory({ teamId: team._id, registrationIds, limit, models });
+  let matchHistory = [];
   if (team.game === 'bgmi') {
-    return getBgmiTeamHistory({ teamId: team._id, limit, models });
+    matchHistory = await getBgmiTeamHistory({ teamId: team._id, limit, models });
+  } else if (team.game === 'freefire') {
+    matchHistory = await getFreeFireTeamHistory({ teamId: team._id, registrationIds, limit, models });
+  } else if (team.game === 'valorant') {
+    matchHistory = await getValorantTeamHistory({ teamId: team._id, registrationIds, limit, models });
   }
-  if (team.game === 'freefire') {
-    return getFreeFireTeamHistory({ teamId: team._id, registrationIds, limit, models });
-  }
-  if (team.game === 'valorant') {
-    return getValorantTeamHistory({ teamId: team._id, registrationIds, limit, models });
-  }
-  return [];
+  return sortNewestFirst([...tournamentFinalHistory, ...matchHistory]).slice(0, limit);
 };
 
 module.exports = {
+  getTournamentFinalTeamHistory,
   getValorantTeamHistory,
   getTeamCompetitiveHistory,
   getRegistrationIdsForTeam,

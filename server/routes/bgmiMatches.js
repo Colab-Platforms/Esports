@@ -3,6 +3,7 @@ const router = express.Router();
 const BGMIMatch = require('../models/BGMIMatch');
 const BGMILeaderboard = require('../models/BGMILeaderboard');
 const auth = require('../middleware/auth');
+const { markTournamentFinalResultStale } = require('../features/tournament-final-results/tournament-final-results.service');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -112,6 +113,7 @@ router.post('/:matchId/screenshot', auth, upload.single('screenshot'), async (re
     let teamResult = match.teamResults.find(
       t => t.teamId && t.teamId.toString() === teamId
     );
+    const wasVerified = teamResult?.verified === true;
     
     if (!teamResult) {
       teamResult = {
@@ -129,6 +131,9 @@ router.post('/:matchId/screenshot', auth, upload.single('screenshot'), async (re
     });
     
     await match.save();
+    if (wasVerified) {
+      await markTournamentFinalResultStale(match.tournamentId);
+    }
     
     res.json({
       success: true,
@@ -184,6 +189,7 @@ router.post('/:matchId/submit-result', auth, async (req, res) => {
     }
     
     await match.save();
+    await markTournamentFinalResultStale(match.tournamentId);
     
     res.json({
       success: true,

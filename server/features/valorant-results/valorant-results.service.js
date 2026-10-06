@@ -1,6 +1,7 @@
 const ValorantMatchResult = require('./valorant-match-result.model');
 const Tournament = require('../../models/Tournament');
 const TournamentRegistration = require('../../models/TournamentRegistration');
+const { markTournamentFinalResultStale } = require('../tournament-final-results/tournament-final-results.service');
 const {
   RESULT_STATUSES,
   assertNonNegativeNumber,
@@ -145,6 +146,9 @@ const createValorantResult = async ({ payload, actorId }) => {
     verifiedAt: status === RESULT_STATUSES.VERIFIED ? new Date() : null,
     adminNotesPrivate: payload.adminNotesPrivate || ''
   });
+  if (status === RESULT_STATUSES.VERIFIED) {
+    await markTournamentFinalResultStale(payload.tournamentId);
+  }
   return ValorantMatchResult.findById(result._id).populate('tournamentId', 'name gameType').lean();
 };
 
@@ -177,6 +181,7 @@ const updateValorantResult = async ({ resultId, payload, actorId }) => {
   }
   result.updatedBy = actorId;
   await result.save();
+  await markTournamentFinalResultStale(result.tournamentId);
   return ValorantMatchResult.findById(result._id).populate('tournamentId', 'name gameType').lean();
 };
 
@@ -184,7 +189,7 @@ const verifyValorantResult = async ({ resultId, actorId }) => {
   const result = await ValorantMatchResult.findById(resultId).lean();
   if (!result) throw responseError('Valorant result not found', 404, 'RESULT_NOT_FOUND');
   const sides = await buildValorantSides({ tournamentId: result.tournamentId, teamA: result.teamA, teamB: result.teamB, winnerRegistrationId: result.winnerRegistrationId, verify: true });
-  return ValorantMatchResult.findByIdAndUpdate(resultId, {
+  const updated = await ValorantMatchResult.findByIdAndUpdate(resultId, {
     status: RESULT_STATUSES.VERIFIED,
     ...sides,
     updatedBy: actorId,
@@ -193,6 +198,8 @@ const verifyValorantResult = async ({ resultId, actorId }) => {
     voidedBy: null,
     voidedAt: null
   }, { new: true, runValidators: true }).populate('tournamentId', 'name gameType').lean();
+  await markTournamentFinalResultStale(result.tournamentId);
+  return updated;
 };
 
 const voidValorantResult = async ({ resultId, actorId }) => {
@@ -203,6 +210,7 @@ const voidValorantResult = async ({ resultId, actorId }) => {
     voidedAt: new Date()
   }, { new: true, runValidators: true }).populate('tournamentId', 'name gameType').lean();
   if (!result) throw responseError('Valorant result not found', 404, 'RESULT_NOT_FOUND');
+  await markTournamentFinalResultStale(result.tournamentId);
   return result;
 };
 

@@ -48,6 +48,8 @@ valorantMatchResultSchema.index({ tournamentId: 1, matchNumber: 1 }, { unique: t
 valorantMatchResultSchema.index({ tournamentId: 1, status: 1 });
 valorantMatchResultSchema.index({ 'teamA.registrationId': 1 });
 valorantMatchResultSchema.index({ 'teamB.registrationId': 1 });
+valorantMatchResultSchema.index({ status: 1, 'teamA.canonicalTeamId': 1 });
+valorantMatchResultSchema.index({ status: 1, 'teamB.canonicalTeamId': 1 });
 valorantMatchResultSchema.index({ winnerRegistrationId: 1 });
 valorantMatchResultSchema.index({ playedAt: -1 });
 

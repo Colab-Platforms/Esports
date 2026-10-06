@@ -18,6 +18,7 @@ import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
 import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
 import api from "../../services/api";
 import GameIcon from "../../components/common/GameIcon";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { getRandomBanner } from "../../assets/tournamentBanners";
 import { getGameAsset } from "../../assets/gameAssets";
 import OptimizedImage from "../../components/common/OptimizedImage";
@@ -97,6 +98,8 @@ const SingleTournamentPage = () => {
   const [serverStats, setServerStats] = useState([]);
   const [serverPlayers, setServerPlayers] = useState([]);
   const [scoreboards, setScoreboards] = useState([]);
+  const [finalResult, setFinalResult] = useState(null);
+  const [loadingFinalResult, setLoadingFinalResult] = useState(false);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -473,6 +476,28 @@ const SingleTournamentPage = () => {
     }
   }, [tournament, fetchScoreboards]);
 
+  const fetchFinalResult = React.useCallback(async () => {
+    if (!tournament?._id) return;
+
+    try {
+      setLoadingFinalResult(true);
+      const data = await api.getTournamentFinalResult(tournament._id);
+      if (data.success) {
+        setFinalResult(data.data.finalResult);
+      }
+    } catch (error) {
+      console.error("Error fetching final result:", error);
+    } finally {
+      setLoadingFinalResult(false);
+    }
+  }, [tournament?._id]);
+
+  useEffect(() => {
+    if (tournament?._id) {
+      fetchFinalResult();
+    }
+  }, [tournament?._id, fetchFinalResult]);
+
   // Smart refresh for CS2 tournaments - uses background caching
   useEffect(() => {
     if (
@@ -783,48 +808,14 @@ const SingleTournamentPage = () => {
             throw new Error(err.message || 'Registration failed');
           }
         } else if (gameType === "valorant") {
-          // Separate regular members and substitute
-          const regularMembers = otherMembers.filter(m => !m.isSubstitute);
-          const substituteMember = otherMembers.find(m => m.isSubstitute);
-
-          // gameIds.valorant is stored as a flat "name#tag" string; split it
-          // into the {name, tag} shape the Valorant registration API expects.
-          const parseRiotId = (gameId) => {
-            if (!gameId || typeof gameId !== "string" || !gameId.includes("#")) {
-              return { name: "", tag: "" };
-            }
-            const [riotName, riotTag] = gameId.split("#");
-            return { name: (riotName || "").trim(), tag: (riotTag || "").trim() };
-          };
-
-          const registrationData = {
-            teamName: team.name,
-            teamLeader: {
-              name: leaderInfo.name,
-              riotId: parseRiotId(leaderInfo.gameId),
-              phone: phoneNumber || user?.phone || "",
-            },
-            teamMembers: regularMembers.map((m) => {
-              const info = getInfo(m);
-              return { name: info.name, riotId: parseRiotId(info.gameId) };
-            }),
-            ...(substituteMember && {
-              substitute: {
-                name: getInfo(substituteMember).name,
-                riotId: parseRiotId(getInfo(substituteMember).gameId),
-              }
-            }),
-            whatsappNumber: phoneNumber || user?.phone || "",
-          };
-
           const valorantResponse = await api.post(
             `/api/valorant-registration/${tournament._id}/register`,
-            registrationData,
+            { teamId: team._id },
           );
           const valorantData = valorantResponse.data || valorantResponse;
           if (valorantData?.success === false) {
             const err = valorantData.error || {};
-            if (err.code === 'PLAYER_ALREADY_REGISTERED') {
+            if (err.code === 'PLAYER_ALREADY_REGISTERED' || err.code === 'RIOT_ID_ALREADY_REGISTERED') {
               const playerLines = (err.conflictingPlayers || [])
                 .map(p => `<div class="ml-4 mt-1">• <span class="text-yellow-400">${p.playerName}</span> <span class="text-gray-400">(Riot ID: ${p.riotId || 'N/A'})</span> in team: <span class="text-yellow-400">${p.existingTeam}</span></div>`)
                 .join('');
@@ -889,7 +880,7 @@ const SingleTournamentPage = () => {
         const errData = error.response?.data?.error;
         console.log('❌ Registration catch error:', errData);
 
-        if (errData?.code === 'PLAYER_ALREADY_REGISTERED') {
+        if (errData?.code === 'PLAYER_ALREADY_REGISTERED' || errData?.code === 'RIOT_ID_ALREADY_REGISTERED') {
           const playerLines = (errData.conflictingPlayers || [])
             .map(p => `<div style="margin-top:4px">• <span style="color:#f97316;font-weight:600">${p.playerName}</span> (UID: ${p.freeFireId || p.bgmiId})<br>&nbsp;&nbsp;Team: <span style="color:#3b82f6;font-style:italic">${p.existingTeam}</span></div>`)
             .join('');
@@ -1042,6 +1033,7 @@ const SingleTournamentPage = () => {
 
   const tabs = [
     { id: "general", label: "GENERAL", icon: FiInfo },
+    { id: "results", label: "RESULTS", icon: FiAward },
     { id: "teams", label: "TEAMS", icon: FiUsers },
   ];
 
@@ -1214,6 +1206,127 @@ const SingleTournamentPage = () => {
 
             {/* Removed: REWARDS section */}
             {/* Removed: ROOM DETAILS section */}
+          </div>
+        );
+
+      case "results":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-4">
+                FINAL RESULTS
+              </h3>
+              <div className="bg-gaming-card rounded-lg border border-gaming-border p-4">
+                {loadingFinalResult ? (
+                  <LoadingSpinner size="md" text="Loading final results..." />
+                ) : finalResult?.winner?.teamNameSnapshot ? (
+                  <div className="space-y-5">
+                    <div className="rounded-lg border border-gaming-gold/30 bg-gaming-gold/10 p-5">
+                      <div className="text-xs uppercase tracking-[3px] text-gaming-gold font-bold mb-2">
+                        Champion
+                      </div>
+                      <div className="text-3xl font-display font-bold text-white">
+                        {finalResult.winner.teamNameSnapshot}
+                      </div>
+                      {finalResult.status === "needs_republish" && (
+                        <p className="text-yellow-200 text-sm mt-2">
+                          Results are pending admin republish after a source correction.
+                        </p>
+                      )}
+                    </div>
+
+                    {finalResult.podium?.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {finalResult.podium.map((podiumEntry) => (
+                          <div key={`${podiumEntry.rank}-${podiumEntry.registrationId || podiumEntry.canonicalTeamId}`} className="rounded-lg border border-gaming-border bg-gaming-dark/70 p-4">
+                            <div className="text-gaming-gold font-bold text-xl">#{podiumEntry.rank}</div>
+                            <div className="text-white font-semibold mt-1">{podiumEntry.teamNameSnapshot}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {finalResult.standings?.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-gray-400 border-b border-gaming-border">
+                              <th className="py-3 pr-4">Rank</th>
+                              <th className="py-3 pr-4">Team</th>
+                              <th className="py-3 pr-4">Matches</th>
+                              <th className="py-3 pr-4">Wins</th>
+                              <th className="py-3 pr-4">Kills</th>
+                              <th className="py-3 pr-4">Points</th>
+                              <th className="py-3 pr-4">Rounds</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {finalResult.standings.map((standing) => (
+                              <tr key={`${standing.rank}-${standing.registrationId || standing.canonicalTeamId}`} className="border-b border-gaming-border/60 text-gray-300">
+                                <td className="py-3 pr-4 font-bold text-gaming-gold">#{standing.rank}</td>
+                                <td className="py-3 pr-4 text-white">{standing.teamNameSnapshot}</td>
+                                <td className="py-3 pr-4">{standing.matchesPlayed || 0}</td>
+                                <td className="py-3 pr-4">{standing.wins || 0}</td>
+                                <td className="py-3 pr-4">{standing.kills || 0}</td>
+                                <td className="py-3 pr-4">{standing.totalPoints || 0}</td>
+                                <td className="py-3 pr-4">{standing.roundsWon || 0}-{standing.roundsLost || 0}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {finalResult.publishedAt && (
+                      <p className="text-xs text-gray-500">
+                        Published {new Date(finalResult.publishedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FiAward className="h-10 w-10 text-gaming-gold mx-auto mb-3" />
+                    <h4 className="text-white font-bold mb-2">Final results not published</h4>
+                    <p className="text-gray-400 text-sm">
+                      {finalResult?.coverage?.note || "Official final standings will appear here after admin publication."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {(finalResult?.evidence?.length > 0 || scoreboards.length > 0) && (
+              <div>
+                <h3 className="text-lg font-bold text-white mb-4">
+                  OFFICIAL SCOREBOARD EVIDENCE
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(finalResult?.evidence?.length ? finalResult.evidence : scoreboards).map((item, index) => (
+                    <a
+                      key={`${item.imageUrl || item.url}-${index}`}
+                      href={item.imageUrl || item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-lg border border-gaming-border bg-gaming-card overflow-hidden hover:border-gaming-gold/60 transition-colors"
+                    >
+                      <OptimizedImage
+                        src={item.imageUrl || item.url}
+                        alt={item.description || "Official scoreboard"}
+                        className="w-full h-56 object-cover"
+                      />
+                      <div className="p-3">
+                        <p className="text-white font-semibold">{item.description || "Official Scoreboard"}</p>
+                        {!finalResult?.standings?.length && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Structured final standings are not available for this tournament.
+                          </p>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
 
