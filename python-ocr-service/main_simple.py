@@ -6,7 +6,7 @@ This version returns mock data to test the integration
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
+from typing import Dict, List, Optional
 import os
 import logging
 
@@ -48,6 +48,36 @@ class ProcessResponse(BaseModel):
     tournament_id: str
     teams: List[TeamScore]
     total_teams: int
+    message: str
+
+
+class ScoreboardImageProcessRequest(BaseModel):
+    image_url: Optional[str] = None
+    image_path: Optional[str] = None
+    game_type: str = "freefire"
+
+
+class ScoreboardImageRow(BaseModel):
+    rawTeamName: str
+    placement: Optional[int] = None
+    kills: Optional[int] = None
+    placementPoints: Optional[int] = None
+    killPoints: Optional[int] = None
+    totalPoints: Optional[int] = None
+    confidence: Dict[str, float]
+
+
+class ScoreboardImageProcessResponse(BaseModel):
+    success: bool
+    game_type: str
+    layout: str
+    rows: List[ScoreboardImageRow]
+    total_rows: int
+    detectedText: List[str]
+    headers: List[str]
+    reasonCode: Optional[str] = None
+    imageMetadata: Dict
+    warnings: List[str]
     message: str
 
 
@@ -113,6 +143,52 @@ async def process_video(request: VideoProcessRequest):
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
+
+
+@app.post("/process-scoreboard-image", response_model=ScoreboardImageProcessResponse)
+async def process_scoreboard_image(request: ScoreboardImageProcessRequest):
+    """
+    Free Fire scoreboard image endpoint - MOCK VERSION.
+    Returns sample OCR rows for UI/API validation.
+    """
+    game_type = request.game_type.lower().strip()
+    if game_type != "freefire":
+        raise HTTPException(status_code=400, detail="Only Free Fire scoreboard images are supported")
+
+    mock_rows = [
+        ScoreboardImageRow(
+            rawTeamName="Team Alpha",
+            placement=1,
+            kills=14,
+            placementPoints=12,
+            killPoints=14,
+            totalPoints=26,
+            confidence={"row": 0.95, "teamName": 0.95, "numbers": 0.94}
+        ),
+        ScoreboardImageRow(
+            rawTeamName="Team Bravo",
+            placement=2,
+            kills=10,
+            placementPoints=9,
+            killPoints=10,
+            totalPoints=19,
+            confidence={"row": 0.92, "teamName": 0.91, "numbers": 0.92}
+        )
+    ]
+
+    return ScoreboardImageProcessResponse(
+        success=True,
+        game_type=game_type,
+        layout="MATCH_RESULT_SCOREBOARD",
+        rows=mock_rows,
+        total_rows=len(mock_rows),
+        detectedText=["Rank", "Team Name", "Placement", "Kills", "Placement Points", "Kill Points", "Total Points"],
+        headers=["Rank Team Name Placement Kills Placement Points Kill Points Total Points"],
+        reasonCode=None,
+        imageMetadata={"width": 1280, "height": 720, "preprocessing": ["mock"]},
+        warnings=[],
+        message=f"[MOCK DATA] Extracted {len(mock_rows)} Free Fire scoreboard rows"
+    )
 
 
 if __name__ == "__main__":

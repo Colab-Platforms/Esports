@@ -131,6 +131,14 @@ class ApiService {
     });
   }
 
+  async patch(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: data,
+      ...options
+    });
+  }
+
   async delete(endpoint, options = {}) {
     return this.request(endpoint, { method: 'DELETE', ...options });
   }
@@ -246,6 +254,30 @@ class ApiService {
 
   async voidFreeFireResult(resultId) {
     return this.post(`/api/freefire-results/${resultId}/void`);
+  }
+
+  async createFreeFireScoreboardIngestion(formData) {
+    return this.post('/api/result-ingestion/freefire/scoreboard', formData);
+  }
+
+  async getResultIngestionJob(jobId) {
+    return this.get(`/api/result-ingestion/${encodeURIComponent(jobId)}`);
+  }
+
+  async reviewResultIngestionJob(jobId, data) {
+    return this.patch(`/api/result-ingestion/${encodeURIComponent(jobId)}/review`, data);
+  }
+
+  async confirmResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/confirm`);
+  }
+
+  async reprocessResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/reprocess`);
+  }
+
+  async cancelResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/cancel`);
   }
 
   async getValorantTournamentResults(tournamentId, params = {}) {

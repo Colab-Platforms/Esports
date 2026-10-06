@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { FiCheckCircle, FiEdit2, FiRefreshCw, FiSave, FiSlash, FiTarget } from 'react-icons/fi';
+import { FiAward, FiCheckCircle, FiEdit2, FiRefreshCw, FiSave, FiSlash, FiTarget, FiUpload } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -30,6 +30,12 @@ const statusClass = {
   void: 'bg-red-500/15 text-red-300 border-red-500/30'
 };
 
+const gameOptions = [
+  { id: 'bgmi', label: 'BGMI' },
+  { id: 'freefire', label: 'Free Fire' },
+  { id: 'valorant', label: 'Valorant' }
+];
+
 const normalizeList = (response, key) => {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.data?.[key])) return response.data[key];
@@ -41,6 +47,12 @@ const normalizeList = (response, key) => {
 const normalizeTournaments = (response) => normalizeList(response, 'tournaments');
 const normalizeRegistrations = (response) => normalizeList(response, 'registrations');
 const normalizeResults = (response) => normalizeList(response, 'results');
+const normalizeFinalResult = (response, key = 'finalResult') => (
+  response?.data?.[key] || response?.data?.data?.[key] || response?.[key] || null
+);
+const normalizeIngestionJob = (response) => (
+  response?.data?.job || response?.data?.data?.job || response?.job || null
+);
 
 const getTournamentId = (tournament) => tournament?._id || tournament?.id || '';
 
@@ -65,8 +77,18 @@ const AdminGameResults = () => {
   const [registrationsLoading, setRegistrationsLoading] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [finalResult, setFinalResult] = useState(null);
+  const [finalPreview, setFinalPreview] = useState(null);
+  const [finalLoading, setFinalLoading] = useState(false);
+  const [finalSaving, setFinalSaving] = useState(false);
+  const [valorantFinalRanks, setValorantFinalRanks] = useState([{ rank: 1, registrationId: '' }, { rank: 2, registrationId: '' }]);
   const [error, setError] = useState('');
   const [editingResult, setEditingResult] = useState(null);
+  const [freeFireEntryMode, setFreeFireEntryMode] = useState('manual');
+  const [scoreboardFile, setScoreboardFile] = useState(null);
+  const [ingestionJob, setIngestionJob] = useState(null);
+  const [ingestionSaving, setIngestionSaving] = useState(false);
+  const [ingestionError, setIngestionError] = useState('');
   const [freeFireForm, setFreeFireForm] = useState({
     lobbyNumber: 1,
     matchNumber: 1,
@@ -111,7 +133,7 @@ const AdminGameResults = () => {
       try {
         const response = await api.get('/api/tournaments?admin=true');
         const allTournaments = normalizeTournaments(response);
-        const supported = allTournaments.filter((tournament) => ['freefire', 'valorant'].includes(tournament.gameType));
+        const supported = allTournaments.filter((tournament) => ['bgmi', 'freefire', 'valorant'].includes(tournament.gameType));
         setTournaments(supported);
       } catch (err) {
         setError(readError(err, 'Failed to load tournaments'));
@@ -127,6 +149,10 @@ const AdminGameResults = () => {
     const firstForGame = tournaments.find((tournament) => tournament.gameType === activeGame);
     setSelectedTournamentId(firstForGame ? getTournamentId(firstForGame) : '');
     setEditingResult(null);
+    setFreeFireEntryMode('manual');
+    setScoreboardFile(null);
+    setIngestionJob(null);
+    setIngestionError('');
   }, [activeGame, tournaments]);
 
   useEffect(() => {
@@ -143,21 +169,26 @@ const AdminGameResults = () => {
       try {
         const registrationEndpoint = activeGame === 'freefire'
           ? '/api/freefire-registration/admin/registrations'
-          : '/api/valorant-registration/admin/registrations';
+          : activeGame === 'valorant'
+            ? '/api/valorant-registration/admin/registrations'
+            : '/api/bgmi-registration/admin/registrations';
         const [registrationsResponse, resultsResponse] = await Promise.all([
           api.get(registrationEndpoint, {
             params: {
-              tournamentId: selectedTournamentId,
-              status: 'verified',
+                  tournamentId: selectedTournamentId,
+                  status: 'verified',
               limit: 100
             }
           }),
           activeGame === 'freefire'
             ? api.getFreeFireTournamentResults(selectedTournamentId, { admin: true })
-            : api.getValorantTournamentResults(selectedTournamentId, { admin: true })
+            : activeGame === 'valorant'
+              ? api.getValorantTournamentResults(selectedTournamentId, { admin: true })
+              : Promise.resolve({ data: { results: [] } })
         ]);
         setRegistrations(normalizeRegistrations(registrationsResponse));
         setResults(normalizeResults(resultsResponse));
+        await refreshFinalResult(selectedTournamentId);
       } catch (err) {
         setError(readError(err, 'Failed to load result management context'));
       } finally {
@@ -175,7 +206,9 @@ const AdminGameResults = () => {
     try {
       const response = activeGame === 'freefire'
         ? await api.getFreeFireTournamentResults(selectedTournamentId, { admin: true })
-        : await api.getValorantTournamentResults(selectedTournamentId, { admin: true });
+        : activeGame === 'valorant'
+          ? await api.getValorantTournamentResults(selectedTournamentId, { admin: true })
+          : { data: { results: [] } };
       setResults(normalizeResults(response));
     } catch (err) {
       setError(readError(err, 'Failed to refresh results'));
@@ -184,8 +217,74 @@ const AdminGameResults = () => {
     }
   };
 
+  const refreshFinalResult = async (tournamentId = selectedTournamentId) => {
+    if (!tournamentId) return;
+    setFinalLoading(true);
+    try {
+      const response = await api.getAdminTournamentFinalResult(tournamentId);
+      setFinalResult(normalizeFinalResult(response));
+    } catch (err) {
+      setError(readError(err, 'Failed to load final result'));
+    } finally {
+      setFinalLoading(false);
+    }
+  };
+
+  const previewFinalResult = async () => {
+    if (!selectedTournamentId) return;
+    setFinalLoading(true);
+    setError('');
+    try {
+      const response = await api.previewTournamentFinalResult(selectedTournamentId);
+      setFinalPreview(normalizeFinalResult(response, 'preview'));
+    } catch (err) {
+      setError(readError(err, 'Failed to preview final standings'));
+    } finally {
+      setFinalLoading(false);
+    }
+  };
+
+  const publishFinalResult = async () => {
+    if (!selectedTournamentId || !canManage) return;
+    if (!window.confirm('Publish these tournament final results? Public pages and profiles will use this snapshot.')) return;
+    setFinalSaving(true);
+    setError('');
+    try {
+      const payload = activeGame === 'valorant' && (!finalPreview || finalPreview.standings?.length === 0)
+        ? { standings: valorantFinalRanks.filter((entry) => entry.registrationId) }
+        : {};
+      const response = await api.publishTournamentFinalResult(selectedTournamentId, payload);
+      setFinalResult(normalizeFinalResult(response));
+      setFinalPreview(null);
+      toast.success('Final results published');
+    } catch (err) {
+      setError(readError(err, 'Failed to publish final results'));
+    } finally {
+      setFinalSaving(false);
+    }
+  };
+
+  const voidFinalResult = async () => {
+    if (!selectedTournamentId || !canManage) return;
+    if (!window.confirm('Void the public final result? The snapshot will stop showing as official.')) return;
+    setFinalSaving(true);
+    setError('');
+    try {
+      const response = await api.voidTournamentFinalResult(selectedTournamentId);
+      setFinalResult(normalizeFinalResult(response));
+      toast.success('Final results voided');
+    } catch (err) {
+      setError(readError(err, 'Failed to void final results'));
+    } finally {
+      setFinalSaving(false);
+    }
+  };
+
   const resetForms = () => {
     setEditingResult(null);
+    setScoreboardFile(null);
+    setIngestionJob(null);
+    setIngestionError('');
     setFreeFireForm({
       lobbyNumber: 1,
       matchNumber: 1,
@@ -216,6 +315,140 @@ const AdminGameResults = () => {
       ...current,
       teamResults: current.teamResults.filter((_, rowIndex) => rowIndex !== index)
     }));
+  };
+
+  const updateIngestionDraft = (key, value) => {
+    setIngestionJob((current) => current ? ({
+      ...current,
+      normalizedDraft: {
+        ...(current.normalizedDraft || {}),
+        [key]: value
+      }
+    }) : current);
+  };
+
+  const updateIngestionRow = (index, key, value) => {
+    setIngestionJob((current) => current ? ({
+      ...current,
+      normalizedDraft: {
+        ...(current.normalizedDraft || {}),
+        teamResults: (current.normalizedDraft?.teamResults || []).map((row, rowIndex) => (
+          rowIndex === index ? { ...row, [key]: value } : row
+        ))
+      }
+    }) : current);
+  };
+
+  const uploadScoreboard = async () => {
+    if (!canManage || !selectedTournamentId) return;
+    if (!scoreboardFile) {
+      setIngestionError('Choose a JPG or PNG scoreboard image first.');
+      return;
+    }
+
+    setIngestionSaving(true);
+    setIngestionError('');
+    try {
+      const formData = new FormData();
+      formData.append('scoreboard', scoreboardFile);
+      formData.append('tournamentId', selectedTournamentId);
+      formData.append('lobbyNumber', freeFireForm.lobbyNumber);
+      formData.append('matchNumber', freeFireForm.matchNumber);
+      formData.append('map', freeFireForm.map || '');
+      const response = await api.createFreeFireScoreboardIngestion(formData);
+      const job = normalizeIngestionJob(response);
+      setIngestionJob(job);
+      toast.success(response?.data?.duplicate ? 'Duplicate image found. Existing review loaded.' : 'Scoreboard extracted for review');
+    } catch (err) {
+      setIngestionError(readError(err, 'Failed to upload scoreboard image'));
+    } finally {
+      setIngestionSaving(false);
+    }
+  };
+
+  const buildReviewedIngestionDraft = () => {
+    const draft = ingestionJob?.normalizedDraft || {};
+    return {
+      lobbyNumber: toNumber(draft.lobbyNumber),
+      matchNumber: toNumber(draft.matchNumber),
+      map: (draft.map || '').trim(),
+      teamResults: (draft.teamResults || []).map((row) => {
+        const placementPoints = toNumber(row.placementPoints);
+        const killPoints = toNumber(row.killPoints);
+        const totalPoints = toNumber(row.totalPoints);
+        return {
+          ...row,
+          registrationId: row.registrationId || '',
+          placement: toNumber(row.placement),
+          kills: toNumber(row.kills),
+          placementPoints,
+          killPoints,
+          totalPoints: totalPoints ?? (
+            placementPoints !== undefined && killPoints !== undefined
+              ? placementPoints + killPoints
+              : undefined
+          )
+        };
+      })
+    };
+  };
+
+  const saveIngestionDraft = async () => {
+    if (!canManage || !ingestionJob) return;
+    setIngestionSaving(true);
+    setIngestionError('');
+    try {
+      const draft = buildReviewedIngestionDraft();
+      const reviewResponse = await api.reviewResultIngestionJob(ingestionJob.id, { normalizedDraft: draft });
+      const reviewedJob = normalizeIngestionJob(reviewResponse);
+      setIngestionJob(reviewedJob);
+      const confirmResponse = await api.confirmResultIngestionJob(reviewedJob.id);
+      setIngestionJob(normalizeIngestionJob(confirmResponse));
+      toast.success('Imported Free Fire draft saved');
+      resetForms();
+      await refreshResults();
+      await refreshFinalResult();
+    } catch (err) {
+      setIngestionError(readError(err, 'Failed to save imported draft'));
+    } finally {
+      setIngestionSaving(false);
+    }
+  };
+
+  const reprocessIngestion = async () => {
+    if (!canManage || !ingestionJob) return;
+    setIngestionSaving(true);
+    setIngestionError('');
+    try {
+      const response = await api.reprocessResultIngestionJob(ingestionJob.id);
+      setIngestionJob(normalizeIngestionJob(response));
+      toast.success('Scoreboard reprocessed');
+    } catch (err) {
+      setIngestionError(readError(err, 'Failed to reprocess scoreboard image'));
+    } finally {
+      setIngestionSaving(false);
+    }
+  };
+
+  const cancelIngestion = async () => {
+    if (!ingestionJob) {
+      setScoreboardFile(null);
+      setIngestionError('');
+      return;
+    }
+
+    setIngestionSaving(true);
+    setIngestionError('');
+    try {
+      await api.cancelResultIngestionJob(ingestionJob.id);
+      setIngestionJob(null);
+      setScoreboardFile(null);
+      toast.success('Scoreboard import cancelled');
+    } catch (err) {
+      setIngestionError(readError(err, 'Failed to cancel scoreboard import'));
+    } finally {
+      setIngestionSaving(false);
+    }
   };
 
   const buildFreeFirePayload = () => ({
@@ -277,6 +510,7 @@ const AdminGameResults = () => {
       toast.success(editingResult ? 'Draft updated' : 'Draft saved');
       resetForms();
       await refreshResults();
+      await refreshFinalResult();
     } catch (err) {
       setError(readError(err, 'Failed to save draft'));
     } finally {
@@ -296,6 +530,7 @@ const AdminGameResults = () => {
       }
       toast.success('Result verified');
       await refreshResults();
+      await refreshFinalResult();
     } catch (err) {
       setError(readError(err, 'Failed to verify result'));
     } finally {
@@ -317,6 +552,7 @@ const AdminGameResults = () => {
       toast.success('Result voided');
       if (editingResult?.id === result.id) resetForms();
       await refreshResults();
+      await refreshFinalResult();
     } catch (err) {
       setError(readError(err, 'Failed to void result'));
     } finally {
@@ -394,18 +630,18 @@ const AdminGameResults = () => {
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Game</label>
               <div className="grid grid-cols-2 gap-2">
-                {['freefire', 'valorant'].map((game) => (
+                {gameOptions.map((game) => (
                   <button
-                    key={game}
+                    key={game.id}
                     type="button"
-                    onClick={() => setActiveGame(game)}
+                    onClick={() => setActiveGame(game.id)}
                     className={`rounded-lg border px-4 py-2 font-semibold capitalize transition-colors ${
-                      activeGame === game
+                      activeGame === game.id
                         ? 'border-gaming-gold bg-gaming-gold/15 text-gaming-gold'
                         : 'border-gaming-border bg-gaming-charcoal text-gray-300 hover:border-gaming-gold/50'
                     }`}
                   >
-                    {game === 'freefire' ? 'Free Fire' : 'Valorant'}
+                    {game.label}
                   </button>
                 ))}
               </div>
@@ -442,7 +678,7 @@ const AdminGameResults = () => {
 
         {!selectedTournamentId ? (
           <div className="card-gaming p-8 text-center text-gray-400">
-            No {activeGame === 'freefire' ? 'Free Fire' : 'Valorant'} tournament found.
+            No {gameOptions.find((game) => game.id === activeGame)?.label || activeGame} tournament found.
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
@@ -457,7 +693,12 @@ const AdminGameResults = () => {
                 )}
               </div>
 
-              {registrationsLoading ? (
+              {activeGame === 'bgmi' ? (
+                <div className="rounded-lg border border-gaming-border bg-gaming-dark/60 p-5 text-gray-300">
+                  <p className="font-semibold text-white mb-2">BGMI match results are managed in the existing BGMI match flow.</p>
+                  <p className="text-sm text-gray-400">Use this page to preview and publish the final tournament standings after BGMI match results are verified.</p>
+                </div>
+              ) : registrationsLoading ? (
                 <LoadingSpinner size="md" text="Loading verified registrations..." />
               ) : registrationOptions.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-5 text-center text-gray-400">
@@ -465,55 +706,204 @@ const AdminGameResults = () => {
                 </div>
               ) : activeGame === 'freefire' ? (
                 <div className="space-y-4">
+                  {!editingResult && (
+                    <div className="grid grid-cols-2 gap-2 rounded-lg border border-gaming-border bg-gaming-dark/60 p-1">
+                      {[
+                        { id: 'manual', label: 'Enter Manually' },
+                        { id: 'scoreboard', label: 'Upload Scoreboard' }
+                      ].map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => {
+                            setFreeFireEntryMode(mode.id);
+                            setIngestionError('');
+                          }}
+                          className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                            freeFireEntryMode === mode.id
+                              ? 'bg-gaming-gold text-gaming-dark'
+                              : 'text-gray-300 hover:bg-gaming-charcoal'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
                       <span className="block text-sm text-gray-400 mb-1">Lobby number</span>
-                      <input type="number" min="1" className="input-gaming w-full" value={freeFireForm.lobbyNumber} onChange={(e) => setFreeFireForm((current) => ({ ...current, lobbyNumber: e.target.value }))} />
+                      <input
+                        type="number"
+                        min="1"
+                        className="input-gaming w-full"
+                        value={freeFireEntryMode === 'scoreboard' && ingestionJob ? ingestionJob.normalizedDraft?.lobbyNumber || '' : freeFireForm.lobbyNumber}
+                        onChange={(e) => {
+                          if (freeFireEntryMode === 'scoreboard' && ingestionJob) updateIngestionDraft('lobbyNumber', e.target.value);
+                          else setFreeFireForm((current) => ({ ...current, lobbyNumber: e.target.value }));
+                        }}
+                      />
                     </label>
                     <label className="block">
                       <span className="block text-sm text-gray-400 mb-1">Match number</span>
-                      <input type="number" min="1" className="input-gaming w-full" value={freeFireForm.matchNumber} onChange={(e) => setFreeFireForm((current) => ({ ...current, matchNumber: e.target.value }))} />
+                      <input
+                        type="number"
+                        min="1"
+                        className="input-gaming w-full"
+                        value={freeFireEntryMode === 'scoreboard' && ingestionJob ? ingestionJob.normalizedDraft?.matchNumber || '' : freeFireForm.matchNumber}
+                        onChange={(e) => {
+                          if (freeFireEntryMode === 'scoreboard' && ingestionJob) updateIngestionDraft('matchNumber', e.target.value);
+                          else setFreeFireForm((current) => ({ ...current, matchNumber: e.target.value }));
+                        }}
+                      />
                     </label>
                   </div>
                   <label className="block">
                     <span className="block text-sm text-gray-400 mb-1">Map</span>
-                    <input className="input-gaming w-full" value={freeFireForm.map} onChange={(e) => setFreeFireForm((current) => ({ ...current, map: e.target.value }))} placeholder="Optional" />
+                    <input
+                      className="input-gaming w-full"
+                      value={freeFireEntryMode === 'scoreboard' && ingestionJob ? ingestionJob.normalizedDraft?.map || '' : freeFireForm.map}
+                      onChange={(e) => {
+                        if (freeFireEntryMode === 'scoreboard' && ingestionJob) updateIngestionDraft('map', e.target.value);
+                        else setFreeFireForm((current) => ({ ...current, map: e.target.value }));
+                      }}
+                      placeholder="Optional"
+                    />
                   </label>
 
-                  <div className="space-y-3">
-                    {freeFireForm.teamResults.map((row, index) => {
-                      const total = (toNumber(row.placementPoints) ?? 0) + (toNumber(row.killPoints) ?? 0);
-                      return (
-                        <div key={index} className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-3">
-                          <div className="flex items-center justify-between gap-3 mb-3">
-                            <p className="font-semibold text-white">Team result {index + 1}</p>
-                            {freeFireForm.teamResults.length > 1 && (
-                              <button type="button" onClick={() => removeFreeFireRow(index)} className="text-sm text-red-300 hover:text-red-200">Remove</button>
+                  {freeFireEntryMode === 'scoreboard' && !editingResult ? (
+                    <div className="space-y-4">
+                      <label className="block">
+                        <span className="block text-sm text-gray-400 mb-1">Scoreboard image</span>
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                          className="input-gaming w-full"
+                          onChange={(event) => setScoreboardFile(event.target.files?.[0] || null)}
+                        />
+                      </label>
+                      {ingestionError && (
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                          {ingestionError}
+                        </div>
+                      )}
+                      {!ingestionJob ? (
+                        <button type="button" onClick={uploadScoreboard} disabled={ingestionSaving} className="btn btn-secondary w-full inline-flex items-center justify-center gap-2">
+                          <FiUpload /> {ingestionSaving ? 'Processing...' : 'Extract Scoreboard'}
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="rounded-lg border border-gaming-border bg-gaming-dark/60 p-3 text-sm text-gray-300">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`border rounded-full px-2 py-0.5 text-xs font-bold uppercase ${statusClass[ingestionJob.status] || 'bg-blue-500/15 text-blue-300 border-blue-500/30'}`}>
+                                {ingestionJob.status}
+                              </span>
+                              {ingestionJob.source?.imageUrl && (
+                                <a href={ingestionJob.source.imageUrl} target="_blank" rel="noreferrer" className="text-gaming-gold hover:underline">
+                                  View image
+                                </a>
+                              )}
+                            </div>
+                            {ingestionJob.failedReason && <p className="mt-2 text-red-300">{ingestionJob.failedReason}</p>}
+                            {ingestionJob.warnings?.length > 0 && (
+                              <div className="mt-2 text-yellow-200">
+                                {ingestionJob.warnings.slice(0, 3).map((warning) => <p key={warning}>{warning}</p>)}
+                              </div>
                             )}
                           </div>
-                          <select className="input-gaming w-full mb-3" value={row.registrationId} onChange={(e) => updateFreeFireRow(index, 'registrationId', e.target.value)}>
-                            <option value="">Select verified registration</option>
-                            {registrationOptions.map((option) => (
-                              <option key={option.id} value={option.id}>{option.raw.teamName}</option>
-                            ))}
-                          </select>
+
+                          {(ingestionJob.normalizedDraft?.teamResults || []).length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-5 text-center text-gray-400">
+                              No rows were extracted. Cancel this import and enter the result manually.
+                            </div>
+                          ) : (
+                            (ingestionJob.normalizedDraft?.teamResults || []).map((row, index) => {
+                              const total = toNumber(row.totalPoints) ?? ((toNumber(row.placementPoints) ?? 0) + (toNumber(row.killPoints) ?? 0));
+                              return (
+                                <div key={row.rowIndex ?? index} className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-3">
+                                  <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div>
+                                      <p className="font-semibold text-white">{row.rawTeamName || `Extracted row ${index + 1}`}</p>
+                                      <p className="text-xs text-gray-400">Match confidence: {row.matchConfidence || 'review'}</p>
+                                    </div>
+                                    {row.candidates?.length > 0 && <span className="text-xs text-gaming-gold">{row.candidates.length} candidate match(es)</span>}
+                                  </div>
+                                  <select className="input-gaming w-full mb-3" value={row.registrationId || ''} onChange={(e) => updateIngestionRow(index, 'registrationId', e.target.value)}>
+                                    <option value="">Select verified registration</option>
+                                    {registrationOptions.map((option) => (
+                                      <option key={option.id} value={option.id}>{option.raw.teamName}</option>
+                                    ))}
+                                  </select>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <input type="number" min="1" className="input-gaming" placeholder="Placement" value={row.placement ?? ''} onChange={(e) => updateIngestionRow(index, 'placement', e.target.value)} />
+                                    <input type="number" min="0" className="input-gaming" placeholder="Kills" value={row.kills ?? ''} onChange={(e) => updateIngestionRow(index, 'kills', e.target.value)} />
+                                    <input type="number" min="0" className="input-gaming" placeholder="Placement points" value={row.placementPoints ?? ''} onChange={(e) => updateIngestionRow(index, 'placementPoints', e.target.value)} />
+                                    <input type="number" min="0" className="input-gaming" placeholder="Kill points" value={row.killPoints ?? ''} onChange={(e) => updateIngestionRow(index, 'killPoints', e.target.value)} />
+                                    <input type="number" min="0" className="input-gaming col-span-2" placeholder="Total points" value={row.totalPoints ?? total ?? ''} onChange={(e) => updateIngestionRow(index, 'totalPoints', e.target.value)} />
+                                  </div>
+                                  {row.warnings?.length > 0 && (
+                                    <div className="mt-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-xs text-yellow-200">
+                                      {row.warnings.slice(0, 3).map((warning) => <p key={warning}>{warning}</p>)}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+
                           <div className="grid grid-cols-2 gap-3">
-                            <input type="number" min="1" className="input-gaming" placeholder="Placement" value={row.placement} onChange={(e) => updateFreeFireRow(index, 'placement', e.target.value)} />
-                            <input type="number" min="0" className="input-gaming" placeholder="Kills" value={row.kills} onChange={(e) => updateFreeFireRow(index, 'kills', e.target.value)} />
-                            <input type="number" min="0" className="input-gaming" placeholder="Placement points" value={row.placementPoints} onChange={(e) => updateFreeFireRow(index, 'placementPoints', e.target.value)} />
-                            <input type="number" min="0" className="input-gaming" placeholder="Kill points" value={row.killPoints} onChange={(e) => updateFreeFireRow(index, 'killPoints', e.target.value)} />
+                            <button type="button" onClick={cancelIngestion} disabled={ingestionSaving} className="btn btn-ghost w-full">Cancel</button>
+                            <button type="button" onClick={saveIngestionDraft} disabled={ingestionSaving || ingestionJob.status === 'failed' || (ingestionJob.normalizedDraft?.teamResults || []).length === 0} className="btn btn-primary w-full inline-flex items-center justify-center gap-2">
+                              <FiSave /> {ingestionSaving ? 'Saving...' : 'Save Draft'}
+                            </button>
                           </div>
-                          <div className="mt-3 rounded-lg bg-gaming-dark/70 px-3 py-2 text-sm text-gray-300">
-                            Total points: <span className="font-bold text-white">{total}</span>
-                          </div>
+                          {['failed', 'review_required'].includes(ingestionJob.status) && (
+                            <button type="button" onClick={reprocessIngestion} disabled={ingestionSaving} className="btn btn-secondary w-full inline-flex items-center justify-center gap-2">
+                              <FiRefreshCw className={ingestionSaving ? 'animate-spin' : ''} /> Reprocess Image
+                            </button>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                  <button type="button" onClick={addFreeFireRow} className="btn btn-secondary w-full">Add team result</button>
-                  <button type="button" onClick={saveDraft} disabled={saving} className="btn btn-primary w-full inline-flex items-center justify-center gap-2">
-                    <FiSave /> {saving ? 'Saving...' : 'Save Draft'}
-                  </button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        {freeFireForm.teamResults.map((row, index) => {
+                          const total = (toNumber(row.placementPoints) ?? 0) + (toNumber(row.killPoints) ?? 0);
+                          return (
+                            <div key={index} className="rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-3">
+                              <div className="flex items-center justify-between gap-3 mb-3">
+                                <p className="font-semibold text-white">Team result {index + 1}</p>
+                                {freeFireForm.teamResults.length > 1 && (
+                                  <button type="button" onClick={() => removeFreeFireRow(index)} className="text-sm text-red-300 hover:text-red-200">Remove</button>
+                                )}
+                              </div>
+                              <select className="input-gaming w-full mb-3" value={row.registrationId} onChange={(e) => updateFreeFireRow(index, 'registrationId', e.target.value)}>
+                                <option value="">Select verified registration</option>
+                                {registrationOptions.map((option) => (
+                                  <option key={option.id} value={option.id}>{option.raw.teamName}</option>
+                                ))}
+                              </select>
+                              <div className="grid grid-cols-2 gap-3">
+                                <input type="number" min="1" className="input-gaming" placeholder="Placement" value={row.placement} onChange={(e) => updateFreeFireRow(index, 'placement', e.target.value)} />
+                                <input type="number" min="0" className="input-gaming" placeholder="Kills" value={row.kills} onChange={(e) => updateFreeFireRow(index, 'kills', e.target.value)} />
+                                <input type="number" min="0" className="input-gaming" placeholder="Placement points" value={row.placementPoints} onChange={(e) => updateFreeFireRow(index, 'placementPoints', e.target.value)} />
+                                <input type="number" min="0" className="input-gaming" placeholder="Kill points" value={row.killPoints} onChange={(e) => updateFreeFireRow(index, 'killPoints', e.target.value)} />
+                              </div>
+                              <div className="mt-3 rounded-lg bg-gaming-dark/70 px-3 py-2 text-sm text-gray-300">
+                                Total points: <span className="font-bold text-white">{total}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button type="button" onClick={addFreeFireRow} className="btn btn-secondary w-full">Add team result</button>
+                      <button type="button" onClick={saveDraft} disabled={saving} className="btn btn-primary w-full inline-flex items-center justify-center gap-2">
+                        <FiSave /> {saving ? 'Saving...' : 'Save Draft'}
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -572,7 +962,11 @@ const AdminGameResults = () => {
                 <FiTarget className="text-gaming-gold h-6 w-6" />
               </div>
 
-              {resultsLoading ? (
+              {activeGame === 'bgmi' ? (
+                <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-8 text-center text-gray-400">
+                  BGMI match-level result entry remains in the existing BGMI admin workflow. Final standings preview below derives from verified completed BGMI matches.
+                </div>
+              ) : resultsLoading ? (
                 <LoadingSpinner size="md" text="Loading results..." />
               ) : results.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-8 text-center text-gray-400">
@@ -636,6 +1030,134 @@ const AdminGameResults = () => {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </section>
+
+            <section className="xl:col-span-5 card-gaming p-5">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FiAward className="h-5 w-5 text-gaming-gold" />
+                    <h2 className="text-xl font-bold text-white">Tournament Final Results</h2>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1">Preview verified results, publish the official tournament snapshot, or void it if a correction is needed.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={previewFinalResult} disabled={finalLoading} className="btn btn-secondary btn-sm inline-flex items-center gap-2">
+                    <FiRefreshCw className={finalLoading ? 'animate-spin' : ''} /> Preview Standings
+                  </button>
+                  <button type="button" onClick={publishFinalResult} disabled={finalSaving || finalLoading} className="btn btn-primary btn-sm inline-flex items-center gap-2">
+                    <FiCheckCircle /> {finalResult?.status === 'published' || finalResult?.status === 'needs_republish' ? 'Republish' : 'Publish'}
+                  </button>
+                  {finalResult && finalResult.status !== 'void' && finalResult.status !== 'unpublished' && (
+                    <button type="button" onClick={voidFinalResult} disabled={finalSaving} className="btn btn-danger btn-sm inline-flex items-center gap-2">
+                      <FiSlash /> Void
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {finalResult && (
+                <div className="mb-4 rounded-lg border border-gaming-border bg-gaming-charcoal/70 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`border rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                      finalResult.status === 'published'
+                        ? 'bg-green-500/15 text-green-300 border-green-500/30'
+                        : finalResult.status === 'needs_republish'
+                          ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30'
+                          : 'bg-red-500/15 text-red-300 border-red-500/30'
+                    }`}>
+                      {finalResult.status}
+                    </span>
+                    {finalResult.publishedAt && <span className="text-sm text-gray-400">Published {new Date(finalResult.publishedAt).toLocaleString()}</span>}
+                  </div>
+                  {finalResult.winner?.teamNameSnapshot && (
+                    <p className="mt-2 text-white">Current official winner: <span className="font-bold text-gaming-gold">{finalResult.winner.teamNameSnapshot}</span></p>
+                  )}
+                  {finalResult.status === 'needs_republish' && (
+                    <p className="mt-2 text-sm text-yellow-200">Source results changed after publication. Preview and republish after review.</p>
+                  )}
+                </div>
+              )}
+
+              {activeGame === 'valorant' && (!finalPreview || finalPreview.standings?.length === 0) && (
+                <div className="mb-4 rounded-lg border border-gaming-border bg-gaming-dark/60 p-4">
+                  <p className="text-sm font-semibold text-white mb-3">Valorant explicit final ranking</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {valorantFinalRanks.map((entry, index) => (
+                      <label key={entry.rank} className="block">
+                        <span className="block text-xs text-gray-400 mb-1">Rank {entry.rank}</span>
+                        <select
+                          className="input-gaming w-full"
+                          value={entry.registrationId}
+                          onChange={(event) => setValorantFinalRanks((current) => current.map((item, itemIndex) => (
+                            itemIndex === index ? { ...item, registrationId: event.target.value } : item
+                          )))}
+                        >
+                          <option value="">Select verified team</option>
+                          {registrationOptions.map((option) => (
+                            <option key={option.id} value={option.id}>{option.raw.teamName}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-400">Use this only when multiple verified Valorant matches exist and the bracket/final match is not represented in the result model.</p>
+                </div>
+              )}
+
+              {finalPreview ? (
+                <div className="space-y-4">
+                  {finalPreview.warnings?.length > 0 && (
+                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+                      {finalPreview.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+                    </div>
+                  )}
+                  {finalPreview.winner?.teamNameSnapshot && (
+                    <div className="rounded-lg border border-gaming-gold/30 bg-gaming-gold/10 p-4">
+                      <p className="text-xs uppercase tracking-widest text-gaming-gold">Preview Winner</p>
+                      <p className="text-2xl font-bold text-white">{finalPreview.winner.teamNameSnapshot}</p>
+                    </div>
+                  )}
+                  {finalPreview.standings?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-400 border-b border-gaming-border">
+                            <th className="py-2 pr-3">Rank</th>
+                            <th className="py-2 pr-3">Team</th>
+                            <th className="py-2 pr-3">Matches</th>
+                            <th className="py-2 pr-3">Wins</th>
+                            <th className="py-2 pr-3">Kills</th>
+                            <th className="py-2 pr-3">Points</th>
+                            <th className="py-2 pr-3">Rounds</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {finalPreview.standings.map((standing) => (
+                            <tr key={`${standing.rank}-${standing.registrationId || standing.canonicalTeamId}`} className="border-b border-gaming-border/60 text-gray-300">
+                              <td className="py-2 pr-3 font-bold text-gaming-gold">#{standing.rank}</td>
+                              <td className="py-2 pr-3 text-white">{standing.teamNameSnapshot}</td>
+                              <td className="py-2 pr-3">{standing.matchesPlayed || 0}</td>
+                              <td className="py-2 pr-3">{standing.wins || 0}</td>
+                              <td className="py-2 pr-3">{standing.kills || 0}</td>
+                              <td className="py-2 pr-3">{standing.totalPoints || 0}</td>
+                              <td className="py-2 pr-3">{standing.roundsWon || 0}-{standing.roundsLost || 0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-5 text-center text-gray-400">
+                      No safe derived standings yet. For multi-match Valorant, select explicit ranks before publishing.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-gaming-border bg-gaming-dark/60 p-5 text-center text-gray-400">
+                  Generate a preview before publishing final results.
                 </div>
               )}
             </section>

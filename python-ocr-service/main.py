@@ -13,6 +13,7 @@ import os
 import re
 from typing import List, Dict, Optional
 import logging
+from urllib.request import urlopen
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +58,36 @@ class ProcessResponse(BaseModel):
     tournament_id: str
     teams: List[TeamScore]
     total_teams: int
+    message: str
+
+
+class ScoreboardImageProcessRequest(BaseModel):
+    image_url: Optional[str] = None
+    image_path: Optional[str] = None
+    game_type: str = "freefire"
+
+
+class ScoreboardImageRow(BaseModel):
+    rawTeamName: str
+    placement: Optional[int] = None
+    kills: Optional[int] = None
+    placementPoints: Optional[int] = None
+    killPoints: Optional[int] = None
+    totalPoints: Optional[int] = None
+    confidence: Dict[str, float]
+
+
+class ScoreboardImageProcessResponse(BaseModel):
+    success: bool
+    game_type: str
+    layout: str
+    rows: List[ScoreboardImageRow]
+    total_rows: int
+    detectedText: List[str]
+    headers: List[str]
+    reasonCode: Optional[str] = None
+    imageMetadata: Dict
+    warnings: List[str]
     message: str
 
 
@@ -151,6 +182,209 @@ def preprocess_frame(frame: np.ndarray) -> np.ndarray:
     _, binary = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
     return binary
+
+
+def preprocess_scoreboard_variants(frame: np.ndarray) -> List[Dict]:
+    h, w = frame.shape[:2]
+    scale = max(1.0, 1200 / max(w, 1), 900 / max(h, 1)) if w < 900 or h < 700 else 1.0
+    resized = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.8, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    blurred = cv2.GaussianBlur(enhanced, (0, 0), 1.0)
+    sharpened = cv2.addWeighted(enhanced, 1.6, blurred, -0.6, 0)
+    adaptive = cv2.adaptiveThreshold(
+        sharpened,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        8
+    )
+    _, otsu = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    variants = [
+        {"name": "upscaled_grayscale_contrast", "image": enhanced},
+        {"name": "upscaled_sharpened", "image": sharpened},
+        {"name": "adaptive_threshold", "image": adaptive},
+        {"name": "otsu_threshold", "image": otsu}
+    ]
+
+    # Table screenshots often have useful content away from browser/window edges.
+    margin_y = int(resized.shape[0] * 0.04)
+    margin_x = int(resized.shape[1] * 0.04)
+    if resized.shape[0] > margin_y * 2 and resized.shape[1] > margin_x * 2:
+        cropped = resized[margin_y:resized.shape[0] - margin_y, margin_x:resized.shape[1] - margin_x]
+        cropped_gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+        cropped_enhanced = clahe.apply(cropped_gray)
+        variants.append({"name": "table_region_contrast", "image": cropped_enhanced})
+
+    return variants
+
+
+def load_image_from_request(request: ScoreboardImageProcessRequest) -> np.ndarray:
+    if request.image_path:
+        if not os.path.exists(request.image_path):
+            raise HTTPException(status_code=404, detail=f"Image file not found: {request.image_path}")
+        image = cv2.imread(request.image_path)
+        if image is None:
+            raise HTTPException(status_code=400, detail="Unable to read image file")
+        return image
+
+    if request.image_url:
+        with urlopen(request.image_url, timeout=20) as response:
+            data = np.asarray(bytearray(response.read()), dtype=np.uint8)
+            image = cv2.imdecode(data, cv2.IMREAD_COLOR)
+        if image is None:
+            raise HTTPException(status_code=400, detail="Unable to decode image URL")
+        return image
+
+    raise HTTPException(status_code=400, detail="image_url or image_path is required")
+
+
+def confidence_value(value: float) -> float:
+    try:
+        return round(float(value), 2)
+    except Exception:
+        return 0.0
+
+
+def normalize_detected_text(results) -> List[Dict]:
+    text_data = []
+    for bbox, text, confidence in results:
+        y_center = (bbox[0][1] + bbox[2][1]) / 2
+        x_center = (bbox[0][0] + bbox[2][0]) / 2
+        text_data.append({
+            "text": text.strip(),
+            "x": x_center,
+            "y": y_center,
+            "confidence": confidence_value(confidence)
+        })
+    return text_data
+
+
+def run_scoreboard_ocr(image: np.ndarray) -> Dict:
+    logger.info("Running OCR on Free Fire scoreboard image...")
+    variants = preprocess_scoreboard_variants(image)
+    best = {"name": "none", "results": [], "text_data": []}
+
+    for variant in variants:
+        results = reader.readtext(variant["image"])
+        text_data = normalize_detected_text(results)
+        logger.info(f"OCR variant {variant['name']} found {len(text_data)} text regions")
+        if len(text_data) > len(best["text_data"]):
+            best = {"name": variant["name"], "results": results, "text_data": text_data}
+
+    return best
+
+
+def text_rows_from_data(text_data: List[Dict]) -> List[List[Dict]]:
+    if not text_data:
+        return []
+
+    text_data.sort(key=lambda item: (item["y"], item["x"]))
+    rows = []
+    current_row = []
+    last_y = None
+    y_threshold = 34
+
+    for item in text_data:
+        if last_y is None or abs(item["y"] - last_y) < y_threshold:
+            current_row.append(item)
+            last_y = item["y"]
+        else:
+            if current_row:
+                rows.append(current_row)
+            current_row = [item]
+            last_y = item["y"]
+
+    if current_row:
+        rows.append(current_row)
+    return rows
+
+
+def classify_scoreboard_layout(detected_text: List[str], rows: List[List[Dict]]) -> str:
+    text = " ".join(detected_text).lower()
+    game_column_count = len(re.findall(r"\bgame\s*\d+\b", text))
+    has_aggregate_headers = (
+        game_column_count >= 2
+        and "rank" in text
+        and "team" in text
+        and "total" in text
+        and "points" in text
+    )
+    if has_aggregate_headers:
+        return "TOURNAMENT_AGGREGATE_SCOREBOARD"
+
+    has_match_headers = (
+        ("kill" in text or "kills" in text)
+        and ("placement" in text or "place" in text or "rank" in text)
+        and "team" in text
+    )
+    if has_match_headers:
+        return "MATCH_RESULT_SCOREBOARD"
+
+    for row in rows:
+        row_text = " ".join(item["text"] for item in row)
+        if len(re.findall(r"\d+", row_text)) >= 3:
+            return "MATCH_RESULT_SCOREBOARD"
+
+    return "UNKNOWN"
+
+
+def extract_headers(rows: List[List[Dict]]) -> List[str]:
+    headers = []
+    for row in rows[:4]:
+        row_text = " ".join(item["text"] for item in row).strip()
+        lowered = row_text.lower()
+        if any(keyword in lowered for keyword in ["rank", "team", "game", "kill", "point", "placement", "total"]):
+            headers.append(row_text)
+    return headers[:8]
+
+
+def extract_freefire_scoreboard_rows_from_text_rows(rows: List[List[Dict]]) -> List[ScoreboardImageRow]:
+    extracted_rows = []
+
+    for row in rows:
+        row.sort(key=lambda item: item["x"])
+        row_text = " ".join(item["text"] for item in row)
+        lowered = row_text.lower()
+        header_hits = sum(1 for keyword in ["rank", "team", "kills", "points", "total", "place"] if keyword in lowered)
+        if header_hits >= 2 and not re.search(r"\d", row_text):
+            continue
+
+        numbers = [int(value) for value in re.findall(r"\d+", row_text)]
+        name_tokens = [
+            item["text"] for item in row
+            if not re.fullmatch(r"[\d\s#.\-]+", item["text"])
+        ]
+        team_name = re.sub(r"[^\w\s&.-]", "", " ".join(name_tokens)).strip()
+
+        if len(team_name) < 2 or len(numbers) < 2:
+            continue
+
+        avg_confidence = sum(item["confidence"] for item in row) / len(row)
+        placement = numbers[0] if len(numbers) >= 3 else None
+        kills = numbers[-2]
+        total_points = numbers[-1]
+        placement_points = numbers[-3] if len(numbers) >= 4 else None
+        kill_points = numbers[-2] if len(numbers) >= 4 else None
+
+        extracted_rows.append(ScoreboardImageRow(
+            rawTeamName=team_name,
+            placement=placement,
+            kills=kills,
+            placementPoints=placement_points,
+            killPoints=kill_points,
+            totalPoints=total_points,
+            confidence={
+                "row": confidence_value(avg_confidence),
+                "teamName": confidence_value(avg_confidence),
+                "numbers": confidence_value(avg_confidence)
+            }
+        ))
+
+    return extracted_rows
 
 
 def extract_scoreboard_data(frame: np.ndarray) -> List[TeamScore]:
@@ -326,6 +560,73 @@ async def process_video(request: VideoProcessRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"
+        )
+
+
+@app.post("/process-scoreboard-image", response_model=ScoreboardImageProcessResponse)
+async def process_scoreboard_image(request: ScoreboardImageProcessRequest):
+    """
+    Process a scoreboard image and return OCR rows only. Tournament matching,
+    validation, and result creation remain in the Node API.
+    """
+    try:
+        game_type = request.game_type.lower().strip()
+        if game_type != "freefire":
+            raise HTTPException(status_code=400, detail="Only Free Fire scoreboard images are supported")
+
+        image = load_image_from_request(request)
+        height, width = image.shape[:2]
+        ocr = run_scoreboard_ocr(image)
+        text_rows = text_rows_from_data(ocr["text_data"])
+        detected_text = [item["text"] for item in ocr["text_data"] if item["text"]]
+        headers = extract_headers(text_rows)
+        layout = classify_scoreboard_layout(detected_text, text_rows)
+        rows = []
+        warnings = []
+        reason_code = None
+
+        if width < 600 or height < 400:
+            warnings.append(f"IMAGE_TOO_LOW_RESOLUTION: Image is {width}x{height}; OCR may be unreliable.")
+
+        if not detected_text:
+            reason_code = "NO_TEXT_DETECTED"
+            warnings.append("NO_TEXT_DETECTED: OCR did not detect readable text in this image.")
+        elif layout == "TOURNAMENT_AGGREGATE_SCOREBOARD":
+            reason_code = "UNSUPPORTED_SCOREBOARD_LAYOUT"
+            warnings.append("UNSUPPORTED_SCOREBOARD_LAYOUT: Tournament aggregate scoreboard detected. It cannot be safely converted into one match result.")
+        else:
+            rows = extract_freefire_scoreboard_rows_from_text_rows(text_rows)
+            if not rows:
+                reason_code = "NO_SUPPORTED_ROWS_DETECTED"
+                warnings.append("NO_SUPPORTED_ROWS_DETECTED: OCR found text, but no supported Free Fire match-result rows were parsed.")
+
+        return ScoreboardImageProcessResponse(
+            success=True,
+            game_type=game_type,
+            layout=layout,
+            rows=rows,
+            total_rows=len(rows),
+            detectedText=detected_text[:80],
+            headers=headers,
+            reasonCode=reason_code,
+            imageMetadata={
+                "width": width,
+                "height": height,
+                "preprocessing": [ocr["name"]]
+            },
+            warnings=warnings,
+            message=f"Extracted {len(rows)} Free Fire scoreboard rows"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing scoreboard image: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "OCR_SERVICE_ERROR",
+                "message": "OCR service failed while processing this image."
+            }
         )
 
 
