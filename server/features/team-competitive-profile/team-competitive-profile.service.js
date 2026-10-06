@@ -121,6 +121,9 @@ const getTeamCompetitiveProfile = async (teamId, options = {}) => {
 
   const roster = normalizeRoster(team);
   const captain = publicUser(team.captain) || roster.find((member) => member.isCaptain)?.user || null;
+  const tournamentResultEvents = competitiveHistory.filter((event) => event.result?.type === 'tournament_placement');
+  const tournamentWins = tournamentResultEvents.filter((event) => event.result?.data?.placement === 1).length;
+  const podiumFinishes = tournamentResultEvents.filter((event) => Number(event.result?.data?.placement) <= 3).length;
 
   return {
     team: {
@@ -142,6 +145,8 @@ const getTeamCompetitiveProfile = async (teamId, options = {}) => {
     overview: {
       tournamentsPlayed: tournaments.length,
       verifiedResults: statistics.overview?.verifiedResults || 0,
+      tournamentWins,
+      podiumFinishes,
       rosterCount: roster.length
     },
     statistics,

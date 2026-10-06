@@ -48,6 +48,7 @@ const freeFireMatchResultSchema = new mongoose.Schema({
 freeFireMatchResultSchema.index({ tournamentId: 1, matchNumber: 1, lobbyNumber: 1 }, { unique: true });
 freeFireMatchResultSchema.index({ tournamentId: 1, status: 1 });
 freeFireMatchResultSchema.index({ 'teamResults.registrationId': 1 });
+freeFireMatchResultSchema.index({ status: 1, 'teamResults.canonicalTeamId': 1 });
 freeFireMatchResultSchema.index({ playedAt: -1 });
 
 module.exports = mongoose.model('FreeFireMatchResult', freeFireMatchResultSchema);

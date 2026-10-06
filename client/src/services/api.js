@@ -205,6 +205,29 @@ class ApiService {
     return this.get(`/api/leaderboards/${encodeURIComponent(gameType)}`, { params });
   }
 
+  async getTournamentFinalResult(tournamentId) {
+    return this.get(`/api/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async getAdminTournamentFinalResult(tournamentId) {
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async previewTournamentFinalResult(tournamentId, data = null) {
+    if (data) {
+      return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`, data);
+    }
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`);
+  }
+
+  async publishTournamentFinalResult(tournamentId, data = {}) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/publish`, data);
+  }
+
+  async voidTournamentFinalResult(tournamentId) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/void`);
+  }
+
   async getFreeFireTournamentResults(tournamentId, params = {}) {
     return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
   }

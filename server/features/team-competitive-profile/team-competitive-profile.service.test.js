@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { getTeamCompetitiveProfile, normalizeRoster } = require('./team-competitive-profile.service');
-const { getValorantTeamHistory, normalizeValorantEvent } = require('./team-competitive-profile.history');
+const { getTournamentFinalTeamHistory, getValorantTeamHistory, normalizeValorantEvent } = require('./team-competitive-profile.history');
 
 const objectId = '507f1f77bcf86cd799439011';
 
@@ -99,6 +99,7 @@ test('public team profile normalizes identity, roster, statistics, and coverage'
     models: {
       Team: { findOne: () => chain(publicTeam) },
       TournamentRegistration: emptyFindModel(),
+      TournamentFinalResult: emptyFindModel(),
       ValorantMatchResult: emptyFindModel()
     }
   });
@@ -168,4 +169,40 @@ test('wrong registration id is not attributed as a team id', async () => {
   });
 
   assert.deepEqual(history, []);
+});
+
+test('published tournament final result adds team-level placement history', async () => {
+  const history = await getTournamentFinalTeamHistory({
+    teamId: objectId,
+    registrationIds: ['reg-a'],
+    models: {
+      TournamentFinalResult: {
+        find: () => chain([{
+          _id: 'final-a',
+          gameType: 'freefire',
+          status: 'published',
+          publishedAt: '2026-01-04T00:00:00.000Z',
+          tournamentId: { _id: 'tournament-a', name: 'Free Fire Cup' },
+          standings: [{
+            rank: 1,
+            registrationId: 'reg-a',
+            canonicalTeamId: objectId,
+            teamNameSnapshot: 'Phase Six',
+            matchesPlayed: 2,
+            wins: 1,
+            kills: 20,
+            placementPoints: 18,
+            killPoints: 20,
+            totalPoints: 38
+          }]
+        }])
+      }
+    }
+  });
+
+  assert.equal(history.length, 1);
+  assert.equal(history[0].level, 'tournament');
+  assert.equal(history[0].result.type, 'tournament_placement');
+  assert.equal(history[0].result.data.placement, 1);
+  assert.equal(history[0].result.data.points, 38);
 });

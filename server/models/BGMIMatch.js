@@ -80,6 +80,8 @@ const bgmiMatchSchema = new mongoose.Schema({
   timestamps: true
 });
 
+bgmiMatchSchema.index({ status: 1, 'teamResults.verified': 1, 'teamResults.teamId': 1 });
+
 // Calculate points based on BGMI scoring
 bgmiMatchSchema.methods.calculatePoints = function(placement, kills) {
   const placementPoints = {

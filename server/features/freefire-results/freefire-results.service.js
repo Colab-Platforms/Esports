@@ -1,6 +1,7 @@
 const FreeFireMatchResult = require('./freefire-match-result.model');
 const Tournament = require('../../models/Tournament');
 const TournamentRegistration = require('../../models/TournamentRegistration');
+const { markTournamentFinalResultStale } = require('../tournament-final-results/tournament-final-results.service');
 const {
   RESULT_STATUSES,
   assertNonNegativeNumber,
@@ -157,6 +158,9 @@ const createFreeFireResult = async ({ payload, actorId }) => {
     verifiedAt: status === RESULT_STATUSES.VERIFIED ? new Date() : null,
     adminNotesPrivate: payload.adminNotesPrivate || ''
   });
+  if (status === RESULT_STATUSES.VERIFIED) {
+    await markTournamentFinalResultStale(payload.tournamentId);
+  }
   return FreeFireMatchResult.findById(result._id).populate('tournamentId', 'name gameType').lean();
 };
 
@@ -180,6 +184,7 @@ const updateFreeFireResult = async ({ resultId, payload, actorId }) => {
   }
   result.updatedBy = actorId;
   await result.save();
+  await markTournamentFinalResultStale(result.tournamentId);
   return FreeFireMatchResult.findById(result._id).populate('tournamentId', 'name gameType').lean();
 };
 
@@ -187,7 +192,7 @@ const verifyFreeFireResult = async ({ resultId, actorId }) => {
   const result = await FreeFireMatchResult.findById(resultId).lean();
   if (!result) throw responseError('Free Fire result not found', 404, 'RESULT_NOT_FOUND');
   const teamResults = await buildTeamResults({ tournamentId: result.tournamentId, teamResults: result.teamResults, verify: true });
-  return FreeFireMatchResult.findByIdAndUpdate(resultId, {
+  const updated = await FreeFireMatchResult.findByIdAndUpdate(resultId, {
     status: RESULT_STATUSES.VERIFIED,
     teamResults,
     updatedBy: actorId,
@@ -196,6 +201,8 @@ const verifyFreeFireResult = async ({ resultId, actorId }) => {
     voidedBy: null,
     voidedAt: null
   }, { new: true, runValidators: true }).populate('tournamentId', 'name gameType').lean();
+  await markTournamentFinalResultStale(result.tournamentId);
+  return updated;
 };
 
 const voidFreeFireResult = async ({ resultId, actorId }) => {
@@ -206,6 +213,7 @@ const voidFreeFireResult = async ({ resultId, actorId }) => {
     voidedAt: new Date()
   }, { new: true, runValidators: true }).populate('tournamentId', 'name gameType').lean();
   if (!result) throw responseError('Free Fire result not found', 404, 'RESULT_NOT_FOUND');
+  await markTournamentFinalResultStale(result.tournamentId);
   return result;
 };
 
