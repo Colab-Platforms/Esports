@@ -6,23 +6,17 @@ const {
   normalizeTeam
 } = require('./player-competitive-profile.service');
 
-test('buildAccounts labels Riot as verified, Steam as linked, and legacy game IDs as saved IDs', () => {
+test('buildAccounts labels linked Steam and saved Valorant game IDs without account verification', () => {
   const user = {
     gameIds: {
       bgmi: { ign: 'Ace', uid: '12345' },
       freefire: { ign: '', uid: '' },
-      steam: ''
+      steam: '',
+      valorant: 'Manual#123'
     },
     steamProfile: { isConnected: false }
   };
   const identities = [
-    {
-      provider: 'riot',
-      providerId: 'private-puuid',
-      email: 'private@example.com',
-      displayName: 'RiotUser#IN',
-      profile: { gameName: 'RiotUser', tagLine: 'IN' }
-    },
     {
       provider: 'steam',
       providerId: 'private-steam-id',
@@ -37,14 +31,12 @@ test('buildAccounts labels Riot as verified, Steam as linked, and legacy game ID
   assert.deepEqual(
     accounts.map((account) => [account.provider, account.status, account.verificationStatus]),
     [
-      ['riot', 'Verified', 'verified_game_identity'],
       ['steam', 'Linked', 'linked'],
-      ['bgmi', 'Saved ID', 'unverified']
+      ['bgmi', 'Saved ID', 'unverified'],
+      ['valorant', 'Saved ID', 'unverified']
     ]
   );
-  assert.equal(JSON.stringify(accounts).includes('private-puuid'), false);
   assert.equal(JSON.stringify(accounts).includes('private-steam-id'), false);
-  assert.equal(JSON.stringify(accounts).includes('private@example.com'), false);
 });
 
 test('normalizeTeam recognizes captains stored outside the members array', () => {

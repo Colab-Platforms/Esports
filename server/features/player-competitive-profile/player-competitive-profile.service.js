@@ -18,13 +18,6 @@ const toId = (value) => {
 
 const hasText = (value) => typeof value === 'string' && value.trim().length > 0;
 
-const formatRiotId = (identity) => {
-  const gameName = identity?.profile?.gameName;
-  const tagLine = identity?.profile?.tagLine;
-  if (hasText(gameName) && hasText(tagLine)) return `${gameName.trim()}#${tagLine.trim()}`;
-  return identity?.displayName || identity?.username || '';
-};
-
 const buildSavedGameAccounts = (user) => {
   const accounts = [];
   const bgmiIgn = user.gameIds?.bgmi?.ign || user.bgmiIgnName || '';
@@ -89,19 +82,6 @@ const buildSavedGameAccounts = (user) => {
 };
 
 const normalizeIdentityAccount = (identity) => {
-  if (identity.provider === 'riot') {
-    return {
-      provider: 'riot',
-      label: 'Riot',
-      displayName: formatRiotId(identity),
-      identifier: '',
-      status: 'Verified',
-      connectionStatus: 'linked',
-      verificationStatus: 'verified_game_identity',
-      game: 'valorant'
-    };
-  }
-
   if (identity.provider === 'steam') {
     return {
       provider: 'steam',

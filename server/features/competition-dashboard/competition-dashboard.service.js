@@ -76,23 +76,23 @@ const buildLegacyGameAccounts = (user) => compact([
   }
 ]);
 
-const getVerificationStatus = (provider) => (
-  provider === 'riot' ? 'verified_game_identity' : 'linked'
-);
+const normalizeIdentity = (identity) => {
+  if (!['google', 'facebook', 'steam', 'xbox'].includes(identity.provider)) return null;
 
-const normalizeIdentity = (identity) => ({
-  id: toId(identity._id),
-  provider: identity.provider,
-  label: identity.provider.charAt(0).toUpperCase() + identity.provider.slice(1),
-  displayName: identity.displayName || identity.username || identity.profile?.gamertag || '',
-  username: identity.username || '',
-  avatarUrl: identity.avatarUrl || '',
-  verified: identity.provider === 'riot',
-  connectionStatus: 'linked',
-  verificationStatus: getVerificationStatus(identity.provider),
-  linkedAt: identity.createdAt,
-  lastUsedAt: identity.lastUsedAt
-});
+  return {
+    id: toId(identity._id),
+    provider: identity.provider,
+    label: identity.provider.charAt(0).toUpperCase() + identity.provider.slice(1),
+    displayName: identity.displayName || identity.username || identity.profile?.gamertag || '',
+    username: identity.username || '',
+    avatarUrl: identity.avatarUrl || '',
+    verified: false,
+    connectionStatus: 'linked',
+    verificationStatus: 'linked',
+    linkedAt: identity.createdAt,
+    lastUsedAt: identity.lastUsedAt
+  };
+};
 
 const normalizeTeam = (team, userId) => {
   const members = Array.isArray(team.members) ? team.members : [];
@@ -316,7 +316,7 @@ const getCompetitionDashboard = async (userId) => {
   const completedCompetitions = completedRegisteredCompetitions + completedParticipantCompetitions;
 
   const verifiedAccounts = [
-    ...identities.map(normalizeIdentity),
+    ...compact(identities.map(normalizeIdentity)),
     ...buildLegacyGameAccounts(user)
   ].slice(0, 10);
 
