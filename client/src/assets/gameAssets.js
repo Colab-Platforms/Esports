@@ -1,4 +1,6 @@
 // Comprehensive game assets with high-quality images and CDN icons
+export const VALORANT_LOGO = '/assets/games/valorant-logo.png';
+
 export const gameAssets = {
   bgmi: {
     name: 'BGMI',
@@ -42,12 +44,12 @@ export const gameAssets = {
   valorant: {
     name: 'Valorant',
     fullName: 'Valorant',
-    logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=200&h=200&fit=crop&crop=center',
+    logo: VALORANT_LOGO,
     banner: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&h=400&fit=crop&crop=center',
     hero: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1920&h=1080&fit=crop&crop=center',
-    thumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop&crop=center',
+    thumbnail: VALORANT_LOGO,
     icon: '🎯', // Keep emoji as fallback
-    cdnIcon: '', // No specific CDN icon for Valorant yet
+    cdnIcon: VALORANT_LOGO,
     video: '/videos/valorant.mp4', // Background video for expanded game card
     color: '#FF4655',
     gradient: 'from-red-500 to-pink-600',
@@ -220,7 +222,8 @@ export const cdnIcons = {
   // Game specific leaderboard icons
   gameLeaderboards: {
     bgmi: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391',
-    cs2: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/CS2_02.png?v=1766748100'
+    cs2: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/CS2_02.png?v=1766748100',
+    valorant: VALORANT_LOGO
   },
   
   // Social gaming icons

@@ -1,5 +1,7 @@
 const Game = require('../models/Game');
 
+const VALORANT_LOGO = '/assets/games/valorant-logo.png';
+
 const gamesData = [
   {
     id: 'valorant',
@@ -9,7 +11,7 @@ const gamesData = [
     description: 'Tactical FPS with unique agent abilities',
     background: 'linear-gradient(135deg, #ff4655 0%, #2c1810 100%)',
     backgroundImage: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1920&h=1080&fit=crop&crop=center',
-    logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=200&h=200&fit=crop&crop=center',
+    logo: VALORANT_LOGO,
     tournaments: 15,
     activePlayers: '2.5K+',
     totalPrize: '₹5,00,000',
