@@ -131,6 +131,14 @@ class ApiService {
     });
   }
 
+  async patch(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: data,
+      ...options
+    });
+  }
+
   async delete(endpoint, options = {}) {
     return this.request(endpoint, { method: 'DELETE', ...options });
   }
@@ -173,6 +181,14 @@ class ApiService {
     return this.get('/api/competition-dashboard');
   }
 
+  async checkInActivityStreak() {
+    return this.post('/api/streak/check-in', {});
+  }
+
+  async getActivityStreakLeaderboard(params = {}) {
+    return this.get('/api/streak/leaderboard', { params });
+  }
+
   async getPlayerCompetitiveProfile(username) {
     return this.get(`/api/players/${encodeURIComponent(username)}/competitive-profile`);
   }
@@ -193,6 +209,33 @@ class ApiService {
     return this.get(`/api/teams/${encodeURIComponent(teamId)}/competitive-profile`);
   }
 
+  async getCompetitiveLeaderboard(gameType, params = {}) {
+    return this.get(`/api/leaderboards/${encodeURIComponent(gameType)}`, { params });
+  }
+
+  async getTournamentFinalResult(tournamentId) {
+    return this.get(`/api/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async getAdminTournamentFinalResult(tournamentId) {
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async previewTournamentFinalResult(tournamentId, data = null) {
+    if (data) {
+      return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`, data);
+    }
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`);
+  }
+
+  async publishTournamentFinalResult(tournamentId, data = {}) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/publish`, data);
+  }
+
+  async voidTournamentFinalResult(tournamentId) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/void`);
+  }
+
   async getFreeFireTournamentResults(tournamentId, params = {}) {
     return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
   }
@@ -211,6 +254,30 @@ class ApiService {
 
   async voidFreeFireResult(resultId) {
     return this.post(`/api/freefire-results/${resultId}/void`);
+  }
+
+  async createFreeFireScoreboardIngestion(formData) {
+    return this.post('/api/result-ingestion/freefire/scoreboard', formData);
+  }
+
+  async getResultIngestionJob(jobId) {
+    return this.get(`/api/result-ingestion/${encodeURIComponent(jobId)}`);
+  }
+
+  async reviewResultIngestionJob(jobId, data) {
+    return this.patch(`/api/result-ingestion/${encodeURIComponent(jobId)}/review`, data);
+  }
+
+  async confirmResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/confirm`);
+  }
+
+  async reprocessResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/reprocess`);
+  }
+
+  async cancelResultIngestionJob(jobId) {
+    return this.post(`/api/result-ingestion/${encodeURIComponent(jobId)}/cancel`);
   }
 
   async getValorantTournamentResults(tournamentId, params = {}) {
