@@ -193,6 +193,10 @@ class ApiService {
     return this.get(`/api/teams/${encodeURIComponent(teamId)}/competitive-profile`);
   }
 
+  async getCompetitiveLeaderboard(gameType, params = {}) {
+    return this.get(`/api/leaderboards/${encodeURIComponent(gameType)}`, { params });
+  }
+
   async getFreeFireTournamentResults(tournamentId, params = {}) {
     return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
   }
