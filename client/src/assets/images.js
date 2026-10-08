@@ -1,5 +1,7 @@
 // High-quality gaming images and assets
-export const VALORANT_LOGO = '/assets/games/valorant-logo.png';
+import valorantLogo from './valorant-logo.png';
+
+export const VALORANT_LOGO = valorantLogo;
 
 export const gameImages = {
   // Game Logos and Banners

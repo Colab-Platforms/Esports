@@ -1,5 +1,7 @@
 // Comprehensive game assets with high-quality images and CDN icons
-export const VALORANT_LOGO = '/assets/games/valorant-logo.png';
+import valorantLogo from './valorant-logo.png';
+
+export const VALORANT_LOGO = valorantLogo;
 
 export const gameAssets = {
   bgmi: {
