@@ -17,6 +17,29 @@ const teamRefSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const rosterSnapshotSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  displayName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  gameId: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  role: {
+    type: String,
+    trim: true,
+    default: ''
+  }
+}, { _id: false });
+
 const standingSchema = new mongoose.Schema({
   rank: {
     type: Number,
@@ -37,54 +60,58 @@ const standingSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  rosterSnapshot: {
+    type: [rosterSnapshotSchema],
+    default: []
+  },
   matchesPlayed: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   wins: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   losses: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   kills: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   placementPoints: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   killPoints: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   totalPoints: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   roundsWon: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   roundsLost: {
     type: Number,
-    default: 0,
+    default: null,
     min: 0
   },
   roundDifference: {
     type: Number,
-    default: 0
+    default: null
   },
   bestPlacement: {
     type: Number,
@@ -153,6 +180,12 @@ const tournamentFinalResultSchema = new mongoose.Schema({
   sourceFingerprint: {
     type: String,
     default: ''
+  },
+  source: {
+    type: String,
+    enum: ['derived', 'manual'],
+    default: 'derived',
+    index: true
   },
   winner: {
     type: teamRefSchema,

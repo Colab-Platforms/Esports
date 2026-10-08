@@ -5,8 +5,10 @@ const WhatsAppMessage = require('../models/WhatsAppMessage');
 const Tournament = require('../models/Tournament');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const Team = require('../models/Team');
 const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
+const { validateLinkedTeamRegistration } = require('../services/tournament-registration-team-linking.service');
 
 const router = express.Router();
 
@@ -41,6 +43,10 @@ router.post('/:tournamentId/register', auth, [
     .isLength({ min: 3, max: 50 })
     .withMessage('Team name must be 3-50 characters')
     .trim(),
+  body('teamId')
+    .optional({ nullable: true, checkFalsy: true })
+    .isMongoId()
+    .withMessage('A valid teamId is required'),
 
   // Team Leader Validation
   body('teamLeader.name')
@@ -104,7 +110,7 @@ router.post('/:tournamentId/register', auth, [
     }
 
     const { tournamentId } = req.params;
-    const { teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
+    const { teamId, teamName, teamLeader, teamMembers, substitute, whatsappNumber } = req.body;
 
     // Check if tournament exists and is Free Fire
     const tournament = await Tournament.findById(tournamentId);
@@ -230,10 +236,21 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
+    const linkedTeamId = await validateLinkedTeamRegistration({
+      Team,
+      teamId,
+      tournament,
+      requesterUserId: req.user.userId,
+      teamLeader,
+      teamMembers,
+      substitute
+    });
+
     // Create registration
     const registration = new TournamentRegistration({
       tournamentId,
       userId: req.user.userId,
+      ...(linkedTeamId && { teamId: linkedTeamId }),
       teamName,
       teamLeader,
       teamMembers,
@@ -342,11 +359,11 @@ router.post('/:tournamentId/register', auth, [
       });
     }
 
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       error: {
-        code: 'REGISTRATION_FAILED',
-        message: 'Failed to register team',
+        code: error.code || 'REGISTRATION_FAILED',
+        message: error.status ? error.message : 'Failed to register team',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
         timestamp: new Date().toISOString()
       }

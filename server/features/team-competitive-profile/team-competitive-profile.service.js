@@ -93,6 +93,27 @@ const recentFormFromStatistics = (statistics) => (
   statistics?.statistics?.performance?.recentForm || []
 );
 
+const sumKnown = (events, fieldName) => events.reduce((total, event) => {
+  const value = event.result?.data?.[fieldName];
+  return Number.isFinite(Number(value)) ? total + Number(value) : total;
+}, 0);
+
+const buildTournamentLevelStatistics = (events) => ({
+  tournamentsPlayed: events.length,
+  tournamentWins: events.filter((event) => event.result?.data?.placement === 1).length,
+  podiumFinishes: events.filter((event) => Number(event.result?.data?.placement) <= 3).length,
+  top10Finishes: events.filter((event) => Number(event.result?.data?.placement) <= 10).length,
+  tournamentKills: sumKnown(events, 'kills'),
+  tournamentPoints: sumKnown(events, 'points'),
+  recentTournamentPlacements: sortNewestFirst(events)
+    .slice(0, 5)
+    .map((event) => ({
+      tournament: event.tournament,
+      placement: event.result?.data?.placement,
+      occurredAt: event.occurredAt || null
+    }))
+});
+
 const getTeamCompetitiveProfile = async (teamId, options = {}) => {
   if (!mongoose.Types.ObjectId.isValid(teamId)) {
     throw notFound();
@@ -122,8 +143,7 @@ const getTeamCompetitiveProfile = async (teamId, options = {}) => {
   const roster = normalizeRoster(team);
   const captain = publicUser(team.captain) || roster.find((member) => member.isCaptain)?.user || null;
   const tournamentResultEvents = competitiveHistory.filter((event) => event.result?.type === 'tournament_placement');
-  const tournamentWins = tournamentResultEvents.filter((event) => event.result?.data?.placement === 1).length;
-  const podiumFinishes = tournamentResultEvents.filter((event) => Number(event.result?.data?.placement) <= 3).length;
+  const tournamentLevelStatistics = buildTournamentLevelStatistics(tournamentResultEvents);
 
   return {
     team: {
@@ -143,12 +163,14 @@ const getTeamCompetitiveProfile = async (teamId, options = {}) => {
     captain,
     roster,
     overview: {
-      tournamentsPlayed: tournaments.length,
+      tournamentsPlayed: tournamentLevelStatistics.tournamentsPlayed || tournaments.length,
       verifiedResults: statistics.overview?.verifiedResults || 0,
-      tournamentWins,
-      podiumFinishes,
+      tournamentWins: tournamentLevelStatistics.tournamentWins,
+      podiumFinishes: tournamentLevelStatistics.podiumFinishes,
+      top10Finishes: tournamentLevelStatistics.top10Finishes,
       rosterCount: roster.length
     },
+    tournamentLevelStatistics,
     statistics,
     recentForm: recentFormFromStatistics(statistics),
     tournaments: sortNewestFirst(tournaments.map((item) => ({

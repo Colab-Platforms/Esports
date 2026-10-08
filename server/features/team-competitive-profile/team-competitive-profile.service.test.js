@@ -114,6 +114,57 @@ test('public team profile normalizes identity, roster, statistics, and coverage'
   assert.equal(profile.statistics.statistics.performance.matchesPlayed, 0);
 });
 
+test('public team profile exposes tournament-level final result statistics separately', async () => {
+  const finalResult = {
+    _id: 'final-a',
+    gameType: 'freefire',
+    status: 'published',
+    publishedAt: '2026-01-04T00:00:00.000Z',
+    tournamentId: { _id: 'tournament-a', name: 'FREE_FIRE RESULT' },
+    standings: [{
+      rank: 1,
+      registrationId: 'reg-a',
+      canonicalTeamId: objectId,
+      teamNameSnapshot: 'Phase Six',
+      matchesPlayed: null,
+      kills: 0,
+      totalPoints: 20
+    }]
+  };
+
+  const profile = await getTeamCompetitiveProfile(objectId, {
+    models: {
+      Team: { findOne: () => chain({ ...publicTeam, game: 'freefire' }) },
+      TournamentRegistration: {
+        find: () => chain([{
+          _id: 'reg-a',
+          tournamentId: { _id: 'tournament-a', name: 'FREE_FIRE RESULT', gameType: 'freefire', status: 'completed' },
+          teamName: 'Phase Six',
+          status: 'verified',
+          registeredAt: '2026-01-01T00:00:00.000Z'
+        }])
+      },
+      TournamentFinalResult: {
+        find: () => chain([finalResult])
+      },
+      FreeFireMatchResult: emptyFindModel()
+    }
+  });
+
+  assert.equal(profile.overview.tournamentsPlayed, 1);
+  assert.equal(profile.overview.tournamentWins, 1);
+  assert.equal(profile.overview.podiumFinishes, 1);
+  assert.equal(profile.overview.top10Finishes, 1);
+  assert.equal(profile.tournamentLevelStatistics.tournamentKills, 0);
+  assert.equal(profile.tournamentLevelStatistics.tournamentPoints, 20);
+  assert.deepEqual(profile.tournamentLevelStatistics.recentTournamentPlacements[0], {
+    tournament: { id: 'tournament-a', name: 'FREE_FIRE RESULT' },
+    placement: 1,
+    occurredAt: '2026-01-04T00:00:00.000Z'
+  });
+  assert.equal(profile.statistics.statistics.performance.matchesPlayed, 0);
+});
+
 test('normalizeRoster keeps current roster semantics separate from historical roster snapshots', () => {
   const roster = normalizeRoster(publicTeam);
   assert.deepEqual(roster.map((member) => [member.user.username, member.role, member.isSubstitute]), [

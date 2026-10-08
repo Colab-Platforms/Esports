@@ -1,10 +1,15 @@
 const crypto = require('crypto');
 const Tournament = require('../../models/Tournament');
+const TournamentRegistration = require('../../models/TournamentRegistration');
 const BGMIMatch = require('../../models/BGMIMatch');
 const FreeFireMatchResult = require('../freefire-results/freefire-match-result.model');
 const ValorantMatchResult = require('../valorant-results/valorant-match-result.model');
 const TournamentFinalResult = require('./tournament-final-result.model');
-const { RESULT_STATUSES, toId } = require('../game-results/game-results.utils');
+const {
+  RESULT_STATUSES,
+  rosterSnapshotForRegistration,
+  toId
+} = require('../game-results/game-results.utils');
 
 const ACTIVE_GAMES = ['bgmi', 'freefire', 'valorant'];
 const FINAL_STATUSES = {
@@ -52,10 +57,18 @@ const ranked = (standings, compare) => standings
   .sort(compare)
   .map((standing, index) => ({ ...standing, rank: index + 1 }));
 
+const publicTeamIdentity = (standing = {}) => ({
+  canonicalTeamId: standing.canonicalTeamId || null,
+  teamName: standing.teamNameSnapshot || '',
+  teamTag: standing.teamTagSnapshot || '',
+  teamLogo: standing.teamLogoSnapshot || ''
+});
+
 const teamSummary = (standing) => standing ? {
   registrationId: standing.registrationId || null,
   canonicalTeamId: standing.canonicalTeamId || null,
-  teamNameSnapshot: standing.teamNameSnapshot || ''
+  teamNameSnapshot: standing.teamNameSnapshot || '',
+  ...publicTeamIdentity(standing)
 } : null;
 
 const podiumFromStandings = (standings, limit = 3) => standings
@@ -64,8 +77,160 @@ const podiumFromStandings = (standings, limit = 3) => standings
     rank: standing.rank,
     registrationId: standing.registrationId || null,
     canonicalTeamId: standing.canonicalTeamId || null,
-    teamNameSnapshot: standing.teamNameSnapshot || ''
+    teamNameSnapshot: standing.teamNameSnapshot || '',
+    ...publicTeamIdentity(standing)
   }));
+
+const publicPodium = (podium = []) => podium.map((entry) => ({
+  rank: entry.rank,
+  registrationId: entry.registrationId || null,
+  canonicalTeamId: entry.canonicalTeamId || null,
+  teamNameSnapshot: entry.teamNameSnapshot || '',
+  ...publicTeamIdentity(entry)
+}));
+
+const publicRosterSnapshot = (rosterSnapshot = []) => rosterSnapshot
+  .filter((member) => member && (member.displayName || member.gameId))
+  .map((member) => ({
+    displayName: member.displayName || '',
+    gameId: member.gameId || '',
+    role: member.role || ''
+  }));
+
+const publicStanding = (standing) => ({
+  rank: standing.rank,
+  registrationId: standing.registrationId || null,
+  canonicalTeamId: standing.canonicalTeamId || null,
+  teamNameSnapshot: standing.teamNameSnapshot || '',
+  ...publicTeamIdentity(standing),
+  rosterSnapshot: publicRosterSnapshot(standing.rosterSnapshot || []),
+  matchesPlayed: standing.matchesPlayed ?? null,
+  wins: standing.wins ?? null,
+  losses: standing.losses ?? null,
+  kills: standing.kills ?? null,
+  placementPoints: standing.placementPoints ?? null,
+  killPoints: standing.killPoints ?? null,
+  totalPoints: standing.totalPoints ?? null,
+  roundsWon: standing.roundsWon ?? null,
+  roundsLost: standing.roundsLost ?? null,
+  roundDifference: standing.roundDifference ?? null,
+  bestPlacement: standing.bestPlacement || null
+});
+
+const optionalNonNegativeNumber = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw responseError(`${fieldName} must be a non-negative number`);
+  }
+  return parsed;
+};
+
+const validateManualStandingRanks = (manualStandings) => {
+  if (!Array.isArray(manualStandings) || manualStandings.length === 0) {
+    throw responseError('Manual final standings are required');
+  }
+  if (manualStandings.length > 10) {
+    throw responseError('Manual final standings cannot contain more than 10 teams');
+  }
+
+  const cleaned = manualStandings
+    .filter((entry) => entry && entry.registrationId)
+    .map((entry) => ({
+      rank: Number(entry.rank),
+      registrationId: toId(entry.registrationId),
+      matchesPlayed: optionalNonNegativeNumber(entry.matchesPlayed, 'matchesPlayed'),
+      wins: optionalNonNegativeNumber(entry.wins, 'wins'),
+      losses: optionalNonNegativeNumber(entry.losses, 'losses'),
+      kills: optionalNonNegativeNumber(entry.kills, 'kills'),
+      placementPoints: optionalNonNegativeNumber(entry.placementPoints, 'placementPoints'),
+      killPoints: optionalNonNegativeNumber(entry.killPoints, 'killPoints'),
+      totalPoints: optionalNonNegativeNumber(entry.totalPoints, 'totalPoints'),
+      roundsWon: optionalNonNegativeNumber(entry.roundsWon ?? entry.roundsFor, 'roundsFor'),
+      roundsLost: optionalNonNegativeNumber(entry.roundsLost ?? entry.roundsAgainst, 'roundsAgainst')
+    }));
+
+  if (cleaned.length === 0) throw responseError('At least rank 1 is required');
+  if (cleaned.length !== manualStandings.length) {
+    throw responseError('Every manual standing requires a registration');
+  }
+
+  const seenRanks = new Set();
+  const seenRegistrations = new Set();
+  cleaned.forEach((entry) => {
+    if (!Number.isInteger(entry.rank) || entry.rank < 1 || entry.rank > 10) {
+      throw responseError('Manual final ranks must be integers from 1 to 10');
+    }
+    if (seenRanks.has(entry.rank)) throw responseError('Duplicate manual final rank is not allowed');
+    if (seenRegistrations.has(entry.registrationId)) throw responseError('Duplicate manual final team is not allowed');
+    seenRanks.add(entry.rank);
+    seenRegistrations.add(entry.registrationId);
+  });
+
+  const sorted = cleaned.sort((a, b) => a.rank - b.rank);
+  sorted.forEach((entry, index) => {
+    if (entry.rank !== index + 1) {
+      throw responseError('Manual final ranks must be contiguous from rank 1');
+    }
+  });
+
+  return sorted;
+};
+
+const deriveManualPreview = async ({ tournament, evidence, manualStandings }) => {
+  const sorted = validateManualStandingRanks(manualStandings);
+  const registrationIds = sorted.map((entry) => entry.registrationId);
+  const registrations = await TournamentRegistration.find({
+    _id: { $in: registrationIds },
+    tournamentId: tournament._id
+  })
+    .select('tournamentId userId teamName teamId status teamLeader teamMembers substitutePlayer roster')
+    .lean();
+
+  const registrationsById = new Map(registrations.map((registration) => [toId(registration), registration]));
+
+  const standings = sorted.map((entry) => {
+    const registration = registrationsById.get(entry.registrationId);
+    if (!registration) {
+      throw responseError('Every manual final team must be registered for this tournament');
+    }
+    if (registration.status !== 'verified') {
+      throw responseError('Manual final teams must use verified registrations');
+    }
+
+    return {
+      rank: entry.rank,
+      registrationId: entry.registrationId,
+      canonicalTeamId: toId(registration.teamId) || null,
+      teamNameSnapshot: registration.teamName || '',
+      rosterSnapshot: rosterSnapshotForRegistration(registration, tournament.gameType),
+      matchesPlayed: entry.matchesPlayed,
+      wins: entry.wins,
+      losses: entry.losses,
+      kills: entry.kills,
+      placementPoints: entry.placementPoints,
+      killPoints: entry.killPoints,
+      totalPoints: entry.totalPoints,
+      roundsWon: entry.roundsWon,
+      roundsLost: entry.roundsLost,
+      roundDifference: entry.roundsWon !== null && entry.roundsLost !== null
+        ? entry.roundsWon - entry.roundsLost
+        : null,
+      bestPlacement: null
+    };
+  });
+
+  return buildPreview({
+    tournament,
+    standings,
+    evidence,
+    warnings: ['Manual Top 10 standings were selected by an admin from verified tournament registrations.'],
+    source: sorted,
+    sourceType: 'manual',
+    structuredResultsAvailable: standings.length > 0,
+    note: 'Manual Top 10 standings selected from verified tournament registrations.'
+  });
+};
 
 const deriveBgmiPreview = async ({ tournament, evidence }) => {
   const matches = await BGMIMatch.find({
@@ -343,11 +508,12 @@ const normalizeExplicitValorantStandings = ({ explicitStandings, results }) => {
   return standings.sort((a, b) => a.rank - b.rank);
 };
 
-const buildPreview = ({ tournament, standings, evidence, warnings, source, structuredResultsAvailable, note }) => {
+const buildPreview = ({ tournament, standings, evidence, warnings, source, sourceType = 'derived', structuredResultsAvailable, note }) => {
   const winner = teamSummary(standings[0]);
   const preview = {
     tournament: normalizeTournament(tournament),
     status: FINAL_STATUSES.UNPUBLISHED,
+    source: sourceType,
     winner,
     podium: podiumFromStandings(standings),
     standings,
@@ -363,6 +529,7 @@ const buildPreview = ({ tournament, standings, evidence, warnings, source, struc
     sourceFingerprint: hashPayload({
       tournamentId: toId(tournament),
       gameType: tournament.gameType,
+      sourceType,
       source,
       standings
     })
@@ -373,10 +540,14 @@ const derivePreview = async ({ tournamentId, explicitStandings = null } = {}) =>
   const tournament = await loadTournament(tournamentId);
   const evidence = normalizeEvidence(tournament);
 
+  if (explicitStandings) {
+    return deriveManualPreview({ tournament, evidence, manualStandings: explicitStandings });
+  }
+
   if (tournament.gameType === 'bgmi') return deriveBgmiPreview({ tournament, evidence });
   if (tournament.gameType === 'freefire') return deriveFreeFirePreview({ tournament, evidence });
   if (tournament.gameType === 'valorant') {
-    return deriveValorantPreview({ tournament, evidence, explicitStandings });
+    return deriveValorantPreview({ tournament, evidence });
   }
 
   throw responseError('Unsupported game type', 400, 'UNSUPPORTED_GAME_TYPE');
@@ -395,9 +566,10 @@ const normalizeFinalResult = (result, tournament) => ({
   id: toId(result),
   tournament: normalizeTournament(tournament || result.tournamentId),
   status: result.status,
-  winner: result.winner || null,
-  podium: result.podium || [],
-  standings: result.standings || [],
+  source: result.source || 'derived',
+  winner: teamSummary(result.winner),
+  podium: publicPodium(result.podium || []),
+  standings: (result.standings || []).map(publicStanding),
   evidence: result.evidence || [],
   warnings: result.warnings || [],
   coverage: result.coverage || {
@@ -421,6 +593,7 @@ const publishFinalResult = async ({ tournamentId, payload = {}, actorId }) => {
     gameType: preview.tournament.gameType,
     status: FINAL_STATUSES.PUBLISHED,
     sourceFingerprint: preview.sourceFingerprint,
+    source: preview.source || 'derived',
     winner: preview.winner,
     podium: preview.podium,
     standings: preview.standings,
@@ -440,6 +613,68 @@ const publishFinalResult = async ({ tournamentId, payload = {}, actorId }) => {
   ).lean();
 
   return normalizeFinalResult(result, preview.tournament);
+};
+
+const getResultsDirectory = async ({ gameType, page = 1, limit = 12 } = {}) => {
+  if (!gameType || !ACTIVE_GAMES.includes(gameType)) {
+    throw responseError('Valid gameType is required', 400, 'UNSUPPORTED_GAME_TYPE');
+  }
+
+  const safePage = Math.max(parseInt(page, 10) || 1, 1);
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 50);
+  const skip = (safePage - 1) * safeLimit;
+  const statusFilter = { $in: [FINAL_STATUSES.PUBLISHED, FINAL_STATUSES.NEEDS_REPUBLISH] };
+
+  const [total, results] = await Promise.all([
+    TournamentFinalResult.countDocuments({ gameType, status: statusFilter }),
+    TournamentFinalResult.find({ gameType, status: statusFilter })
+      .select('tournamentId gameType status source winner podium standings evidence publishedAt updatedAt')
+      .populate('tournamentId', 'name gameType status startDate endDate')
+      .sort({ publishedAt: -1, updatedAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean()
+  ]);
+
+  const tournaments = results
+    .filter((result) => result.tournamentId)
+    .map((result) => {
+      const evidence = result.evidence || [];
+      return {
+        id: toId(result.tournamentId),
+        tournamentId: toId(result.tournamentId),
+        name: result.tournamentId.name || '',
+        gameType: result.gameType,
+        status: result.tournamentId.status || '',
+        resultStatus: result.status,
+        source: result.source || 'derived',
+        startDate: result.tournamentId.startDate || null,
+        endDate: result.tournamentId.endDate || null,
+        publishedAt: result.publishedAt || null,
+        winner: teamSummary(result.winner),
+        podium: publicPodium(result.podium || []),
+        topStandings: (result.standings || [])
+          .slice()
+          .sort((a, b) => (a.rank || 999) - (b.rank || 999))
+          .slice(0, 10)
+          .map(publicStanding),
+        scoreboardAvailable: evidence.length > 0,
+        scoreboardCount: evidence.length,
+        scoreboardThumbnail: evidence[0]?.imageUrl || '',
+        routeTarget: `/tournament/${toId(result.tournamentId)}?tab=results`
+      };
+    });
+
+  return {
+    tournaments,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      pages: Math.ceil(total / safeLimit),
+      hasMore: safePage * safeLimit < total
+    }
+  };
 };
 
 const voidFinalResult = async ({ tournamentId, actorId }) => {
@@ -480,6 +715,7 @@ const getPublicFinalResult = async ({ tournamentId }) => {
           ? 'Structured final standings are not available for this tournament.'
           : 'Final results have not been published for this tournament.'
       },
+      source: result?.source || 'derived',
       publishedAt: null
     };
   }
@@ -503,6 +739,7 @@ const getAdminFinalResult = async ({ tournamentId }) => {
         structuredResultsAvailable: false,
         note: 'Final results have not been published for this tournament.'
       },
+      source: 'derived',
       publishedAt: null
     };
   }
@@ -523,6 +760,7 @@ module.exports = {
   derivePreview,
   getAdminFinalResult,
   getPublicFinalResult,
+  getResultsDirectory,
   markTournamentFinalResultStale,
   normalizeFinalResult,
   publishFinalResult,

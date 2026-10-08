@@ -24,6 +24,20 @@ const emptyValorantForm = {
   scoreB: ''
 };
 
+const emptyManualTop10 = () => Array.from({ length: 10 }, (_, index) => ({
+  rank: index + 1,
+  registrationId: '',
+  matchesPlayed: '',
+  kills: '',
+  placementPoints: '',
+  killPoints: '',
+  totalPoints: '',
+  wins: '',
+  losses: '',
+  roundsFor: '',
+  roundsAgainst: ''
+}));
+
 const statusClass = {
   draft: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
   verified: 'bg-green-500/15 text-green-300 border-green-500/30',
@@ -65,6 +79,8 @@ const toNumber = (value) => {
   return Number(value);
 };
 
+const displayStat = (value) => (value === null || value === undefined ? '-' : value);
+
 const AdminGameResults = () => {
   const user = useSelector(selectUser);
   const canManage = user && ['admin', 'moderator'].includes(user.role);
@@ -81,7 +97,7 @@ const AdminGameResults = () => {
   const [finalPreview, setFinalPreview] = useState(null);
   const [finalLoading, setFinalLoading] = useState(false);
   const [finalSaving, setFinalSaving] = useState(false);
-  const [valorantFinalRanks, setValorantFinalRanks] = useState([{ rank: 1, registrationId: '' }, { rank: 2, registrationId: '' }]);
+  const [manualTop10, setManualTop10] = useState(emptyManualTop10);
   const [error, setError] = useState('');
   const [editingResult, setEditingResult] = useState(null);
   const [freeFireEntryMode, setFreeFireEntryMode] = useState('manual');
@@ -115,6 +131,48 @@ const AdminGameResults = () => {
     })),
     [registrations, selectedTournament]
   );
+
+  const selectedManualRegistrationIds = useMemo(
+    () => new Set(manualTop10.map((entry) => entry.registrationId).filter(Boolean)),
+    [manualTop10]
+  );
+
+  const manualStandingsPayload = useMemo(
+    () => manualTop10
+      .filter((entry) => entry.registrationId)
+      .map((entry) => ({
+        rank: entry.rank,
+        registrationId: entry.registrationId,
+        matchesPlayed: entry.matchesPlayed,
+        kills: entry.kills,
+        placementPoints: entry.placementPoints,
+        killPoints: entry.killPoints,
+        totalPoints: entry.totalPoints,
+        wins: entry.wins,
+        losses: entry.losses,
+        roundsFor: entry.roundsFor,
+        roundsAgainst: entry.roundsAgainst
+      })),
+    [manualTop10]
+  );
+
+  const hasManualTop10 = manualStandingsPayload.length > 0;
+
+  const rosterSummary = (registration) => {
+    const leader = registration?.teamLeader?.name;
+    const memberCount = registration?.teamMembers?.length || 0;
+    const substituteCount = registration?.substitutePlayer?.name ? 1 : 0;
+    const total = (leader ? 1 : 0) + memberCount + substituteCount;
+    return [leader ? `Captain: ${leader}` : '', total ? `${total} players` : 'Roster snapshot available']
+      .filter(Boolean)
+      .join(' • ');
+  };
+
+  const updateManualTop10 = (index, key, value) => {
+    setManualTop10((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [key]: value } : item
+    )));
+  };
 
   const winnerPreview = useMemo(() => {
     const scoreA = toNumber(valorantForm.scoreA);
@@ -153,6 +211,7 @@ const AdminGameResults = () => {
     setScoreboardFile(null);
     setIngestionJob(null);
     setIngestionError('');
+    setManualTop10(emptyManualTop10());
   }, [activeGame, tournaments]);
 
   useEffect(() => {
@@ -235,7 +294,10 @@ const AdminGameResults = () => {
     setFinalLoading(true);
     setError('');
     try {
-      const response = await api.previewTournamentFinalResult(selectedTournamentId);
+      const response = await api.previewTournamentFinalResult(
+        selectedTournamentId,
+        hasManualTop10 ? { standings: manualStandingsPayload } : null
+      );
       setFinalPreview(normalizeFinalResult(response, 'preview'));
     } catch (err) {
       setError(readError(err, 'Failed to preview final standings'));
@@ -250,9 +312,7 @@ const AdminGameResults = () => {
     setFinalSaving(true);
     setError('');
     try {
-      const payload = activeGame === 'valorant' && (!finalPreview || finalPreview.standings?.length === 0)
-        ? { standings: valorantFinalRanks.filter((entry) => entry.registrationId) }
-        : {};
+      const payload = hasManualTop10 ? { standings: manualStandingsPayload } : {};
       const response = await api.publishTournamentFinalResult(selectedTournamentId, payload);
       setFinalResult(normalizeFinalResult(response));
       setFinalPreview(null);
@@ -285,6 +345,7 @@ const AdminGameResults = () => {
     setScoreboardFile(null);
     setIngestionJob(null);
     setIngestionError('');
+    setManualTop10(emptyManualTop10());
     setFreeFireForm({
       lobbyNumber: 1,
       matchNumber: 1,
@@ -1081,29 +1142,84 @@ const AdminGameResults = () => {
                 </div>
               )}
 
-              {activeGame === 'valorant' && (!finalPreview || finalPreview.standings?.length === 0) && (
+              {finalResult?.standings?.length > 0 && (
                 <div className="mb-4 rounded-lg border border-gaming-border bg-gaming-dark/60 p-4">
-                  <p className="text-sm font-semibold text-white mb-3">Valorant explicit final ranking</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {valorantFinalRanks.map((entry, index) => (
-                      <label key={entry.rank} className="block">
-                        <span className="block text-xs text-gray-400 mb-1">Rank {entry.rank}</span>
-                        <select
-                          className="input-gaming w-full"
-                          value={entry.registrationId}
-                          onChange={(event) => setValorantFinalRanks((current) => current.map((item, itemIndex) => (
-                            itemIndex === index ? { ...item, registrationId: event.target.value } : item
-                          )))}
-                        >
-                          <option value="">Select verified team</option>
-                          {registrationOptions.map((option) => (
-                            <option key={option.id} value={option.id}>{option.raw.teamName}</option>
-                          ))}
-                        </select>
-                      </label>
+                  <p className="text-sm font-semibold text-white mb-3">Current published Top 10</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    {finalResult.standings.slice(0, 10).map((standing) => (
+                      <div key={`${standing.rank}-${standing.registrationId || standing.canonicalTeamId}`} className="flex items-center gap-2 rounded-md bg-gaming-charcoal/70 px-3 py-2">
+                        <span className="text-gaming-gold font-bold w-10">#{standing.rank}</span>
+                        <span className="text-white truncate">{standing.teamNameSnapshot}</span>
+                      </div>
                     ))}
                   </div>
-                  <p className="mt-3 text-xs text-gray-400">Use this only when multiple verified Valorant matches exist and the bracket/final match is not represented in the result model.</p>
+                </div>
+              )}
+
+              {registrationOptions.length > 0 && (
+                <div className="mb-4 rounded-lg border border-gaming-border bg-gaming-dark/60 p-4">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Manual Top 10</p>
+                      <p className="text-xs text-gray-400 mt-1">Select verified registrations only. Identity and roster snapshots are derived by the server.</p>
+                    </div>
+                    {hasManualTop10 && (
+                      <button type="button" onClick={() => setManualTop10(emptyManualTop10())} className="btn btn-ghost btn-sm">
+                        Clear Manual Top 10
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {manualTop10.map((entry, index) => (
+                      <div key={entry.rank} className="rounded-lg border border-gaming-border bg-gaming-charcoal/40 p-3">
+                        <label className="block">
+                          <span className="block text-xs text-gray-400 mb-1">Rank {entry.rank}</span>
+                          <select
+                            className="input-gaming w-full"
+                            value={entry.registrationId}
+                            onChange={(event) => updateManualTop10(index, 'registrationId', event.target.value)}
+                          >
+                            <option value="">Select verified team</option>
+                            {registrationOptions.map((option) => {
+                              const alreadySelected = selectedManualRegistrationIds.has(option.id) && option.id !== entry.registrationId;
+                              return (
+                                <option key={option.id} value={option.id} disabled={alreadySelected}>
+                                  {option.raw.teamName}{alreadySelected ? ' (already selected)' : ''}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {entry.registrationId && (
+                            <span className="block mt-1 text-xs text-gray-500">
+                              {rosterSummary(registrationOptions.find((option) => option.id === entry.registrationId)?.raw)}
+                            </span>
+                          )}
+                        </label>
+
+                        {entry.registrationId && (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+                            <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Matches" value={entry.matchesPlayed} onChange={(event) => updateManualTop10(index, 'matchesPlayed', event.target.value)} />
+                            {activeGame === 'valorant' ? (
+                              <>
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Wins" value={entry.wins} onChange={(event) => updateManualTop10(index, 'wins', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Losses" value={entry.losses} onChange={(event) => updateManualTop10(index, 'losses', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Rounds For" value={entry.roundsFor} onChange={(event) => updateManualTop10(index, 'roundsFor', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Rounds Against" value={entry.roundsAgainst} onChange={(event) => updateManualTop10(index, 'roundsAgainst', event.target.value)} />
+                              </>
+                            ) : (
+                              <>
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Kills" value={entry.kills} onChange={(event) => updateManualTop10(index, 'kills', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Placement Pts" value={entry.placementPoints} onChange={(event) => updateManualTop10(index, 'placementPoints', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Kill Pts" value={entry.killPoints} onChange={(event) => updateManualTop10(index, 'killPoints', event.target.value)} />
+                                <input type="number" min="0" className="input-gaming w-full text-sm" placeholder="Total Pts" value={entry.totalPoints} onChange={(event) => updateManualTop10(index, 'totalPoints', event.target.value)} />
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-400">Manual publication supports 1-10 contiguous ranks. Leave all rows blank to publish the derived preview instead.</p>
                 </div>
               )}
 
@@ -1139,11 +1255,15 @@ const AdminGameResults = () => {
                             <tr key={`${standing.rank}-${standing.registrationId || standing.canonicalTeamId}`} className="border-b border-gaming-border/60 text-gray-300">
                               <td className="py-2 pr-3 font-bold text-gaming-gold">#{standing.rank}</td>
                               <td className="py-2 pr-3 text-white">{standing.teamNameSnapshot}</td>
-                              <td className="py-2 pr-3">{standing.matchesPlayed || 0}</td>
-                              <td className="py-2 pr-3">{standing.wins || 0}</td>
-                              <td className="py-2 pr-3">{standing.kills || 0}</td>
-                              <td className="py-2 pr-3">{standing.totalPoints || 0}</td>
-                              <td className="py-2 pr-3">{standing.roundsWon || 0}-{standing.roundsLost || 0}</td>
+                              <td className="py-2 pr-3">{displayStat(standing.matchesPlayed)}</td>
+                              <td className="py-2 pr-3">{displayStat(standing.wins)}</td>
+                              <td className="py-2 pr-3">{displayStat(standing.kills)}</td>
+                              <td className="py-2 pr-3">{displayStat(standing.totalPoints)}</td>
+                              <td className="py-2 pr-3">
+                                {standing.roundsWon === null && standing.roundsLost === null
+                                  ? '-'
+                                  : `${standing.roundsWon ?? 0}-${standing.roundsLost ?? 0}`}
+                              </td>
                             </tr>
                           ))}
                         </tbody>

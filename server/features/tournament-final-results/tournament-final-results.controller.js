@@ -20,6 +20,19 @@ const getPublicFinalResult = async (req, res) => {
   }
 };
 
+const getResultsDirectory = async (req, res) => {
+  try {
+    const directory = await service.getResultsDirectory({
+      gameType: req.query.gameType,
+      page: req.query.page,
+      limit: req.query.limit
+    });
+    res.json({ success: true, data: directory, timestamp: new Date().toISOString() });
+  } catch (error) {
+    sendError(res, error, 'FETCH_TOURNAMENT_RESULTS_DIRECTORY_FAILED');
+  }
+};
+
 const getAdminFinalResult = async (req, res) => {
   try {
     const finalResult = await service.getAdminFinalResult({ tournamentId: req.params.tournamentId });
@@ -69,6 +82,7 @@ const voidFinalResult = async (req, res) => {
 module.exports = {
   getAdminFinalResult,
   getPublicFinalResult,
+  getResultsDirectory,
   previewFinalResult,
   publishFinalResult,
   voidFinalResult

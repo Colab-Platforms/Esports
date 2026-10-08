@@ -9,6 +9,7 @@ import {
   FiDollarSign,
   FiMapPin,
   FiAward,
+  FiExternalLink,
   FiInfo,
   FiKey,
   FiCopy,
@@ -100,6 +101,39 @@ const SingleTournamentPage = () => {
   const [scoreboards, setScoreboards] = useState([]);
   const [finalResult, setFinalResult] = useState(null);
   const [loadingFinalResult, setLoadingFinalResult] = useState(false);
+
+  const finalStatValue = (value) => (
+    finalResult?.source === "manual" && (value === null || value === undefined) ? "-" : (value ?? 0)
+  );
+
+  const teamDisplayName = (team) => team?.teamName || team?.teamNameSnapshot || "Team unavailable";
+
+  const renderResultTeamIdentity = (team, className = "") => {
+    const name = teamDisplayName(team);
+    if (!team?.canonicalTeamId) {
+      return <span className={className}>{name}</span>;
+    }
+
+    return (
+      <Link
+        to={`/team/${team.canonicalTeamId}`}
+        className={`inline-flex min-w-0 items-center gap-2 hover:text-gaming-gold transition-colors ${className}`}
+      >
+        {team.teamLogo ? (
+          <img src={team.teamLogo} alt="" className="h-6 w-6 rounded object-cover shrink-0" />
+        ) : null}
+        <span className="truncate">{name}</span>
+        <FiExternalLink className="h-3 w-3 text-gaming-gold shrink-0" aria-hidden="true" />
+      </Link>
+    );
+  };
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get("tab");
+    if (["general", "results", "teams"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -709,6 +743,7 @@ const SingleTournamentPage = () => {
           const substituteMember = otherMembers.find(m => m.isSubstitute);
 
           const registrationData = {
+            teamId: team._id,
             teamName: team.name,
             teamLeader: {
               name: leaderInfo.name,
@@ -758,6 +793,7 @@ const SingleTournamentPage = () => {
           const substituteMember = otherMembers.find(m => m.isSubstitute);
 
           const registrationData = {
+            teamId: team._id,
             teamName: team.name,
             teamLeader: {
               name: leaderInfo.name,
@@ -1226,11 +1262,16 @@ const SingleTournamentPage = () => {
                         Champion
                       </div>
                       <div className="text-3xl font-display font-bold text-white">
-                        {finalResult.winner.teamNameSnapshot}
+                        {renderResultTeamIdentity(finalResult.winner)}
                       </div>
                       {finalResult.status === "needs_republish" && (
                         <p className="text-yellow-200 text-sm mt-2">
                           Results are pending admin republish after a source correction.
+                        </p>
+                      )}
+                      {finalResult.source && (
+                        <p className="text-xs text-gray-400 mt-2 uppercase tracking-widest">
+                          Source: {finalResult.source}
                         </p>
                       )}
                     </div>
@@ -1240,7 +1281,9 @@ const SingleTournamentPage = () => {
                         {finalResult.podium.map((podiumEntry) => (
                           <div key={`${podiumEntry.rank}-${podiumEntry.registrationId || podiumEntry.canonicalTeamId}`} className="rounded-lg border border-gaming-border bg-gaming-dark/70 p-4">
                             <div className="text-gaming-gold font-bold text-xl">#{podiumEntry.rank}</div>
-                            <div className="text-white font-semibold mt-1">{podiumEntry.teamNameSnapshot}</div>
+                            <div className="text-white font-semibold mt-1">
+                              {renderResultTeamIdentity(podiumEntry)}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1253,6 +1296,7 @@ const SingleTournamentPage = () => {
                             <tr className="text-left text-gray-400 border-b border-gaming-border">
                               <th className="py-3 pr-4">Rank</th>
                               <th className="py-3 pr-4">Team</th>
+                              <th className="py-3 pr-4">Roster</th>
                               <th className="py-3 pr-4">Matches</th>
                               <th className="py-3 pr-4">Wins</th>
                               <th className="py-3 pr-4">Kills</th>
@@ -1264,12 +1308,32 @@ const SingleTournamentPage = () => {
                             {finalResult.standings.map((standing) => (
                               <tr key={`${standing.rank}-${standing.registrationId || standing.canonicalTeamId}`} className="border-b border-gaming-border/60 text-gray-300">
                                 <td className="py-3 pr-4 font-bold text-gaming-gold">#{standing.rank}</td>
-                                <td className="py-3 pr-4 text-white">{standing.teamNameSnapshot}</td>
-                                <td className="py-3 pr-4">{standing.matchesPlayed || 0}</td>
-                                <td className="py-3 pr-4">{standing.wins || 0}</td>
-                                <td className="py-3 pr-4">{standing.kills || 0}</td>
-                                <td className="py-3 pr-4">{standing.totalPoints || 0}</td>
-                                <td className="py-3 pr-4">{standing.roundsWon || 0}-{standing.roundsLost || 0}</td>
+                                <td className="py-3 pr-4 text-white">
+                                  {renderResultTeamIdentity(standing, "font-semibold")}
+                                </td>
+                                <td className="py-3 pr-4 min-w-[220px]">
+                                  {standing.rosterSnapshot?.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {standing.rosterSnapshot.map((member, index) => (
+                                        <span key={`${member.role}-${member.displayName}-${index}`} className="rounded border border-gaming-border bg-gaming-dark/60 px-2 py-1 text-xs text-gray-300">
+                                          {member.displayName || member.gameId}
+                                          {member.role ? <span className="text-gray-500"> · {member.role}</span> : null}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500">Roster unavailable</span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4">{finalStatValue(standing.matchesPlayed)}</td>
+                                <td className="py-3 pr-4">{finalStatValue(standing.wins)}</td>
+                                <td className="py-3 pr-4">{finalStatValue(standing.kills)}</td>
+                                <td className="py-3 pr-4">{finalStatValue(standing.totalPoints)}</td>
+                                <td className="py-3 pr-4">
+                                  {finalResult?.source === "manual" && standing.roundsWon === null && standing.roundsLost === null
+                                    ? "-"
+                                    : `${standing.roundsWon ?? 0}-${standing.roundsLost ?? 0}`}
+                                </td>
                               </tr>
                             ))}
                           </tbody>

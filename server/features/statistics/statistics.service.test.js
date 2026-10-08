@@ -68,6 +68,52 @@ test('invalid team id returns 404-shaped error', async () => {
   );
 });
 
+test('team statistics separates tournament-level final placements from match-level stats', async () => {
+  const teamId = '507f1f77bcf86cd799439011';
+  const result = await getTeamStatistics(teamId, {
+    models: {
+      Team: {
+        findOne: () => chain({
+          _id: teamId,
+          name: 'Final Truth',
+          tag: 'FT',
+          logo: '',
+          game: 'freefire',
+          members: [],
+          maxMembers: 5
+        })
+      },
+      TournamentRegistration: {
+        find: () => chain([{ _id: 'reg-a' }])
+      },
+      FreeFireMatchResult: emptyFindModel(),
+      TournamentFinalResult: {
+        find: () => chain([{
+          tournamentId: { _id: 'tournament-a', name: 'Cup', gameType: 'freefire' },
+          gameType: 'freefire',
+          status: 'published',
+          standings: [{
+            rank: 1,
+            registrationId: 'reg-a',
+            canonicalTeamId: teamId,
+            kills: 0,
+            totalPoints: 20
+          }],
+          publishedAt: '2026-01-02T00:00:00.000Z'
+        }])
+      }
+    }
+  });
+
+  assert.equal(result.overview.verifiedResults, 0);
+  assert.equal(result.overview.tournamentsPlayed, 1);
+  assert.equal(result.overview.tournamentWins, 1);
+  assert.equal(result.overview.top10Finishes, 1);
+  assert.equal(result.tournamentLevel.tournamentKills, 0);
+  assert.equal(result.tournamentLevel.tournamentPoints, 20);
+  assert.equal(result.statistics.performance.matchesPlayed, 0);
+});
+
 test('BGMI team aggregation uses verified team-row fields only', () => {
   const stats = summarizeBgmiTeamResults([
     {

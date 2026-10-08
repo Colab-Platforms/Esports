@@ -36,8 +36,35 @@ const normalizeTeamFromRegistration = (registration) => {
   };
 };
 
+const gameIdsForUser = (user) => [
+  user.gameIds?.bgmi?.uid,
+  user.bgmiUid,
+  user.gameIds?.freefire?.uid,
+  user.freeFireUid,
+  user.gameIds?.valorant?.riotId,
+  typeof user.gameIds?.valorant === 'string' ? user.gameIds.valorant : ''
+]
+  .filter(Boolean)
+  .map((value) => String(value).toLowerCase());
+
+const standingHasUser = (standing, user) => {
+  const roster = standing.rosterSnapshot || [];
+  const userId = toId(user._id);
+  const userGameIds = new Set(gameIdsForUser(user));
+  return roster.some((member) => (
+    toId(member.userId) === userId ||
+    (member.gameId && userGameIds.has(String(member.gameId).toLowerCase()))
+  ));
+};
+
+const normalizeTeamFromStanding = (standing) => ({
+  entityType: standing.canonicalTeamId ? 'team' : 'registration',
+  entityId: toId(standing.canonicalTeamId || standing.registrationId),
+  name: standing.teamNameSnapshot || ''
+});
+
 const normalizeFinalPlacementEvent = ({ finalResult, registration, standing }) => ({
-  id: `tournament-final-result-${toId(finalResult)}-${toId(registration)}`,
+  id: `tournament-final-result-${toId(finalResult)}-${toId(registration || standing.registrationId || standing.canonicalTeamId)}`,
   source: {
     type: 'tournament_final_result',
     id: toId(finalResult)
@@ -48,7 +75,7 @@ const normalizeFinalPlacementEvent = ({ finalResult, registration, standing }) =
     id: toId(finalResult.tournamentId),
     name: finalResult.tournamentId?.name || ''
   },
-  team: normalizeTeamFromRegistration(registration),
+  team: registration ? normalizeTeamFromRegistration(registration) : normalizeTeamFromStanding(standing),
   occurredAt: finalResult.publishedAt || finalResult.updatedAt || finalResult.createdAt,
   status: finalResult.status,
   confidence: CONFIDENCE.VERIFIED_RESULT,
@@ -96,10 +123,18 @@ const getTournamentHistory = async ({ user, limit, models = {} }) => {
   ]);
 
   const registrationIds = registrations.map(toId).filter(Boolean);
-  const finalResults = registrationIds.length > 0
+  const rosterMatch = [
+    { 'standings.rosterSnapshot.userId': user._id },
+    ...gameIdsForUser(user).map((gameId) => ({ 'standings.rosterSnapshot.gameId': new RegExp(`^${gameId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }))
+  ];
+  const finalResultOr = [];
+  if (registrationIds.length > 0) finalResultOr.push({ 'standings.registrationId': { $in: registrationIds } });
+  finalResultOr.push(...rosterMatch);
+
+  const finalResults = finalResultOr.length > 0
     ? await FinalResultModel.find({
       status: { $in: ['published', 'needs_republish'] },
-      'standings.registrationId': { $in: registrationIds }
+      $or: finalResultOr
     })
       .select('tournamentId gameType status standings publishedAt updatedAt createdAt')
       .populate('tournamentId', 'name gameType status startDate endDate')
@@ -114,8 +149,8 @@ const getTournamentHistory = async ({ user, limit, models = {} }) => {
     (finalResult.standings || [])
       .map((standing) => {
         const registration = registrationsById.get(toId(standing.registrationId));
-        if (!registration) return null;
-        registrationIdsWithFinalPlacement.add(toId(registration));
+        if (!registration && !standingHasUser(standing, user)) return null;
+        if (registration) registrationIdsWithFinalPlacement.add(toId(registration));
         return normalizeFinalPlacementEvent({ finalResult, registration, standing });
       })
       .filter(Boolean)

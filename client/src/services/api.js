@@ -213,6 +213,10 @@ class ApiService {
     return this.get(`/api/leaderboards/${encodeURIComponent(gameType)}`, { params });
   }
 
+  async getTournamentResultsDirectory(params = {}) {
+    return this.get('/api/tournaments/results-directory', { params });
+  }
+
   async getTournamentFinalResult(tournamentId) {
     return this.get(`/api/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
   }

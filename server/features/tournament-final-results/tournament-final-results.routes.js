@@ -5,6 +5,7 @@ const controller = require('./tournament-final-results.controller');
 
 const router = express.Router();
 
+router.get('/tournaments/results-directory', controller.getResultsDirectory);
 router.get('/tournaments/:tournamentId/final-results', controller.getPublicFinalResult);
 
 router.get('/admin/tournaments/:tournamentId/final-results', auth, requireResultManager, controller.getAdminFinalResult);

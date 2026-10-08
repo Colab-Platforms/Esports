@@ -3,6 +3,7 @@ const User = require('../../models/User');
 const Team = require('../../models/Team');
 const Tournament = require('../../models/Tournament');
 const TournamentRegistration = require('../../models/TournamentRegistration');
+const TournamentFinalResult = require('../tournament-final-results/tournament-final-result.model');
 const {
   ACTIVE_GAMES,
   COMPLETED_TOURNAMENT_STATUS,
@@ -193,6 +194,60 @@ const getTeamRegistrationIds = async ({ teamId, models }) => {
   return registrations.map(toId).filter(Boolean);
 };
 
+const sumKnown = (items, fieldName) => items.reduce((total, item) => {
+  const value = item[fieldName];
+  return Number.isFinite(Number(value)) ? total + Number(value) : total;
+}, 0);
+
+const getTeamTournamentLevelStatistics = async ({ teamId, registrationIds, models }) => {
+  const FinalResultModel = models.TournamentFinalResult || TournamentFinalResult;
+  const teamIdString = toId(teamId);
+  const registrationIdSet = new Set(registrationIds.map(toId).filter(Boolean));
+  const or = [{ 'standings.canonicalTeamId': teamId }];
+  if (registrationIdSet.size > 0) {
+    or.push({ 'standings.registrationId': { $in: Array.from(registrationIdSet) } });
+  }
+
+  const finalResults = await FinalResultModel.find({
+    status: { $in: ['published', 'needs_republish'] },
+    $or: or
+  })
+    .select('tournamentId gameType status standings publishedAt updatedAt')
+    .populate('tournamentId', 'name gameType')
+    .sort({ publishedAt: -1, updatedAt: -1 })
+    .limit(50)
+    .lean();
+
+  const placements = finalResults.flatMap((result) => (
+    (result.standings || [])
+      .filter((standing) => (
+        toId(standing.canonicalTeamId) === teamIdString ||
+        registrationIdSet.has(toId(standing.registrationId))
+      ))
+      .map((standing) => ({
+        tournament: result.tournamentId ? {
+          id: toId(result.tournamentId),
+          name: result.tournamentId.name || '',
+          gameType: result.tournamentId.gameType || result.gameType
+        } : null,
+        placement: standing.rank,
+        tournamentKills: standing.kills,
+        tournamentPoints: standing.totalPoints,
+        publishedAt: result.publishedAt || result.updatedAt || null
+      }))
+  ));
+
+  return {
+    tournamentsPlayed: placements.length,
+    tournamentWins: placements.filter((placement) => placement.placement === 1).length,
+    podiumFinishes: placements.filter((placement) => Number(placement.placement) <= 3).length,
+    top10Finishes: placements.filter((placement) => Number(placement.placement) <= 10).length,
+    tournamentKills: sumKnown(placements, 'tournamentKills'),
+    tournamentPoints: sumKnown(placements, 'tournamentPoints'),
+    recentTournamentPlacements: placements.slice(0, 5)
+  };
+};
+
 const getTeamStatistics = async (teamId, options = {}) => {
   const models = options.models || {};
   const TeamModel = models.Team || Team;
@@ -213,6 +268,7 @@ const getTeamStatistics = async (teamId, options = {}) => {
   if (!team) throw notFound('Team not found');
 
   const registrationIds = await getTeamRegistrationIds({ teamId, models });
+  const tournamentLevel = await getTeamTournamentLevelStatistics({ teamId, registrationIds, models });
   const game = team.game;
   let gameStats;
 
@@ -239,9 +295,14 @@ const getTeamStatistics = async (teamId, options = {}) => {
     },
     overview: {
       verifiedResults: gameStats?.performance?.matchesPlayed || 0,
-      registrationLinks: registrationIds.length
+      registrationLinks: registrationIds.length,
+      tournamentsPlayed: tournamentLevel.tournamentsPlayed,
+      tournamentWins: tournamentLevel.tournamentWins,
+      podiumFinishes: tournamentLevel.podiumFinishes,
+      top10Finishes: tournamentLevel.top10Finishes
     },
     game,
+    tournamentLevel,
     statistics: gameStats,
     unsupported: [
       'cross_game_rating',

@@ -102,6 +102,47 @@ const formLabel = (item, game) => {
   return '-';
 };
 
+const TournamentLevelStats = ({ stats }) => {
+  if (!stats) return null;
+  const placements = stats.recentTournamentPlacements || [];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Tournament Wins" value={stats.tournamentWins} />
+        <StatCard label="Podiums" value={stats.podiumFinishes} />
+        <StatCard label="Top 10s" value={stats.top10Finishes} />
+        <StatCard label="Tournaments" value={stats.tournamentsPlayed} />
+      </div>
+      {placements.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs uppercase font-semibold text-gray-500">Recent Tournament Placements</p>
+          <div className="space-y-2">
+            {placements.map((placement, index) => {
+              const content = (
+                <>
+                  <span className="text-white font-semibold truncate">{placement.tournament?.name || 'Tournament'}</span>
+                  <span className="text-gaming-gold font-bold shrink-0">#{placement.placement || '-'}</span>
+                </>
+              );
+              const className = "flex items-center justify-between gap-3 rounded-lg border border-gaming-border bg-gaming-charcoal/70 px-3 py-2 hover:border-gaming-gold/60 transition-colors";
+              return placement.tournament?.id ? (
+                <Link key={`${placement.tournament.id}-${placement.placement}`} to={`/tournament/${placement.tournament.id}?tab=results`} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <div key={`placement-${index}`} className={className}>
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RosterCard = ({ member }) => (
   <Link
     to={`/player/${member.user.username}`}
@@ -319,6 +360,11 @@ const TeamCompetitiveProfile = () => {
               ) : (
                 <EmptyState title="No statistics yet" description="Verified result statistics will appear here when available." />
               )}
+            </MotionSection>
+
+            <MotionSection className="card-gaming p-6" delay={0.08}>
+              <SectionHeader title="Tournament Results" icon={FiShield} />
+              <TournamentLevelStats stats={profile.tournamentLevelStatistics} />
             </MotionSection>
 
             <MotionSection className="card-gaming p-6" delay={0.1}>

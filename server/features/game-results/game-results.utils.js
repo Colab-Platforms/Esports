@@ -63,6 +63,17 @@ const riotGameId = (riotId) => {
 };
 
 const rosterSnapshotForRegistration = (registration, gameType) => {
+  if (gameType === 'valorant' && Array.isArray(registration.roster) && registration.roster.length > 0) {
+    return registration.roster
+      .filter((member) => member && (member.username || member.riotId))
+      .map((member) => ({
+        userId: member.userId || null,
+        displayName: member.username || '',
+        gameId: member.riotId || '',
+        role: member.role || ''
+      }));
+  }
+
   const gameIdKey = gameType === 'valorant' ? 'riotId' : gameType === 'freefire' ? 'freeFireId' : 'bgmiId';
   const normalizeGameId = (player) => (
     gameIdKey === 'riotId' ? riotGameId(player?.riotId) : (player?.[gameIdKey] || '')
