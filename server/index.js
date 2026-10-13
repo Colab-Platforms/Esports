@@ -154,6 +154,12 @@ app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/auth/send-email-otp', authLimiter);
 app.use('/api/auth/verify-email-otp', authLimiter);
 
+app.use(
+  '/api/payments/webhooks/razorpay',
+  express.raw({ type: '*/*', limit: '1mb' }),
+  require('./features/payments/payment-webhook.routes')
+);
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -350,6 +356,8 @@ try {
   console.error('❌ Failed to load Valorant Registration routes:', error);
   console.error('❌ Error details:', error.message);
 }
+app.use('/api/registration-intents', require('./features/registration-intents/registration-intent.routes'));
+app.use('/api/payments', require('./features/payments/payment.routes'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.use('/api/debug', require('./routes/debug'));
 app.use('/api/servers', require('./routes/servers'));

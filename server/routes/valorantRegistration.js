@@ -398,6 +398,10 @@ router.get('/admin/registrations', auth, [
       .populate('tournamentId', 'name gameType mode currentParticipants maxParticipants')
       .populate('userId', 'username email')
       .populate('verifiedBy', 'username')
+      .populate({
+        path: 'payment.paymentOrderId',
+        select: 'gateway gatewayOrderId gatewayPaymentId status fulfillmentStatus amountMinor currency capturedAt'
+      })
       .sort({ registeredAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -531,6 +535,18 @@ router.put('/admin/:registrationId/status', auth, [
     }
 
     if (status === 'verified') {
+      const amountMinor = registration.payment?.amountMinor || 0;
+      const paymentStatus = registration.payment?.status || 'not_required';
+      if (amountMinor > 0 && paymentStatus !== 'paid') {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: 'UNPAID_REGISTRATION_CANNOT_BE_APPROVED',
+            message: 'Paid Valorant registrations must have captured payment before approval',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
       await registration.verify(req.user.userId);
 
       try {

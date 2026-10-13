@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const TournamentRegistrationClaim = require('../models/TournamentRegistrationClaim');
+const { assertDirectValorantRegistrationAllowed } = require('./valorant-payment-guard.service');
 
 const ACTIVE_REGISTRATION_STATUSES = ['pending', 'images_uploaded', 'verified'];
 const CLAIM_TYPES = {
@@ -30,8 +31,21 @@ const withSession = (query, session) => (session && query && typeof query.sessio
 
 const isDuplicateKeyError = (error) => error?.code === 11000;
 
-const buildRegistrationClaims = ({ tournamentId, teamId, registrationId, roster }) => {
-  const base = { tournamentId, registrationId };
+const buildRegistrationClaims = ({
+  tournamentId,
+  teamId,
+  registrationId = null,
+  intentId = null,
+  holderType = 'registration',
+  roster
+}) => {
+  const base = {
+    tournamentId,
+    holderType,
+    registrationId: holderType === 'registration' ? registrationId : null,
+    intentId: holderType === 'intent' ? intentId : null,
+    status: 'active'
+  };
   return [
     {
       ...base,
@@ -309,7 +323,8 @@ async function prepareValorantRegistration({
   requesterUserId,
   teamId,
   models,
-  session = null
+  session = null,
+  enforceDirectRegistrationGuard = true
 }) {
   const { Tournament, Team, User, TournamentRegistration } = models;
 
@@ -328,6 +343,10 @@ async function prepareValorantRegistration({
 
   if (tournament.gameType !== 'valorant') {
     throw createRegistrationError('INVALID_GAME_TYPE', 'This endpoint is only for Valorant tournaments');
+  }
+
+  if (enforceDirectRegistrationGuard) {
+    assertDirectValorantRegistrationAllowed(tournament);
   }
 
   if (!tournament.isRegistrationOpen) {
@@ -587,6 +606,7 @@ module.exports = {
   buildRosterSnapshot,
   buildValorantRegistrationSnapshot,
   classifyRegistrationConflicts,
+  createClaims,
   createRegistrationError,
   escapeRegex,
   getRosterMembersFromTeam,

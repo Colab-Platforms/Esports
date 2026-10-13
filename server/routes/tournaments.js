@@ -7,8 +7,61 @@ const Wallet = require('../models/Wallet');
 const WalletService = require('../services/walletService');
 const redisService = require('../services/redisService');
 const auth = require('../middleware/auth');
+const { assertDirectValorantRegistrationAllowed } = require('../services/valorant-payment-guard.service');
+const RegistrationIntent = require('../features/registration-intents/registration-intent.model');
+const {
+  TournamentFeeError,
+  assertTournamentFeeChangeAllowed,
+  getTournamentFeeMinor,
+  normalizeTournamentFeePayload
+} = require('../services/tournament-fee.service');
 
 const router = express.Router();
+
+const sendPaidValorantBypassError = (res, error) => res.status(error.status || 402).json({
+  success: false,
+  error: {
+    code: error.code || 'PAYMENT_REQUIRED',
+    message: error.message || 'Paid Valorant tournaments must use the payment flow',
+    timestamp: new Date().toISOString()
+  }
+});
+
+const sendTournamentFeeError = (res, error) => res.status(error.status || 400).json({
+  success: false,
+  error: {
+    code: error.code || 'INVALID_TOURNAMENT_FEE',
+    message: error.message || 'Invalid tournament fee',
+    timestamp: new Date().toISOString()
+  }
+});
+
+const getTournamentFeeActivityCounts = async (tournamentId) => {
+  const [registrationCount, intentCount] = await Promise.all([
+    TournamentRegistration.countDocuments({ tournamentId }),
+    RegistrationIntent.countDocuments({ tournamentId })
+  ]);
+
+  return { registrationCount, intentCount };
+};
+
+const normalizeTournamentFeeForResponse = (tournament = {}) => {
+  try {
+    const entryFeeAmountMinor = getTournamentFeeMinor(tournament);
+    return {
+      ...tournament,
+      entryFeeAmountMinor,
+      entryFeeCurrency: tournament.entryFeeCurrency || 'INR',
+      entryFeeScope: tournament.entryFeeScope || 'team'
+    };
+  } catch (error) {
+    return {
+      ...tournament,
+      entryFeeCurrency: tournament.entryFeeCurrency || 'INR',
+      entryFeeScope: tournament.entryFeeScope || 'team'
+    };
+  }
+};
 
 // @route   GET /api/tournaments
 // @desc    Get all tournaments with filtering
@@ -160,7 +213,7 @@ router.get('/', [
       if (t._id) {
         t._id = t._id.toString ? t._id.toString() : String(t._id);
       }
-      return t;
+      return normalizeTournamentFeeForResponse(t);
     });
 
     // NOW apply pagination in memory
@@ -572,7 +625,7 @@ router.get('/:id', async (req, res) => {
     ]);
 
     // Convert to plain object for proper JSON serialization
-    const plainTournament = tournament.toObject();
+    const plainTournament = normalizeTournamentFeeForResponse(tournament.toObject());
     
     // Ensure _id is a string for client-side usage
     if (plainTournament._id) {
@@ -798,6 +851,11 @@ router.post('/:id/join-with-players', auth, [
           timestamp: new Date().toISOString()
         }
       });
+    }
+    try {
+      assertDirectValorantRegistrationAllowed(tournament);
+    } catch (error) {
+      return sendPaidValorantBypassError(res, error);
     }
 
     // Only allow for BGMI tournaments
@@ -1064,8 +1122,19 @@ router.post('/', auth, [
       });
     }
 
+    let normalizedFee;
+    try {
+      normalizedFee = normalizeTournamentFeePayload(req.body);
+    } catch (error) {
+      if (error instanceof TournamentFeeError) {
+        return sendTournamentFeeError(res, error);
+      }
+      throw error;
+    }
+
     const tournamentData = {
       ...req.body,
+      ...normalizedFee,
       createdBy: req.user.userId
     };
     
@@ -1270,9 +1339,27 @@ router.put('/:id', auth, async (req, res) => {
       isLiveStreamEnabled: tournament.isLiveStreamEnabled
     });
 
+    let normalizedFee = null;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'entryFee')) {
+      try {
+        normalizedFee = normalizeTournamentFeePayload(req.body);
+        const activityCounts = await getTournamentFeeActivityCounts(tournament._id);
+        assertTournamentFeeChangeAllowed({
+          currentTournament: tournament,
+          nextFeeMinor: normalizedFee.entryFeeAmountMinor,
+          ...activityCounts
+        });
+      } catch (error) {
+        if (error instanceof TournamentFeeError) {
+          return sendTournamentFeeError(res, error);
+        }
+        throw error;
+      }
+    }
+
     // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
-      'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
+      'name', 'description', 'gameType', 'mode', 'format',
       'prizePool', 'prizeDistribution', 'maxParticipants', 'startDate',
       'endDate', 'registrationDeadline', 'status', 'rules',
       'region', 'featured', 'bannerImage', 'tags', 'youtubeVideoId', 'isLiveStreamEnabled',
@@ -1294,6 +1381,16 @@ router.put('/:id', auth, async (req, res) => {
     });
 
     console.log('📝 Updated fields:', updatedFields);
+
+    if (normalizedFee) {
+      ['entryFee', 'entryFeeAmountMinor', 'entryFeeCurrency', 'entryFeeScope'].forEach(field => {
+        const oldValue = tournament[field];
+        const newValue = normalizedFee[field];
+        tournament[field] = newValue;
+        updatedFields.push({ field, oldValue, newValue });
+        console.log(`  Updating ${field}: ${oldValue} -> ${newValue}`);
+      });
+    }
 
     // Handle roomDetails separately to preserve nested structure
     if (req.body.roomDetails) {
@@ -1449,6 +1546,11 @@ router.post('/:id/join-with-team', auth, [
           timestamp: new Date().toISOString()
         }
       });
+    }
+    try {
+      assertDirectValorantRegistrationAllowed(tournament);
+    } catch (error) {
+      return sendPaidValorantBypassError(res, error);
     }
 
     // Only allow for BGMI tournaments
@@ -1710,6 +1812,11 @@ router.post('/:id/join', auth, [
           timestamp: new Date().toISOString()
         }
       });
+    }
+    try {
+      assertDirectValorantRegistrationAllowed(tournament);
+    } catch (error) {
+      return sendPaidValorantBypassError(res, error);
     }
 
     // Commented out to reduce console spam - uncomment for debugging

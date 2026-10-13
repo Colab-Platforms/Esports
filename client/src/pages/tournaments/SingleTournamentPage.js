@@ -32,6 +32,7 @@ import {
 } from "../../utils/cs2ServerStatus";
 import notificationService from "../../services/notificationService";
 import secureRequest from "../../utils/secureRequest";
+import valorantPaymentService from "../../services/valorantPaymentService";
 
 const StatItem = ({ label, icon, children, highlight, green }) => {
   return (
@@ -101,6 +102,13 @@ const SingleTournamentPage = () => {
   const [scoreboards, setScoreboards] = useState([]);
   const [finalResult, setFinalResult] = useState(null);
   const [loadingFinalResult, setLoadingFinalResult] = useState(false);
+  const [paymentFlow, setPaymentFlow] = useState({
+    state: "idle",
+    intentId: null,
+    paymentOrderId: null,
+    registrationId: null,
+    message: "",
+  });
 
   const finalStatValue = (value) => (
     finalResult?.source === "manual" && (value === null || value === undefined) ? "-" : (value ?? 0)
@@ -675,9 +683,101 @@ const SingleTournamentPage = () => {
     setShowTeamSelection(true);
   }, [isAuthenticated, tournament, user, navigate]);
 
+  const setPaymentState = React.useCallback((state, updates = {}) => {
+    setPaymentFlow(prev => ({ ...prev, state, ...updates }));
+  }, []);
+
+  const resetPaymentFlow = React.useCallback(() => {
+    setPaymentFlow({
+      state: "idle",
+      intentId: null,
+      paymentOrderId: null,
+      registrationId: null,
+      message: "",
+    });
+  }, []);
+
+  const mapStatusResponseToPaymentState = React.useCallback((payload) => {
+    const statusData = payload?.data || payload;
+    const intent = statusData?.intent;
+    const paymentOrder = statusData?.paymentOrder;
+    const registration = statusData?.registration;
+    const recovery = statusData?.recovery;
+
+    if (registration?.registrationId) {
+      setPaymentState("paid_pending_admin_review", {
+        registrationId: registration.registrationId,
+        message: "Payment captured. Registration is pending admin review.",
+      });
+      return true;
+    }
+
+    if (paymentOrder?.status === "capture_late_review") {
+      setPaymentState("refund_or_support_required", {
+        message: "Payment needs support review before registration can be confirmed.",
+      });
+      return false;
+    }
+
+    if (
+      recovery?.canCreateNewIntent === false ||
+      paymentOrder?.status === "provider_create_unknown" ||
+      paymentOrder?.status === "provider_create_pending"
+    ) {
+      setPaymentState("payment_pending_confirmation", {
+        message: "This payment attempt needs server reconciliation before checkout can continue.",
+      });
+      return false;
+    }
+
+    if (intent?.status === "expired_unpaid" || intent?.capacityReleased) {
+      setPaymentState("reservation_expired", {
+        message: "This reservation expired before payment confirmation.",
+      });
+      return false;
+    }
+
+    if (paymentOrder?.status === "captured" || paymentOrder?.fulfillmentStatus === "captured_unfulfilled") {
+      setPaymentState("payment_pending_confirmation", {
+        message: "Payment was captured and registration confirmation is still being reconciled.",
+      });
+      return false;
+    }
+
+    setPaymentState("payment_pending_confirmation", {
+      message: "Payment status is not final yet. Please check again shortly.",
+    });
+    return false;
+  }, [setPaymentState]);
+
+  const handleCheckPaymentStatus = React.useCallback(async () => {
+    if (!paymentFlow.intentId) return;
+    setRegistering(true);
+    try {
+      const response = await valorantPaymentService.getRegistrationIntentStatus(paymentFlow.intentId);
+      const fulfilled = mapStatusResponseToPaymentState(response.data || response);
+      if (fulfilled) {
+        notificationService.showCustomNotification(
+          "success",
+          "Payment Confirmed",
+          "Your paid registration is pending admin review.",
+        );
+        setIsUserRegistered(true);
+        fetchRegisteredTeams();
+      }
+    } catch (error) {
+      setPaymentState("payment_pending_confirmation", {
+        message: error.message || "Could not refresh payment status. Please try again.",
+      });
+    } finally {
+      setRegistering(false);
+    }
+  }, [fetchRegisteredTeams, mapStatusResponseToPaymentState, paymentFlow.intentId, setPaymentState]);
+
   const handleRegistrationSuccess = React.useCallback(() => {
     setShowTeamSelection(false);
     setIsUserRegistered(true);
+    resetPaymentFlow();
     fetchRegisteredTeams();
     notificationService.showCustomNotification(
       "success",
@@ -685,11 +785,205 @@ const SingleTournamentPage = () => {
       "You have been successfully registered for the tournament.",
       `/tournaments/${id}`,
     );
-  }, [fetchRegisteredTeams, id]);
+  }, [fetchRegisteredTeams, id, resetPaymentFlow]);
+
+  const isSafelyExpiredAttempt = React.useCallback((attempt) => (
+    attempt?.intent?.intentId &&
+    (attempt.intent.status === "expired_unpaid" || attempt.intent.capacityReleased) &&
+    !attempt.paymentOrder &&
+    attempt.recovery?.canCreateNewIntent
+  ), []);
+
+  const isUnresolvedRecoveredAttempt = React.useCallback((attempt) => {
+    const paymentOrder = attempt?.paymentOrder;
+    return Boolean(
+      attempt?.recovery?.canCreateNewIntent === false ||
+      paymentOrder?.status === "provider_create_unknown" ||
+      paymentOrder?.status === "provider_create_pending" ||
+      paymentOrder?.status === "captured" ||
+      paymentOrder?.status === "capture_late_review" ||
+      paymentOrder?.fulfillmentStatus === "captured_unfulfilled"
+    );
+  }, []);
+
+  const handlePaidValorantRegistration = React.useCallback(async (team, retryAfterSafeExpiry = false) => {
+    if (!tournament || !team) return;
+
+    const amountMinor = valorantPaymentService.amountMinorFromTournament(tournament);
+    if (amountMinor === null) {
+      notificationService.showCustomNotification(
+        "error",
+        "Registration Fee Unavailable",
+        "This tournament fee is not configured correctly. Please contact support.",
+      );
+      return;
+    }
+
+    setRegistering(true);
+    setPaymentState("creating_intent", { message: "Checking for an existing payment attempt..." });
+
+    try {
+      const activeAttemptResponse = await valorantPaymentService.getActiveRegistrationAttempt({
+        tournamentId: tournament._id,
+        teamId: team._id,
+      });
+      const activeAttempt = activeAttemptResponse.data?.data || activeAttemptResponse.data || activeAttemptResponse;
+
+      if (isSafelyExpiredAttempt(activeAttempt)) {
+        setPaymentState("reservation_expired", {
+          message: "Previous unpaid reservation expired. Creating a fresh reservation...",
+        });
+      } else if (activeAttempt?.intent?.intentId) {
+        setPaymentState("payment_pending_confirmation", {
+          intentId: activeAttempt.intent.intentId,
+          paymentOrderId: activeAttempt.paymentOrder?.paymentOrderId || null,
+          message: "Recovered an existing payment attempt for this team.",
+        });
+        if (mapStatusResponseToPaymentState({ data: activeAttempt })) {
+          setRegistering(false);
+          setIsUserRegistered(true);
+          fetchRegisteredTeams();
+          return;
+        }
+        if (isUnresolvedRecoveredAttempt(activeAttempt)) {
+          setRegistering(false);
+          return;
+        }
+      }
+
+      let activeIntentId = isSafelyExpiredAttempt(activeAttempt) ? null : (activeAttempt?.intent?.intentId || null);
+      if (!activeIntentId) {
+        setPaymentState("creating_intent", { message: "Reserving your tournament slot..." });
+        const intentResponse = await valorantPaymentService.createRegistrationIntent({
+          tournamentId: tournament._id,
+          teamId: team._id,
+        });
+        const intentData = intentResponse.data || intentResponse;
+        activeIntentId = intentData.data?.intentId;
+      }
+
+      if (!activeIntentId) throw new Error("Registration intent was not created");
+
+      setPaymentState("creating_order", {
+        intentId: activeIntentId,
+        message: `Creating secure payment order for ${valorantPaymentService.formatInrMinor(amountMinor)}...`,
+      });
+
+      const orderResponse = await valorantPaymentService.createPaymentOrder({ intentId: activeIntentId });
+      const order = orderResponse.data?.data || orderResponse.data || orderResponse;
+      if (!order?.razorpayOrderId || !order?.paymentOrderId || !order?.keyId) {
+        throw new Error("Payment order is not ready for checkout");
+      }
+
+      await valorantPaymentService.loadRazorpayCheckout();
+      setPaymentState("checkout_open", {
+        intentId: activeIntentId,
+        paymentOrderId: order.paymentOrderId,
+        message: "Complete payment in the Razorpay checkout window.",
+      });
+
+      valorantPaymentService.openRazorpayCheckout({
+        order,
+        tournament,
+        user,
+        onSuccess: async (razorpayResponse) => {
+          setRegistering(true);
+          setPaymentState("verifying_payment", {
+            intentId: activeIntentId,
+            paymentOrderId: order.paymentOrderId,
+            message: "Verifying captured payment with the server...",
+          });
+          try {
+            const verifyResponse = await valorantPaymentService.verifyRazorpayPayment({
+              paymentOrderId: order.paymentOrderId,
+              razorpayResponse,
+            });
+            const verifyData = verifyResponse.data || verifyResponse;
+            const registrationId = verifyData.data?.registrationId;
+            setPaymentState("paid_pending_admin_review", {
+              intentId: activeIntentId,
+              paymentOrderId: order.paymentOrderId,
+              registrationId,
+              message: "Payment captured. Registration is pending admin review.",
+            });
+            setIsUserRegistered(true);
+            fetchRegisteredTeams();
+            notificationService.showCustomNotification(
+              "success",
+              "Payment Confirmed",
+              "Your Valorant team is pending admin review.",
+            );
+          } catch (error) {
+            setPaymentState("payment_pending_confirmation", {
+              intentId: activeIntentId,
+              paymentOrderId: order.paymentOrderId,
+              message: error.message || "Payment may have succeeded, but confirmation is still pending.",
+            });
+          } finally {
+            setRegistering(false);
+          }
+        },
+        onDismiss: () => {
+          setPaymentState("payment_pending_confirmation", {
+            intentId: activeIntentId,
+            paymentOrderId: order.paymentOrderId,
+            message: "Checkout closed. If you completed payment, check status before trying again.",
+          });
+          setRegistering(false);
+        },
+        onFailure: (failure) => {
+          setPaymentState("payment_failed", {
+            intentId: activeIntentId,
+            paymentOrderId: order.paymentOrderId,
+            message: failure?.error?.description || "Razorpay reported that the payment failed.",
+          });
+          setRegistering(false);
+        },
+      });
+    } catch (error) {
+      if (
+        !retryAfterSafeExpiry &&
+        error.code === "RESERVATION_EXPIRED" &&
+        error.data?.recovery?.canCreateNewIntent
+      ) {
+        setPaymentState("reservation_expired", {
+          message: "Previous unpaid reservation expired. Creating a fresh reservation...",
+        });
+        await handlePaidValorantRegistration(team, true);
+        return;
+      }
+
+      setPaymentState(
+        error.message?.toLowerCase().includes("expired") ? "reservation_expired" : "payment_failed",
+        { message: error.message || "Unable to start payment checkout." },
+      );
+      notificationService.showCustomNotification(
+        "error",
+        "Payment Setup Failed",
+        error.message || "Unable to start payment checkout",
+      );
+      setRegistering(false);
+    }
+  }, [
+    fetchRegisteredTeams,
+    isSafelyExpiredAttempt,
+    isUnresolvedRecoveredAttempt,
+    mapStatusResponseToPaymentState,
+    setPaymentState,
+    tournament,
+    user,
+  ]);
 
   const handleDirectRegistration = React.useCallback(
     async (team, phoneNumber, memberEdits = {}) => {
       if (!tournament || !team) return;
+      if (tournament.gameType === "valorant") {
+        const amountMinor = valorantPaymentService.amountMinorFromTournament(tournament);
+        if (amountMinor > 0) {
+          await handlePaidValorantRegistration(team);
+          return;
+        }
+      }
       setRegistering(true);
 
       try {
@@ -981,7 +1275,7 @@ const SingleTournamentPage = () => {
         setRegistering(false);
       }
     },
-    [tournament, user, handleRegistrationSuccess],
+    [tournament, user, handleRegistrationSuccess, handlePaidValorantRegistration],
   );
 
   // Early return AFTER all hooks
@@ -1953,7 +2247,14 @@ const SingleTournamentPage = () => {
           tournament={tournament}
           token={localStorage.getItem("token")}
           registering={registering}
-          onClose={() => setShowTeamSelection(false)}
+          paymentState={paymentFlow.state}
+          paymentMessage={paymentFlow.message}
+          paymentAmountMinor={valorantPaymentService.amountMinorFromTournament(tournament)}
+          onCheckPaymentStatus={handleCheckPaymentStatus}
+          onClose={() => {
+            setShowTeamSelection(false);
+            resetPaymentFlow();
+          }}
           onRegister={(team, phoneNumber, memberEdits) =>
             handleDirectRegistration(team, phoneNumber, memberEdits)
           }

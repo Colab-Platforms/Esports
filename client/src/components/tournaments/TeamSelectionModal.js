@@ -7,6 +7,7 @@ import UserAvatar from '../common/UserAvatar';
 import CreateTeamModal from '../teams/CreateTeamModal';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import valorantPaymentService from '../../services/valorantPaymentService';
 
 const GAME_FIELDS = {
   bgmi: { idLabel: 'BGMI UID', nameLabel: 'BGMI IGN', idKey: 'bgmiId', nameKey: 'name' },
@@ -61,7 +62,31 @@ const getGameInfo = (memberUser, gameType) => {
   }
 };
 
-const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegister }) => {
+const PAYMENT_STATE_LABELS = {
+  idle: '',
+  validating_team: 'Validating team',
+  creating_intent: 'Reserving slot',
+  creating_order: 'Creating order',
+  checkout_open: 'Checkout open',
+  verifying_payment: 'Verifying payment',
+  payment_pending_confirmation: 'Payment confirmation pending',
+  paid_pending_admin_review: 'Paid, pending admin review',
+  payment_failed: 'Payment failed',
+  reservation_expired: 'Reservation expired',
+  refund_or_support_required: 'Support review required'
+};
+
+const TeamSelectionModal = ({
+  tournament,
+  token,
+  registering,
+  paymentState = 'idle',
+  paymentMessage = '',
+  paymentAmountMinor = 0,
+  onCheckPaymentStatus,
+  onClose,
+  onRegister
+}) => {
   const user = useSelector(selectUser);
   const dispatch = useDispatch();
   const [teams, setTeams] = useState([]);
@@ -77,6 +102,26 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const gameType = tournament?.gameType;
   const needsPhone = gameType === 'bgmi' || gameType === 'freefire' || gameType === 'ff';
   const fields = GAME_FIELDS[gameType] || GAME_FIELDS.bgmi;
+  const feeInfo = valorantPaymentService.getTournamentFeeInfo({
+    ...tournament,
+    entryFeeAmountMinor: paymentAmountMinor
+  });
+  const requiresPayment = gameType === 'valorant' && feeInfo.requiresPayment;
+  const isPaymentInProgress = [
+    'validating_team',
+    'creating_intent',
+    'creating_order',
+    'checkout_open',
+    'verifying_payment',
+    'payment_pending_confirmation'
+  ].includes(paymentState);
+  const canCheckPaymentStatus = [
+    'payment_pending_confirmation',
+    'checkout_open',
+    'verifying_payment',
+    'refund_or_support_required'
+  ].includes(paymentState);
+  const isPaymentTerminalSuccess = paymentState === 'paid_pending_admin_review';
 
   const selectedTeam = useMemo(() => teams.find(t => t._id === selectedTeamId), [teams, selectedTeamId]);
 
@@ -99,8 +144,9 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     if (gameType === 'valorant') {
       const starters = selectedTeam.members?.filter(m => !m.isSubstitute) || [];
       const substitutes = selectedTeam.members?.filter(m => m.isSubstitute) || [];
-      if (starters.length !== 5) warnings.push('Valorant registration requires exactly 5 starters including the captain');
-      if (substitutes.length !== 1) warnings.push('Valorant registration requires exactly 1 substitute');
+      if (starters.length !== 5 || substitutes.length !== 1) {
+        warnings.push('Five starters and one substitute required');
+      }
       if (!user?.phone || !/^[6-9]\d{9}$/.test(user.phone)) {
         warnings.push('Captain profile must have a valid WhatsApp number');
       }
@@ -121,6 +167,30 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     }
     return warnings;
   }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, gameType, user?.phone]);
+
+  const registrationBlockReason = useMemo(() => {
+    if (!selectedTeam) return 'Select a team';
+    if (feeInfo.isInvalid) return 'Tournament fee is not configured correctly';
+    if (isPaymentTerminalSuccess) return 'Registration already completed';
+    if (paymentState === 'payment_pending_confirmation' || paymentState === 'verifying_payment') {
+      return 'Payment verification pending';
+    }
+    if (paymentState === 'checkout_open') return 'Payment checkout is open';
+    if (paymentState === 'refund_or_support_required') return 'Payment requires support review';
+    if (registering || isPaymentInProgress) return PAYMENT_STATE_LABELS[paymentState] || 'Registration is in progress';
+    if (memberWarnings.length > 0) return memberWarnings[0];
+    return '';
+  }, [
+    selectedTeam,
+    feeInfo.isInvalid,
+    isPaymentTerminalSuccess,
+    paymentState,
+    registering,
+    isPaymentInProgress,
+    memberWarnings
+  ]);
+
+  const isRegisterDisabled = Boolean(registrationBlockReason);
 
   useEffect(() => {
     fetchTeams();
@@ -288,6 +358,52 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
               <p className="text-gray-400 text-xs">Choose a {gameType?.toUpperCase()} team or create a new one</p>
             </div>
           </div>
+
+          {gameType === 'valorant' && (
+            <div className={`rounded-lg p-3 border ${
+              feeInfo.isInvalid
+                ? 'bg-red-900/20 border-red-500/30'
+                : (requiresPayment ? 'bg-gaming-gold/10 border-gaming-gold/40' : 'bg-green-500/10 border-green-500/30')
+            }`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-white text-sm font-semibold">
+                    {feeInfo.isInvalid ? 'Registration fee unavailable' : (requiresPayment ? 'Entry fee per team' : 'Free registration')}
+                  </p>
+                  <p className="text-gray-400 text-xs">
+                    {feeInfo.helperText}
+                  </p>
+                </div>
+                <div className={`text-lg font-bold ${
+                  feeInfo.isInvalid ? 'text-red-300' : (requiresPayment ? 'text-gaming-gold' : 'text-green-400')
+                }`}>
+                  {feeInfo.isInvalid ? 'Unavailable' : valorantPaymentService.formatInrMinor(feeInfo.amountMinor)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {paymentState !== 'idle' && (
+            <div className={`rounded-lg p-3 border ${
+              paymentState === 'paid_pending_admin_review' ? 'bg-green-500/10 border-green-500/30' :
+              paymentState === 'payment_failed' || paymentState === 'reservation_expired' || paymentState === 'refund_or_support_required'
+                ? 'bg-red-500/10 border-red-500/30'
+                : 'bg-blue-500/10 border-blue-500/30'
+            }`}>
+              <p className="text-white text-sm font-semibold">{PAYMENT_STATE_LABELS[paymentState] || 'Payment status'}</p>
+              {paymentMessage && <p className="text-gray-300 text-xs mt-1">{paymentMessage}</p>}
+              {canCheckPaymentStatus && (
+                <button
+                  type="button"
+                  onClick={onCheckPaymentStatus}
+                  disabled={registering}
+                  className="mt-2 px-3 py-1.5 bg-white/10 border border-white/20 text-white rounded text-xs font-medium hover:border-gaming-gold/60 disabled:opacity-50"
+                >
+                  Check payment status
+                </button>
+              )}
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-8 text-gray-400">Loading your teams...</div>
@@ -538,7 +654,14 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-border p-6 flex space-x-3 shrink-0">
+        <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-border p-6 shrink-0">
+          {registrationBlockReason && (
+            <div className="mb-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100 flex items-center gap-2">
+              <FiAlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{registrationBlockReason}</span>
+            </div>
+          )}
+          <div className="flex space-x-3">
           <button
             type="button"
             onClick={onClose}
@@ -550,11 +673,18 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
           <button
             type="button"
             onClick={handleProceed}
-            disabled={!selectedTeam || registering || memberWarnings.length > 0}
+            disabled={isRegisterDisabled}
             className="flex-1 py-2 bg-gaming-gold hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
           >
-            {registering ? 'Registering...' : 'Register Team'}
+            {isPaymentTerminalSuccess
+              ? 'Pending Admin Review'
+              : registering
+                ? PAYMENT_STATE_LABELS[paymentState] || 'Registering...'
+                : requiresPayment
+                  ? `Pay ${valorantPaymentService.formatInrMinor(feeInfo.amountMinor)}`
+                  : 'Register Team'}
           </button>
+          </div>
         </div>
       </motion.div>
     </div>

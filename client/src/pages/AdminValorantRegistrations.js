@@ -4,6 +4,14 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const STATUS_OPTIONS = ['all', 'pending', 'verified', 'rejected'];
 
+const formatInrMinor = (amountMinor = 0) => (
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: amountMinor % 100 === 0 ? 0 : 2
+  }).format((amountMinor || 0) / 100)
+);
+
 const AdminValorantRegistrations = () => {
   const [registrations, setRegistrations] = useState([]);
   const [stats, setStats] = useState({ total: 0, pending: 0, verified: 0, rejected: 0 });
@@ -90,6 +98,22 @@ const AdminValorantRegistrations = () => {
     ];
   };
 
+  const paymentSummary = (reg) => {
+    const payment = reg.payment || {};
+    const order = payment.paymentOrderId && typeof payment.paymentOrderId === 'object'
+      ? payment.paymentOrderId
+      : null;
+    return {
+      amountMinor: payment.amountMinor || 0,
+      status: payment.status || 'not_required',
+      refundStatus: payment.refundStatus || 'not_applicable',
+      gatewayPaymentId: order?.gatewayPaymentId || null,
+      gatewayOrderId: order?.gatewayOrderId || null,
+      orderStatus: order?.status || null,
+      fulfillmentStatus: order?.fulfillmentStatus || null
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gaming-dark p-6">
       <div className="max-w-6xl mx-auto">
@@ -143,6 +167,12 @@ const AdminValorantRegistrations = () => {
           <div className="space-y-4">
             {registrations.map((reg) => (
               <div key={reg._id} className="card-gaming p-5">
+                {(() => {
+                  const payment = paymentSummary(reg);
+                  const isPaidTournamentRegistration = payment.amountMinor > 0;
+                  const canApprove = !isPaidTournamentRegistration || payment.status === 'paid';
+                  return (
+                    <>
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-white font-bold text-lg">{reg.teamName}</h3>
@@ -155,6 +185,29 @@ const AdminValorantRegistrations = () => {
                   }`}>
                     {reg.status === 'verified' ? 'ACCEPTED' : reg.status.toUpperCase()}
                   </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs mb-4">
+                  <div className="bg-white/5 border border-white/10 rounded p-2">
+                    <div className="text-gray-400">Fee</div>
+                    <div className="text-white font-semibold">{formatInrMinor(payment.amountMinor)}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-2">
+                    <div className="text-gray-400">Payment</div>
+                    <div className={payment.status === 'paid' ? 'text-green-400 font-semibold' : 'text-yellow-400 font-semibold'}>
+                      {payment.status.replaceAll('_', ' ').toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-2">
+                    <div className="text-gray-400">Gateway Ref</div>
+                    <div className="text-white font-mono truncate" title={payment.gatewayPaymentId || payment.gatewayOrderId || ''}>
+                      {payment.gatewayPaymentId || payment.gatewayOrderId || 'N/A'}
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-2">
+                    <div className="text-gray-400">Refund/Review</div>
+                    <div className="text-white font-semibold">{payment.refundStatus.replaceAll('_', ' ').toUpperCase()}</div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mb-4">
@@ -170,7 +223,9 @@ const AdminValorantRegistrations = () => {
                   <div className="flex space-x-2">
                     <button
                       onClick={() => updateStatus(reg._id, 'verified')}
-                      className="px-3 py-1.5 bg-green-500/20 border border-green-500 text-green-400 rounded text-sm font-medium hover:bg-green-500/30"
+                      disabled={!canApprove}
+                      title={!canApprove ? 'Paid registration must have captured payment before approval' : 'Accept registration'}
+                      className="px-3 py-1.5 bg-green-500/20 border border-green-500 text-green-400 rounded text-sm font-medium hover:bg-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Accept
                     </button>
@@ -213,6 +268,9 @@ const AdminValorantRegistrations = () => {
                 {reg.status === 'verified' && (
                   <div className="text-xs text-green-400">Accepted by {reg.verifiedBy?.username || 'admin'}</div>
                 )}
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>

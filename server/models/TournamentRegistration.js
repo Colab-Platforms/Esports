@@ -181,6 +181,55 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+
+  // Payment metadata is optional for legacy/free registrations. Paid
+  // registrations will be created only after captured payment in a later
+  // checkpoint; existing registration status enum remains unchanged.
+  payment: {
+    status: {
+      type: String,
+      enum: ['not_required', 'paid', 'refund_pending', 'refunded', 'refund_failed'],
+      default: 'not_required'
+    },
+    amountMinor: {
+      type: Number,
+      default: 0,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: 'Payment amount must be an integer number of paise'
+      }
+    },
+    currency: {
+      type: String,
+      enum: ['INR'],
+      default: 'INR'
+    },
+    feeScope: {
+      type: String,
+      enum: ['team'],
+      default: 'team'
+    },
+    intentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'RegistrationIntent',
+      default: null
+    },
+    paymentOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PaymentOrder',
+      default: null
+    },
+    paidAt: {
+      type: Date,
+      default: null
+    },
+    refundStatus: {
+      type: String,
+      enum: ['not_applicable', 'pending_policy_decision', 'requested', 'processed', 'failed'],
+      default: 'not_applicable'
+    }
+  },
   
   // Timestamps
   registeredAt: {
@@ -203,6 +252,23 @@ tournamentRegistrationSchema.index({ tournamentId: 1, 'roster.userId': 1, status
 tournamentRegistrationSchema.index({ tournamentId: 1, 'roster.normalizedRiotId': 1, status: 1 });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
+tournamentRegistrationSchema.index(
+  { 'payment.intentId': 1 },
+  {
+    unique: true,
+    partialFilterExpression: { 'payment.intentId': { $type: 'objectId' } },
+    name: 'uniq_registration_payment_intent'
+  }
+);
+tournamentRegistrationSchema.index(
+  { 'payment.paymentOrderId': 1 },
+  {
+    unique: true,
+    partialFilterExpression: { 'payment.paymentOrderId': { $type: 'objectId' } },
+    name: 'uniq_registration_payment_order'
+  }
+);
+tournamentRegistrationSchema.index({ tournamentId: 1, 'payment.status': 1 });
 
 // Virtual to check if all images are uploaded (8 images total)
 tournamentRegistrationSchema.virtual('allImagesUploaded').get(function() {
@@ -381,23 +447,34 @@ tournamentRegistrationSchema.post('save', async function(doc) {
     if (doc.$locals?.skipParticipantSync) return;
 
     const Tournament = require('./Tournament');
+    const RegistrationIntent = require('../features/registration-intents/registration-intent.model');
+    const {
+      CAPACITY_HOLDING_INTENT_STATUSES
+    } = require('../features/registration-intents/registration-intent.constants');
     const tournament = await Tournament.findById(doc.tournamentId);
 
     // Participant-count sync applies to bgmi and valorant (both need an
     // accurate currentParticipants/maxParticipants display). Free Fire is
     // intentionally left as-is (pre-existing behavior, unrelated to this change).
     if (tournament && ['bgmi', 'valorant'].includes(tournament.gameType)) {
-      // Count active registrations
       const registrationCount = await this.constructor.countDocuments({
         tournamentId: doc.tournamentId,
         status: { $in: ['pending', 'images_uploaded', 'verified'] }
       });
+      const intentCount = tournament.gameType === 'valorant'
+        ? await RegistrationIntent.countDocuments({
+          tournamentId: doc.tournamentId,
+          status: { $in: CAPACITY_HOLDING_INTENT_STATUSES },
+          'reservation.capacityReserved': true,
+          'reservation.capacityReleased': false
+        })
+        : 0;
 
-      // Update tournament participant count
-      tournament.currentParticipants = registrationCount;
+      const participantCount = registrationCount + intentCount;
+      tournament.currentParticipants = participantCount;
       await tournament.save();
 
-      console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount}`);
+      console.log(`🔄 Updated tournament ${tournament.name} participant count to ${participantCount}`);
 
       // Auto-assign groups if grouping is enabled and this registration doesn't have a group
       // (grouping is a BGMI-specific large-bracket feature; not extended to Valorant for MVP)
@@ -415,20 +492,31 @@ tournamentRegistrationSchema.post('findOneAndDelete', async function(doc) {
   if (doc) {
     try {
       const Tournament = require('./Tournament');
+      const RegistrationIntent = require('../features/registration-intents/registration-intent.model');
+      const {
+        CAPACITY_HOLDING_INTENT_STATUSES
+      } = require('../features/registration-intents/registration-intent.constants');
       const tournament = await Tournament.findById(doc.tournamentId);
 
       if (tournament && ['bgmi', 'valorant'].includes(tournament.gameType)) {
-        // Count active registrations
         const registrationCount = await mongoose.model('TournamentRegistration').countDocuments({
           tournamentId: doc.tournamentId,
           status: { $in: ['pending', 'images_uploaded', 'verified'] }
         });
+        const intentCount = tournament.gameType === 'valorant'
+          ? await RegistrationIntent.countDocuments({
+            tournamentId: doc.tournamentId,
+            status: { $in: CAPACITY_HOLDING_INTENT_STATUSES },
+            'reservation.capacityReserved': true,
+            'reservation.capacityReleased': false
+          })
+          : 0;
         
-        // Update tournament participant count
-        tournament.currentParticipants = registrationCount;
+        const participantCount = registrationCount + intentCount;
+        tournament.currentParticipants = participantCount;
         await tournament.save();
         
-        console.log(`🔄 Updated tournament ${tournament.name} participant count to ${registrationCount} after deletion`);
+        console.log(`🔄 Updated tournament ${tournament.name} participant count to ${participantCount} after deletion`);
       }
     } catch (error) {
       console.error('❌ Error syncing tournament participant count after deletion:', error);

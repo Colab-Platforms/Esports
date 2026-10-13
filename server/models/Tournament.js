@@ -33,7 +33,48 @@ const tournamentSchema = new mongoose.Schema({
     type: Number,
     default: 0, // Free tournaments by default
     min: [0, 'Entry fee cannot be negative'],
-    max: [0, 'All tournaments are free'] // Enforce free tournaments
+    max: [100000, 'All tournaments are free'] // Enforce free tournaments
+  },
+  entryFeeAmountMinor: {
+    type: Number,
+    default: 0,
+    min: [0, 'Entry fee amount cannot be negative'],
+    validate: [
+      {
+        validator: Number.isInteger,
+        message: 'Entry fee amount must be an integer number of paise'
+      },
+      {
+        validator(value) {
+          const entryFee = this.entryFee || 0;
+          return value === Math.round(entryFee * 100);
+        },
+        message: 'Entry fee amount must match the rupee entry fee during the zero-fee compatibility phase'
+      }
+    ]
+  },
+  entryFeeCurrency: {
+    type: String,
+    enum: ['INR'],
+    default: 'INR'
+  },
+  entryFeeScope: {
+    type: String,
+    enum: ['team'],
+    default: 'team'
+  },
+  feeVersion: {
+    type: Number,
+    default: 1,
+    min: [1, 'Fee version must be at least 1'],
+    validate: {
+      validator: Number.isInteger,
+      message: 'Fee version must be an integer'
+    }
+  },
+  feeLockedAt: {
+    type: Date,
+    default: null
   },
   prizePool: {
     type: Number,
@@ -487,6 +528,7 @@ tournamentSchema.virtual('isFull').get(function() {
 tournamentSchema.index({ gameType: 1, status: 1 });
 tournamentSchema.index({ startDate: 1 });
 tournamentSchema.index({ entryFee: 1 });
+tournamentSchema.index({ gameType: 1, status: 1, entryFeeAmountMinor: 1 });
 tournamentSchema.index({ prizePool: -1 });
 tournamentSchema.index({ featured: -1, createdAt: -1 });
 tournamentSchema.index({ 'participants.userId': 1 });

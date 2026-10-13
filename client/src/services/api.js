@@ -93,7 +93,11 @@ class ApiService {
             return data; // Return full response with error details
           }
           
-          throw new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+          const requestError = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
+          requestError.status = response.status;
+          requestError.code = data.error?.code;
+          requestError.data = data;
+          throw requestError;
         }
 
         return data;
