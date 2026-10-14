@@ -23,6 +23,9 @@ const paymentFeatures = {
   paymentReceiptEmailLeaseSeconds: positiveIntegerOrDefault(process.env.PAYMENT_RECEIPT_EMAIL_LEASE_SECONDS, 120),
   paymentReceiptEmailSendTimeoutSeconds: positiveIntegerOrDefault(process.env.PAYMENT_RECEIPT_EMAIL_SEND_TIMEOUT_SECONDS, 30),
   paymentReceiptEmailBatchSize: positiveIntegerOrDefault(process.env.PAYMENT_RECEIPT_EMAIL_BATCH_SIZE, 10),
+  paymentReceiptEmailInProcessEnabled: truthy(process.env.PAYMENT_RECEIPT_EMAIL_IN_PROCESS_ENABLED),
+  paymentReceiptEmailInProcessPollSeconds: positiveIntegerOrDefault(process.env.PAYMENT_RECEIPT_EMAIL_IN_PROCESS_POLL_SECONDS, 60),
+  paymentReceiptEmailInProcessBatchSize: positiveIntegerOrDefault(process.env.PAYMENT_RECEIPT_EMAIL_IN_PROCESS_BATCH_SIZE, 1),
   paymentGateway: process.env.PAYMENT_GATEWAY || 'razorpay',
   registrationIntentTtlMinutes: positiveIntegerOrNull(process.env.REGISTRATION_INTENT_TTL_MINUTES)
 };

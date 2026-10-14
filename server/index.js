@@ -10,6 +10,10 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const compression = require('compression');
+const {
+  startReceiptEmailScheduler,
+  stopReceiptEmailScheduler
+} = require('./features/payments/payment-receipt-email.scheduler');
 
 // Disable all console output globally
 require('./config/console');
@@ -250,12 +254,17 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
     // Check tournaments collection
     const tournamentsCount = await mongoose.connection.collection('tournaments').countDocuments();
     console.log(`🏆 Tournaments in database: ${tournamentsCount}`);
+    startReceiptEmailScheduler();
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
-    console.error('🔍 MongoDB URI:', process.env.MONGODB_URI || 'Using default localhost');
+    console.error('🔍 MongoDB URI:', process.env.MONGODB_URI ? 'Using env variable' : 'Using default localhost');
     console.error('🔍 Check your MongoDB URI and network connection');
-    console.error('🔍 Full error:', err);
+    console.error('🔍 MongoDB error details:', {
+      name: err.name,
+      code: err.code || '',
+      reason: err.reason?.type || ''
+    });
   });
 
 // Socket.io connection handling
@@ -548,3 +557,16 @@ server.listen(PORT, () => {
   // Start tournament status scheduler
   tournamentScheduler.start();
 });
+
+const shutdown = (signal) => {
+  console.log(`Received ${signal}, shutting down gracefully`);
+  stopReceiptEmailScheduler();
+  server.close(() => {
+    mongoose.connection.close(false).finally(() => {
+      process.exit(0);
+    });
+  });
+};
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));

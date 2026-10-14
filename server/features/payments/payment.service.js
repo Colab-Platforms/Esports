@@ -58,6 +58,11 @@ const getGatewayAdapter = (adapter) => adapter || new RazorpayAdapter();
 
 const providerAttemptForPaymentOrder = (paymentOrderId) => `rzp_order_create_${paymentOrderId.toString()}`;
 
+const requestDefaultReceiptEmailScan = (reason) => {
+  const { requestReceiptEmailScan } = require('./payment-receipt-email.scheduler');
+  return requestReceiptEmailScan(reason);
+};
+
 const receiptNumberForPaymentOrder = (paymentOrderId) => (
   `COLAB-VAL-${paymentOrderId.toString().slice(-10).toUpperCase()}`
 );
@@ -614,6 +619,17 @@ const fulfillCapturedPayment = async ({ paymentOrderId, models = {}, options = {
     });
     if (result?.lateCaptureRequiresReview) {
       throw createPaymentError('LATE_CAPTURE_REQUIRES_REVIEW', 'Payment captured after reservation release requires operational review', 409);
+    }
+    if (result?.registration) {
+      const scheduler = options.receiptEmailScheduler || { requestScan: requestDefaultReceiptEmailScan };
+      try {
+        scheduler.requestScan('payment_fulfilled');
+      } catch (scanError) {
+        console.error('payment_receipt_email_wakeup_failed', {
+          code: scanError.code || '',
+          message: scanError.message
+        });
+      }
     }
     return result;
   } catch (error) {

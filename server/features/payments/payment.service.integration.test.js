@@ -578,6 +578,64 @@ test('captured payment fulfills registration exactly once and duplicate verifica
   assert.equal(notificationIntent.recipientEmail, users[0].email);
 });
 
+test('receipt email wake-up is requested after committed fulfillment and does not block payment result', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'wakeup-after-fulfillment' });
+  adapter.addPayment({ id: 'pay_wakeup_after_fulfillment', orderId: paymentOrder.gatewayOrderId });
+  const wakeups = [];
+
+  const result = await verifyRazorpayCheckout({
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    razorpay_order_id: paymentOrder.gatewayOrderId,
+    razorpay_payment_id: 'pay_wakeup_after_fulfillment',
+    razorpay_signature: checkoutSignature(paymentOrder.gatewayOrderId, 'pay_wakeup_after_fulfillment'),
+    gatewayAdapter: adapter,
+    models,
+    options: {
+      ignoreFeatureFlag: true,
+      receiptEmailScheduler: {
+        requestScan: (reason) => wakeups.push(reason)
+      }
+    }
+  });
+
+  assert.equal(result.registration.status, 'pending');
+  assert.deepEqual(wakeups, ['payment_fulfilled']);
+  assert.equal(await TournamentRegistration.countDocuments({ tournamentId: tournament._id }), 1);
+  assert.equal(await PaymentNotificationIntent.countDocuments({ paymentOrderId: paymentOrder._id }), 1);
+});
+
+test('receipt email wake-up errors are isolated from captured payment fulfillment', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'wakeup-error-isolated' });
+  adapter.addPayment({ id: 'pay_wakeup_error_isolated', orderId: paymentOrder.gatewayOrderId });
+
+  const result = await verifyRazorpayCheckout({
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    razorpay_order_id: paymentOrder.gatewayOrderId,
+    razorpay_payment_id: 'pay_wakeup_error_isolated',
+    razorpay_signature: checkoutSignature(paymentOrder.gatewayOrderId, 'pay_wakeup_error_isolated'),
+    gatewayAdapter: adapter,
+    models,
+    options: {
+      ignoreFeatureFlag: true,
+      receiptEmailScheduler: {
+        requestScan: () => {
+          throw new Error('scheduler unavailable');
+        }
+      }
+    }
+  });
+
+  assert.equal(result.registration.status, 'pending');
+  assert.equal(await TournamentRegistration.countDocuments({ tournamentId: tournament._id }), 1);
+  assert.equal(await PaymentNotificationIntent.countDocuments({ paymentOrderId: paymentOrder._id }), 1);
+});
+
 test('duplicate webhook and callback/webhook concurrency do not double fulfill', async () => {
   const { tournament, users, intent } = await createPaidIntent();
   const adapter = new MockRazorpayAdapter();
