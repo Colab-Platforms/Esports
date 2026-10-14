@@ -691,3 +691,192 @@ test('worker rejects targeted execution in production before connecting to Mongo
   delete require.cache[configPath];
   delete require.cache[workerPath];
 });
+
+const withWorkerEnv = async (overrides, fn) => {
+  const keys = [
+    'NODE_ENV',
+    'PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED',
+    'PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED',
+    'PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME',
+    'PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID',
+    'PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY',
+    'MONGODB_URI'
+  ];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(overrides, key)) {
+      const value = overrides[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  const configPath = require.resolve('../../config/paymentFeatures');
+  const workerPath = require.resolve('../../workers/payment-receipt-email.worker');
+  delete require.cache[configPath];
+  delete require.cache[workerPath];
+
+  try {
+    return await fn(require('../../workers/payment-receipt-email.worker'));
+  } finally {
+    Object.entries(previous).forEach(([key, value]) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    });
+    delete require.cache[configPath];
+    delete require.cache[workerPath];
+  }
+};
+
+test('worker refuses batch processing when expected DB name is missing', async () => {
+  const { notificationIntent } = await createReceiptFixture();
+  let processBatchCalls = 0;
+
+  await assert.rejects(
+    () => withWorkerEnv({
+      NODE_ENV: 'development',
+      PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED: 'true',
+      PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED: 'true',
+      PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME: undefined,
+      PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID: undefined,
+      PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY: undefined,
+      MONGODB_URI: replSet.getUri()
+    }, ({ runOnce }) => runOnce({
+      services: {
+        processReceiptNotificationBatch: async () => {
+          processBatchCalls += 1;
+          return [{ action: 'sent' }];
+        }
+      }
+    })),
+    /PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME is required/
+  );
+
+  const unchanged = await PaymentNotificationIntent.findById(notificationIntent._id);
+  assert.equal(processBatchCalls, 0);
+  assert.equal(unchanged.status, 'pending');
+  assert.equal(unchanged.attempts, 0);
+});
+
+test('worker refuses batch processing when connected DB name does not match expected DB name', async () => {
+  const { notificationIntent } = await createReceiptFixture();
+  let processBatchCalls = 0;
+
+  await assert.rejects(
+    () => withWorkerEnv({
+      NODE_ENV: 'development',
+      PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED: 'true',
+      PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED: 'true',
+      PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME: 'wrong-db',
+      PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID: undefined,
+      PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY: undefined,
+      MONGODB_URI: replSet.getUri()
+    }, ({ runOnce }) => runOnce({
+      services: {
+        processReceiptNotificationBatch: async () => {
+          processBatchCalls += 1;
+          return [{ action: 'sent' }];
+        }
+      }
+    })),
+    /unexpected database "receipt_email_delivery"/
+  );
+
+  const unchanged = await PaymentNotificationIntent.findById(notificationIntent._id);
+  assert.equal(processBatchCalls, 0);
+  assert.equal(unchanged.status, 'pending');
+  assert.equal(unchanged.attempts, 0);
+});
+
+test('worker permits batch processing when connected DB name matches expected DB name', async () => {
+  const { notificationIntent } = await createReceiptFixture();
+  const sender = new MockReceiptEmailSender();
+
+  await withWorkerEnv({
+    NODE_ENV: 'development',
+    PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED: 'true',
+    PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED: 'true',
+    PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME: 'receipt_email_delivery',
+    PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID: undefined,
+    PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY: undefined,
+    MONGODB_URI: replSet.getUri()
+  }, ({ runOnce }) => runOnce({
+    services: {
+      processReceiptNotificationBatch: () => processReceiptNotificationBatch({
+        sender,
+        options: { ignoreFeatureFlag: true, batchSize: 1 }
+      })
+    }
+  }));
+
+  const updated = await PaymentNotificationIntent.findById(notificationIntent._id);
+  assert.equal(sender.calls.length, 1);
+  assert.equal(updated.status, 'sent');
+});
+
+test('worker targeted read-only preflight remains compatible without expected DB name', async () => {
+  const { notificationIntent } = await createReceiptFixture();
+  let preflightCalls = 0;
+  let batchCalls = 0;
+
+  await withWorkerEnv({
+    NODE_ENV: 'development',
+    PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED: 'true',
+    PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED: 'false',
+    PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME: undefined,
+    PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID: notificationIntent._id.toString(),
+    PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY: 'true',
+    MONGODB_URI: replSet.getUri()
+  }, ({ runOnce }) => runOnce({
+    services: {
+      preflightReceiptNotification: async ({ notificationIntentId }) => {
+        preflightCalls += 1;
+        return preflightReceiptNotification({ notificationIntentId });
+      },
+      processReceiptNotificationBatch: async () => {
+        batchCalls += 1;
+        return [{ action: 'unexpected_batch' }];
+      }
+    }
+  }));
+
+  const unchanged = await PaymentNotificationIntent.findById(notificationIntent._id);
+  assert.equal(preflightCalls, 1);
+  assert.equal(batchCalls, 0);
+  assert.equal(unchanged.status, 'pending');
+  assert.equal(unchanged.attempts, 0);
+});
+
+test('worker batch processing excludes already-sent notifications', async () => {
+  const { notificationIntent } = await createReceiptFixture({
+    notificationOverrides: {
+      status: 'sent',
+      sentAt: new Date(),
+      providerMessageId: 'email_already_sent'
+    }
+  });
+  const sender = new MockReceiptEmailSender();
+
+  await withWorkerEnv({
+    NODE_ENV: 'development',
+    PAYMENT_RECEIPT_EMAIL_WORKER_ENABLED: 'true',
+    PAYMENT_RECEIPT_EMAIL_DELIVERY_ENABLED: 'true',
+    PAYMENT_RECEIPT_EMAIL_EXPECTED_DB_NAME: 'receipt_email_delivery',
+    PAYMENT_RECEIPT_EMAIL_TARGET_NOTIFICATION_ID: undefined,
+    PAYMENT_RECEIPT_EMAIL_PREFLIGHT_ONLY: undefined,
+    MONGODB_URI: replSet.getUri()
+  }, ({ runOnce }) => runOnce({
+    services: {
+      processReceiptNotificationBatch: () => processReceiptNotificationBatch({
+        sender,
+        options: { ignoreFeatureFlag: true, batchSize: 1 }
+      })
+    }
+  }));
+
+  const unchanged = await PaymentNotificationIntent.findById(notificationIntent._id);
+  assert.equal(sender.calls.length, 0);
+  assert.equal(unchanged.status, 'sent');
+  assert.equal(unchanged.providerMessageId, 'email_already_sent');
+});
