@@ -2,10 +2,12 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 
 const RegistrationIntent = require('../registration-intents/registration-intent.model');
+const { releaseReservedIntent } = require('../registration-intents/registration-intent.service');
 const PaymentOrder = require('./payment-order.model');
 const PaymentEvent = require('./payment-event.model');
 const PaymentReceipt = require('./payment-receipt.model');
 const PaymentNotificationIntent = require('./payment-notification-intent.model');
+const Tournament = require('../../models/Tournament');
 const TournamentRegistration = require('../../models/TournamentRegistration');
 const TournamentRegistrationClaim = require('../../models/TournamentRegistrationClaim');
 const User = require('../../models/User');
@@ -114,6 +116,64 @@ const assertProviderOrderMatchesLocalOrder = ({ providerOrder, localOrder }) => 
   if (providerOrder.receipt && providerOrder.receipt !== localOrder.providerReceipt) {
     throw createPaymentError('PROVIDER_ORDER_RECEIPT_MISMATCH', 'Provider order receipt does not match the local order', 409);
   }
+};
+
+const paymentIsCaptured = (payment = {}) => (
+  payment.status === 'captured' || payment.captured === true
+);
+
+const paymentIsAuthorized = (payment = {}) => payment.status === 'authorized';
+
+const fetchAllOrderPayments = async ({ adapter, gatewayOrderId }) => {
+  if (typeof adapter.fetchOrderPayments !== 'function') {
+    throw createPaymentError(
+      'PROVIDER_ORDER_PAYMENTS_UNAVAILABLE',
+      'Provider adapter cannot fetch order payments',
+      503
+    );
+  }
+
+  const pageSize = 100;
+  const firstPage = await adapter.fetchOrderPayments(gatewayOrderId, { count: pageSize, skip: 0 });
+  if (!firstPage || !Array.isArray(firstPage.items)) {
+    throw createPaymentError(
+      'PROVIDER_ORDER_PAYMENTS_UNREADABLE',
+      'Provider order payments response is not readable',
+      503
+    );
+  }
+
+  const items = [...firstPage.items];
+  const expectedCount = Number(firstPage.count);
+  if (!Number.isInteger(expectedCount) || expectedCount < 0) {
+    throw createPaymentError(
+      'PROVIDER_ORDER_PAYMENTS_COUNT_UNKNOWN',
+      'Provider order payments count is unavailable',
+      503
+    );
+  }
+
+  while (items.length < expectedCount) {
+    const page = await adapter.fetchOrderPayments(gatewayOrderId, { count: pageSize, skip: items.length });
+    if (!page || !Array.isArray(page.items) || page.items.length === 0) {
+      throw createPaymentError(
+        'PROVIDER_ORDER_PAYMENTS_PAGINATION_INCOMPLETE',
+        'Provider order payments pagination could not be completed',
+        503
+      );
+    }
+    items.push(...page.items);
+  }
+
+  if (items.length > expectedCount) {
+    throw createPaymentError(
+      'PROVIDER_ORDER_PAYMENTS_PAGINATION_MISMATCH',
+      'Provider order payments pagination returned an unexpected count',
+      503
+    );
+  }
+
+  return items;
 };
 
 const assertOrderCreationEnabled = (options = {}) => {
@@ -403,6 +463,260 @@ const createPaymentOrder = async ({
     reused: false,
     checkout: checkoutPayloadForOrder({ order: paymentOrder, adapter })
   };
+};
+
+const recoverExpiredAbandonedCheckout = async ({
+  intentId,
+  requesterUserId = null,
+  paymentOrderId = null,
+  gatewayAdapter,
+  models = {},
+  options = {}
+}) => {
+  const IntentModel = models.RegistrationIntent || RegistrationIntent;
+  const PaymentOrderModel = models.PaymentOrder || PaymentOrder;
+  const PaymentEventModel = models.PaymentEvent || PaymentEvent;
+  const RegistrationModel = models.TournamentRegistration || TournamentRegistration;
+  const TournamentModel = models.Tournament || Tournament;
+  const ClaimModel = models.ClaimModel || TournamentRegistrationClaim;
+  const adapter = getGatewayAdapter(gatewayAdapter);
+
+  const intentCriteria = { _id: intentId };
+  if (requesterUserId) intentCriteria.captainUserId = requesterUserId;
+  const intent = await IntentModel.findOne(intentCriteria);
+  if (!intent) {
+    throw createPaymentError('INTENT_NOT_FOUND', 'Registration intent not found', 404);
+  }
+
+  if (!intent.reservation?.capacityReserved || intent.reservation?.capacityReleased) {
+    return { intent, expired: false, reason: 'reservation_not_live' };
+  }
+  if (intent.reservation.expiresAt > new Date()) {
+    return { intent, expired: false, reason: 'reservation_not_expired' };
+  }
+  if (!['reserved', 'payment_order_created'].includes(intent.status)) {
+    return { intent, expired: false, reason: 'intent_state_requires_reconciliation' };
+  }
+
+  const orderCriteria = paymentOrderId ? { _id: paymentOrderId, intentId: intent._id } : { intentId: intent._id, isLiveOrder: true };
+  const paymentOrder = await PaymentOrderModel.findOne(orderCriteria).sort({ createdAt: -1 });
+  if (!paymentOrder) {
+    return { intent, expired: false, reason: 'payment_order_not_found' };
+  }
+
+  if (
+    paymentOrder.status !== 'created' ||
+    !paymentOrder.isLiveOrder ||
+    !paymentOrder.gatewayOrderId ||
+    paymentOrder.gatewayPaymentId ||
+    paymentOrder.fulfillmentStatus !== 'not_started'
+  ) {
+    return {
+      intent,
+      paymentOrder,
+      expired: false,
+      reason: 'payment_order_state_requires_reconciliation'
+    };
+  }
+
+  const [eventCount, existingRegistration] = await Promise.all([
+    PaymentEventModel.countDocuments({
+      $or: [
+        { intentId: intent._id },
+        { paymentOrderId: paymentOrder._id },
+        { gatewayOrderId: paymentOrder.gatewayOrderId }
+      ]
+    }),
+    RegistrationModel.findOne({
+      $or: [
+        { 'payment.intentId': intent._id },
+        { 'payment.paymentOrderId': paymentOrder._id }
+      ]
+    })
+  ]);
+
+  if (eventCount > 0) {
+    return {
+      intent,
+      paymentOrder,
+      expired: false,
+      reason: 'payment_event_requires_reconciliation',
+      paymentEventCount: eventCount
+    };
+  }
+  if (existingRegistration) {
+    return {
+      intent,
+      paymentOrder,
+      registration: existingRegistration,
+      expired: false,
+      reason: 'registration_already_exists'
+    };
+  }
+
+  let providerOrder;
+  let providerPayments;
+  try {
+    providerOrder = await adapter.fetchOrder(paymentOrder.gatewayOrderId);
+    assertProviderOrderMatchesLocalOrder({ providerOrder, localOrder: paymentOrder });
+    providerPayments = await fetchAllOrderPayments({ adapter, gatewayOrderId: paymentOrder.gatewayOrderId });
+  } catch (error) {
+    return {
+      intent,
+      paymentOrder,
+      expired: false,
+      reason: 'provider_state_unavailable',
+      error: error.message
+    };
+  }
+
+  const capturedPayment = providerPayments.find(paymentIsCaptured);
+  if (capturedPayment) {
+    if (
+      capturedPayment.order_id !== paymentOrder.gatewayOrderId ||
+      capturedPayment.amount !== paymentOrder.amountMinor ||
+      capturedPayment.currency !== paymentOrder.currency
+    ) {
+      return {
+        intent,
+        paymentOrder,
+        expired: false,
+        reason: 'provider_payment_mismatch_requires_reconciliation',
+        providerOrder: sanitizeOrder(providerOrder),
+        providerPaymentCount: providerPayments.length
+      };
+    }
+
+    await markPaymentCaptured({ paymentOrder, payment: capturedPayment, models, options });
+    const fulfillment = await fulfillCapturedPayment({ paymentOrderId: paymentOrder._id, models, options });
+    return {
+      intent: await IntentModel.findById(intent._id),
+      paymentOrder: await PaymentOrderModel.findById(paymentOrder._id),
+      registration: fulfillment.registration,
+      expired: false,
+      fulfilled: true,
+      reason: 'captured_payment_recovered'
+    };
+  }
+
+  if (providerPayments.some(paymentIsAuthorized)) {
+    return {
+      intent,
+      paymentOrder,
+      expired: false,
+      reason: 'authorized_payment_requires_reconciliation',
+      providerOrder: sanitizeOrder(providerOrder),
+      providerPaymentCount: providerPayments.length
+    };
+  }
+
+  if (
+    providerOrder.status !== 'created' ||
+    Number(providerOrder.amount_paid || 0) !== 0 ||
+    Number(providerOrder.attempts || 0) !== 0 ||
+    providerPayments.length !== 0
+  ) {
+    return {
+      intent,
+      paymentOrder,
+      expired: false,
+      reason: 'provider_order_not_abandoned',
+      providerOrder: sanitizeOrder(providerOrder),
+      providerPaymentCount: providerPayments.length
+    };
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    let released;
+    await session.withTransaction(async () => {
+      const [freshIntent, freshOrder, freshEventCount, freshRegistration] = await Promise.all([
+        IntentModel.findOne({
+          _id: intent._id,
+          status: { $in: ['reserved', 'payment_order_created'] },
+          'reservation.capacityReserved': true,
+          'reservation.capacityReleased': false
+        }).session(session),
+        PaymentOrderModel.findOne({
+          _id: paymentOrder._id,
+          intentId: intent._id,
+          status: 'created',
+          isLiveOrder: true,
+          gatewayOrderId: paymentOrder.gatewayOrderId,
+          gatewayPaymentId: null,
+          fulfillmentStatus: 'not_started'
+        }).session(session),
+        PaymentEventModel.countDocuments({
+          $or: [
+            { intentId: intent._id },
+            { paymentOrderId: paymentOrder._id },
+            { gatewayOrderId: paymentOrder.gatewayOrderId }
+          ]
+        }).session(session),
+        RegistrationModel.findOne({
+          $or: [
+            { 'payment.intentId': intent._id },
+            { 'payment.paymentOrderId': paymentOrder._id }
+          ]
+        }).session(session)
+      ]);
+
+      if (!freshIntent || !freshOrder || freshEventCount > 0 || freshRegistration) {
+        return;
+      }
+
+      await PaymentOrderModel.updateOne(
+        {
+          _id: freshOrder._id,
+          status: 'created',
+          isLiveOrder: true,
+          gatewayPaymentId: null,
+          fulfillmentStatus: 'not_started'
+        },
+        {
+          $set: {
+            status: 'cancelled',
+            isLiveOrder: false,
+            providerOrder: sanitizeOrder(providerOrder),
+            lastVerifiedAt: new Date(),
+            lastError: 'Abandoned checkout recovered after provider confirmed zero payments'
+          }
+        },
+        { session }
+      );
+
+      released = await releaseReservedIntent({
+        intentId: freshIntent._id,
+        releaseReason: 'expired_unpaid_abandoned_checkout',
+        terminalStatus: 'expired_unpaid',
+        allowedStatuses: ['reserved', 'payment_order_created'],
+        models: {
+          Tournament: TournamentModel,
+          RegistrationIntent: IntentModel,
+          ClaimModel
+        },
+        session
+      });
+    });
+
+    if (released) {
+      return {
+        intent: released,
+        paymentOrder: await PaymentOrderModel.findById(paymentOrder._id),
+        expired: true,
+        reason: 'abandoned_checkout_recovered'
+      };
+    }
+
+    return {
+      intent: await IntentModel.findById(intent._id),
+      paymentOrder: await PaymentOrderModel.findById(paymentOrder._id),
+      expired: false,
+      reason: 'state_changed_before_recovery'
+    };
+  } finally {
+    await session.endSession();
+  }
 };
 
 const createRegistrationFromIntent = (intent, registrationId) => ({
@@ -960,6 +1274,7 @@ module.exports = {
   handleRazorpayWebhook,
   processPaymentEvent,
   reconcilePayments,
+  recoverExpiredAbandonedCheckout,
   sanitizeOrder,
   sanitizePayment,
   verifyRazorpayCheckout

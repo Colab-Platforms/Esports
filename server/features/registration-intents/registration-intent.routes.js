@@ -16,7 +16,8 @@ const {
   expireIntentIfSafelyUnpaid
 } = require('./registration-intent.service');
 const {
-  createPaymentOrder
+  createPaymentOrder,
+  recoverExpiredAbandonedCheckout
 } = require('../payments/payment.service');
 
 const router = express.Router();
@@ -97,6 +98,55 @@ const sendReservationExpiredError = async ({ req, res, error }) => {
       recovery.reason === 'payment_event_requires_reconciliation' ||
       recovery.reason === 'captured_payment_event_requires_reconciliation'
     ) {
+      if (recovery.reason === 'payment_order_requires_reconciliation' && recovery.paymentOrder?._id) {
+        const abandonedRecovery = await recoverExpiredAbandonedCheckout({
+          intentId: req.params.intentId,
+          requesterUserId: req.user.userId,
+          paymentOrderId: recovery.paymentOrder._id,
+          models
+        });
+
+        if (abandonedRecovery.expired) {
+          return res.status(409).json({
+            success: false,
+            error: {
+              code: error.code,
+              message: 'Previous payment attempt expired safely. Please start a new payment attempt.',
+              timestamp: new Date().toISOString()
+            },
+            recovery: {
+              canCreateNewIntent: true,
+              reason: abandonedRecovery.reason,
+              intentId: abandonedRecovery.intent?._id,
+              paymentOrderId: abandonedRecovery.paymentOrder?._id,
+              paymentOrderStatus: abandonedRecovery.paymentOrder?.status,
+              status: abandonedRecovery.intent?.status
+            }
+          });
+        }
+
+        if (abandonedRecovery.fulfilled) {
+          return res.status(409).json({
+            success: false,
+            error: {
+              code: 'PAYMENT_CAPTURE_RECOVERED',
+              message: 'Payment was recovered and registration is pending admin review. Please refresh registration status.',
+              timestamp: new Date().toISOString()
+            },
+            recovery: {
+              canCreateNewIntent: false,
+              reason: abandonedRecovery.reason,
+              intentId: abandonedRecovery.intent?._id,
+              paymentOrderId: abandonedRecovery.paymentOrder?._id,
+              registrationId: abandonedRecovery.registration?._id
+            }
+          });
+        }
+
+        recovery.reason = abandonedRecovery.reason || recovery.reason;
+        recovery.paymentOrder = abandonedRecovery.paymentOrder || recovery.paymentOrder;
+      }
+
       return res.status(409).json({
         success: false,
         error: {

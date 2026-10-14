@@ -246,6 +246,7 @@ const releaseReservedIntent = async ({
   requesterUserId = null,
   releaseReason,
   terminalStatus,
+  allowedStatuses = ['reserved'],
   models,
   session
 }) => {
@@ -257,7 +258,7 @@ const releaseReservedIntent = async ({
 
   const criteria = {
     _id: intentId,
-    status: 'reserved',
+    status: { $in: allowedStatuses },
     'reservation.capacityReserved': true,
     'reservation.capacityReleased': false
   };

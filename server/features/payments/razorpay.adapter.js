@@ -107,9 +107,9 @@ class RazorpayAdapter {
     return this.client.orders.all({ receipt, count: 10 });
   }
 
-  async fetchOrderPayments(orderId) {
+  async fetchOrderPayments(orderId, options = {}) {
     if (!this.client.orders?.fetchPayments) return null;
-    return this.client.orders.fetchPayments(orderId);
+    return this.client.orders.fetchPayments(orderId, options);
   }
 
   async fetchPayment(paymentId) {

@@ -21,6 +21,7 @@ const {
 const {
   createPaymentOrder,
   handleRazorpayWebhook,
+  recoverExpiredAbandonedCheckout,
   reconcilePayments,
   verifyRazorpayCheckout
 } = require('./payment.service');
@@ -95,8 +96,16 @@ class MockRazorpayAdapter {
     return { entity: 'collection', count: items.length, items };
   }
 
-  async fetchOrderPayments(orderId) {
+  async fetchOrderPayments(orderId, options = {}) {
     const items = Array.from(this.payments.values()).filter((payment) => payment.order_id === orderId);
+    if (this.incompletePaymentPagination) {
+      return { entity: 'collection', count: items.length + 1, items };
+    }
+    if (Number.isInteger(options.skip) || Number.isInteger(options.count)) {
+      const skip = options.skip || 0;
+      const count = options.count || items.length;
+      return { entity: 'collection', count: items.length, items: items.slice(skip, skip + count) };
+    }
     return { entity: 'collection', count: items.length, items };
   }
 
@@ -874,4 +883,202 @@ test('expired unpaid reservation releases; provider-order reservation is retaine
   const retained = await expireDueUnpaidIntents({ models, now: new Date() });
   assert.equal(retained.some((entry) => entry.reason === 'payment_order_requires_reconciliation'), true);
   assert.equal((await RegistrationIntent.findById(second.intent._id)).reservation.capacityReleased, false);
+});
+
+test('expired created Razorpay order with zero provider payments releases capacity and claims once', async () => {
+  const { tournament, users, team, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'abandoned-zero-payments' });
+  await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+
+  const recovery = await recoverExpiredAbandonedCheckout({
+    intentId: intent._id,
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    gatewayAdapter: adapter,
+    models,
+    options: { ignoreFeatureFlag: true }
+  });
+
+  assert.equal(recovery.expired, true);
+  assert.equal(recovery.reason, 'abandoned_checkout_recovered');
+  const recoveredOrder = await PaymentOrder.findById(paymentOrder._id);
+  assert.equal(recoveredOrder.status, 'cancelled');
+  assert.equal(recoveredOrder.isLiveOrder, false);
+  assert.equal((await RegistrationIntent.findById(intent._id)).reservation.capacityReleased, true);
+  assert.equal(await TournamentRegistrationClaim.countDocuments({ intentId: intent._id }), 0);
+  assert.equal((await Tournament.findById(tournament._id)).currentParticipants, 0);
+
+  const fresh = await createRegistrationIntent({
+    requesterUserId: users[0]._id,
+    gameType: 'valorant',
+    tournamentId: tournament._id,
+    teamId: team._id,
+    idempotencyKey: 'fresh-after-abandoned-recovery',
+    models,
+    options: { ignoreCheckoutFeatureFlag: true, ttlMinutes: 15 }
+  });
+  assert.equal(fresh.intent.status, 'reserved');
+  assert.equal((await Tournament.findById(tournament._id)).currentParticipants, 1);
+});
+
+test('abandoned checkout recovery is idempotent under concurrent requests', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'abandoned-concurrent' });
+  await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+
+  const results = await Promise.all([
+    recoverExpiredAbandonedCheckout({ intentId: intent._id, requesterUserId: users[0]._id, paymentOrderId: paymentOrder._id, gatewayAdapter: adapter, models, options: { ignoreFeatureFlag: true } }),
+    recoverExpiredAbandonedCheckout({ intentId: intent._id, requesterUserId: users[0]._id, paymentOrderId: paymentOrder._id, gatewayAdapter: adapter, models, options: { ignoreFeatureFlag: true } })
+  ]);
+
+  assert.equal(results.filter((result) => result.expired).length, 1);
+  assert.equal((await Tournament.findById(tournament._id)).currentParticipants, 0);
+  assert.equal(await TournamentRegistrationClaim.countDocuments({ intentId: intent._id }), 0);
+  assert.equal((await PaymentOrder.findById(paymentOrder._id)).isLiveOrder, false);
+});
+
+test('captured payment discovered during abandoned recovery fulfills through existing flow', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'abandoned-captured' });
+  await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+  adapter.addPayment({ id: 'pay_recovered_from_abandoned', orderId: paymentOrder.gatewayOrderId });
+
+  const recovery = await recoverExpiredAbandonedCheckout({
+    intentId: intent._id,
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    gatewayAdapter: adapter,
+    models,
+    options: { ignoreFeatureFlag: true }
+  });
+
+  assert.equal(recovery.fulfilled, true);
+  assert.equal(recovery.reason, 'captured_payment_recovered');
+  assert.equal(await TournamentRegistration.countDocuments({ tournamentId: tournament._id }), 1);
+  assert.equal((await PaymentOrder.findById(paymentOrder._id)).status, 'captured');
+  assert.equal((await PaymentOrder.findById(paymentOrder._id)).fulfillmentStatus, 'fulfilled');
+});
+
+test('authorized, failed, pending, timeout, and pagination uncertainty do not release abandoned orders', async () => {
+  const cases = [
+    {
+      name: 'authorized',
+      prepare: ({ adapter, paymentOrder }) => adapter.addPayment({ id: 'pay_auth_abandoned', orderId: paymentOrder.gatewayOrderId, status: 'authorized' }),
+      reason: 'authorized_payment_requires_reconciliation'
+    },
+    {
+      name: 'failed',
+      prepare: ({ adapter, paymentOrder }) => adapter.addPayment({ id: 'pay_failed_abandoned', orderId: paymentOrder.gatewayOrderId, status: 'failed' }),
+      reason: 'provider_order_not_abandoned'
+    },
+    {
+      name: 'pending',
+      prepare: ({ adapter, paymentOrder }) => adapter.addPayment({ id: 'pay_pending_abandoned', orderId: paymentOrder.gatewayOrderId, status: 'created' }),
+      reason: 'provider_order_not_abandoned'
+    },
+    {
+      name: 'timeout',
+      prepare: ({ adapter }) => {
+        adapter.fetchOrder = async () => {
+          throw Object.assign(new Error('provider timeout'), { code: 'ETIMEDOUT' });
+        };
+      },
+      reason: 'provider_state_unavailable'
+    },
+    {
+      name: 'incomplete-pagination',
+      prepare: ({ adapter }) => {
+        adapter.incompletePaymentPagination = true;
+      },
+      reason: 'provider_state_unavailable'
+    }
+  ];
+
+  for (const [index, testCase] of cases.entries()) {
+    const { users, intent } = await createPaidIntent();
+    const adapter = new MockRazorpayAdapter();
+    adapter.createOrderCalls = index * 10;
+    const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: `abandoned-${testCase.name}` });
+    await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+    testCase.prepare({ adapter, paymentOrder });
+
+    const recovery = await recoverExpiredAbandonedCheckout({
+      intentId: intent._id,
+      requesterUserId: users[0]._id,
+      paymentOrderId: paymentOrder._id,
+      gatewayAdapter: adapter,
+      models,
+      options: { ignoreFeatureFlag: true }
+    });
+
+    assert.equal(recovery.expired, false);
+    assert.equal(recovery.reason, testCase.reason);
+    assert.equal((await RegistrationIntent.findById(intent._id)).reservation.capacityReleased, false);
+    assert.equal((await PaymentOrder.findById(paymentOrder._id)).isLiveOrder, true);
+  }
+});
+
+test('late webhook after abandoned checkout release enters review without registration', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'abandoned-late-webhook' });
+  await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+
+  const recovery = await recoverExpiredAbandonedCheckout({
+    intentId: intent._id,
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    gatewayAdapter: adapter,
+    models,
+    options: { ignoreFeatureFlag: true }
+  });
+  assert.equal(recovery.expired, true);
+
+  const payment = adapter.addPayment({ id: 'pay_late_after_abandoned_release', orderId: paymentOrder.gatewayOrderId });
+  const body = webhookBody({ id: 'evt_late_after_abandoned_release', payment, order: adapter.orders.get(paymentOrder.gatewayOrderId) });
+  await assert.rejects(
+    () => handleRazorpayWebhook({ rawBody: body, signature: webhookSignature(body), gatewayAdapter: adapter, models, options: { ignoreFeatureFlag: true } }),
+    (error) => error.code === 'LATE_CAPTURE_REQUIRES_REVIEW'
+  );
+
+  const reviewedOrder = await PaymentOrder.findById(paymentOrder._id);
+  assert.equal(reviewedOrder.status, 'capture_late_review');
+  assert.equal(reviewedOrder.fulfillmentStatus, 'captured_unfulfilled');
+  assert.equal(await TournamentRegistration.countDocuments({ tournamentId: tournament._id }), 0);
+  assert.equal((await Tournament.findById(tournament._id)).currentParticipants, 0);
+});
+
+test('fulfilled registrations are not released by abandoned checkout recovery', async () => {
+  const { tournament, users, intent } = await createPaidIntent();
+  const adapter = new MockRazorpayAdapter();
+  const { paymentOrder } = await createOrderForIntent({ intent, captain: users[0], adapter, idempotencyKey: 'abandoned-already-fulfilled' });
+  adapter.addPayment({ id: 'pay_already_fulfilled', orderId: paymentOrder.gatewayOrderId });
+  await verifyRazorpayCheckout({
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    razorpay_order_id: paymentOrder.gatewayOrderId,
+    razorpay_payment_id: 'pay_already_fulfilled',
+    razorpay_signature: checkoutSignature(paymentOrder.gatewayOrderId, 'pay_already_fulfilled'),
+    gatewayAdapter: adapter,
+    models,
+    options: { ignoreFeatureFlag: true }
+  });
+  await RegistrationIntent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+
+  const recovery = await recoverExpiredAbandonedCheckout({
+    intentId: intent._id,
+    requesterUserId: users[0]._id,
+    paymentOrderId: paymentOrder._id,
+    gatewayAdapter: adapter,
+    models,
+    options: { ignoreFeatureFlag: true }
+  });
+
+  assert.equal(recovery.expired, false);
+  assert.equal(recovery.reason, 'intent_state_requires_reconciliation');
+  assert.equal(await TournamentRegistration.countDocuments({ tournamentId: tournament._id }), 1);
+  assert.equal((await PaymentOrder.findById(paymentOrder._id)).fulfillmentStatus, 'fulfilled');
 });
