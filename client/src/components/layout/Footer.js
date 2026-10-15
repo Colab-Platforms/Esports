@@ -5,9 +5,9 @@ import { FaXTwitter, FaFacebook, FaRedditAlien, FaDiscord } from 'react-icons/fa
 
 const Footer = () => {
   // Environment indicator
-  const isDev = window.location.hostname.includes('esports-eciq') || 
+  const isDev = window.location.hostname.includes('esports-eciq') ||
                 window.location.hostname === 'localhost';
-  
+
   return (
     <footer className="bg-gaming-charcoal border-t border-gaming-slate mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -16,8 +16,8 @@ const Footer = () => {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
               <div className="w-8 h-8 bg-gradient-neon rounded-lg flex items-center justify-center">
-                <img 
-                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log-White_KB_1.png?v=1750315800" 
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/Coloab_Esports_log-White_KB_1.png?v=1750315800"
                   alt="Colab Esports Logo"
                   className="w-6 h-6 object-contain"
                   onError={(e) => {
@@ -32,7 +32,7 @@ const Footer = () => {
               </span>
             </div>
             <p className="text-gray-400 text-sm mb-4 max-w-md">
-              India's premier esports tournament platform. Compete in BGMI, Valorant, and CS2 tournaments. 
+              India's premier esports tournament platform. Compete in BGMI, Free Fire, and Valorant tournaments.
               Win real money prizes and climb the leaderboards.
             </p>
             <div className="flex space-x-4">
@@ -54,14 +54,12 @@ const Footer = () => {
               <a href="https://discord.gg/ug3vMxhPdQ" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
                 <FaDiscord className="w-5 h-5" />
               </a>
-              {/* <a href="mailto:Colabesports@gmail.com" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200">
-                <FiMail className="w-5 h-5" />
-              </a> */}
+
             </div>
 
             <div>
               <p className="text-gray-400 text-sm mt-4">
-                For inquiries,<br/> Email us at: 
+                For inquiries,<br/> Email us at:
                 <a href="#'" className="text-gaming-neon hover:underline ml-1">
                   Colabesports@gmail.com
                 </a>
@@ -93,11 +91,7 @@ const Footer = () => {
                   Rules & Guidelines
                 </Link>
               </li>
-              <li>
-                <Link to="/support" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200 text-sm">
-                  Support
-                </Link>
-              </li>
+
             </ul>
           </div>
 
@@ -120,11 +114,7 @@ const Footer = () => {
                   Refund Policy
                 </Link>
               </li>
-              <li>
-                <Link to="/responsible-gaming" className="text-gray-400 hover:text-gaming-neon transition-colors duration-200 text-sm">
-                  Responsible Gaming
-                </Link>
-              </li>
+
             </ul>
           </div>
         </div>
