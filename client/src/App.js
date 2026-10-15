@@ -78,6 +78,10 @@ import ResultSubmission from './components/matches/ResultSubmission';
 // Services
 import { initializeSocket, disconnectSocket } from './utils/socket';
 import notificationService from './services/notificationService';
+
+import ExplorePage from './features/explore/pages/ExplorePage';
+import ExploreContentManagement from './features/explore/pages/ExploreContentManagement';
+
 // Game Router Component
 const GameRouter = () => {
   const { gameType } = useParams();
@@ -393,6 +397,9 @@ function App() {
                 </motion.div>
               } 
             />
+
+            {/* Explore Public Page */}
+<Route path="/explore" element={<ExplorePage />} />
             
             {/* BGMI Route */}
             <Route 
@@ -896,6 +903,16 @@ function App() {
                 </AdminRoute>
               } 
             />
+
+            {/* Explore Content Management */}
+<Route
+  path="/admin/explore"
+  element={
+    <AdminRoute>
+      <ExploreContentManagement />
+    </AdminRoute>
+  }
+/>
             
             <Route 
               path="/matches/:id/submit-result" 
