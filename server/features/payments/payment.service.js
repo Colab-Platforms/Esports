@@ -133,8 +133,7 @@ const fetchAllOrderPayments = async ({ adapter, gatewayOrderId }) => {
     );
   }
 
-  const pageSize = 100;
-  const firstPage = await adapter.fetchOrderPayments(gatewayOrderId, { count: pageSize, skip: 0 });
+  const firstPage = await adapter.fetchOrderPayments(gatewayOrderId);
   if (!firstPage || !Array.isArray(firstPage.items)) {
     throw createPaymentError(
       'PROVIDER_ORDER_PAYMENTS_UNREADABLE',
@@ -144,7 +143,7 @@ const fetchAllOrderPayments = async ({ adapter, gatewayOrderId }) => {
   }
 
   const items = [...firstPage.items];
-  const expectedCount = Number(firstPage.count);
+  const expectedCount = firstPage.count;
   if (!Number.isInteger(expectedCount) || expectedCount < 0) {
     throw createPaymentError(
       'PROVIDER_ORDER_PAYMENTS_COUNT_UNKNOWN',
@@ -153,16 +152,12 @@ const fetchAllOrderPayments = async ({ adapter, gatewayOrderId }) => {
     );
   }
 
-  while (items.length < expectedCount) {
-    const page = await adapter.fetchOrderPayments(gatewayOrderId, { count: pageSize, skip: items.length });
-    if (!page || !Array.isArray(page.items) || page.items.length === 0) {
-      throw createPaymentError(
-        'PROVIDER_ORDER_PAYMENTS_PAGINATION_INCOMPLETE',
-        'Provider order payments pagination could not be completed',
-        503
-      );
-    }
-    items.push(...page.items);
+  if (items.length < expectedCount) {
+    throw createPaymentError(
+      'PROVIDER_ORDER_PAYMENTS_PAGINATION_INCOMPLETE',
+      'Provider order payments response is incomplete',
+      503
+    );
   }
 
   if (items.length > expectedCount) {

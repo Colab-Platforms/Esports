@@ -3,6 +3,26 @@ const test = require('node:test');
 
 const { RazorpayAdapter, wrapProviderError } = require('./razorpay.adapter');
 
+test('RazorpayAdapter fetchOrderPayments uses the SDK promise signature without a callback argument', async () => {
+  const response = { entity: 'collection', count: 0, items: [] };
+  const adapter = new RazorpayAdapter({
+    keyId: 'rzp_test_local',
+    keySecret: 'test_secret',
+    client: {
+      orders: {
+        fetchPayments: function (orderId, callback) {
+          assert.equal(orderId, 'order_test');
+          assert.equal(arguments.length, 1);
+          assert.equal(callback, undefined);
+          return Promise.resolve(response);
+        }
+      }
+    }
+  });
+
+  assert.equal(await adapter.fetchOrderPayments('order_test'), response);
+});
+
 test('wrapProviderError converts Razorpay plain-object errors into safe Error instances', () => {
   const wrapped = wrapProviderError(
     {

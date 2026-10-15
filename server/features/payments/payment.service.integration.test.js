@@ -96,15 +96,11 @@ class MockRazorpayAdapter {
     return { entity: 'collection', count: items.length, items };
   }
 
-  async fetchOrderPayments(orderId, options = {}) {
+  async fetchOrderPayments(orderId) {
+    assert.equal(arguments.length, 1, 'Order payments retrieval accepts only an order ID');
     const items = Array.from(this.payments.values()).filter((payment) => payment.order_id === orderId);
     if (this.incompletePaymentPagination) {
       return { entity: 'collection', count: items.length + 1, items };
-    }
-    if (Number.isInteger(options.skip) || Number.isInteger(options.count)) {
-      const skip = options.skip || 0;
-      const count = options.count || items.length;
-      return { entity: 'collection', count: items.length, items: items.slice(skip, skip + count) };
     }
     return { entity: 'collection', count: items.length, items };
   }
@@ -992,6 +988,20 @@ test('authorized, failed, pending, timeout, and pagination uncertainty do not re
       name: 'incomplete-pagination',
       prepare: ({ adapter }) => {
         adapter.incompletePaymentPagination = true;
+      },
+      reason: 'provider_state_unavailable'
+    },
+    ...[undefined, null, '', '0', -1, 0.5].map((count) => ({
+      name: `invalid-count-${String(count)}`,
+      prepare: ({ adapter }) => {
+        adapter.fetchOrderPayments = async () => ({ count, items: [] });
+      },
+      reason: 'provider_state_unavailable'
+    })),
+    {
+      name: 'count-mismatch',
+      prepare: ({ adapter }) => {
+        adapter.fetchOrderPayments = async () => ({ count: 0, items: [{}] });
       },
       reason: 'provider_state_unavailable'
     }
