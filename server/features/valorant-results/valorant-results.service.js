@@ -1,4 +1,4 @@
-const { validateRegistrationTeam } = require('../game-results/registration-team');
+const { validateRegistrationTeam, recordRegistrationEntrant } = require('../game-results/registration-team');
 const transactions = require('../game-results/result-transactions');
 const { inSession, currentSession } = transactions;
 const { filterPublicTeams } = require('../game-results/public-result-privacy');
@@ -87,7 +87,7 @@ const deriveWinner = (teamA, teamB, suppliedWinnerId) => {
   return winnerRegistrationId;
 };
 
-const buildSide = async ({ tournamentId, side, verify = false }) => {
+const buildSide = async ({ tournamentId, side, verify = false, owners }) => {
   const registrationId = toId(side?.registrationId);
   if (!registrationId) throw responseError('registrationId is required for both teams');
   const registration = await inSession(TournamentRegistration.findById(registrationId))
@@ -100,6 +100,7 @@ const buildSide = async ({ tournamentId, side, verify = false }) => {
   if (verify && registration.status !== 'verified') {
     throw responseError('Only verified registrations can be used in verified results');
   }
+  recordRegistrationEntrant(registration, owners);
   if (side.canonicalTeamId && registration.teamId && toId(side.canonicalTeamId) !== toId(registration.teamId)) {
     throw responseError('canonicalTeamId does not match the selected registration');
   }
@@ -117,8 +118,9 @@ const buildValorantSides = async ({ tournamentId, teamA, teamB, winnerRegistrati
   if (toId(teamA?.registrationId) === toId(teamB?.registrationId)) {
     throw responseError('Team A and Team B must be different registrations');
   }
-  const sideA = await buildSide({ tournamentId, side: teamA, verify });
-  const sideB = await buildSide({ tournamentId, side: teamB, verify });
+  const owners = new Map();
+  const sideA = await buildSide({ tournamentId, side: teamA, verify, owners });
+  const sideB = await buildSide({ tournamentId, side: teamB, verify, owners });
   if (sideA.canonicalTeamId && toId(sideA.canonicalTeamId) === toId(sideB.canonicalTeamId)) throw responseError('Teams must have different canonical identities');
   let winner = null;
   if (verify || (sideA.score !== undefined && sideB.score !== undefined)) {

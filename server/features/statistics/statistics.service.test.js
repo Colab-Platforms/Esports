@@ -61,6 +61,43 @@ test('player statistics include coverage note and zero overview without fake uns
   assert.equal(result.games.valorant.performance.personalKills.supported, false);
 });
 
+test('participation counts distinct existing supported tournaments and excludes orphaned history', async () => {
+  const user = { _id: 'user-a', username: 'any5' };
+  const cup = { _id: 'cup', gameType: 'freefire', status: 'completed' };
+  const participant = { _id: 'participant', gameType: 'bgmi', status: 'upcoming' };
+  const records = [{ _id: 'new', tournamentId: cup }, { _id: 'old', tournamentId: cup }, { _id: 'orphan', tournamentId: null }];
+  let filter;
+  const result = await getPlayerStatistics('any5', { models: {
+    User: { findOne: () => chain(user) },
+    TournamentRegistration: {
+      find(query) { filter = query; return chain(records); },
+      distinct: async () => ['cup', 'missing']
+    },
+    Tournament: {
+      ...emptyFindModel(), distinct: async () => ['cup', 'participant'],
+      find: () => chain([cup, participant])
+    },
+    Team: emptyFindModel(), FreeFireMatchResult: emptyFindModel(), ValorantMatchResult: emptyFindModel()
+  } });
+  assert.deepEqual(filter.status.$in, ['pending', 'images_uploaded', 'verified']);
+  assert.equal(result.overview.tournamentsJoined, 2);
+  assert.equal(result.overview.completedTournaments, 1);
+  assert.deepEqual(result.participationHistory.map(record => record.id), ['new']);
+});
+
+test('participation total is not limited by the recent registration history window', async () => {
+  const cups = Array.from({ length: 55 }, (_, index) => ({ _id: `cup-${index}`, gameType: 'freefire', status: 'completed' }));
+  const result = await getPlayerStatistics('any5', { models: {
+    User: { findOne: () => chain({ _id: 'user-a', username: 'any5' }) },
+    TournamentRegistration: { find: () => chain(cups.slice(0, 50).map((cup, index) => ({ _id: `reg-${index}`, tournamentId: cup }))), distinct: async () => cups.map(cup => cup._id) },
+    Tournament: { ...emptyFindModel(), find: () => chain(cups) },
+    Team: emptyFindModel(), FreeFireMatchResult: emptyFindModel(), ValorantMatchResult: emptyFindModel()
+  } });
+  assert.equal(result.overview.tournamentsJoined, 55);
+  assert.equal(result.overview.completedTournaments, 55);
+  assert.equal(result.participationHistory.length, 50);
+});
+
 test('invalid team id returns 404-shaped error', async () => {
   await assert.rejects(
     () => getTeamStatistics('not-a-team-id'),

@@ -2,6 +2,66 @@
 
 **GO for code-review PR preparation; production approval pending validation.** No confirmed security blocker remains from the bounded release review: all five game mutation routes now require current authenticated admin/moderator/designer roles, and Mongoose is patched to 7.8.10. The discontinued CS2 endpoint stays unmounted. Remaining advisory, staging and deployment/data gates are detailed in [dependency readiness](dependencies/README.md); production deployment remains NO-GO until those gates are closed.
 
+## Bounded competitive-consumer compatibility (2026-10-15)
+
+The broader registration lifecycle redesign is excluded. Competitive results do not require the proposed partial unique registration index or any new re-registration, capacity, reward or notification behavior. The registration schema, indexes, creation/status/cancellation/deletion handlers, counters, rewards and notifications remain unchanged. The two registration-router /make-admin removals remain required security fixes.
+
+Implemented only in competitive consumers:
+
+- Shared entrant validation rejects missing owners and distinct registration attempts for the same owner. Linked teams must be active, match the game and contain the registration owner as captain/member; missing canonical links remain supported ad-hoc registrations.
+- Free Fire and Valorant reject duplicate-owner entrants before writes. BGMI result writes require exactly one verified team registration with a valid owner/team relationship.
+- Final preview/publication checks all Free Fire/Valorant source registration identities before aggregation. It rejects duplicate-owner attempts, multiple registration identities for a canonical team, inconsistent snapshot links, missing/cross-tournament registrations and duplicate historical match/lobby rows. Repeating the same registration across separate valid matches remains supported. Manual finals retain verified-registration requirements and now reject duplicate owners.
+- Verified match snapshots remain historical competition facts after later rejection. Derived finals do not reinterpret current registration status; manual finals and new match verification still require verified registrations. Later registration rejection does not automatically void results or invalidate finals. Result transactions serialize result operations only, not unchanged registration writes; no stronger cross-system guarantee is claimed. Existing published snapshots are not migrated or silently rewritten.
+- Statistics count distinct existing supported tournaments across registration and participant sources, independent of the 50-row history window. Orphaned and duplicate registration rows are omitted from the recent participation list. Public registration queries continue to exclude rejected history.
+
+Deferred production registration risks are pre-existing: read-before-write roster/capacity checks; independent BGMI-only count/group hooks; repeat-bonus potential; inconsistent alternate joins and historical registration-status readers. They are not fixed or made prerequisites for competitive features. No registration index replacement is part of Phase 2. The existing physical/schema index discrepancy still needs environment review; never run syncIndexes or auto-repair it against a shared database.
+
+Regression evidence uses a fresh loopback replica set with a deliberately non-unique tournamentId/userId registration index, synthetic duplicates/rejected history/ad-hoc teams, concurrent rejected result attempts, unchanged registration-document assertions, rollback of failed final publication, and valid repeated-match aggregation. No existing MongoDB database/index/record or hosting setting is touched. The registration-schema uniqueness assertion was replaced with a physical legacy-index compatibility assertion.
+
+This compatibility patch is based on candidate a903266d4c93093ab4d4579a513629112fa61ca7. Validation results for this patch are recorded below separately from the older candidate evidence. Its commit/push to the release branch for PR #7 is authorized; merge and deployment remain excluded.
+
+| Current patch check | Result |
+|---|---|
+| Complete backend automated suite | PASS: 110 tests, zero failures/cancellations/skips (13 more tests than the candidate baseline) |
+| Real MongoDB compatibility/concurrency/rollback | PASS in disposable loopback MongoDB 8.2.6 replica sets; non-unique legacy registration index, duplicate owners, rejected history, ad-hoc teams, canonical-link conflicts, repeated matches, unchanged registration records, concurrent rejected result writes and failed publication rollback covered |
+| Backend startup | PASS: full production-mode entrypoint launches with synthetic configuration, disposable MongoDB and outbound-network guard; neighboring APIs/login and Socket.IO checks pass |
+| Frontend tests | PASS: 18 tests in 4 suites with CI=true |
+| Frontend production build | PASS: CI=true, compiled successfully; tooling reports existing outdated browser data and Node fs.F_OK deprecation notices |
+| Git scope/diff | PASS: diff --check; no working-tree edits to models, registration/tournament routes, dependencies/lockfiles, authentication, wallet or payment code |
+
+Evidence: ignored .cache/consumer-backend.log in this worktree and ../.cache/phase2-competitive-evidence/client.log and build.log. Pending release/dependencies/README.md validation notes were reviewed during Git preparation and corrected to reflect the orphaned tournament references and bounded compatibility evidence. No new dependency or registry-audit claim is made.
+
+Ready for review/update of PR #7 after owner review, but production remains gated on authorized isolated candidate deployment, target transaction/result-index/schema checks, real browser/provider flows, representative performance, and remaining conditional runtime-advisory configuration verification. Production metadata/data were not inspected. Registration redesign is not a prerequisite for this bounded feature release; its pre-existing risks remain explicitly deferred.
+
+## Validation gates after PR #7
+
+Candidate tested: a903266d4c93093ab4d4579a513629112fa61ca7, branch release/phase2-competitive, draft PR https://github.com/Colab-Platforms/Esports/pull/7. Checks performed 2026-10-15. The findings below supersede earlier unverified environment assumptions. This validation stage changes documentation only; no dependency/source change, commit, push, merge or deployment was performed.
+
+| Release gate | Status | Evidence and exact remaining action |
+|---|---|---|
+| 1: MongoDB | **FAIL** | Prior checks connected only to colab-esports-dev. Read-transaction commit and synthetic write/read/abort passed; the new namespace was absent afterward. Result unique indexes are present. The candidate declares a full unique tournamentId+userId index while development has a non-unique index; no registration-index change is included in the bounded competitive release. Two linked registrations reference a missing tournament, so its game cannot be determined; the earlier wrong-game classification was incorrect. No index/data correction was attempted. |
+| 2: Remaining runtime advisories | **BLOCKED** | Fresh online audit still reports 20 production packages: 2 critical, 11 high, 7 moderate. All are individually classified in dependency readiness. No additional confirmed reachable flaw requiring a code change was established in the inspected application usage. Actual serving-environment proxy/NO_PROXY/redirect assumptions for the shared Axios stack have not been verified; obtain a sanitized configuration attestation or authorized development runtime tests. No blind/shared payment dependency upgrade was applied. |
+| 3: Application/deployment validation | **BLOCKED** | Automated checks PASS: 97 backend tests, 18 frontend tests, CI=true build, real disposable MongoDB concurrency/rollback, authorization, error behavior and actual backend entrypoint startup. Live development DB query explain also ran. No authorized deployed frontend/API URL running this candidate was available: configured URLs are localhost:3001 and localhost:5003. Provide confirmed development URLs/build SHA and disposable test identities/fixtures through secure access for actual deployed browser/API and provider checks. Do not deploy as part of this request. |
+
+Development database evidence (no production contact):
+
+- URI target was parsed and checked before connecting; the driver was bound explicitly to colab-esports-dev. No full application startup, scheduler, Mongoose connection/autoIndex, index creation/drop, existing-data update/delete or migration was run. Only a fresh, verified-absent synthetic namespace was written inside an aborted transaction; no test collection remained.
+- Replica set and logical sessions are available (wire version 25). Snapshot/majority read transaction committed; synthetic write read-back and abort passed. A committed synthetic write was not tested. Production topology/privileges remain uninspected and cannot be inferred from development.
+- Checked actual index metadata for Tournament, User, Team, TournamentRegistration, BGMIMatch, BGMILeaderboard, FreeFireMatchResult, ValorantMatchResult and TournamentFinalResult. Required result uniqueness keys exist (FF tournament+match+lobby; Valorant tournament+match; final tournament; BGMI leaderboard tournament+team), including the additive BGMIMatch result index. Existing unique User email/username/phone indexes satisfy the duplicate non-unique schema declarations; do not create weaker duplicates.
+- No duplicate tournamentId+userId groups were found among the current 11 development registrations. This does NOT justify imposing a unique constraint on the shared dev application: its current non-unique policy may be intentional and must be reconciled by an owner. Do not drop/rebuild indexes or run syncIndexes. The candidate should not be started against this shared DB with automatic indexing enabled as a substitute for that decision.
+- Of 11 registrations, 6 have no canonical team link (supported legacy/ad-hoc form), 3 have valid matching-game current-owner links, and 2 reference the same missing tournament (verified: 1, pending: 1). Those two linked teams are active Valorant teams with current owner membership; the missing tournament's game is unknown. Tournament lookup fails before game-link validation. Do not infer ownership, reconstruct the missing tournament or relink by name. No missing/inactive linked teams or departed owners were found in these 11 records.
+- All 29 sampled/current tournaments lack resultRevision; the existing synthetic regression proves lazy initialization, so no backfill was run. No sampled registration userId/tournamentId had a non-ObjectId type. User provider counts were 146 local and 17 Google; this dataset cannot validate live legacy Steam records. These are targeted shape checks, not validation of every field/document against every schema.
+- The actual candidate Free Fire leaderboard adapter pipeline was captured without opening a Mongoose connection and explained through the native driver. Two existing source documents and two index keys were examined; observed server execution was 0–1 ms, end-to-end driver round trip 6–8 ms. This is not HTTP latency, browser timing, load testing or production-scale proof. Representative volume/query plans and p95/p99 endpoint timing remain required.
+
+Evidence kept outside tracked source: candidate .cache/dev-target-check.json, dev-mongodb-gate.json, dev-readonly-review.json, gates-audit-runtime.json and gates-backend.log; frontend client.log/build.log under ../.cache/phase2-competitive-evidence/. Credentials, host connection strings, user names/emails, record IDs and raw legacy records are not included in this report. The initial index comparison's User non-unique warnings were checked against actual stronger unique indexes and are not blockers.
+
+Required next actions (stop here; environmental/ownership decisions are needed):
+
+1. Validate the bounded competitive consumers in an authorized isolated environment; registration lifecycle redesign and partial-index replacement are excluded. Review the two orphaned tournament references without guessing replacement links. Do not change shared indexes automatically; no existing record may be deleted/overwritten under this task.
+2. Confirm the actual authorized development frontend/API URLs and that their deployed build matches this exact release SHA (currently no deployment of this candidate was requested). Supply disposable user/admin/moderator/designer test identities through secure access, not plaintext credentials in a report.
+3. In that environment, run normal and invalid login, free BGMI/FF/Valorant registration, profile/friend/team/Explore/leaderboard/tournament flows, then publish/edit/void and concurrent publication on newly created synthetic free fixtures. Verify unauthorized roles, stale final invalidation, duplicate 409s, private data filtering, Google/Steam and Cloudinary/provider behavior. Do not alter existing users, tournaments or registrations, or invoke payments.
+4. Validate proxy topology, forwarded headers, outbound proxy/NO_PROXY behavior and conditional advisory preconditions; record representative query plans and endpoint latency under realistic volume. Recheck required indexes before enabling result writes. Any eventual production verification needs separate explicit database authorization; nothing here certifies production data/index parity.
+
 ## Candidate and boundaries
 
 - Branch: release/phase2-competitive.
@@ -9,7 +69,7 @@
 - Verified remote main/base: 8a8a09ce71117a19f9fdd321102eebbae5dfb31b.
 - Feature source: 9350489ba3e4559568d95260874b462c4324aa4c; selected modules and integration hunks only.
 - Implementation/test evidence below was recorded before staging or committing. Subsequent Git preparation was explicitly authorized: commit/push only this release branch and prepare its review PR. Main/dev and the unfinished release-fix worktree remain outside the change scope; no merge/deployment is authorized.
-- No production database, service configuration or credentials accessed. All database tests used synthetic data in newly allocated loopback replica sets.
+- No production database, service configuration or credentials accessed. Automated database tests use synthetic loopback replica sets; the additional approved development-only native-driver checks above inspected live metadata/limited shapes and an aborted synthetic transaction.
 
 ## Delivered behavior
 

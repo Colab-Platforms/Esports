@@ -6,6 +6,7 @@ const Leaderboard = require('../../models/BGMILeaderboard');
 const { runResultMutation, runTournamentMutation, currentSession, inSession } = require('./result-transactions');
 const { markTournamentFinalResultStale } = require('../tournament-final-results/tournament-final-results.service');
 const { assertPositiveInteger, assertNonNegativeNumber, toId } = require('./game-results.utils');
+const { validateRegistrationTeam } = require('./registration-team');
 
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 
@@ -15,10 +16,12 @@ async function eligibleTeam(match, teamId, actor, { manager = false } = {}) {
   if (!team) throw fail('Active BGMI team not found', 404);
   if (!manager && toId(team.captain) !== toId(actor.id) &&
       !team.members.some(member => toId(member.userId) === toId(actor.id))) throw fail('Not a member of this team', 403);
-  const registration = await inSession(Registration.exists({
+  const registrations = await inSession(Registration.find({
     tournamentId: match.tournamentId, teamId, status: 'verified'
-  }));
-  if (!registration) throw fail('Team has no verified tournament registration', 409);
+  })).select('userId teamId').lean();
+  if (!registrations.length) throw fail('Team has no verified tournament registration', 409);
+  if (registrations.length !== 1) throw fail('Ambiguous verified team registrations; review before submitting results', 409);
+  await validateRegistrationTeam(registrations[0], 'bgmi');
   return team;
 }
 

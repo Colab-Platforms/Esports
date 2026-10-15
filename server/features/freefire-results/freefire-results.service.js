@@ -1,4 +1,4 @@
-const { validateRegistrationTeam } = require('../game-results/registration-team');
+const { validateRegistrationTeam, recordRegistrationEntrant } = require('../game-results/registration-team');
 const transactions = require('../game-results/result-transactions');
 const { inSession, currentSession } = transactions;
 const { filterPublicTeams } = require('../game-results/public-result-privacy');
@@ -109,6 +109,7 @@ const buildTeamResults = async ({ tournamentId, teamResults, verify = false }) =
 
   const normalized = [];
   const seenTeams = new Set();
+  const owners = new Map();
   for (const entry of teamResults) {
     const registration = byId.get(toId(entry.registrationId));
     if (!registration) throw responseError('Registration not found', 404, 'REGISTRATION_NOT_FOUND');
@@ -118,6 +119,7 @@ const buildTeamResults = async ({ tournamentId, teamResults, verify = false }) =
     if (verify && registration.status !== 'verified') {
       throw responseError('Only verified registrations can be used in verified results');
     }
+    recordRegistrationEntrant(registration, owners);
     if (entry.canonicalTeamId && registration.teamId && toId(entry.canonicalTeamId) !== toId(registration.teamId)) {
       throw responseError('canonicalTeamId does not match the selected registration');
     }

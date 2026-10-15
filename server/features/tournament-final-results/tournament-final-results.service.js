@@ -1,4 +1,4 @@
-const { validateRegistrationTeam } = require('../game-results/registration-team');
+const { validateRegistrationTeam, recordRegistrationEntrant, entrantConflict } = require('../game-results/registration-team');
 const transactions = require('../game-results/result-transactions');
 const { inSession } = transactions;
 const { filterPublicTeams } = require('../game-results/public-result-privacy');
@@ -196,6 +196,7 @@ const deriveManualPreview = async ({ tournament, evidence, manualStandings }) =>
 
   const standings = [];
   const seenTeams = new Set();
+  const owners = new Map();
   for (const entry of sorted) {
     const registration = registrationsById.get(entry.registrationId);
     if (!registration) {
@@ -204,6 +205,7 @@ const deriveManualPreview = async ({ tournament, evidence, manualStandings }) =>
     if (registration.status !== 'verified') {
       throw responseError('Manual final teams must use verified registrations');
     }
+    recordRegistrationEntrant(registration, owners);
 
     const canonicalTeamId = await validateRegistrationTeam(registration, tournament.gameType);
     if (canonicalTeamId && seenTeams.has(toId(canonicalTeamId))) throw responseError('Duplicate canonical team in standings');
@@ -255,6 +257,8 @@ const deriveBgmiPreview = async ({ tournament, evidence }) => {
   const source = [];
 
   matches.forEach((match) => {
+    const verifiedTeams = (match.teamResults || []).filter(row => row.verified && row.teamId).map(row => toId(row.teamId));
+    if (new Set(verifiedTeams).size !== verifiedTeams.length) throw entrantConflict('Duplicate team in a historical BGMI match');
     (match.teamResults || [])
       .filter((teamResult) => teamResult.verified === true && teamResult.teamId)
       .forEach((teamResult) => {
@@ -326,6 +330,39 @@ const deriveBgmiPreview = async ({ tournament, evidence }) => {
   });
 };
 
+// Validate before aggregation, which otherwise hides duplicate registrations
+// behind a canonical team key. Status is intentionally not reinterpreted here:
+// verified match snapshots remain historical facts after registration rejection.
+const validateSourceEntrants = async (tournament, entries) => {
+  const registrations = await inSession(TournamentRegistration.find({
+    _id: { $in: entries.map(entry => entry.registrationId).filter(Boolean) },
+    tournamentId: tournament._id
+  })).select('userId tournamentId teamId').lean();
+  const byId = new Map(registrations.map(registration => [toId(registration), registration]));
+  const owners = new Map(), teams = new Map(), snapshots = new Map();
+  const validatedLinks = new Set();
+  for (const entry of entries) {
+    const registrationId = toId(entry.registrationId);
+    const registration = byId.get(registrationId);
+    if (!registration) throw entrantConflict('Result registration is missing or belongs to another tournament');
+    recordRegistrationEntrant(registration, owners);
+    const teamId = toId(entry.canonicalTeamId);
+    if (snapshots.has(registrationId) && snapshots.get(registrationId) !== teamId) {
+      throw entrantConflict('Conflicting team identities for one registration');
+    }
+    snapshots.set(registrationId, teamId);
+    if (teamId) {
+      if (teamId !== toId(registration.teamId)) throw entrantConflict('Result team does not match its registration');
+      if (!validatedLinks.has(registrationId)) {
+        await validateRegistrationTeam(registration, tournament.gameType);
+        validatedLinks.add(registrationId);
+      }
+      if (teams.has(teamId) && teams.get(teamId) !== registrationId) throw entrantConflict('Duplicate canonical team across result registrations');
+      teams.set(teamId, registrationId);
+    }
+  }
+};
+
 const deriveFreeFirePreview = async ({ tournament, evidence }) => {
   const results = await inSession(FreeFireMatchResult.find({
     tournamentId: tournament._id,
@@ -334,6 +371,11 @@ const deriveFreeFirePreview = async ({ tournament, evidence }) => {
     .select('lobbyNumber matchNumber verifiedAt updatedAt teamResults')
     .lean();
 
+  await validateSourceEntrants(tournament, results.flatMap(result => result.teamResults || []));
+  for (const result of results) {
+    const ids = (result.teamResults || []).map(row => toId(row.registrationId));
+    if (new Set(ids).size !== ids.length) throw entrantConflict('Duplicate registration in a historical Free Fire lobby');
+  }
   const byTeam = new Map();
   const source = [];
 
@@ -431,6 +473,10 @@ const deriveValorantPreview = async ({ tournament, evidence, explicitStandings =
     .sort({ matchNumber: 1 })
     .lean();
 
+  await validateSourceEntrants(tournament, results.flatMap(result => [result.teamA, result.teamB].filter(Boolean)));
+  if (results.some(result => toId(result.teamA?.registrationId) === toId(result.teamB?.registrationId))) {
+    throw entrantConflict('Duplicate registration in a historical Valorant match');
+  }
   const warnings = ['Completeness cannot be proven automatically; admin review is required before publishing.'];
   let standings = [];
   const source = results.map((result) => ({

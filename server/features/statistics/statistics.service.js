@@ -104,25 +104,32 @@ const getPlayerParticipationOverview = async ({ user, models }) => {
     ...participantOnlyTournamentIds
   ];
 
-  const completedTournaments = publicTournamentIds.length > 0
-    ? await TournamentModel.countDocuments({
+  const validTournaments = publicTournamentIds.length > 0
+    ? await TournamentModel.find({
         _id: { $in: publicTournamentIds },
-        gameType: { $in: ACTIVE_GAMES },
-        status: COMPLETED_TOURNAMENT_STATUS
-      })
-    : 0;
+        gameType: { $in: ACTIVE_GAMES }
+      }).select('_id status').lean()
+    : [];
+  const validTournamentIds = new Set(validTournaments.map(toId));
+  const seenTournaments = new Set();
+  const validRegistrations = registrations.filter(registration => {
+    const tournamentId = toId(registration.tournamentId);
+    if (!validTournamentIds.has(tournamentId) || seenTournaments.has(tournamentId)) return false;
+    seenTournaments.add(tournamentId);
+    return true;
+  });
 
   const registrationsByGame = ACTIVE_GAMES.reduce((acc, game) => {
-    acc[game] = registrations.filter((registration) => registration.tournamentId?.gameType === game);
+    acc[game] = validRegistrations.filter((registration) => registration.tournamentId?.gameType === game);
     return acc;
   }, {});
 
   return {
-    tournamentsJoined: registrations.length + participantOnlyTournamentIds.length,
-    completedTournaments,
+    tournamentsJoined: validTournamentIds.size,
+    completedTournaments: validTournaments.filter(tournament => tournament.status === COMPLETED_TOURNAMENT_STATUS).length,
     activeTeams,
     registrationsByGame,
-    participationHistory: registrations.map(normalizeRegistration)
+    participationHistory: validRegistrations.map(normalizeRegistration)
   };
 };
 

@@ -1,6 +1,6 @@
 # Targeted runtime security remediation
 
-Candidate: release/phase2-competitive, uncommitted changes on 8a8a09c. Registry audit refreshed 2026-10-15. This is a root/backend audit, not a claim that the frontend dependency tree has no advisories.
+Candidate: release/phase2-competitive / PR #7, dependency audit baseline a903266d4c93093ab4d4579a513629112fa61ca7 (base 8a8a09c). Registry audit refreshed again 2026-10-15 during the earlier validation stage. This is a root/backend audit, not a claim that the frontend dependency tree has no advisories. The subsequent bounded competitive-consumer patch changes no dependencies or lockfiles; these are retained audit findings, not a new registry audit.
 
 ## Completed changes
 
@@ -54,6 +54,37 @@ Historical vulnerable casting proof remains in .cache/mongoose-casting-evidence.
 Multer 2.3.0 was rejected after the fresh audit identified [aborted disk-write cleanup](https://github.com/expressjs/multer/security/advisories/GHSA-3pph-fpjx-jg34), patched in 2.4.0. The final audit flags none of the seven targeted packages above. Basic compression, successful/rejected/malformed multipart requests and the actual server Socket.IO polling handshake are tested. These checks are compatibility regressions, not an exhaustive exploit/fuzz suite.
 
 ## Remaining root advisories
+
+### Latest gate assessment
+
+**Gate 2 BLOCKED on serving-environment validation**, not on a newly demonstrated application exploit. The fresh online production audit (.cache/gates-audit-runtime.json) reproduces exactly the same 20 package findings: 2 critical, 11 high, 7 moderate. Mongoose and all previously targeted runtime packages remain absent. No dependency or payment code was changed during this validation stage. Source inspection and the maintainer conditions below support excluding specific paths, but they do not prove unknown deployed proxy/redirect configuration is safe.
+
+| Remaining package | Concrete current-usage evidence | Classification |
+|---|---|---|
+| axios | Server call sites are Steam fixed API URLs; configured WhatsApp messages and Graph metadata/media; configured video-processor URL. Inputs are explicit JSON/params and config objects. No HTTP/2/fetch adapter selection, arbitrary request config merge or application data-URL fetch was found. The former confirmed Mongoose prototype-pollution entry is patched. Runtime authenticated-proxy/NO_PROXY boundaries and actual provider redirects are unknown. | BLOCKED validation of those conditions; no new confirmed exploit |
+| follow-redirects | Existing non-payment requests set standard Authorization/Content-Type; no X-API-Key/X-Auth-Token/custom authentication header path found. [Advisory](https://github.com/advisories/GHSA-r4q5-vmmm-2653) says standard Authorization/cookie are stripped, while custom auth headers leak. Shared runtime proxy/redirect settings remain unverified. | Non-blocking for inspected header use; conditional runtime check remains |
+| form-data | No application Node form-data import/construction or axios multipart auto-serialization with attacker field names/filenames found. Image uploads use inbound Multer and Cloudinary's upload_stream, not that outbound library. [Advisory](https://github.com/advisories/GHSA-hmw2-7cc7-3qxx) requires untrusted outbound append names/filenames. Test WHATWG FormData is not this package. | NON-BLOCKING under inspected paths |
+| qs | index.js fixes body limits at 10mb, leaves parameterLimit at 1000 and does not enable comma serialization. Bounded local parse proof caps 1005 bracket parameters at 1000. No application qs.stringify/parse-to-stringify forwarding call exists. [isBuffer advisory](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g) requires hostile objects reaching stringify; merely parsing a query does not establish that path. Actual ingress bounds remain a deployment check. | NON-BLOCKING for inspected defaults; deployment validation remains |
+| express | Audit is inherited through its parser/routing/proxy dependencies, covered individually here. Public read/mutation routing and app middleware were inspected; no broad Express upgrade is justified from package presence alone. | Conditional dependency findings, not a separate proved exploit |
+| body-parser | The published invalid-limit condition is absent: both app parsers receive the constant valid string 10mb. No dynamic limit option was found. | NON-BLOCKING |
+| path-to-regexp | No application route with multiple named parameters within one segment (the ReDoS precondition) was found. | NON-BLOCKING |
+| proxy-addr | app.set('trust proxy', 1) is numeric, not the affected IPv4-mapped IPv6 subnet configuration. Host/proxy-hop appropriateness is not established by local tests. | NON-BLOCKING for that advisory; environment check remains |
+| fast-xml-parser | Only application GameDig import is the unmounted cs2ServerStatus router; its requested protocol is protocol-valve, not the XML-using farming-simulator path. | NON-BLOCKING while unmounted/no XML ingestion |
+| gamedig | Same unmounted router; no new competitive module imports or arbitrary query protocol endpoint. | NON-BLOCKING |
+| http-cache-semantics | Inherited through dormant GameDig/got. No active application shared authenticated got cache call found. | NON-BLOCKING |
+| ip-address | MongoDB SOCKS dependency; no application SOCKS option or user-supplied network-allowlist/HTML address API use found. Deployment must not introduce such proxy/address inputs without review. | NON-BLOCKING under current code |
+| jws | Existing jwt.verify uses jsonwebtoken/jws.verify; no createVerify with an attacker-dependent HMAC key lookup. Maintainer explicitly excludes jsonwebtoken use from the advisory. | NON-BLOCKING |
+| lodash | Cloudinary and express-validator are the production parents. No affected template/unset/omit call found in application or those installed libraries; Cloudinary's string parameter named template is not _.template. | NON-BLOCKING |
+| nodemailer | No server import found; active mail service constructs Resend messages. | NON-BLOCKING while unused |
+| resend | Inherited uuid finding; active service sends email and does not invoke user-controlled UUID buffer APIs. | NON-BLOCKING for reported path |
+| svix | Inherited uuid finding; no new webhook/UUID buffer operation introduced. | NON-BLOCKING for reported path |
+| uuid | Application does not call v3/v5/v6 with caller-supplied output buffers, required by the reported buffer-bounds issue. | NON-BLOCKING |
+| validator | No application isURL-based validation or URL security allowlist found; current checks do not rely on the affected URL parser. | NON-BLOCKING for the reported URL conditions |
+| xlsx | Only manually invoked migrateFromExcel.js, never mounted/startup code. No spreadsheet migration or untrusted file ingestion was run. | NON-BLOCKING for serving runtime; do not run on untrusted spreadsheets |
+
+To close the conditional gate, provide an authorized development runtime/build identity and a sanitized attestation of outbound HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY/proxy-auth policy (presence and security assumptions only; never secrets), the configured upstream trust/redirect policy, and forwarded-proxy topology. Exercise the actual adapter/redirect/proxy conditions there. If an affected option/path is present, isolate the exact package fix and test it; do not blindly upgrade shared Axios/payment dependencies or accept the existing condition without evidence. The development .env supplied only localhost frontend/API URLs, not an identified deployed service. Production configuration was not inspected.
+
+Gate 1 remains open for environment compatibility validation: the unchanged registration schema declares full uniqueness while the observed shared-development index is non-unique. The bounded competitive consumers have now passed disposable-database tests with a non-unique legacy registration index; no shared index replacement or registration redesign is required by these consumers. Two registrations reference a missing tournament, so its game is unknown; the earlier wrong-game classification was incorrect. Gate 3 deployed validation is **BLOCKED** while automated tests/build pass. See [current gate findings and required actions](../README.md#validation-gates-after-pr-7). Do not infer production readiness from this dependency review.
 
 All-dependency audit: **27 packages: 3 critical, 17 high, 7 moderate** (originally 36). Production-only audit: **20 packages: 2 critical, 11 high, 7 moderate** (originally 29). Mongoose, Cloudinary and multer-storage-cloudinary no longer appear. Counts include vulnerable parents/transitive effects, not 27 independent exploits. Newly published advisories may change these totals. Final raw JSON: .cache/games-mongoose-audit-{runtime,all}.json; exact delta: .cache/runtime-lock-delta.json.
 
