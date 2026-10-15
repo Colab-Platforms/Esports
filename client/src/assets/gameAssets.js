@@ -1,4 +1,8 @@
 // Comprehensive game assets with high-quality images and CDN icons
+import valorantLogo from './valorant-logo.png';
+
+export const VALORANT_LOGO = valorantLogo;
+
 export const gameAssets = {
   bgmi: {
     name: 'BGMI',
@@ -8,7 +12,8 @@ export const gameAssets = {
     hero: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&h=1080&fit=crop&crop=center',
     thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop&crop=center',
     icon: '🎮', // Keep emoji as fallback
-    cdnIcon: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391', // BGMI actual CDN icon
+    cdnIcon: 'https://res.cloudinary.com/dlmcpmdpn/image/upload/v1788761802/BGMI_Hemlet_weifdx.png', // BGMI actual CDN icon
+    video: '/videos/bgmi.mp4', // Background video for expanded game card
     color: '#FF6B35',
     gradient: 'from-orange-500 to-red-600',
     category: 'mobile',
@@ -41,12 +46,13 @@ export const gameAssets = {
   valorant: {
     name: 'Valorant',
     fullName: 'Valorant',
-    logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=200&h=200&fit=crop&crop=center',
+    logo: VALORANT_LOGO,
     banner: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&h=400&fit=crop&crop=center',
     hero: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1920&h=1080&fit=crop&crop=center',
-    thumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop&crop=center',
+    thumbnail: VALORANT_LOGO,
     icon: '🎯', // Keep emoji as fallback
-    cdnIcon: '', // No specific CDN icon for Valorant yet
+    cdnIcon: VALORANT_LOGO,
+    video: '/videos/valorant.mp4', // Background video for expanded game card
     color: '#FF4655',
     gradient: 'from-red-500 to-pink-600',
     category: 'pc',
@@ -65,7 +71,8 @@ export const gameAssets = {
     hero: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1920&h=1080&fit=crop&crop=center',
     thumbnail: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=400&h=300&fit=crop&crop=center',
     icon: '🔥', // Keep emoji as fallback
-    cdnIcon: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/66fdaaad-5750-4895-a5ee-ecd301571f47_1_-Photoroom.png?v=1774943820', // No specific CDN icon for Free Fire yet
+    cdnIcon: 'https://res.cloudinary.com/dlmcpmdpn/image/upload/v1788761836/Free_Fire_ff_logo_ezuijq.png', // No specific CDN icon for Free Fire yet
+    video: '/videos/freefire.mp4', // Background video for expanded game card
     color: '#FF8C00',
     gradient: 'from-orange-600 to-yellow-500',
     category: 'mobile',
@@ -217,7 +224,8 @@ export const cdnIcons = {
   // Game specific leaderboard icons
   gameLeaderboards: {
     bgmi: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/01_BGMI.png?v=1766135391',
-    cs2: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/CS2_02.png?v=1766748100'
+    cs2: 'https://cdn.shopify.com/s/files/1/0636/5226/6115/files/CS2_02.png?v=1766748100',
+    valorant: VALORANT_LOGO
   },
   
   // Social gaming icons

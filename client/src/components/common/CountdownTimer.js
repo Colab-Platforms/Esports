@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 const CountdownTimer = ({
   targetDate,
   onComplete,
-  format = 'full', // 'full', 'compact', 'minimal', 'boxed'
+  format = 'full', // 'full', 'compact', 'minimal', 'boxed', 'panel'
   size = 'md',
   showLabels = true,
   className = '',
@@ -136,6 +136,44 @@ const CountdownTimer = ({
                 <div className={`text-gray-400 uppercase tracking-wider ${boxedSize.label}`}>
                   {cell.label}
                 </div>
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (format === 'panel') {
+    const cells = [
+      { value: timeLeft.days, label: 'Days' },
+      { value: timeLeft.hours, label: 'Hours' },
+      { value: timeLeft.minutes, label: 'Minutes' },
+      { value: timeLeft.seconds, label: 'Seconds' }
+    ];
+
+    return (
+      <div className={`flex flex-col items-center ${className}`}>
+        {eyebrow && (
+          <span className="text-gaming-gold font-gaming font-bold text-xs uppercase tracking-[0.15em] mb-3">
+            {eyebrow}
+          </span>
+        )}
+        <div className="inline-flex items-stretch bg-black/50 backdrop-blur-md border border-gaming-gold/30 rounded-2xl px-2 sm:px-4 py-4 sm:py-5">
+          {cells.map((cell, index) => (
+            <React.Fragment key={cell.label}>
+              {index > 0 && (
+                <span className="text-gaming-gold/50 font-gaming font-bold text-xl sm:text-3xl px-1 sm:px-2 self-start pt-1 sm:pt-2">
+                  :
+                </span>
+              )}
+              <div className="flex flex-col items-center px-3 sm:px-6">
+                <span className="text-white font-gaming font-black text-3xl sm:text-5xl leading-none text-glow-gold">
+                  {formatNumber(cell.value)}
+                </span>
+                <span className="text-gray-400 text-[9px] sm:text-[10px] uppercase tracking-[0.2em] mt-2">
+                  {cell.label}
+                </span>
               </div>
             </React.Fragment>
           ))}

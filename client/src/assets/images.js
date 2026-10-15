@@ -1,4 +1,8 @@
 // High-quality gaming images and assets
+import valorantLogo from './valorant-logo.png';
+
+export const VALORANT_LOGO = valorantLogo;
+
 export const gameImages = {
   // Game Logos and Banners
   bgmi: {
@@ -14,9 +18,9 @@ export const gameImages = {
     icon: '⚡'
   },
   valorant: {
-    logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&h=600&fit=crop&crop=center',
+    logo: VALORANT_LOGO,
     banner: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&h=400&fit=crop&crop=center',
-    thumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=400&h=300&fit=crop&crop=center',
+    thumbnail: VALORANT_LOGO,
     icon: '🎯'
   },
   freefire: {
