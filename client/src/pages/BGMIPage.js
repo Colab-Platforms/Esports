@@ -78,9 +78,7 @@ const BGMIPage = () => {
     dispatch(fetchTournaments(filterParams));
     
     // Mark initial load as complete after first fetch
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
-    }
+    setIsInitialLoad(false);
   }, [dispatch, activeTab, debouncedFilters]);
 
   const getStatusFromTab = (tab) => {

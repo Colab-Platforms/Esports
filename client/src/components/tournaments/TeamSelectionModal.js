@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiUsers, FiPlus, FiCheck, FiAward, FiPhone, FiEdit2, FiAlertTriangle } from 'react-icons/fi';
@@ -75,13 +76,13 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
 
   const selectedTeam = useMemo(() => teams.find(t => t._id === selectedTeamId), [teams, selectedTeamId]);
 
-  const getMemberInfo = (member) => {
+  const getMemberInfo = useCallback((member) => {
     const memberId = member.userId?._id || member.userId;
     if (!memberId) return getGameInfo(member.userId, gameType);
     const edited = memberEdits[memberId];
     if (edited) return edited;
     return getGameInfo(member.userId, gameType);
-  };
+  }, [gameType, memberEdits]);
 
   // Use the role stored on the member record, not a logged-in user comparison
   const isCaptain = (member) => member.role === 'captain';
@@ -102,18 +103,9 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, memberEdits, phoneNumber, needsPhone, fields, gameType]);
+  }, [selectedTeam, gameType, needsPhone, phoneNumber, getMemberInfo, fields.nameLabel, fields.idLabel]);
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
-
-  useEffect(() => {
-    setMemberEdits({});
-    setEditingMemberId(null);
-  }, [selectedTeamId]);
-
-  const fetchTeams = async (selectId = null) => {
+  const fetchTeams = useCallback(async (selectId = null) => {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/api/teams/my-teams`, {
@@ -133,7 +125,16 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, gameType, token]);
+
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
+  useEffect(() => {
+    setMemberEdits({});
+    setEditingMemberId(null);
+  }, [selectedTeamId]);
 
   const updateCaptainProfile = async (game, captainGameInfo) => {
     if (!captainGameInfo || !game) return;

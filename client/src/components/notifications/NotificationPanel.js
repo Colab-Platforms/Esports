@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -25,16 +26,7 @@ const NotificationPanel = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
 
-  // Fetch notifications on mount and every 30 seconds
-  useEffect(() => {
-    if (token) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [token]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/notifications`, {
@@ -47,7 +39,16 @@ const NotificationPanel = () => {
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
-  };
+  }, [dispatch, token]);
+
+  // Fetch notifications on mount and every 30 seconds
+  useEffect(() => {
+    if (token) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchNotifications, token]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {

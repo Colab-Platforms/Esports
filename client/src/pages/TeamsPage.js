@@ -1,20 +1,10 @@
+import { useCallback } from 'react';
 import { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import {
-  FiSearch,
-  FiUsers,
-  FiUserPlus,
-  FiFilter,
-  FiCheck,
-  FiX,
-  FiEye,
-  FiCheckCircle,
-  FiRefreshCw,
-  FiUserMinus
-} from 'react-icons/fi';
+import { FiSearch, FiUsers, FiUserPlus, FiFilter, FiCheck, FiX, FiEye, FiRefreshCw, FiUserMinus } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
 import MyTeamsTab from '../components/teams/MyTeamsTab';
@@ -30,7 +20,7 @@ const TeamsPage = () => {
   const [friendRequests, setFriendRequests] = useState([]);
   const [myTeams, setMyTeams] = useState([]);
   const [teamInvitations, setTeamInvitations] = useState([]);
-  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  useState(false);
   const [loading, setLoading] = useState(false);
   const [friendFilter, setFriendFilter] = useState('all'); // 'all', 'friends', 'requested'
   const [myFriends, setMyFriends] = useState([]);
@@ -55,66 +45,7 @@ const TeamsPage = () => {
     { id: 'valorant', name: 'Valorant' }
   ];
 
-  useEffect(() => {
-    if (activeTab === 'players') {
-      fetchPlayers();
-      if (isAuthenticated) {
-        fetchMyFriends();
-        fetchSentRequests();
-      }
-    } else if (activeTab === 'friends') {
-      fetchFriendRequests();
-    } else if (activeTab === 'myFriends') {
-      fetchMyFriends();
-    } else if (activeTab === 'requestedFriends') {
-      fetchSentRequests();
-    } else if (activeTab === 'teams') {
-      fetchMyTeams();
-      fetchTeamInvitations();
-    }
-  }, [activeTab, selectedGame, searchQuery, currentPage]);
-
-  // Reset to page 1 when filters change (but not when page changes)
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedGame, searchQuery, friendFilter]);
-
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-
-  // Friend Request Functions
-  const acceptFriendRequest = async (requestId) => {
-    try {
-      await axios.post(
-        `${API_URL}/api/users/friend-request/${requestId}/accept`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      toast.success('Friend request accepted!');
-      fetchFriendRequests(); // Refresh the list
-    } catch (error) {
-      console.error('Error accepting friend request:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to accept request');
-    }
-  };
-
-  const rejectFriendRequest = async (requestId) => {
-    try {
-      await axios.post(
-        `${API_URL}/api/users/friend-request/${requestId}/reject`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      toast.success('Friend request rejected');
-      fetchFriendRequests(); // Refresh the list
-    } catch (error) {
-      console.error('Error rejecting friend request:', error);
-      toast.error(error.response?.data?.error?.message || 'Failed to reject request');
-    }
-  };
-
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     try {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -174,49 +105,9 @@ const TeamsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, isAuthenticated, searchQuery, selectedGame, token]);
 
-  const handleActionWithLogin = (action, ...args) => {
-    if (!isAuthenticated) {
-      toast.error('Please login to perform this action', {
-        duration: 3000,
-        position: 'top-center',
-        icon: '🔒'
-      });
-      setTimeout(() => {
-        navigate('/login', { state: { from: '/teams' } });
-      }, 1500);
-      return;
-    }
-    action(...args);
-  };
-
-  const fetchFriendRequests = async () => {
-    try {
-      setLoading(true);
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await axios.get(`${API_URL}/api/users/friend-requests`, {
-        params: {
-          fresh: 'true' // Always fetch fresh data to avoid cache issues
-        },
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      if (response.data.success) {
-        console.log('Fetched friend requests:', response.data.data.requests.length);
-        console.log('Cached:', response.data.cached);
-        setFriendRequests(response.data.data.requests || []);
-      }
-    } catch (error) {
-      console.error('Error fetching friend requests:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMyFriends = async () => {
+  const fetchMyFriends = useCallback(async () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/users/friends`, {
@@ -234,9 +125,9 @@ const TeamsPage = () => {
       console.error('Error fetching friends:', error);
       setMyFriends([]);
     }
-  };
+  }, [token]);
 
-  const fetchSentRequests = async () => {
+  const fetchSentRequests = useCallback(async () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/users/friend-requests/sent`, {
@@ -254,9 +145,34 @@ const TeamsPage = () => {
       console.error('Error fetching sent requests:', error);
       setSentRequests([]);
     }
-  };
+  }, [token]);
 
-  const fetchMyTeams = async () => {
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      const response = await axios.get(`${API_URL}/api/users/friend-requests`, {
+        params: {
+          fresh: 'true' // Always fetch fresh data to avoid cache issues
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        console.log('Fetched friend requests:', response.data.data.requests.length);
+        console.log('Cached:', response.data.cached);
+        setFriendRequests(response.data.data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  const fetchMyTeams = useCallback(async () => {
     try {
       setLoading(true);
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -280,9 +196,9 @@ const TeamsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const fetchTeamInvitations = async () => {
+  const fetchTeamInvitations = useCallback(async () => {
     try {
       const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
       const response = await axios.get(`${API_URL}/api/teams/invitations/my-invitations`, {
@@ -299,6 +215,80 @@ const TeamsPage = () => {
     } catch (error) {
       console.error('Error fetching team invitations:', error);
     }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'players') {
+      fetchPlayers();
+      if (isAuthenticated) {
+        fetchMyFriends();
+        fetchSentRequests();
+      }
+    } else if (activeTab === 'friends') {
+      fetchFriendRequests();
+    } else if (activeTab === 'myFriends') {
+      fetchMyFriends();
+    } else if (activeTab === 'requestedFriends') {
+      fetchSentRequests();
+    } else if (activeTab === 'teams') {
+      fetchMyTeams();
+      fetchTeamInvitations();
+    }
+  }, [activeTab, selectedGame, searchQuery, currentPage, fetchPlayers, isAuthenticated, fetchMyFriends, fetchSentRequests, fetchFriendRequests, fetchMyTeams, fetchTeamInvitations]);
+
+  // Reset to page 1 when filters change (but not when page changes)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedGame, searchQuery, friendFilter]);
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
+  // Friend Request Functions
+  const acceptFriendRequest = async (requestId) => {
+    try {
+      await axios.post(
+        `${API_URL}/api/users/friend-request/${requestId}/accept`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success('Friend request accepted!');
+      fetchFriendRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to accept request');
+    }
+  };
+
+  const rejectFriendRequest = async (requestId) => {
+    try {
+      await axios.post(
+        `${API_URL}/api/users/friend-request/${requestId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success('Friend request rejected');
+      fetchFriendRequests(); // Refresh the list
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to reject request');
+    }
+  };
+
+  const handleActionWithLogin = (action, ...args) => {
+    if (!isAuthenticated) {
+      toast.error('Please login to perform this action', {
+        duration: 3000,
+        position: 'top-center',
+        icon: '🔒'
+      });
+      setTimeout(() => {
+        navigate('/login', { state: { from: '/teams' } });
+      }, 1500);
+      return;
+    }
+    action(...args);
   };
 
   const sendFriendRequest = async (playerId) => {

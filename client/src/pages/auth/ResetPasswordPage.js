@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -22,12 +23,7 @@ const ResetPasswordPage = () => {
   const [tokenValid, setTokenValid] = useState(null);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  // Verify token on component mount
-  useEffect(() => {
-    verifyToken();
-  }, [token]);
-
-  const verifyToken = async () => {
+  const verifyToken = useCallback(async () => {
     try {
       // Use secure request utility
       const data = await secureRequest.get(`/api/auth/verify-reset-token/${token}`);
@@ -41,7 +37,12 @@ const ResetPasswordPage = () => {
       setTokenValid(false);
       toast.error('Failed to verify reset token');
     }
-  };
+  }, [token]);
+
+  // Verify token on component mount
+  useEffect(() => {
+    verifyToken();
+  }, [token, verifyToken]);
 
   const handleChange = (e) => {
     setFormData({

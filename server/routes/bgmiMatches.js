@@ -3,6 +3,8 @@ const router = express.Router();
 const BGMIMatch = require('../models/BGMIMatch');
 const BGMILeaderboard = require('../models/BGMILeaderboard');
 const auth = require('../middleware/auth');
+const results = require('../features/game-results/bgmi-result.service');
+const { filterPublicTeams } = require('../features/game-results/public-result-privacy');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -51,8 +53,7 @@ router.post('/', auth, async (req, res) => {
       });
     }
     
-    const match = new BGMIMatch(req.body);
-    await match.save();
+    const match = await results.createMatch(req.body);
     
     res.json({
       success: true,
@@ -61,7 +62,7 @@ router.post('/', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating match:', error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: 'Error creating match'
     });
@@ -72,8 +73,9 @@ router.post('/', auth, async (req, res) => {
 router.get('/:matchId', async (req, res) => {
   try {
     const match = await BGMIMatch.findById(req.params.matchId)
-      .populate('tournamentId')
-      .populate('teamResults.teamId');
+      .select('tournamentId matchNumber map status scheduledTime startTime endTime totalTeams winner teamResults')
+      .populate('tournamentId', 'name gameType status startDate endDate')
+      .lean();
     
     if (!match) {
       return res.status(404).json({
@@ -82,12 +84,16 @@ router.get('/:matchId', async (req, res) => {
       });
     }
     
+    match.teamResults = await filterPublicTeams((match.teamResults || []).filter(row => row.verified).map(row => ({
+      teamId: row.teamId, teamName: row.teamName, placement: row.placement,
+      kills: row.kills, points: row.points, verified: true, verifiedAt: row.verifiedAt
+    })), 'teamId');
     res.json({
       success: true,
       data: { match }
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: 'Error fetching match'
     });
@@ -97,39 +103,10 @@ router.get('/:matchId', async (req, res) => {
 // Upload screenshot
 router.post('/:matchId/screenshot', auth, upload.single('screenshot'), async (req, res) => {
   try {
-    const match = await BGMIMatch.findById(req.params.matchId);
-    
-    if (!match) {
-      return res.status(404).json({
-        success: false,
-        message: 'Match not found'
-      });
-    }
-    
-    const { teamId } = req.body;
-    
-    // Find or create team result
-    let teamResult = match.teamResults.find(
-      t => t.teamId && t.teamId.toString() === teamId
-    );
-    
-    if (!teamResult) {
-      teamResult = {
-        teamId,
-        screenshots: []
-      };
-      match.teamResults.push(teamResult);
-    }
-    
-    // Add screenshot
-    teamResult.screenshots.push({
-      url: `/uploads/bgmi-screenshots/${req.file.filename}`,
-      uploadedBy: req.user.id,
-      uploadedAt: new Date()
-    });
-    
-    await match.save();
-    
+    if (!req.file) return res.status(400).json({ success: false, message: 'Screenshot required' });
+    await results.mutateResult({ matchId: req.params.matchId, teamId: req.body.teamId, actor: req.user,
+      screenshot: { url: `/uploads/bgmi-screenshots/${req.file.filename}`, uploadedBy: req.user.id, uploadedAt: new Date() } });
+
     res.json({
       success: true,
       message: 'Screenshot uploaded successfully',
@@ -138,8 +115,9 @@ router.post('/:matchId/screenshot', auth, upload.single('screenshot'), async (re
       }
     });
   } catch (error) {
+    if (req.file) await fs.promises.unlink(req.file.path).catch(() => {});
     console.error('Error uploading screenshot:', error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: 'Error uploading screenshot'
     });
@@ -149,42 +127,9 @@ router.post('/:matchId/screenshot', auth, upload.single('screenshot'), async (re
 // Submit result
 router.post('/:matchId/submit-result', auth, async (req, res) => {
   try {
-    const { teamId, teamName, placement, kills } = req.body;
-    const match = await BGMIMatch.findById(req.params.matchId);
-    
-    if (!match) {
-      return res.status(404).json({
-        success: false,
-        message: 'Match not found'
-      });
-    }
-    
-    // Calculate points
-    const points = match.calculatePoints(parseInt(placement), parseInt(kills));
-    
-    // Find or update team result
-    let teamResult = match.teamResults.find(
-      t => t.teamId && t.teamId.toString() === teamId
-    );
-    
-    if (teamResult) {
-      teamResult.placement = parseInt(placement);
-      teamResult.kills = parseInt(kills);
-      teamResult.points = points;
-      teamResult.submittedAt = new Date();
-    } else {
-      match.teamResults.push({
-        teamId,
-        teamName,
-        placement: parseInt(placement),
-        kills: parseInt(kills),
-        points,
-        submittedAt: new Date()
-      });
-    }
-    
-    await match.save();
-    
+    const { points } = await results.mutateResult({ matchId: req.params.matchId, teamId: req.body.teamId,
+      actor: req.user, payload: req.body });
+
     res.json({
       success: true,
       message: 'Result submitted successfully. Waiting for admin verification.',
@@ -192,9 +137,9 @@ router.post('/:matchId/submit-result', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting result:', error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
-      message: 'Error submitting result'
+      message: error.status ? error.message : 'Error submitting result'
     });
   }
 });
@@ -209,47 +154,15 @@ router.post('/:matchId/verify/:teamId', auth, async (req, res) => {
       });
     }
     
-    const match = await BGMIMatch.findById(req.params.matchId);
-    const teamResult = match.teamResults.find(
-      t => t.teamId && t.teamId.toString() === req.params.teamId
-    );
-    
-    if (!teamResult) {
-      return res.status(404).json({
-        success: false,
-        message: 'Team result not found'
-      });
-    }
-    
-    teamResult.verified = true;
-    teamResult.verifiedBy = req.user.id;
-    teamResult.verifiedAt = new Date();
-    
-    await match.save();
-    
-    // Update leaderboard
-    await updateLeaderboard(match.tournamentId, teamResult, match.matchNumber);
-    
-    // Clear cache and recalculate ranks asynchronously (non-blocking)
-    try {
-      const redisService = require('../services/redisService');
-      await redisService.delete(`bgmi-leaderboard:${match.tournamentId}`);
-    } catch (err) {
-      console.warn('Failed to clear cache');
-    }
-    
-    // Run rank recalculation in background
-    recalculateRanks(match.tournamentId).catch(err => 
-      console.error('Background rank recalculation failed:', err)
-    );
-    
+    await results.mutateResult({ matchId: req.params.matchId, teamId: req.params.teamId, actor: req.user, verify: true });
+
     res.json({
       success: true,
       message: 'Result verified and leaderboard updated'
     });
   } catch (error) {
     console.error('Error verifying result:', error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: 'Error verifying result'
     });
@@ -259,22 +172,6 @@ router.post('/:matchId/verify/:teamId', auth, async (req, res) => {
 // Get leaderboard
 router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
   try {
-    const cacheKey = `bgmi-leaderboard:${req.params.tournamentId}`;
-    
-    // Try Redis cache first
-    try {
-      const redisService = require('../services/redisService');
-      const cached = await redisService.get(cacheKey);
-      if (cached) {
-        return res.json({
-          success: true,
-          data: { leaderboard: cached },
-          cached: true
-        });
-      }
-    } catch (err) {
-      console.warn('Redis unavailable, querying database');
-    }
     
     // Query with lean() for performance
     const leaderboard = await BGMILeaderboard.find({
@@ -285,18 +182,10 @@ router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
       .exec();
     
     // Add ranks
-    const ranked = leaderboard.map((entry, index) => ({
+    const ranked = await filterPublicTeams(leaderboard.map((entry, index) => ({
       ...entry,
       currentRank: index + 1
-    }));
-    
-    // Cache for 5 minutes
-    try {
-      const redisService = require('../services/redisService');
-      await redisService.set(cacheKey, ranked, 300);
-    } catch (err) {
-      console.warn('Failed to cache leaderboard');
-    }
+    })), 'teamId');
     
     res.json({
       success: true,
@@ -305,83 +194,11 @@ router.get('/tournament/:tournamentId/leaderboard', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message: 'Error fetching leaderboard'
     });
   }
 });
-
-// Helper function to update leaderboard
-async function updateLeaderboard(tournamentId, teamResult, matchNumber) {
-  try {
-    let leaderboardEntry = await BGMILeaderboard.findOne({
-      tournamentId,
-      teamId: teamResult.teamId
-    });
-    
-    if (!leaderboardEntry) {
-      leaderboardEntry = new BGMILeaderboard({
-        tournamentId,
-        teamId: teamResult.teamId,
-        teamName: teamResult.teamName,
-        matchHistory: []
-      });
-    }
-    
-    // Update stats
-    leaderboardEntry.totalPoints += teamResult.points;
-    leaderboardEntry.totalKills += teamResult.kills;
-    leaderboardEntry.matchesPlayed += 1;
-    
-    // Update best performance
-    if (!leaderboardEntry.bestPlacement || teamResult.placement < leaderboardEntry.bestPlacement) {
-      leaderboardEntry.bestPlacement = teamResult.placement;
-    }
-    if (!leaderboardEntry.highestKills || teamResult.kills > leaderboardEntry.highestKills) {
-      leaderboardEntry.highestKills = teamResult.kills;
-    }
-    
-    // Add to match history
-    leaderboardEntry.matchHistory.push({
-      matchNumber,
-      placement: teamResult.placement,
-      kills: teamResult.kills,
-      points: teamResult.points,
-      playedAt: new Date()
-    });
-    
-    leaderboardEntry.lastUpdated = new Date();
-    
-    await leaderboardEntry.save();
-    
-  } catch (error) {
-    console.error('Error updating leaderboard:', error);
-    throw error;
-  }
-}
-
-// Recalculate ranks for all teams - using bulk operations
-async function recalculateRanks(tournamentId) {
-  const entries = await BGMILeaderboard.find({ tournamentId })
-    .sort({ totalPoints: -1 })
-    .lean();
-  
-  const bulkOps = entries.map((entry, index) => ({
-    updateOne: {
-      filter: { _id: entry._id },
-      update: {
-        $set: {
-          previousRank: entry.currentRank || 0,
-          currentRank: index + 1
-        }
-      }
-    }
-  }));
-  
-  if (bulkOps.length > 0) {
-    await BGMILeaderboard.bulkWrite(bulkOps);
-  }
-}
 
 module.exports = router;

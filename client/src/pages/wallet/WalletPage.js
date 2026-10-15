@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useSelector } from "react-redux";
@@ -10,13 +11,13 @@ import {
   FiCheck,
   FiShare2,
 } from "react-icons/fi";
-import { TbBrandCoinbase } from "react-icons/tb";
+
 
 import { selectAuth } from "../../store/slices/authSlice";
 import api from "../../services/api";
 
 const WalletPage = () => {
-  const { user } = useSelector(selectAuth);
+  useSelector(selectAuth);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,10 +32,30 @@ const WalletPage = () => {
   const [referralLink, setReferralLink] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
 
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = { page, limit: 20 };
+      if (filterType !== "all") {
+        params.type = filterType;
+      }
+
+      const response = await api.get("/api/wallet/transactions", { params });
+      if (response.success) {
+        setTransactions(response.data.transactions);
+        setPagination(response.data.pagination);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterType, page]);
+
   useEffect(() => {
     fetchWallet();
     fetchTransactions();
-  }, [page, filterType]);
+  }, [page, filterType, fetchTransactions]);
 
   const fetchReferralCode = async () => {
     try {
@@ -138,26 +159,6 @@ const WalletPage = () => {
       }
     } catch (error) {
       console.error("Error fetching wallet:", error);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      const params = { page, limit: 20 };
-      if (filterType !== "all") {
-        params.type = filterType;
-      }
-
-      const response = await api.get("/api/wallet/transactions", { params });
-      if (response.success) {
-        setTransactions(response.data.transactions);
-        setPagination(response.data.pagination);
-      }
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

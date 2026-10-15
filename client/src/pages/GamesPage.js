@@ -292,7 +292,7 @@ const GamesPage = () => {
                                 <GameIcon
                                     gameType={gameType}
                                     size="2xl"
-                                    style="cdn"
+                                    variant="cdn"
                                 />
                             </div>
                             <span className="px-3 py-1 bg-gaming-gold text-black text-xs font-bold rounded-full">
@@ -529,7 +529,7 @@ const GamesPage = () => {
                                                             : 'text-gray-300 hover:bg-gaming-slate/50 hover:text-white'
                                                         }`}
                                                 >
-                                                    <GameIcon gameType={gameType} size="md" style="cdn" />
+                                                    <GameIcon gameType={gameType} size="md" variant="cdn" />
                                                     <span className="font-semibold">{gameType.toUpperCase()}</span>
                                                 </button>
                                             ))}

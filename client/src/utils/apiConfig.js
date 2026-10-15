@@ -75,10 +75,12 @@ export const getSteamAuthUrl = (userId, redirectPath = '') => {
   return url;
 };
 
-export default {
+const apiConfig = {
   getApiBaseUrl,
   getServerBaseUrl,
   getClientBaseUrl,
   getApiEndpoint,
   getSteamAuthUrl
 };
+
+export default apiConfig;

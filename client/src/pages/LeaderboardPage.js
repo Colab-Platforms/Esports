@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -209,7 +210,7 @@ const LeaderboardPage = () => {
   };
 
   const getGameIcon = (game) => {
-    return <GameIcon gameType={game} size="sm" style="cdn" />;
+    return <GameIcon gameType={game} size="sm" variant="cdn" />;
   };
 
   if (loading.leaderboard || cs2Loading || bgmiLoading || freeFireLoading) {
@@ -257,6 +258,7 @@ const LeaderboardPage = () => {
           <h1 className="text-3xl md:text-4xl font-gaming font-bold text-theme-text-primary mb-4">
             🏆 Leaderboard
           </h1>
+          <nav className="flex justify-center gap-4 mb-4"><Link to="/competitive-leaderboards">Competitive team rankings</Link><Link to="/tournament-results">Tournament results</Link></nav>
           <p className="text-xl text-theme-text-secondary max-w-2xl mx-auto">
             Compete with the best players and climb the rankings
           </p>

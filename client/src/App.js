@@ -32,7 +32,7 @@ import OAuthSuccess from './pages/auth/OAuthSuccess';
 import OAuthError from './pages/auth/OAuthError';
 import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
-import TournamentDetailsPage from './pages/tournaments/TournamentDetailsPage';
+
 import LeaderboardPage from './pages/LeaderboardPage';
 // import WalletPage from './pages/WalletPage';
 import WalletPage from './pages/wallet/WalletPage';
@@ -65,7 +65,7 @@ import BGMIPage from './pages/BGMIPage';
 import BGMIImageUpload from './pages/BGMIImageUpload';
 import CS2Page from './pages/CS2Page';
 import FreeFirePage from './pages/FreeFirePage';
-import TournamentDetails from './pages/tournaments/TournamentDetails';
+
 import SteamSettingsPage from './pages/SteamSettingsPage';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
@@ -79,6 +79,10 @@ import ResultSubmission from './components/matches/ResultSubmission';
 import { initializeSocket, disconnectSocket } from './utils/socket';
 import notificationService from './services/notificationService';
 
+import TeamCompetitiveProfile from './pages/TeamCompetitiveProfile';
+import TournamentResultsPage from './pages/TournamentResultsPage';
+import CompetitiveLeaderboardPage from './pages/CompetitiveLeaderboardPage';
+import AdminGameResults from './pages/admin/AdminGameResults';
 import ExplorePage from './features/explore/pages/ExplorePage';
 import ExploreContentManagement from './features/explore/pages/ExploreContentManagement';
 
@@ -551,6 +555,10 @@ function App() {
               } 
             />
             
+            <Route path="/team/:teamId" element={<TeamCompetitiveProfile />} />
+            <Route path="/tournament-results" element={<TournamentResultsPage />} />
+            <Route path="/competitive-leaderboards" element={<CompetitiveLeaderboardPage />} />
+            <Route path="/admin/results" element={<AdminRoute><AdminGameResults /></AdminRoute>} />
             {/* Colab Coin Routes */}
             <Route 
               path="/wallet" 

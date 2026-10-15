@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
@@ -12,11 +13,7 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
   const [loading, setLoading] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
 
-  useEffect(() => {
-    fetchSlides();
-  }, [pageKey]);
-
-  const fetchSlides = async () => {
+  const fetchSlides = useCallback(async () => {
     setLoading(true);
     const result = await imageService.getAllImages();
     
@@ -56,7 +53,11 @@ const PageBannerSlider = ({ pageKey = 'homepage', height = 'h-96' }) => {
     }
     
     setLoading(false);
-  };
+  }, [pageKey]);
+
+  useEffect(() => {
+    fetchSlides();
+  }, [fetchSlides, pageKey]);
 
   // Auto-play
   useEffect(() => {

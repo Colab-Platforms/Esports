@@ -1,9 +1,10 @@
+import { useCallback } from 'react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import OptimizedImage from './OptimizedImage';
 import ResponsiveImage from './ResponsiveImage';
-import LoadingSpinner from './LoadingSpinner';
+
 import imageService from '../../services/imageService';
 
 const HeroImageSlider = () => {
@@ -24,37 +25,7 @@ const HeroImageSlider = () => {
     loadData();
   }, []);
 
-  // Fetch hero data whenever siteImages changes
-  useEffect(() => {
-    if (Object.keys(siteImages).length > 0) {
-      fetchHeroData();
-    }
-  }, [siteImages]);
-
-  const fetchSiteImages = async () => {
-    const result = await imageService.getAllImages();
-    if (result.success) {
-      console.log('🖼️ Fetched site images:', result.data);
-      setSiteImages(result.data);
-      return result.data;
-    } else {
-      console.error('Error fetching site images:', result.error);
-      return {};
-    }
-  };
-
-  // Auto-play functionality
-  useEffect(() => {
-    if (!autoPlay || slides.length === 0) return;
-
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [autoPlay, slides.length]);
-
-  const fetchHeroData = async () => {
+  const fetchHeroData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -174,7 +145,37 @@ const HeroImageSlider = () => {
     } finally {
       setLoading(false);
     }
+  }, [siteImages]);
+
+  // Fetch hero data whenever siteImages changes
+  useEffect(() => {
+    if (Object.keys(siteImages).length > 0) {
+      fetchHeroData();
+    }
+  }, [fetchHeroData, siteImages]);
+
+  const fetchSiteImages = async () => {
+    const result = await imageService.getAllImages();
+    if (result.success) {
+      console.log('🖼️ Fetched site images:', result.data);
+      setSiteImages(result.data);
+      return result.data;
+    } else {
+      console.error('Error fetching site images:', result.error);
+      return {};
+    }
   };
+
+  // Auto-play functionality
+  useEffect(() => {
+    if (!autoPlay || slides.length === 0) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [autoPlay, slides.length]);
 
 
 

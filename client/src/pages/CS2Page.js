@@ -6,19 +6,12 @@ import { motion } from 'framer-motion';
 import GameIcon from '../components/common/GameIcon';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import TournamentCardProfessional from '../components/tournaments/TournamentCardProfessional';
-import {
-  fetchTournaments,
-  selectTournaments,
-  selectTournamentLoading,
-  selectTournamentError,
-  selectTournamentPagination,
-  clearError
-} from '../store/slices/tournamentSlice';
+import { fetchTournaments, clearError } from '../store/slices/tournamentSlice';
 import { selectAuth } from '../store/slices/authSlice';
 import SteamConnectionModal from '../components/steam/SteamConnectionModal';
 import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
-import CountdownTimer from '../components/common/CountdownTimer';
-import api from '../services/api';
+
+
 import { getSteamAuthUrl } from '../utils/apiConfig';
 import { getServerStatusBadge, getServerStats } from '../utils/cs2ServerStatus';
 
@@ -29,12 +22,12 @@ const CS2Page = () => {
   const tournaments = useSelector((state) => state.tournaments?.tournaments || []);
   const loading = useSelector((state) => state.tournaments?.loading || false);
   const error = useSelector((state) => state.tournaments?.error || null);
-  const pagination = useSelector((state) => state.tournaments?.pagination || {});
+  useSelector(state => state.tournaments?.pagination || {});
 
   const [activeTab, setActiveTab] = useState('upcoming');
   const [showSteamModal, setShowSteamModal] = useState(false);
   const [steamCheckResult, setSteamCheckResult] = useState(null);
-  const [serverStatuses, setServerStatuses] = useState({});
+  const [, setServerStatuses] = useState({});
   const [filters, setFilters] = useState({
     entryFeeMin: '',
     entryFeeMax: '',
@@ -75,7 +68,7 @@ const CS2Page = () => {
     };
 
     fetchServerStatuses();
-  }, [dispatch, activeTab, filters]);
+  }, [dispatch, activeTab, filters, tournaments]);
 
   const getStatusFromTab = (tab) => {
     switch (tab) {
@@ -152,44 +145,11 @@ const CS2Page = () => {
   // Set CS2 image URL
   const cs2ImageUrl = 'https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp';
 
-  const checkSteamIntegration = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
 
-    // Check if user has Steam ID
-    if (!user?.gameIds?.steam) {
-      setShowSteamModal(true);
-      setSteamCheckResult({
-        hasSteam: false,
-        message: 'Steam ID not found in your profile'
-      });
-      return;
-    }
 
-    // Mock Steam validation (in real app, call API)
-    try {
-      setSteamCheckResult({
-        hasSteam: true,
-        steamId: user.gameIds.steam,
-        ownsCS2: true,
-        message: 'Steam integration verified!'
-      });
-    } catch (error) {
-      setSteamCheckResult({
-        hasSteam: false,
-        message: 'Failed to verify Steam integration'
-      });
-    }
-  };
+  const [selectedTournament] = useState(null);
 
-  const [selectedTournament, setSelectedTournament] = useState(null);
 
-  const openSteamAndConnect = (tournament) => {
-    setSelectedTournament(tournament);
-    setShowSteamModal(true);
-  };
 
   const handleSteamLink = () => {
     const userId = user?.id || user?._id;
@@ -206,55 +166,9 @@ const CS2Page = () => {
     window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?._id}`);
   };
 
-  const handleJoinTournament = async (tournament) => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
 
-    // Check Steam integration before joining CS2 tournament
-    try {
-      const steamStatus = await api.get('/api/steam/status');
 
-      if (!steamStatus.isConnected) {
-        // Directly open Steam instead of showing modal
-        openSteamAndConnect(tournament);
-        return;
-      }
 
-      // Check CS2 eligibility
-      const eligibility = await api.get('/api/steam/cs2/eligibility');
-
-      if (!eligibility.eligible) {
-        setShowSteamModal(true);
-        setSteamCheckResult({
-          hasSteam: true,
-          eligible: false,
-          reason: eligibility.reason,
-          requirements: eligibility.requirements,
-          tournament: tournament
-        });
-        return;
-      }
-
-      // All checks passed, proceed to tournament registration
-      navigate(`/tournaments/${tournament._id}`);
-
-    } catch (error) {
-      console.error('Error checking Steam status:', error);
-      setShowSteamModal(true);
-      setSteamCheckResult({
-        hasSteam: false,
-        message: 'Unable to verify Steam connection. Please try again.',
-        tournament: tournament
-      });
-    }
-  };
-
-  const handleSteamConnect = () => {
-    // In real app, this would redirect to Steam OAuth
-    window.open('https://steamcommunity.com/openid/login', '_blank');
-  };
 
   const handleSteamSuccess = (steamData) => {
     setSteamCheckResult(steamData);

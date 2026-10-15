@@ -5,6 +5,10 @@ let toastId = 0;
 export const useToast = () => {
   const [toasts, setToasts] = useState([]);
 
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
   const addToast = useCallback((message, type = 'success', duration = 3000) => {
     const id = toastId++;
     const newToast = { id, message, type };
@@ -13,15 +17,11 @@ export const useToast = () => {
 
     if (duration > 0) {
       setTimeout(() => {
-        removeToast(id);
+        setToasts(prev => prev.filter(toast => toast.id !== id));
       }, duration);
     }
 
     return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
   const success = useCallback((message, duration) => {

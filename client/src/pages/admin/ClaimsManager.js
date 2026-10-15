@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiChevronLeft, FiChevronRight, FiDownload, FiCheck, FiX, FiChevronDown } from 'react-icons/fi';
@@ -16,11 +17,7 @@ const ClaimsManager = () => {
 
   const ITEMS_PER_PAGE = 8;
 
-  useEffect(() => {
-    fetchClaims();
-  }, [currentPage, statusFilter]);
-
-  const fetchClaims = async () => {
+  const fetchClaims = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/api/store/admin/claims', {
@@ -41,7 +38,11 @@ const ClaimsManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, statusFilter]);
+
+  useEffect(() => {
+    fetchClaims();
+  }, [currentPage, fetchClaims, statusFilter]);
 
   const handleFulfill = async (claimId) => {
     try {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiUsers, FiPlus, FiEdit2, FiTrash2, FiLogOut, FiAward, FiChevronDown, FiChevronUp } from 'react-icons/fi';
@@ -316,6 +317,7 @@ const TeamRow = ({ team, onEdit, onDelete, onLeave }) => {
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
+          {team.privacy === 'public' && ['bgmi', 'freefire', 'valorant'].includes(team.game) && <Link to={`/team/${team._id}`} className="text-sm text-blue-300">Profile</Link>}
           <button
             onClick={() => setExpanded(!expanded)}
             className="p-2 text-gray-400 hover:text-white hover:bg-gaming-dark rounded-lg transition-colors"

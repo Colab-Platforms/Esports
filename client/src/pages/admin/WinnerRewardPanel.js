@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FiArrowLeft, FiAward, FiSave, FiAlertCircle, FiRotateCcw, FiEye } from 'react-icons/fi';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -146,10 +146,7 @@ const WinnerRewardPanel = () => {
     return topFiveTotal + remainingTotal;
   };
 
-  const getTeamName = (teamId) => {
-    const team = teams.find(t => t._id === teamId);
-    return team?.name || 'Unknown Team';
-  };
+
 
   const handlePreviewClick = () => {
     if (validateForm()) {

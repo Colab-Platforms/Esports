@@ -119,7 +119,7 @@ const SliderLandingPage = () => {
   }, [tournaments, isAuthenticated]);
 
   const getGameIcon = (gameType) => {
-    return <GameIcon gameType={gameType} size="lg" style="cdn" />;
+    return <GameIcon gameType={gameType} size="lg" variant="cdn" />;
   };
 
   const getDisplayStatus = (status, gameType) => {

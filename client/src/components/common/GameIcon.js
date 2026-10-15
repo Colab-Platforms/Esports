@@ -6,7 +6,8 @@ const GameIcon = ({
   size = 'md', 
   showName = false, 
   className = '',
-  style = 'icon' // 'icon', 'logo', 'thumbnail', 'cdn'
+  variant,
+  style = variant || 'icon' // 'icon', 'logo', 'thumbnail', 'cdn'
 }) => {
   const gameInfo = getGameInfo(gameType);
   

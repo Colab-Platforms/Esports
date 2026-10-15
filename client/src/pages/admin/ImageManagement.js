@@ -113,12 +113,10 @@ const ImageManagement = () => {
       );
 
       if (result.success) {
-        const imageName = imageKeys.find(img => img.key === selectedImage)?.name;
-        const imageLocation = imageKeys.find(img => img.key === selectedImage)?.location;
         
-        const message = uploadMode === 'device'
-          ? `✅ ${selectedDevice.charAt(0).toUpperCase() + selectedDevice.slice(1)} image updated!\n\n📍 ${imageName}\n📌 ${imageLocation}`
-          : `✅ Image updated successfully!\n\n📍 ${imageName}\n📌 ${imageLocation}`;
+
+
+
         
         // Force refresh images with a small delay to ensure DB is updated
         setTimeout(async () => {

@@ -111,7 +111,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new game (admin only)
-router.post('/', async (req, res) => {
+router.post('/', auth, adminAuth, async (req, res) => {
   try {
     const game = new Game(req.body);
     const savedGame = await game.save();
@@ -138,7 +138,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update game (admin only)
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, adminAuth, async (req, res) => {
   try {
     console.log('🎮 Updating game:', req.params.id);
     console.log('📝 Update data:', req.body);
@@ -176,7 +176,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete game (admin only)  
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, adminAuth, async (req, res) => {
   try {
     const game = await Game.findOneAndDelete({ id: req.params.id }).lean();
     if (!game) {
@@ -204,7 +204,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Update game stats (admin only)
-router.patch('/:id/stats', async (req, res) => {
+router.patch('/:id/stats', auth, adminAuth, async (req, res) => {
   try {
     const { tournaments, activePlayers, totalPrize } = req.body;
     
@@ -243,7 +243,7 @@ router.patch('/:id/stats', async (req, res) => {
 });
 
 // Activate all games (admin only - for production fix)
-router.post('/admin/activate-all', async (req, res) => {
+router.post('/admin/activate-all', auth, adminAuth, async (req, res) => {
   try {
     const result = await Game.updateMany(
       {},

@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
@@ -48,10 +49,175 @@ const AdminBGMIRegistrations = () => {
   const [cache, setCache] = useState(new Map());
   const [lastFetch, setLastFetch] = useState(null);
 
+  const latestFetchState = useRef();
+  latestFetchState.current = { cache, lastFetch, registrations };
+
+  const fetchRegistrations = useCallback(async (page = 1, useCache = true) => {
+    const { cache, lastFetch, registrations } = latestFetchState.current;
+    try {
+      setLoading(true);
+
+      // Debug logging
+      console.log('🔍 DEBUG: Starting fetchRegistrations');
+      console.log('🔍 DEBUG: User:', user);
+      console.log('🔍 DEBUG: Token exists:', !!localStorage.getItem('token'));
+
+      // Check cache first (30 second cache)
+      const cacheKey = `${page}-${JSON.stringify(filters)}`;
+      const now = Date.now();
+      if (useCache && cache.has(cacheKey) && lastFetch && (now - lastFetch) < 30000) {
+        const cachedData = cache.get(cacheKey);
+        setRegistrations(cachedData.registrations);
+        setStats(cachedData.stats);
+        setPagination(cachedData.pagination);
+        setLoading(false);
+        return;
+      }
+
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', page.toString());
+      queryParams.append('limit', pagination.limit.toString());
+
+      if (filters.status !== 'all') {
+        queryParams.append('status', filters.status);
+      }
+      if (filters.tournamentId) {
+        queryParams.append('tournamentId', filters.tournamentId);
+      }
+      if (filters.teamName) {
+        queryParams.append('teamName', filters.teamName);
+      }
+      if (filters.playerName) {
+        queryParams.append('playerName', filters.playerName);
+      }
+      if (filters.group) {
+        queryParams.append('group', filters.group);
+      }
+
+      // Determine which API to call based on selected tournament
+      let apiUrl;
+
+
+      if (filters.tournamentId) {
+        // Find the selected tournament to determine its game type
+        const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
+        if (selectedTournament && (selectedTournament.gameType === 'freefire' || selectedTournament.gameType === 'FreeFire')) {
+          apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
+        } else {
+          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+        }
+      } else {
+        // If no tournament selected, check if we have registrations to determine game type
+        // This helps when refreshing after an edit
+        if (registrations && registrations.length > 0) {
+          const firstReg = registrations[0];
+          const firstRegTournament = firstReg.tournamentId;
+          const gameType = firstRegTournament?.gameType || firstRegTournament?.gameType;
+
+          if (gameType === 'freefire' || gameType === 'FreeFire') {
+            apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
+            console.log('🔥 Using Free Fire API based on existing registrations');
+          } else {
+            apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+            console.log('🎮 Using BGMI API based on existing registrations');
+          }
+        } else {
+          // Default to BGMI if no context available
+          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
+          console.log('🎮 Defaulting to BGMI API');
+        }
+      }
+
+      console.log('🔍 DEBUG: API URL:', apiUrl);
+
+      const response = await api.get(apiUrl);
+      console.log('🔍 DEBUG: API Response:', response);
+
+      if (response && response.success) {
+        console.log('✅ Admin API Success - Setting data');
+        const data = {
+          registrations: response.data?.registrations || [],
+          stats: response.data?.stats || {
+            total: 0,
+            pending: 0,
+            imagesUploaded: 0,
+            verified: 0,
+            rejected: 0
+          },
+          pagination: response.data?.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            pages: 0
+          }
+        };
+
+        setRegistrations(data.registrations);
+        setStats(data.stats);
+        setPagination(data.pagination);
+
+        // Cache the data
+        setCache(prev => new Map(prev.set(cacheKey, data)));
+        setLastFetch(now);
+
+        setError(''); // Clear any previous errors
+      } else if (response && response.registrations) {
+        // Handle direct response format
+        console.log('✅ Direct format - Setting data');
+        const data = {
+          registrations: response.registrations || [],
+          stats: response.stats || {
+            total: 0,
+            pending: 0,
+            imagesUploaded: 0,
+            verified: 0,
+            rejected: 0
+          },
+          pagination: response.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            pages: 0
+          }
+        };
+
+        setRegistrations(data.registrations);
+        setStats(data.stats);
+        setPagination(data.pagination);
+
+        // Cache the data
+        setCache(prev => new Map(prev.set(cacheKey, data)));
+        setLastFetch(now);
+
+        setError(''); // Clear any previous errors
+      } else {
+        console.error('❌ Admin API Failed - No data received');
+        console.error('❌ Response structure:', response);
+        setError('No registration data received from server. Check if you have admin privileges.');
+      }
+    } catch (error) {
+      console.error('❌ Fetch registrations error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+
+      if (error.response?.status === 401) {
+        setError('Authentication required. Please login again.');
+      } else if (error.response?.status === 403) {
+        setError('Access denied. Admin privileges required. Contact administrator.');
+      } else {
+        setError(error.response?.data?.error?.message || error.message || 'Failed to fetch registrations. Check console for details.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, pagination.limit, tournaments, user]);
+
 
   useEffect(() => {
     fetchTournaments();
-    fetchRegistrations(1, false); // Start from page 1, no cache on initial load
   }, []);
 
   // Debounced effect for filters to prevent excessive API calls
@@ -61,7 +227,7 @@ const AdminBGMIRegistrations = () => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName, filters.group]); // Only specific filter values
+  }, [filters.status, filters.tournamentId, filters.teamName, filters.playerName, filters.group, fetchRegistrations]); // Only specific filter values
 
 
 
@@ -240,168 +406,6 @@ const AdminBGMIRegistrations = () => {
       }
     } catch (error) {
       console.error('❌ Fetch tournaments error:', error);
-    }
-  };
-
-  const fetchRegistrations = async (page = 1, useCache = true) => {
-    try {
-      setLoading(true);
-      
-      // Debug logging
-      console.log('🔍 DEBUG: Starting fetchRegistrations');
-      console.log('🔍 DEBUG: User:', user);
-      console.log('🔍 DEBUG: Token exists:', !!localStorage.getItem('token'));
-      
-      // Check cache first (30 second cache)
-      const cacheKey = `${page}-${JSON.stringify(filters)}`;
-      const now = Date.now();
-      if (useCache && cache.has(cacheKey) && lastFetch && (now - lastFetch) < 30000) {
-        const cachedData = cache.get(cacheKey);
-        setRegistrations(cachedData.registrations);
-        setStats(cachedData.stats);
-        setPagination(cachedData.pagination);
-        setLoading(false);
-        return;
-      }
-      
-      const queryParams = new URLSearchParams();
-      queryParams.append('page', page.toString());
-      queryParams.append('limit', pagination.limit.toString());
-      
-      if (filters.status !== 'all') {
-        queryParams.append('status', filters.status);
-      }
-      if (filters.tournamentId) {
-        queryParams.append('tournamentId', filters.tournamentId);
-      }
-      if (filters.teamName) {
-        queryParams.append('teamName', filters.teamName);
-      }
-      if (filters.playerName) {
-        queryParams.append('playerName', filters.playerName);
-      }
-      if (filters.group) {
-        queryParams.append('group', filters.group);
-      }
-
-      // Determine which API to call based on selected tournament
-      let apiUrl;
-      let effectiveTournamentId = filters.tournamentId;
-      
-      if (filters.tournamentId) {
-        // Find the selected tournament to determine its game type
-        const selectedTournament = tournaments.find(t => t._id === filters.tournamentId);
-        if (selectedTournament && (selectedTournament.gameType === 'freefire' || selectedTournament.gameType === 'FreeFire')) {
-          apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
-        } else {
-          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
-        }
-      } else {
-        // If no tournament selected, check if we have registrations to determine game type
-        // This helps when refreshing after an edit
-        if (registrations && registrations.length > 0) {
-          const firstReg = registrations[0];
-          const firstRegTournament = firstReg.tournamentId;
-          const gameType = firstRegTournament?.gameType || firstRegTournament?.gameType;
-          
-          if (gameType === 'freefire' || gameType === 'FreeFire') {
-            apiUrl = `/api/freefire-registration/admin/registrations?${queryParams}`;
-            console.log('🔥 Using Free Fire API based on existing registrations');
-          } else {
-            apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
-            console.log('🎮 Using BGMI API based on existing registrations');
-          }
-        } else {
-          // Default to BGMI if no context available
-          apiUrl = `/api/bgmi-registration/admin/registrations?${queryParams}`;
-          console.log('🎮 Defaulting to BGMI API');
-        }
-      }
-      
-      console.log('🔍 DEBUG: API URL:', apiUrl);
-      
-      const response = await api.get(apiUrl);
-      console.log('🔍 DEBUG: API Response:', response);
-      
-      if (response && response.success) {
-        console.log('✅ Admin API Success - Setting data');
-        const data = {
-          registrations: response.data?.registrations || [],
-          stats: response.data?.stats || {
-            total: 0,
-            pending: 0,
-            imagesUploaded: 0,
-            verified: 0,
-            rejected: 0
-          },
-          pagination: response.data?.pagination || {
-            page: 1,
-            limit: 10,
-            total: 0,
-            pages: 0
-          }
-        };
-        
-        setRegistrations(data.registrations);
-        setStats(data.stats);
-        setPagination(data.pagination);
-        
-        // Cache the data
-        setCache(prev => new Map(prev.set(cacheKey, data)));
-        setLastFetch(now);
-        
-        setError(''); // Clear any previous errors
-      } else if (response && response.registrations) {
-        // Handle direct response format
-        console.log('✅ Direct format - Setting data');
-        const data = {
-          registrations: response.registrations || [],
-          stats: response.stats || {
-            total: 0,
-            pending: 0,
-            imagesUploaded: 0,
-            verified: 0,
-            rejected: 0
-          },
-          pagination: response.pagination || {
-            page: 1,
-            limit: 10,
-            total: 0,
-            pages: 0
-          }
-        };
-        
-        setRegistrations(data.registrations);
-        setStats(data.stats);
-        setPagination(data.pagination);
-        
-        // Cache the data
-        setCache(prev => new Map(prev.set(cacheKey, data)));
-        setLastFetch(now);
-        
-        setError(''); // Clear any previous errors
-      } else {
-        console.error('❌ Admin API Failed - No data received');
-        console.error('❌ Response structure:', response);
-        setError('No registration data received from server. Check if you have admin privileges.');
-      }
-    } catch (error) {
-      console.error('❌ Fetch registrations error:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      
-      if (error.response?.status === 401) {
-        setError('Authentication required. Please login again.');
-      } else if (error.response?.status === 403) {
-        setError('Access denied. Admin privileges required. Contact administrator.');
-      } else {
-        setError(error.response?.data?.error?.message || error.message || 'Failed to fetch registrations. Check console for details.');
-      }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1739,15 +1743,7 @@ const ImageVerificationModal = ({
   console.log('🔍 Modal rendered with registration:', registration);
   console.log('📸 Modal images:', registration?.verificationImages?.length || 0);
 
-  // Fetch chat messages when modal opens (NO AUTO-POLLING)
-  useEffect(() => {
-    if (registration?._id) {
-      fetchChatMessages();
-      // No automatic polling - user can manually refresh if needed
-    }
-  }, [registration?._id]);
-
-  const fetchChatMessages = async (loadMore = false) => {
+  const fetchChatMessages = useCallback(async (loadMore = false) => {
     try {
       if (!loadMore) setLoadingChat(true);
       
@@ -1824,7 +1820,15 @@ const ImageVerificationModal = ({
     } finally {
       if (!loadMore) setLoadingChat(false);
     }
-  };
+  }, [chatMessages.length, registration._id]);
+
+  // Fetch chat messages when modal opens (NO AUTO-POLLING)
+  useEffect(() => {
+    if (registration?._id) {
+      fetchChatMessages();
+      // No automatic polling - user can manually refresh if needed
+    }
+  }, [fetchChatMessages, registration?._id]);
 
   const handleDeleteImage = async (imageId) => {
     if (!window.confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
@@ -2111,7 +2115,7 @@ const ImageVerificationModal = ({
                         
                         <img
                           src={image.cloudinaryUrl}
-                          alt={`${image.playerId} - Image ${image.imageNumber}`}
+                          alt={`${image.playerId} - Proof ${image.imageNumber}`}
                           className="w-full h-32 md:h-36 object-cover cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => onImagePreview && onImagePreview(registration.verificationImages, index)}
                         />
@@ -2353,7 +2357,7 @@ const ImageVerificationModal = ({
                       {message.imageUrl && (
                         <img 
                           src={message.imageUrl} 
-                          alt="Shared image" 
+                          alt="Shared attachment"
                           className="w-full h-32 object-cover rounded mb-2 cursor-pointer"
                           onClick={() => window.open(message.imageUrl, '_blank')}
                         />
@@ -2892,9 +2896,29 @@ const TournamentScoreboardCard = ({ tournament, onScoreboardUploaded }) => {
     file: null
   });
 
+  const fetchScoreboards = useCallback(async (forceRefresh = false) => {
+    try {
+      // Add cache-busting parameter for force refresh
+      const url = forceRefresh
+        ? `/api/tournaments/${tournament._id}/scoreboards?t=${Date.now()}`
+        : `/api/tournaments/${tournament._id}/scoreboards`;
+
+      const response = await api.get(url);
+      if (response.data && response.data.success) {
+        setScoreboards(response.data.data.scoreboards);
+      } else if (response.success) {
+        setScoreboards(response.data.scoreboards);
+      }
+    } catch (error) {
+      console.error('Error fetching scoreboards:', error);
+      // Set empty array on error to prevent stale data
+      setScoreboards([]);
+    }
+  }, [tournament._id]);
+
   useEffect(() => {
     fetchScoreboards();
-  }, [tournament._id]);
+  }, [fetchScoreboards, tournament._id]);
 
   // Refresh gallery when component becomes visible again (user returns to page)
   useEffect(() => {
@@ -2910,7 +2934,7 @@ const TournamentScoreboardCard = ({ tournament, onScoreboardUploaded }) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [tournament._id]);
+  }, [fetchScoreboards, tournament._id]);
 
   // Add CSS and escape key handling for modal
   useEffect(() => {
@@ -2953,26 +2977,6 @@ const TournamentScoreboardCard = ({ tournament, onScoreboardUploaded }) => {
       };
     }
   }, [showUploadModal]);
-
-  const fetchScoreboards = async (forceRefresh = false) => {
-    try {
-      // Add cache-busting parameter for force refresh
-      const url = forceRefresh 
-        ? `/api/tournaments/${tournament._id}/scoreboards?t=${Date.now()}`
-        : `/api/tournaments/${tournament._id}/scoreboards`;
-        
-      const response = await api.get(url);
-      if (response.data && response.data.success) {
-        setScoreboards(response.data.data.scoreboards);
-      } else if (response.success) {
-        setScoreboards(response.data.scoreboards);
-      }
-    } catch (error) {
-      console.error('Error fetching scoreboards:', error);
-      // Set empty array on error to prevent stale data
-      setScoreboards([]);
-    }
-  };
 
   const handleUploadScoreboard = async () => {
     if (uploadData.uploadMethod === 'file' && !uploadData.file) {
@@ -3315,6 +3319,18 @@ const ImagePreviewModal = ({ images, currentIndex, onClose, onNavigate }) => {
     setImageIndex(currentIndex);
   }, [currentIndex]);
 
+  const handleNext = useCallback(() => {
+    const newIndex = imageIndex < images.length - 1 ? imageIndex + 1 : 0;
+    setImageIndex(newIndex);
+    onNavigate(newIndex);
+  }, [imageIndex, images.length, onNavigate]);
+
+  const handlePrevious = useCallback(() => {
+    const newIndex = imageIndex > 0 ? imageIndex - 1 : images.length - 1;
+    setImageIndex(newIndex);
+    onNavigate(newIndex);
+  }, [imageIndex, images.length, onNavigate]);
+
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.key === 'ArrowLeft') {
@@ -3328,19 +3344,7 @@ const ImagePreviewModal = ({ images, currentIndex, onClose, onNavigate }) => {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [imageIndex, images.length]);
-
-  const handlePrevious = () => {
-    const newIndex = imageIndex > 0 ? imageIndex - 1 : images.length - 1;
-    setImageIndex(newIndex);
-    onNavigate(newIndex);
-  };
-
-  const handleNext = () => {
-    const newIndex = imageIndex < images.length - 1 ? imageIndex + 1 : 0;
-    setImageIndex(newIndex);
-    onNavigate(newIndex);
-  };
+  }, [handleNext, handlePrevious, imageIndex, images.length, onClose]);
 
   if (!images || images.length === 0) {
     return null;

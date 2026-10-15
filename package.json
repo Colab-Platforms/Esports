@@ -11,7 +11,8 @@
     "install-client": "cd client && npm install",
     "install-server": "npm install",
     "install-all": "npm run install-server && npm run install-client",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test:backend": "node server/scripts/test-competitive.cjs"
   },
   "keywords": [
     "esports",
@@ -28,8 +29,8 @@
     "axios": "^1.13.1",
     "bcryptjs": "^2.4.3",
     "brotli": "^1.3.3",
-    "cloudinary": "^1.41.3",
-    "compression": "^1.8.1",
+    "cloudinary": "2.7.0",
+    "compression": "1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -39,8 +40,8 @@
     "gamedig": "^5.3.2",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^7.5.0",
-    "multer": "^2.0.2",
+    "mongoose": "7.8.10",
+    "multer": "2.4.0",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^6.10.1",
     "passport": "^0.7.0",
@@ -49,11 +50,17 @@
     "razorpay": "^2.9.6",
     "redis": "^5.10.0",
     "resend": "^6.7.0",
-    "socket.io": "^4.7.2",
+    "socket.io": "4.8.4",
     "xlsx": "^0.18.5"
+  },
+  "overrides": {
+    "multer-storage-cloudinary": {
+      "cloudinary": "$cloudinary"
+    }
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
+    "mongodb-memory-server": "10.4.1",
     "nodemon": "^3.0.1"
   }
 }

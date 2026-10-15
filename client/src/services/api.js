@@ -168,6 +168,97 @@ class ApiService {
     return this.get('/api/tournaments/my-tournaments');
   }
 
+  async getPlayerCompetitiveProfile(username) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-profile`);
+  }
+
+  async getPlayerCompetitiveHistory(username, params = {}) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/competitive-history`, { params });
+  }
+
+  async getPlayerStatistics(username) {
+    return this.get(`/api/players/${encodeURIComponent(username)}/statistics`);
+  }
+
+  async getTeamStatistics(teamId) {
+    return this.get(`/api/teams/${encodeURIComponent(teamId)}/statistics`);
+  }
+
+  async getTeamCompetitiveProfile(teamId) {
+    return this.get(`/api/teams/${encodeURIComponent(teamId)}/competitive-profile`);
+  }
+
+  async getCompetitiveLeaderboard(gameType, params = {}) {
+    return this.get(`/api/leaderboards/${encodeURIComponent(gameType)}`, { params });
+  }
+
+  async getTournamentResultsDirectory(params = {}) {
+    return this.get('/api/tournaments/results-directory', { params });
+  }
+
+  async getTournamentFinalResult(tournamentId) {
+    return this.get(`/api/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async getAdminTournamentFinalResult(tournamentId) {
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results`);
+  }
+
+  async previewTournamentFinalResult(tournamentId, data = null) {
+    if (data) {
+      return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`, data);
+    }
+    return this.get(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/preview`);
+  }
+
+  async publishTournamentFinalResult(tournamentId, data = {}) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/publish`, data);
+  }
+
+  async voidTournamentFinalResult(tournamentId) {
+    return this.post(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}/final-results/void`);
+  }
+
+  async getFreeFireTournamentResults(tournamentId, params = {}) {
+    return this.get(`/api/freefire-results/tournament/${tournamentId}`, { params });
+  }
+
+  async createFreeFireResult(data) {
+    return this.post('/api/freefire-results', data);
+  }
+
+  async updateFreeFireResult(resultId, data) {
+    return this.put(`/api/freefire-results/${resultId}`, data);
+  }
+
+  async verifyFreeFireResult(resultId) {
+    return this.post(`/api/freefire-results/${resultId}/verify`);
+  }
+
+  async voidFreeFireResult(resultId) {
+    return this.post(`/api/freefire-results/${resultId}/void`);
+  }
+
+  async getValorantTournamentResults(tournamentId, params = {}) {
+    return this.get(`/api/valorant-results/tournament/${tournamentId}`, { params });
+  }
+
+  async createValorantResult(data) {
+    return this.post('/api/valorant-results', data);
+  }
+
+  async updateValorantResult(resultId, data) {
+    return this.put(`/api/valorant-results/${resultId}`, data);
+  }
+
+  async verifyValorantResult(resultId) {
+    return this.post(`/api/valorant-results/${resultId}/verify`);
+  }
+
+  async voidValorantResult(resultId) {
+    return this.post(`/api/valorant-results/${resultId}/void`);
+  }
+
   // Profile API
   async updateProfile(profileData) {
     try {
@@ -189,69 +280,37 @@ class ApiService {
 }
 
 // Clan API
-async function createClan(clanData) {
-  return this.post('/api/clans', clanData);
-}
 
-async function getClan(clanId) {
-  return this.get(`/api/clans/${clanId}`);
-}
 
-async function getClans(params = {}) {
-  return this.get('/api/clans', { params });
-}
 
-async function updateClan(clanId, clanData) {
-  return this.put(`/api/clans/${clanId}`, clanData);
-}
 
-async function deleteClan(clanId) {
-  return this.delete(`/api/clans/${clanId}`);
-}
 
-async function getClanMembers(clanId) {
-  return this.get(`/api/clans/${clanId}/members`);
-}
 
-async function getClanMember(clanId, userId) {
-  return this.get(`/api/clans/${clanId}/members/${userId}`);
-}
 
-async function addClanMember(clanId, userId, role) {
-  return this.post(`/api/clans/${clanId}/members`, { userId, role });
-}
 
-async function removeClanMember(clanId, userId) {
-  return this.delete(`/api/clans/${clanId}/members/${userId}`);
-}
 
-async function updateClanMember(clanId, userId, role) {
-  return this.put(`/api/clans/${clanId}/members/${userId}`, { role });
-}
 
-async function getClanMessages(clanId, params = {}) {
-  return this.get(`/api/clans/${clanId}/messages`, { params });
-}
 
-async function sendClanMessage(clanId, message) {
-  return this.post(`/api/clans/${clanId}/messages`, { message });
-}
 
-async function deleteClanMessage(clanId, messageId) {
-  return this.delete(`/api/clans/${clanId}/messages/${messageId}`);
-}
 
-async function createClanAnnouncement(clanId, announcementData) {
-  return this.post(`/api/clans/${clanId}/announcements`, announcementData);
-}
 
-async function getClanAnnouncements(clanId) {
-  return this.get(`/api/clans/${clanId}/announcements`);
-}
 
-async function deleteClanAnnouncement(clanId, announcementId) {
-  return this.delete(`/api/clans/${clanId}/announcements/${announcementId}`);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const api = new ApiService();
 export default api;
