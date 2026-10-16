@@ -18,6 +18,8 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 // Seed data utility removed - use admin panel to create tournaments and games
 
 const app = express();
+const phase2Staging = require('./staging/phase2-safety');
+phase2Staging.attach(app);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -490,5 +492,5 @@ server.listen(PORT, () => {
   console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
   
   // Start tournament status scheduler
-  tournamentScheduler.start();
+  if (!phase2Staging.isReady()) tournamentScheduler.start();
 });
