@@ -2,12 +2,14 @@
 
 const DB = 'colab-esports-phase2-test';
 const USER = 'colab_phase2_tester';
+// Esports-dev's platform service ID, confirmed from its Render Dashboard URL.
+const RENDER_SERVICE_ID = 'srv-d62q0jffte5s73b9a7c0';
 let ready = false;
 let failureStage = 'ENVIRONMENT';
 const reject = code => { throw Object.assign(new Error(code), { code }); };
 // Never interpolate driver messages, stack traces, hosts or arbitrary codes.
 const safeCodes = new Set([
-  'STAGING_FLAG_REQUIRED', 'STAGING_SERVICE_NAME_MISMATCH', 'STAGING_JWT_SECRET_REQUIRED',
+  'STAGING_FLAG_REQUIRED', 'STAGING_SERVICE_ID_MISMATCH', 'STAGING_JWT_SECRET_REQUIRED',
   'STAGING_URI_INVALID', 'STAGING_TARGET_MISMATCH', 'STAGING_DUPLICATE_URI_OPTION',
   'STAGING_URI_OPTION_UNAPPROVED', 'STAGING_TLS_REQUIRED', 'STAGING_AUTH_MECHANISM_UNAPPROVED',
   'STAGING_SRV_UNVERIFIED', 'STAGING_AUTHORIZATION_MISMATCH', 'STAGING_PERMISSIONS_INSUFFICIENT',
@@ -121,7 +123,7 @@ function attach(app) {
 async function prepare() {
   failureStage = 'ENVIRONMENT';
   if (process.env.PHASE2_STAGING !== 'true') reject('STAGING_FLAG_REQUIRED');
-  if (process.env.RENDER_SERVICE_NAME && process.env.RENDER_SERVICE_NAME !== 'Esports-dev') reject('STAGING_SERVICE_NAME_MISMATCH');
+  if (process.env.RENDER_SERVICE_ID !== RENDER_SERVICE_ID) reject('STAGING_SERVICE_ID_MISMATCH');
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) reject('STAGING_JWT_SECRET_REQUIRED');
   const uri = process.env.MONGODB_URI;
   failureStage = 'URI_VALIDATION';

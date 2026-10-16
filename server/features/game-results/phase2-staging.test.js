@@ -47,7 +47,9 @@ function preparedChild(mode) {
     const Module = require('node:module');
     const original = Module._load;
     const mode = ${JSON.stringify(mode)};
-    if(mode==='bad-service') process.env.RENDER_SERVICE_NAME='Esports-prod';
+    if(mode==='bad-service'||mode==='replacement-service') process.env.RENDER_SERVICE_ID='srv-not-the-approved-service';
+    if(mode==='missing-service') delete process.env.RENDER_SERVICE_ID;
+    if(mode==='replacement-service') process.env.EXPECTED_RENDER_SERVICE_ID=process.env.RENDER_SERVICE_ID;
     if(mode==='bad-uri') process.env.MONGODB_URI=process.env.MONGODB_URI.replace('phase2-test','prod');
     let connections = 0;
     const info = { authenticatedUsers:[{user:mode==='bad-auth'?'other':'colab_phase2_tester'}], authenticatedUserRoles:[{db:'colab-esports-phase2-test',role:'readWrite'}], authenticatedUserPrivileges:[{resource:{db:'colab-esports-phase2-test',collection:''},actions:['find','insert','update','remove']}] };
@@ -58,7 +60,7 @@ function preparedChild(mode) {
     dns.lookup=async()=>[{address:'127.0.0.1'}];
     const safety=require('./server/staging/phase2-safety');
     (async()=>{
-      if(mode==='bad-service'||mode==='bad-uri'){await assert.rejects(safety.prepare(),error=>error.code.startsWith('STAGING_'));assert.equal(connections,0);assert.equal(safety.isReady(),false);return;}
+      if(['bad-service','missing-service','replacement-service','bad-uri'].includes(mode)){await assert.rejects(safety.prepare(),error=>error.code===(mode==='bad-uri'?'STAGING_TARGET_MISMATCH':'STAGING_SERVICE_ID_MISMATCH'));assert.equal(connections,0);assert.equal(safety.isReady(),false);return;}
       if(mode==='bad-auth'){await assert.rejects(safety.prepare(),/STAGING_AUTHORIZATION_MISMATCH/);assert.equal(safety.isReady(),false);return;}
       await safety.prepare();assert.equal(safety.isReady(),true);assert.equal(connections,1);
       assert.equal(fake.settings.autoIndex,false);assert.equal(fake.settings.autoCreate,false);
@@ -80,11 +82,11 @@ function preparedChild(mode) {
   `;
   const env = {};
   for (const [key, value] of Object.entries(process.env)) if (/^(path|systemroot|windir|comspec|temp|tmp|pathext|userprofile|localappdata|appdata)$/i.test(key)) env[key] = value;
-  Object.assign(env, { PHASE2_STAGING: 'true', MONGODB_URI: uri, JWT_SECRET: 'synthetic-test-secret-at-least-32-characters', RAZORPAY_KEY_ID: 'synthetic', RESEND_API_KEY: 'synthetic' });
+  Object.assign(env, { PHASE2_STAGING: 'true', RENDER_SERVICE_ID: 'srv-d62q0jffte5s73b9a7c0', RENDER_SERVICE_NAME: 'different-platform-name', MONGODB_URI: uri, JWT_SECRET: 'synthetic-test-secret-at-least-32-characters', RAZORPAY_KEY_ID: 'synthetic', RESEND_API_KEY: 'synthetic' });
   return spawnSync(process.execPath, ['-e', script], { cwd: path.resolve(__dirname, '../../..'), env, encoding: 'utf8', timeout: 15000 });
 }
 
-test('staging preparation gates readiness, clears provider keys and refuses reconnects', () => {
+test('pinned Render ID permits a different platform name and preserves staging safeguards', () => {
   const result = preparedChild('ready');
   assert.equal(result.status, 0, result.stderr);
 });
@@ -96,6 +98,13 @@ test('staging preparation never becomes ready when authenticated ownership diffe
 
 test('staging rejects a production service or database URI before connecting', () => {
   for(const mode of ['bad-service','bad-uri']) {
+    const result=preparedChild(mode);
+    assert.equal(result.status,0,result.stderr);
+  }
+});
+
+test('staging rejects a missing platform ID and ignores manually supplied replacement pins', () => {
+  for(const mode of ['missing-service','replacement-service']) {
     const result=preparedChild(mode);
     assert.equal(result.status,0,result.stderr);
   }
@@ -137,7 +146,7 @@ test('normal startup helper import leaves transports, defaults and exception han
 
 test('actual staging entrypoint reports sanitized failure stages without database access', () => {
   const cases = [
-    ['flag', 'STAGING_FLAG_REQUIRED'], ['service', 'STAGING_SERVICE_NAME_MISMATCH'],
+    ['flag', 'STAGING_FLAG_REQUIRED'], ['service', 'STAGING_SERVICE_ID_MISMATCH'],
     ['jwt', 'STAGING_JWT_SECRET_REQUIRED'], ['uri', 'STAGING_TARGET_MISMATCH'],
     ['uri-decode', 'STAGING_URI_VALIDATION_FAILED'], ['dns', 'STAGING_ATLAS_DNS_FAILED'],
     ['isolation', 'STAGING_EXTERNAL_ISOLATION_FAILED'], ['network', 'STAGING_ATLAS_NETWORK_FAILED'],
@@ -153,7 +162,7 @@ test('actual staging entrypoint reports sanitized failure stages without databas
       const secret='PRIVATE_PASSWORD_SENTINEL';
       const failure=code=>Object.assign(new Error(secret+' mongodb+srv://secret:password@private-host/private'),{code});
       if(mode==='flag')delete process.env.PHASE2_STAGING;
-      if(mode==='service')process.env.RENDER_SERVICE_NAME='wrong';
+      if(mode==='service')process.env.RENDER_SERVICE_ID='srv-not-the-approved-service';
       if(mode==='jwt')process.env.JWT_SECRET='short';
       if(mode==='uri')process.env.MONGODB_URI=process.env.MONGODB_URI.replace('phase2-test','prod');
       if(mode==='uri-decode')process.env.MONGODB_URI=process.env.MONGODB_URI.replace('colab_phase2_tester:','bad%zz:');
@@ -176,7 +185,7 @@ test('actual staging entrypoint reports sanitized failure stages without databas
     `;
     const env = {};
     for (const [key, value] of Object.entries(process.env)) if (/^(path|systemroot|windir|comspec|temp|tmp|pathext|userprofile|localappdata|appdata)$/i.test(key)) env[key] = value;
-    Object.assign(env, { PHASE2_STAGING: 'true', MONGODB_URI: uri, JWT_SECRET: 'synthetic-test-secret-at-least-32-characters' });
+    Object.assign(env, { PHASE2_STAGING: 'true', RENDER_SERVICE_ID: 'srv-d62q0jffte5s73b9a7c0', MONGODB_URI: uri, JWT_SECRET: 'synthetic-test-secret-at-least-32-characters' });
     const result = spawnSync(process.execPath, ['-e', script], { cwd: path.resolve(__dirname, '../../..'), env, encoding: 'utf8', timeout: 10000 });
     assert.equal(result.status, 1, mode);
     assert.equal(result.stdout, '', mode);
