@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiExternalLink, FiCheck, FiAlertCircle } from 'react-icons/fi';
@@ -9,13 +10,9 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   const [steamStatus, setSteamStatus] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen) {
-      checkSteamStatus();
-    }
-  }, [isOpen]);
-
-  const checkSteamStatus = async () => {
+  const connectionCallbacks = useRef();
+  connectionCallbacks.current = { onClose, onSuccess };
+  const checkSteamStatus = useCallback(async () => {
     try {
       setLoading(true);
       const status = await api.get('/api/steam/status');
@@ -23,8 +20,8 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
       
       // If already connected and eligible, close modal
       if (status.isConnected && status.steamGames?.cs2?.verified) {
-        onSuccess(status);
-        onClose();
+        connectionCallbacks.current.onSuccess(status);
+        connectionCallbacks.current.onClose();
       }
     } catch (error) {
       console.error('Error checking Steam status:', error);
@@ -32,7 +29,13 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      checkSteamStatus();
+    }
+  }, [checkSteamStatus, isOpen]);
 
   const connectSteam = () => {
     // Get userId from auth token
@@ -108,8 +111,8 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
       const eligibility = await api.get('/api/steam/cs2/eligibility');
       
       if (eligibility.eligible) {
-        onSuccess(eligibility);
-        onClose();
+        connectionCallbacks.current.onSuccess(eligibility);
+        connectionCallbacks.current.onClose();
       } else {
         setError(eligibility.reason || 'Not eligible for CS2 tournaments');
       }

@@ -16,7 +16,7 @@ const SteamSettingsPage = () => {
     const [showSteamGuide, setShowSteamGuide] = useState(false);
     const [showSteamDownload, setShowSteamDownload] = useState(false);
     const [showSteamLogin, setShowSteamLogin] = useState(false);
-    const [steamDetected, setSteamDetected] = useState(false);
+    const [, setSteamDetected] = useState(false);
 
     useEffect(() => {
         fetchSteamStatus();
@@ -69,7 +69,7 @@ const SteamSettingsPage = () => {
             };
             
             // Method 3: Try to focus detection
-            const originalFocus = document.hasFocus();
+            document.hasFocus();
             let focusLost = false;
             
             const focusHandler = () => {

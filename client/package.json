@@ -26,6 +26,8 @@
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.6",
     "@tailwindcss/typography": "^0.5.10",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "14.3.1",
     "autoprefixer": "^10.4.15",
     "baseline-browser-mapping": "latest",
     "postcss": "^8.4.29",
@@ -56,5 +58,10 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:5003"
+  "proxy": "http://localhost:5003",
+  "jest": {
+    "moduleNameMapper": {
+      "^axios$": "<rootDir>/node_modules/axios/dist/node/axios.cjs"
+    }
+  }
 }

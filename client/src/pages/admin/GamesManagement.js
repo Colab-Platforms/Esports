@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX } from 'react-icons/fi';
@@ -21,11 +22,7 @@ const GamesManagement = () => {
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
-  useEffect(() => {
-    fetchGames();
-  }, []);
-
-  const fetchGames = async () => {
+  const fetchGames = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/games`);
       const data = await response.json();
@@ -38,7 +35,11 @@ const GamesManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchGames();
+  }, [fetchGames]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

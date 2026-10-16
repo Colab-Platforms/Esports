@@ -46,7 +46,7 @@ const OAuthSuccess = () => {
               user
             }));
             
-            const providerName = provider === 'google' ? 'Google' : 'Steam';
+
             toast.success(`🎉 Welcome back, ${user.username}!`);
             
             console.log('🚀 Redirecting to home page...');

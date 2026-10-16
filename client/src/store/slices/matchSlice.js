@@ -367,7 +367,9 @@ const matchSlice = createSlice({
       })
       .addCase(uploadScreenshot.fulfilled, (state, action) => {
         state.loading.uploadScreenshot = false;
-        const { matchId, screenshotData } = action.payload;
+        const {
+  matchId
+} = action.payload;
         
         // Update current match if it's the same
         if (state.currentMatch && state.currentMatch._id === matchId) {

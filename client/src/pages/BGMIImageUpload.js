@@ -1,6 +1,7 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+
 import { useSelector } from 'react-redux';
 import { selectUser } from '../store/slices/authSlice';
 import api from '../services/api';
@@ -40,16 +41,7 @@ const BGMIImageUpload = () => {
     member3_2: 'Member 3 - BGMI Screenshot'
   };
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    
-    fetchRegistrationDetails();
-  }, [registrationId, user, navigate]);
-
-  const fetchRegistrationDetails = async () => {
+  const fetchRegistrationDetails = useCallback(async () => {
     try {
       setLoading(true);
       console.log('🔍 Fetching registration details for ID:', registrationId);
@@ -85,7 +77,16 @@ const BGMIImageUpload = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [registrationId]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    fetchRegistrationDetails();
+  }, [registrationId, user, navigate, fetchRegistrationDetails]);
 
   const handleImageSelect = (label, file) => {
     if (file && file.size > 5 * 1024 * 1024) {

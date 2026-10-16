@@ -16,71 +16,67 @@ const TournamentManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [formStep, setFormStep] = useState(1); // 1: Game Selection, 2: Tournament Details
-  const [selectedGame, setSelectedGame] = useState(null);
+  const [, setFormStep] = useState(1); // 1: Game Selection, 2: Tournament Details
+  const [, setSelectedGame] = useState(null);
 
   // React Hook Form
-  const { register, handleSubmit, reset, setValue, watch, control, formState: { errors, isSubmitting } } = useForm({
-    defaultValues: {
-      name: '',
-      gameType: '',
-      description: '',
-      mode: 'squad',
-      format: 'elimination',
-      entryFee: 0,
-      prizePool: 0,
-      maxParticipants: 100,
-      youtubeVideoId: '',
-      grouping: {
-        enabled: false,
-        groupSize: 20
+  const {
+  register,
+  handleSubmit,
+  reset,
+  watch,
+  control,
+  formState: {
+    errors,
+    isSubmitting
+  }
+} = useForm({
+  defaultValues: {
+    name: '',
+    gameType: '',
+    description: '',
+    mode: 'squad',
+    format: 'elimination',
+    entryFee: 0,
+    prizePool: 0,
+    maxParticipants: 100,
+    youtubeVideoId: '',
+    grouping: {
+      enabled: false,
+      groupSize: 20
+    },
+    startDate: '',
+    endDate: '',
+    registrationDeadline: '',
+    rules: '',
+    status: 'registration_open',
+    featured: false,
+    roomDetails: {
+      cs2: {
+        serverName: '',
+        serverIp: '',
+        serverPort: '',
+        password: '',
+        gameMode: 'casual',
+        mapName: '',
+        rconPassword: ''
       },
-      startDate: '',
-      endDate: '',
-      registrationDeadline: '',
-      rules: '',
-      status: 'registration_open',
-      featured: false,
-      roomDetails: {
-        cs2: {
-          serverName: '',
-          serverIp: '',
-          serverPort: '',
-          password: '',
-          gameMode: 'casual',
-          mapName: '',
-          rconPassword: ''
-        },
-        bgmi: {
-          roomId: '',
-          password: '',
-          map: 'Erangel',
-          perspective: 'TPP',
-          mode: 'Squad'
-        }
+      bgmi: {
+        roomId: '',
+        password: '',
+        map: 'Erangel',
+        perspective: 'TPP',
+        mode: 'Squad'
       }
     }
-  });
+  }
+});
 
   // Watch gameType to show conditional fields
   const selectedGameType = watch('gameType');
 
   // Helper: Convert game ID to gameType
-  const getGameType = (gameId) => {
-    const game = games.find(g => g._id === gameId);
-    if (!game) return '';
-    // Map game id to gameType (bgmi, valorant, cs2, freefire)
-    const gameTypeMap = {
-      'bgmi': 'bgmi',
-      'valorant': 'valorant',
-      'cs2': 'cs2',
-      'freefire': 'freefire',
-      'ff': 'freefire', // Map short form to full form
-      'pubgpc': 'cs2',
-      'mobilelegends': 'bgmi'
-    };
-    return gameTypeMap[game.id] || game.id;
-  };
+
 
   useEffect(() => {
     fetchTournaments();
@@ -385,16 +381,9 @@ const TournamentManagement = () => {
     setEditingTournament(null);
   };
 
-  const handleGameSelect = (game) => {
-    setSelectedGame(game);
-    setValue('gameType', game.id);
-    setFormStep(2);
-  };
 
-  const handleBackToGameSelection = () => {
-    setFormStep(1);
-    setSelectedGame(null);
-  };
+
+
 
   const getStatusColor = (status) => {
     switch (status) {

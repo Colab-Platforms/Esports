@@ -1,18 +1,8 @@
+import TournamentFinalResults from "../../components/competitive/TournamentFinalResults";
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import {
-  FiArrowLeft,
-  FiShare2,
-  FiUsers,
-  FiCalendar,
-  FiDollarSign,
-  FiMapPin,
-  FiAward,
-  FiInfo,
-  FiKey,
-  FiCopy,
-} from "react-icons/fi";
+import { FiArrowLeft, FiShare2, FiUsers, FiAward, FiInfo } from "react-icons/fi";
 import { selectAuth } from "../../store/slices/authSlice";
 import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
 import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
@@ -84,7 +74,7 @@ const SingleTournamentPage = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(selectAuth);
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(new URLSearchParams(location.search).get("tab") === "results" ? "results" : "general");
   const [showTeamSelection, setShowTeamSelection] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [showSteamModal, setShowSteamModal] = useState(false);
@@ -94,9 +84,9 @@ const SingleTournamentPage = () => {
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const [serverStats, setServerStats] = useState([]);
+  const [, setServerStats] = useState([]);
   const [serverPlayers, setServerPlayers] = useState([]);
-  const [scoreboards, setScoreboards] = useState([]);
+  const [, setScoreboards] = useState([]);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -164,7 +154,7 @@ const SingleTournamentPage = () => {
   const fetchRegisteredTeams = React.useCallback(async () => {
     try {
       setLoadingTeams(true);
-      const API_BASE_URL = process.env.REACT_APP_API_URL || "";
+
 
       // For BGMI tournaments, use the BGMI-specific endpoint
       let endpoint = `/api/tournaments/${id}/participants`;
@@ -435,7 +425,7 @@ const SingleTournamentPage = () => {
 
   // Fetch registered teams when tournament data is loaded
   useEffect(() => {
-    if (tournament && tournament._id) {
+    if (tournament?._id) {
       // Fetch immediately without artificial delay
       fetchRegisteredTeams();
     }
@@ -982,10 +972,12 @@ const SingleTournamentPage = () => {
   const tabs = [
     { id: "general", label: "GENERAL", icon: FiInfo },
     { id: "teams", label: "TEAMS", icon: FiUsers },
+    ...(["bgmi", "freefire", "valorant"].includes(tournament?.gameType) ? [{ id: "results", label: "RESULTS", icon: FiAward }] : []),
   ];
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case "results": return <TournamentFinalResults tournamentId={tournament._id || tournament.id} />;
       case "general":
         return (
           <div className="space-y-6">

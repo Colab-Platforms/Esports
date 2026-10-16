@@ -1,7 +1,8 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiDollarSign, FiUsers, FiCheck, FiAlertCircle, FiArrowLeft } from 'react-icons/fi';
+import { FiCheck, FiAlertCircle, FiArrowLeft } from 'react-icons/fi';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -27,14 +28,10 @@ const TournamentRewardDistribution = () => {
   const [videoFile, setVideoFile] = useState(null);
   const [videoStatus, setVideoStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [, setUploadProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    fetchTournamentData();
-  }, [id]);
-
-  const fetchTournamentData = async () => {
+  const fetchTournamentData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -73,7 +70,11 @@ const TournamentRewardDistribution = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchTournamentData();
+  }, [fetchTournamentData, id]);
 
   const handleDistributeRewards = async (e) => {
     e.preventDefault();

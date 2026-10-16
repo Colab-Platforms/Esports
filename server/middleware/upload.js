@@ -1,12 +1,15 @@
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
+const { randomUUID } = require('node:crypto');
 
 // Configure Cloudinary storage for avatars
 const avatarStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'esports/avatars',
+    public_id: req => `${req.user.userId}/${randomUUID()}`,
+    overwrite: false,
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
     transformation: [
       { width: 500, height: 500, crop: 'fill', gravity: 'face' },

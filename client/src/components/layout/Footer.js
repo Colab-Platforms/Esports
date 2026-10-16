@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiInstagram, FiYoutube, FiMail } from 'react-icons/fi';
+import { FiInstagram, FiYoutube } from 'react-icons/fi';
 import { FaXTwitter, FaFacebook, FaRedditAlien, FaDiscord } from 'react-icons/fa6';
 
 const Footer = () => {
@@ -60,11 +60,11 @@ const Footer = () => {
             <div>
               <p className="text-gray-400 text-sm mt-4">
                 For inquiries,<br/> Email us at:
-                <a href="#'" className="text-gaming-neon hover:underline ml-1">
+                <a href="mailto:Colabesports@gmail.com" className="text-gaming-neon hover:underline ml-1">
                   Colabesports@gmail.com
                 </a>
                 <p> Contact us:
-                  <a href="#" className="text-gaming-neon hover:underline ml-1">
+                  <a href="tel:+918976968901" className="text-gaming-neon hover:underline ml-1">
                      +91 8976968901
                   </a>
                 </p>

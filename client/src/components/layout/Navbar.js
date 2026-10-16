@@ -2,16 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  FiMenu,
-  FiX,
-  FiLogOut,
-  FiSettings,
-  FiDollarSign,
-  FiGrid,
-  FiUser,
-  FiUsers,
-} from "react-icons/fi";
+import { FiMenu, FiX, FiLogOut, FiSettings, FiGrid, FiUser } from "react-icons/fi";
 
 import { selectAuth, logout } from "../../store/slices/authSlice";
 import NotificationPanel from "../notifications/NotificationPanel";

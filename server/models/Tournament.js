@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const tournamentSchema = new mongoose.Schema({
+  resultRevision: { type: Number, default: 0 },
   name: {
     type: String,
     required: [true, 'Tournament name is required'],

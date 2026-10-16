@@ -1,5 +1,7 @@
 import { addNotification } from '../store/slices/notificationSlice';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+
 class NotificationService {
   constructor() {
     this.dispatch = null;
@@ -35,7 +37,7 @@ class NotificationService {
   // Check for new tournaments
   async checkForNewTournaments() {
     try {
-      const response = await fetch('/api/tournaments?limit=5&sort=createdAt');
+      const response = await fetch(`${API_BASE_URL}/api/tournaments?limit=5&sort=createdAt`);
       const data = await response.json();
 
       if (data.success && data.data.tournaments) {

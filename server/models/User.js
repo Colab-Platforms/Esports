@@ -52,6 +52,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Written only by the upload route; editable avatarUrl is not ownership proof.
+  avatarAsset: {
+    type: new mongoose.Schema({ publicId: String, url: String }, { _id: false }),
+    select: false
+  },
   kycStatus: {
     type: String,
     enum: ['pending', 'verified', 'rejected'],

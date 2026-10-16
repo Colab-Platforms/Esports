@@ -250,4 +250,5 @@ class SecureRequest {
   }
 }
 
-export default new SecureRequest();
+const secureRequest = new SecureRequest();
+export default secureRequest;

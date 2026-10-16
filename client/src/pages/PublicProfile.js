@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,6 +6,7 @@ import toast from 'react-hot-toast';
 import { FiArrowLeft, FiUserPlus, FiTarget, FiAward, FiUsers, FiStar, FiCheck } from 'react-icons/fi';
 import UserAvatar from '../components/common/UserAvatar';
 import axios from 'axios';
+import PlayerCompetitivePanels from '../components/competitive/PlayerCompetitivePanels';
 
 const PublicProfile = () => {
   const { username } = useParams();
@@ -17,20 +19,26 @@ const PublicProfile = () => {
   const [tournamentHistory, setTournamentHistory] = useState([]);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
 
-  useEffect(() => {
-    // Reset state when username changes
-    setFriendStatus(null);
-    setPlayer(null);
-    fetchPlayerProfile();
-    checkAuth();
+  const fetchTournamentHistory = useCallback(async () => {
+    try {
+      setLoadingTournaments(true);
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
+      const response = await axios.get(`${API_URL}/api/users/tournament-history/${username}`);
+      console.log('🏆 Tournament history:', response.data);
+
+      if (response.data.success) {
+        setTournamentHistory(response.data.data.tournaments || []);
+      }
+    } catch (err) {
+      console.error('Error fetching tournament history:', err);
+      setTournamentHistory([]);
+    } finally {
+      setLoadingTournaments(false);
+    }
   }, [username]);
 
-  const checkAuth = () => {
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-  };
-
-  const fetchPlayerProfile = async () => {
+  const fetchPlayerProfile = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -55,25 +63,19 @@ const PublicProfile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchTournamentHistory, username]);
 
-  const fetchTournamentHistory = async () => {
-    try {
-      setLoadingTournaments(true);
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      
-      const response = await axios.get(`${API_URL}/api/users/tournament-history/${username}`);
-      console.log('🏆 Tournament history:', response.data);
-      
-      if (response.data.success) {
-        setTournamentHistory(response.data.data.tournaments || []);
-      }
-    } catch (err) {
-      console.error('Error fetching tournament history:', err);
-      setTournamentHistory([]);
-    } finally {
-      setLoadingTournaments(false);
-    }
+  useEffect(() => {
+    // Reset state when username changes
+    setFriendStatus(null);
+    setPlayer(null);
+    fetchPlayerProfile();
+    checkAuth();
+  }, [fetchPlayerProfile, username]);
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
   };
 
   const handleAddFriend = async () => {
@@ -326,6 +328,7 @@ const PublicProfile = () => {
           </motion.div>
         )}
 
+        <PlayerCompetitivePanels username={username} />
         {/* Games Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

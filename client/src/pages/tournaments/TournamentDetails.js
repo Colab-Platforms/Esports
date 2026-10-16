@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -63,14 +64,7 @@ const TournamentDetails = ({
     }
   }, [tournament, user, propIsUserRegistered]);
 
-  // Fetch registered teams for BGMI/Free Fire tournament
-  useEffect(() => {
-    if (id && (tournament?.gameType === 'bgmi' || tournament?.gameType === 'freefire')) {
-      fetchRegisteredTeams();
-    }
-  }, [id, tournament?.gameType]);
-
-  const fetchRegisteredTeams = async () => {
+  const fetchRegisteredTeams = useCallback(async () => {
     try {
       setLoadingTeams(true);
       const endpoint = tournament?.gameType === 'freefire' 
@@ -86,7 +80,14 @@ const TournamentDetails = ({
     } finally {
       setLoadingTeams(false);
     }
-  };
+  }, [id, tournament?.gameType]);
+
+  // Fetch registered teams for BGMI/Free Fire tournament
+  useEffect(() => {
+    if (id && (tournament?.gameType === 'bgmi' || tournament?.gameType === 'freefire')) {
+      fetchRegisteredTeams();
+    }
+  }, [fetchRegisteredTeams, id, tournament?.gameType]);
 
   const handleJoinTournament = async (e) => {
     e.preventDefault();

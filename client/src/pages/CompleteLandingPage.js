@@ -1,46 +1,47 @@
+import { useRef } from 'react';
 // Complete Premium Landing Page - Gaming Console Style
 // Enhanced with animations, real images, and esports theme
 
-import React, { useState, useEffect, useCallback } from 'react';
+// Complete Premium Landing Page - Gaming Console Style
+// Enhanced with animations, real images, and esports theme
+
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../store/slices/authSlice';
-import { 
-  FiAward, FiUsers, FiServer, FiTarget, 
-  FiZap, FiShield, FiTrendingUp, FiGift,
-  FiArrowRight, FiPlay, FiStar, FiActivity
-} from 'react-icons/fi';
-import { getGameAsset, getCdnIcon, getMedalIcon } from '../assets/gameAssets';
+import { FiAward, FiUsers, FiZap, FiArrowRight, FiStar, FiActivity } from 'react-icons/fi';
+import { getGameAsset, getCdnIcon } from '../assets/gameAssets';
 import GameIcon from '../components/common/GameIcon';
 import OptimizedImage from '../components/common/OptimizedImage';
 import HeroImageSlider from '../components/common/HeroImageSlider';
-import BGMILiveStreamSection from '../components/bgmi/BGMILiveStreamSection';
+
 import WelcomeBonusModal from '../components/common/WelcomeBonusModal';
 import { getOptimizedImageUrl } from '../utils/lcpOptimization';
 
 const CompleteLandingPage = () => {
-  const { isAuthenticated } = useSelector(selectAuth);
-  const navigate = useNavigate();
+  const latestActions = useRef({});
+  useSelector(selectAuth);
+  useNavigate();
   const location = useLocation();
   
   // All state declarations first
   const [bgmiScoreboards, setBgmiScoreboards] = useState([]);
-  const [cs2Leaderboard, setCs2Leaderboard] = useState([]);
+  const [, setCs2Leaderboard] = useState([]);
   const [freeFireLeaderboard, setFreeFireLeaderboard] = useState([]);
-  const [latestBgmiScoreboard, setLatestBgmiScoreboard] = useState(null);
+  const [, setLatestBgmiScoreboard] = useState(null);
   const [stats, setStats] = useState({
     totalPlayers: '0',
     activeTournaments: '0',
     totalPrizes: '₹0',
     totalMatches: '0'
   });
-  const [servers, setServers] = useState([]);
+  const [, setServers] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
-  const [tournaments, setTournaments] = useState([]);
+  const [, setTournaments] = useState([]);
   const [loading, setLoading] = useState(false); // Start as false, only show loading when actually fetching
-  const [currentGameIndex, setCurrentGameIndex] = useState(0);
-  const [autoPlay, setAutoPlay] = useState(true);
+  const [, setCurrentGameIndex] = useState(0);
+  const [autoPlay] = useState(true);
   
   // Welcome Bonus Modal State
   const [showWelcomeBonus, setShowWelcomeBonus] = useState(false);
@@ -61,7 +62,7 @@ const CompleteLandingPage = () => {
       // Only refetch if the component is currently visible and mounted
       if (!document.hidden) {
         setTimeout(() => {
-          fetchAllData(true); // Force refresh when tournament changes
+          latestActions.current.fetchAllData(true); // Force refresh when tournament changes
         }, 100);
       }
     };
@@ -93,7 +94,7 @@ const CompleteLandingPage = () => {
           const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
           const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
           
-          if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+          if (!timestamp || (now - timestamp) > latestActions.current.CACHE_DURATION) {
             isStale = true;
             break;
           }
@@ -102,11 +103,11 @@ const CompleteLandingPage = () => {
         if (isStale) {
           console.log('🔄 Cache is stale, refreshing data...');
           clearCache();
-          fetchAllData(true);
+          latestActions.current.fetchAllData(true);
         } else {
           console.log('� Cacche is still fresh, using cached data');
           // Just load from cache without clearing
-          loadFromCache();
+          latestActions.current.loadFromCache();
         }
       }
     };
@@ -123,7 +124,7 @@ const CompleteLandingPage = () => {
         const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
         const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
         
-        if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+        if (!timestamp || (now - timestamp) > latestActions.current.CACHE_DURATION) {
           isStale = true;
           break;
         }
@@ -132,11 +133,11 @@ const CompleteLandingPage = () => {
       if (isStale) {
         console.log('🔄 Cache is stale, refreshing data...');
         clearCache();
-        fetchAllData(true);
+        latestActions.current.fetchAllData(true);
       } else {
         console.log('📦 Cache is still fresh, using cached data');
         // Just load from cache without clearing
-        loadFromCache();
+        latestActions.current.loadFromCache();
       }
     };
 
@@ -166,7 +167,7 @@ const CompleteLandingPage = () => {
         const storageTimestamp = localStorage.getItem(CACHE_TIMESTAMP_PREFIX + key);
         const timestamp = storageTimestamp ? parseInt(storageTimestamp) : 0;
         
-        if (!timestamp || (now - timestamp) > CACHE_DURATION) {
+        if (!timestamp || (now - timestamp) > latestActions.current.CACHE_DURATION) {
           isStale = true;
           break;
         }
@@ -176,13 +177,13 @@ const CompleteLandingPage = () => {
         console.log('🔄 Cache is stale, fetching fresh data...');
         clearCache();
         setTimeout(() => {
-          fetchAllData(true); // Force refresh on navigation
+          latestActions.current.fetchAllData(true); // Force refresh on navigation
         }, 100);
       } else {
         console.log('📦 Cache is still fresh, using cached data');
         // Just load from cache without clearing
         setTimeout(() => {
-          loadFromCache();
+          latestActions.current.loadFromCache();
         }, 100);
       }
     }
@@ -227,17 +228,17 @@ const CompleteLandingPage = () => {
   // Initial data fetch on component mount - with cache checking
   useEffect(() => {
     // Initialize cache from localStorage on mount
-    initializeCacheFromStorage();
+    latestActions.current.initializeCacheFromStorage();
     
     // Check if we have any cached data at all
-    const hasAnyCache = dataCache.size > 0;
+    const hasAnyCache = latestActions.current.dataCache.size > 0;
     
     if (!hasAnyCache) {
       // First time visit - DON'T show loading, just fetch data
       // setLoading(true); // DISABLED - don't block render
     }
     
-    initializeData();
+    latestActions.current.initializeData();
   }, []); // Empty dependency array = runs once on mount
 
   // Initialize cache from localStorage
@@ -884,6 +885,8 @@ const CompleteLandingPage = () => {
       console.error('❌ Error fetching tournaments:', error);
     }
   };
+
+  latestActions.current = { fetchAllData, loadFromCache, initializeData, initializeCacheFromStorage, dataCache, CACHE_DURATION };
 
   return (
     <div className="min-h-screen bg-gaming-dark">

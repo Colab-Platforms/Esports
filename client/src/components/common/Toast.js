@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FiCheck, FiX, FiAlertCircle, FiInfo } from 'react-icons/fi';
 
 const Toast = ({ message, type = 'success', onClose }) => {

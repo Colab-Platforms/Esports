@@ -1,17 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { 
-  fetchMatchDetails,
-  submitMatchResult,
-  uploadScreenshot,
-  selectCurrentMatch,
-  selectMatchLoading,
-  selectMatchError,
-  selectUploadProgress,
-  clearMatchError,
-  setUploadProgress
-} from '../../store/slices/matchSlice';
+import { fetchMatchDetails, submitMatchResult, uploadScreenshot, selectCurrentMatch, selectMatchLoading, selectMatchError, selectUploadProgress } from '../../store/slices/matchSlice';
 
 const ResultSubmission = ({ matchId }) => {
   const dispatch = useDispatch();

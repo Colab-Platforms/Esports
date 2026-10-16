@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 // Premium Marketing Landing Page - All Features Integrated
 // Quick Join + Top 3 Leaderboard + Live Stats + Modern Grid Layout
 // All data from database - No hardcoded values
@@ -29,11 +30,7 @@ const MarketingLandingPage = () => {
   const [featuredTournaments, setFeaturedTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchTopPlayers(),
@@ -41,7 +38,11 @@ const MarketingLandingPage = () => {
       fetchFeaturedTournaments()
     ]);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const fetchTopPlayers = async () => {
     try {

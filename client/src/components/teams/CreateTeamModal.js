@@ -64,7 +64,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [memberErrors, setMemberErrors] = useState({});
   const [substitute, setSubstitute] = useState(null);
-  const [substituteErrors, setSubstituteErrors] = useState({});
+  useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -76,7 +76,7 @@ const CreateTeamModal = ({ onClose, onCreate, token, fixedGame = null, editTeam 
 
   const currentGame = GAMES.find(g => g.id === formData.game) || GAMES[0];
   const maxAddable = currentGame.minMembers - 1;
-  const canAddSubstitute = selectedMembers.length === maxAddable && !substitute;
+
 
   const captainHasAllInfo = currentGame.fields.every(f => captainGameInfo[f] && captainGameInfo[f].trim());
 

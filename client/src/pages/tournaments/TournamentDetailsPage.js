@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiSearch, FiFilter, FiCalendar, FiUsers, FiDollarSign, FiClock, FiAward } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiAward } from 'react-icons/fi';
 import GameIcon from '../../components/common/GameIcon';
 
 const TournamentDetailsPage = () => {

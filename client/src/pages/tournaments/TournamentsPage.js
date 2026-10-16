@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiUsers, FiAward, FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
+import { FiSearch, FiAward, FiChevronLeft, FiChevronRight, FiArrowRight } from 'react-icons/fi';
 import GameIcon from '../../components/common/GameIcon';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+
 import CountdownTimer from '../../components/common/CountdownTimer';
 import TournamentCardProfessional from '../../components/tournaments/TournamentCardProfessional';
 import {
@@ -30,7 +30,7 @@ const TournamentsPage = () => {
   const bannerTournaments = useSelector(selectBannerTournaments);
 
   const [currentBanner, setCurrentBanner] = useState(0);
-  const [activeStatusTab, setActiveStatusTab] = useState('all');
+  const [activeStatusTab] = useState('all');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -117,10 +117,7 @@ const TournamentsPage = () => {
   // Handle filter changes - functions integrated directly in onClick handlers
 
   // Get game icon based on game type
-  const getGameIcon = (gameType) => {
-    // Use GameIcon component instead of hardcoded emojis
-    return <GameIcon gameType={gameType} size="sm" />;
-  };
+
 
   // Format date
   const formatDate = (dateString) => {
@@ -191,20 +188,9 @@ const TournamentsPage = () => {
     }
   };
 
-  const statusTabs = [
-    { id: 'all', label: 'ALL' },
-    { id: 'upcoming', label: 'UPCOMING' },
-    { id: 'registration_open', label: 'OPEN' },
-    { id: 'active', label: 'ACTIVE' },
-    { id: 'completed', label: 'COMPLETED' }
-  ];
 
-  const categoryTabs = [
-    { id: 'all', label: 'ALL GAMES' },
-    { id: 'bgmi', label: 'BGMI' },
-    { id: 'freefire', label: 'FREE FIRE' },
-    { id: 'cs2', label: 'CS2' }
-  ];
+
+
 
   const nextBanner = () => {
     setCurrentBanner((prev) => (prev + 1) % bannerTournaments.length);

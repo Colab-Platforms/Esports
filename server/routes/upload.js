@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
 const { uploadAvatar, uploadTeamLogo } = require('../middleware/upload');
 const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
+
+// Never accept a URL, filename or publicId supplied by the client as a delete target.
+const ownedAvatarId = (userId, publicId) => typeof publicId === 'string' &&
+  publicId.startsWith(`esports/avatars/${userId}/`) &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(publicId.slice(`esports/avatars/${userId}/`.length));
 
 // @route   POST /api/upload/avatar
 // @desc    Upload user avatar to Cloudinary
@@ -22,15 +28,17 @@ router.post('/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => 
 
     const userId = req.user.userId;
     const avatarUrl = req.file.path; // Cloudinary URL
+    if (!ownedAvatarId(userId, req.file.filename)) throw new Error('Invalid avatar upload reference');
 
     console.log('📸 Avatar uploaded:', avatarUrl);
 
     // Update user's avatar in database
     const user = await User.findByIdAndUpdate(
       userId,
-      { avatarUrl },
+      { avatarUrl, avatarAsset: { publicId: req.file.filename, url: avatarUrl } },
       { new: true }
     ).select('-passwordHash');
+    if (!user) throw new Error('User no longer exists');
 
     res.json({
       success: true,
@@ -45,7 +53,7 @@ router.post('/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => 
     console.error('❌ Avatar upload error:', error);
     
     // Delete uploaded file if database update fails
-    if (req.file && req.file.filename) {
+    if (req.file && ownedAvatarId(req.user.userId, req.file.filename)) {
       try {
         await cloudinary.uploader.destroy(req.file.filename);
       } catch (deleteError) {
@@ -69,7 +77,8 @@ router.post('/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => 
 router.delete('/avatar', auth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+avatarAsset');
+    if (!user) return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND' } });
 
     if (!user.avatarUrl) {
       return res.status(400).json({
@@ -81,18 +90,18 @@ router.delete('/avatar', auth, async (req, res) => {
       });
     }
 
-    // Extract public_id from Cloudinary URL
-    const urlParts = user.avatarUrl.split('/');
-    const filename = urlParts[urlParts.length - 1].split('.')[0];
-    const folder = urlParts[urlParts.length - 2];
-    const publicId = `${folder}/${filename}`;
+    const asset = user.avatarAsset;
+    if (asset && !ownedAvatarId(userId, asset.publicId)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_AVATAR_ASSET' } });
+    }
+    // Changed/legacy display URLs can be cleared but never establish ownership.
+    if (asset && asset.url === user.avatarUrl) await cloudinary.uploader.destroy(asset.publicId);
 
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(publicId);
-
-    // Remove from database
-    user.avatarUrl = '';
-    await user.save();
+    // Do not erase an avatar uploaded concurrently while Cloudinary was responding.
+    const filter = { _id: userId, avatarUrl: user.avatarUrl };
+    filter['avatarAsset.publicId'] = asset ? asset.publicId : { $exists: false };
+    const cleared = await User.updateOne(filter, { $set: { avatarUrl: '' }, $unset: { avatarAsset: '' } });
+    if (!cleared.matchedCount) return res.status(409).json({ success: false, error: { code: 'AVATAR_CHANGED' } });
 
     res.json({
       success: true,
@@ -159,7 +168,7 @@ const upload = multer({
   }
 });
 
-router.post('/image', auth, upload.single('image'), async (req, res) => {
+router.post('/image', auth, adminAuth, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({

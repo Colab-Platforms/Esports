@@ -18,6 +18,8 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 // Seed data utility removed - use admin panel to create tournaments and games
 
 const app = express();
+const phase2Staging = require('./staging/phase2-safety');
+phase2Staging.attach(app);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -249,10 +251,18 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/teams', require('./routes/teams'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/challenges', require('./routes/challenges'));
+app.use('/api', require('./features/tournament-final-results/tournament-final-results.routes'));
 app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/tournaments', require('./routes/tournamentRewards')); // Reward distribution routes
 app.use('/api/matches', require('./routes/matches'));
 app.use('/api/bgmi-matches', require('./routes/bgmiMatches'));
+app.use('/api/players', require('./features/player-competitive-profile/player-competitive-profile.routes'));
+app.use('/api/players', require('./features/competitive-history/competitive-history.routes'));
+app.use('/api/teams', require('./features/team-competitive-profile/team-competitive-profile.routes'));
+app.use('/api', require('./features/statistics/statistics.routes'));
+app.use('/api/leaderboards', require('./features/leaderboards/leaderboards.routes'));
+app.use('/api/freefire-results', require('./features/freefire-results/freefire-results.routes'));
+app.use('/api/valorant-results', require('./features/valorant-results/valorant-results.routes'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/referral', require('./routes/referral'));
@@ -264,7 +274,7 @@ app.use('/api/security', require('./routes/security'));
 // app.use('/api/cs2', require('./routes/cs2Logs'));
 // app.use('/api/cs2-leaderboard', require('./routes/cs2Leaderboard'));
 // app.use('/api/cs2-server', require('./routes/cs2ServerStatus'));
-app.use('/api/admin', require('./routes/updateCS2Status'));
+// Discontinued CS2 status management must remain inaccessible.
 app.use('/api/site-images', require('./routes/siteImages'));
 app.use('/api/explore', require('./features/explore/explore.routes'));
 console.log('🔄 Loading BGMI Registration routes...');
@@ -482,5 +492,5 @@ server.listen(PORT, () => {
   console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
   
   // Start tournament status scheduler
-  tournamentScheduler.start();
+  if (!phase2Staging.isReady()) tournamentScheduler.start();
 });
