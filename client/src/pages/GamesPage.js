@@ -87,27 +87,23 @@ const GamesPage = () => {
 
     // Fetch games from database
     useEffect(() => {
+        let mounted = true;
+        const cachedGames = getCachedGames();
+        const cachedImages = getCachedImages();
+        if (cachedGames) {
+            setGames(cachedGames);
+            setLoading(false);
+        }
+        if (cachedImages) setSiteImages(cachedImages);
+
         const fetchGames = async () => {
             try {
-                // Check cache first
-                const cachedGames = getCachedGames();
-                const cachedImages = getCachedImages();
-
-                if (cachedGames && cachedImages) {
-                    // Use cached data immediately
-                    setGames(cachedGames);
-                    setSiteImages(cachedImages);
-                    setLoading(false);
-                    return;
-                }
-
-                setLoading(true);
-
-                // Fetch games and site images in parallel (no artificial delays)
+                // Always refresh the catalogue; image failures must not block it.
                 const [gamesResponse, imagesResult] = await Promise.all([
                     api.getGames(),
-                    imageService.getAllImages()
+                    imageService.getAllImages().catch(() => ({ success: false }))
                 ]);
+                if (!mounted) return;
 
                 const gamesArray = gamesResponse?.data?.games || gamesResponse?.games || [];
                 setGames(gamesArray);
@@ -124,26 +120,15 @@ const GamesPage = () => {
                 setError(null);
                 setLoading(false);
             } catch (err) {
+                if (!mounted) return;
                 console.error('Error fetching games:', err);
-
-                // Try to use stale cache on error
-                const cachedGames = getCachedGames();
-                const cachedImages = getCachedImages();
-
-                if (cachedGames && cachedImages) {
-                    console.log('⚠️ Using stale cache due to error');
-                    setGames(cachedGames);
-                    setSiteImages(cachedImages);
-                    setLoading(false);
-                    return;
-                }
-
-                setError('Failed to load games. Please try again later.');
+                if (!cachedGames) setError('Failed to load games. Please try again later.');
                 setLoading(false);
             }
         };
 
         fetchGames();
+        return () => { mounted = false; };
     }, []);
 
     // Create banners from ImageManagement (games-slide-1, games-slide-2, games-slide-3)

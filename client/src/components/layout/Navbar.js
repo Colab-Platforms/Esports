@@ -83,6 +83,7 @@ const Navbar = () => {
   const navLinks = [
     { to: "/", label: "HOME" },
     { to: "/games", label: "GAMES" },
+    { to: "/explore", label: "EXPLORE" },
     // { to: '/bgmi', label: 'BGMI' },
     { to: "/tournaments", label: "TOURNAMENTS" },
     { to: "/teams", label: "FRIENDS" },
@@ -101,7 +102,7 @@ const Navbar = () => {
 
     const links = [];
 
-    // Designer sees only Banner Management
+    // Designer content controls
     if (user.role === "designer") {
       links.push({ to: "/admin/images", label: "Banners" });
     }
@@ -128,6 +129,13 @@ const Navbar = () => {
         { to: "/admin/store", label: "Store Items" },
         // { to: "/admin/winner-rewards", label: " Winner Rewards" },
       );
+    }
+
+    if (["admin", "moderator", "designer"].includes(user.role)) {
+      links.push({ to: "/admin/explore", label: "Explore Content" });
+    }
+    if (["admin", "moderator"].includes(user.role)) {
+      links.push({ to: "/admin/results", label: "Result Management" });
     }
 
     return links;
@@ -415,6 +423,8 @@ const Navbar = () => {
           {/* Mobile Menu Button - Shows until 1280px */}
           <button
             onClick={toggleMobileMenu}
+            aria-label="Toggle navigation"
+            aria-expanded={isMobileMenuOpen}
             className="xl:hidden p-2 text-theme-text-secondary hover:text-theme-accent transition-colors duration-200"
           >
             {isMobileMenuOpen ? (

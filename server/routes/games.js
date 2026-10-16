@@ -115,6 +115,8 @@ router.post('/', auth, adminAuth, async (req, res) => {
   try {
     const game = new Game(req.body);
     const savedGame = await game.save();
+    await redisService.delete('games:all:active');
+    await redisService.delete('games:featured');
     const plainGame = savedGame.toObject();
     
     // Ensure _id is a string for client-side usage
