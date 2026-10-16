@@ -3,7 +3,44 @@
 const DB = 'colab-esports-phase2-test';
 const USER = 'colab_phase2_tester';
 let ready = false;
+let failureStage = 'ENVIRONMENT';
 const reject = code => { throw Object.assign(new Error(code), { code }); };
+// Never interpolate driver messages, stack traces, hosts or arbitrary codes.
+const safeCodes = new Set([
+  'STAGING_FLAG_REQUIRED', 'STAGING_SERVICE_NAME_MISMATCH', 'STAGING_JWT_SECRET_REQUIRED',
+  'STAGING_URI_INVALID', 'STAGING_TARGET_MISMATCH', 'STAGING_DUPLICATE_URI_OPTION',
+  'STAGING_URI_OPTION_UNAPPROVED', 'STAGING_TLS_REQUIRED', 'STAGING_AUTH_MECHANISM_UNAPPROVED',
+  'STAGING_SRV_UNVERIFIED', 'STAGING_AUTHORIZATION_MISMATCH', 'STAGING_PERMISSIONS_INSUFFICIENT',
+  'STAGING_EXTERNAL_CONNECTION_BLOCKED', 'STAGING_PROVIDER_CALL_BLOCKED',
+  'STAGING_RECONNECT_BLOCKED', 'STAGING_ENTRYPOINT_REQUIRED'
+]);
+function diagnosticCode(error) {
+  const pending = [error], visited = new Set();
+  let authentication = false, authorization = false, dns = false, network = false;
+  while (pending.length && visited.size < 32) {
+    const current = pending.shift();
+    if (!current || typeof current !== 'object' || visited.has(current)) continue;
+    visited.add(current);
+    if (safeCodes.has(current.code)) return current.code;
+    authentication ||= current.code === 18 || current.codeName === 'AuthenticationFailed';
+    authorization ||= current.code === 13;
+    dns ||= ['ENOTFOUND', 'ENODATA', 'ESERVFAIL', 'EAI_AGAIN', 'ETIMEOUT'].includes(current.code);
+    network ||= ['ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET', 'ENETUNREACH'].includes(current.code) ||
+      ['MongoServerSelectionError', 'MongooseServerSelectionError', 'MongoNetworkError', 'MongoNetworkTimeoutError'].includes(current.name);
+    pending.push(current.cause, current.reason);
+    if (current.servers instanceof Map) for (const server of current.servers.values()) pending.push(server?.error);
+  }
+  if (authentication) return 'STAGING_AUTHENTICATION_FAILED';
+  if (authorization) return 'STAGING_AUTHORIZATION_FAILED';
+  if (dns) return 'STAGING_ATLAS_DNS_FAILED';
+  if (network) return 'STAGING_ATLAS_NETWORK_FAILED';
+  return {
+    ENVIRONMENT: 'STAGING_ENVIRONMENT_FAILED', URI_VALIDATION: 'STAGING_URI_VALIDATION_FAILED',
+    ATLAS_DNS: 'STAGING_ATLAS_DNS_FAILED', EXTERNAL_ISOLATION: 'STAGING_EXTERNAL_ISOLATION_FAILED',
+    ATLAS_CONNECTION: 'STAGING_ATLAS_CONNECTION_FAILED', ATLAS_PING: 'STAGING_ATLAS_PING_FAILED',
+    AUTHORIZATION: 'STAGING_AUTHORIZATION_FAILED', APPLICATION_LOADING: 'STAGING_APPLICATION_LOADING_FAILED'
+  }[failureStage] || 'STAGING_STARTUP_FAILED';
+}
 
 function verifyTarget(uri) {
   let target;
@@ -82,10 +119,14 @@ function attach(app) {
 }
 
 async function prepare() {
-  if (process.env.PHASE2_STAGING !== 'true' || (process.env.RENDER_SERVICE_NAME && process.env.RENDER_SERVICE_NAME !== 'Esports-dev')) reject('STAGING_SERVICE_NOT_CONFIRMED');
+  failureStage = 'ENVIRONMENT';
+  if (process.env.PHASE2_STAGING !== 'true') reject('STAGING_FLAG_REQUIRED');
+  if (process.env.RENDER_SERVICE_NAME && process.env.RENDER_SERVICE_NAME !== 'Esports-dev') reject('STAGING_SERVICE_NAME_MISMATCH');
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) reject('STAGING_JWT_SECRET_REQUIRED');
   const uri = process.env.MONGODB_URI;
+  failureStage = 'URI_VALIDATION';
   const target = verifyTarget(uri);
+  failureStage = 'ATLAS_DNS';
   const dns = require('node:dns').promises;
   const servers = await dns.resolveSrv('_mongodb._tcp.' + target.hostname);
   if (!servers.length || servers.some(server => !server.name.endsWith('.mongodb.net') || server.port !== 27017)) reject('STAGING_SRV_UNVERIFIED');
@@ -94,6 +135,7 @@ async function prepare() {
     targets.set(server.name, server.port);
     for (const address of await dns.lookup(server.name, { all: true })) targets.set(address.address, server.port);
   }
+  failureStage = 'EXTERNAL_ISOLATION';
   installNetworkGuard(targets);
   // dotenv must not restore provider keys or replace the verified database URI.
   require('dotenv').config = () => ({ parsed: {} });
@@ -102,9 +144,12 @@ async function prepare() {
   const mongoose = require('mongoose');
   mongoose.set('autoIndex', false);
   mongoose.set('autoCreate', false);
+  failureStage = 'ATLAS_CONNECTION';
   await mongoose.connect(uri, { dbName: DB, autoIndex: false, autoCreate: false, serverSelectionTimeoutMS: 10000 });
   const db = mongoose.connection.db;
+  failureStage = 'ATLAS_PING';
   await db.command({ ping: 1 });
+  failureStage = 'AUTHORIZATION';
   verifyAuthorization(db.databaseName, (await db.command({ connectionStatus: 1, showPrivileges: true })).authInfo);
   // The unchanged entrypoint's connect call reuses this verified connection.
   mongoose.connect = async candidate => {
@@ -112,6 +157,7 @@ async function prepare() {
     return mongoose;
   };
   ready = true;
+  failureStage = 'APPLICATION_LOADING';
 }
 
-module.exports = { verifyTarget, verifyAuthorization, installNetworkGuard, requestAllowed, attach, prepare, isReady: () => ready };
+module.exports = { verifyTarget, verifyAuthorization, installNetworkGuard, requestAllowed, attach, prepare, diagnosticCode, isReady: () => ready };

@@ -108,3 +108,79 @@ test('normal entrypoint cannot accidentally activate an unprepared staging mode'
   finally { if (previous === undefined) delete process.env.PHASE2_STAGING; else process.env.PHASE2_STAGING = previous; }
   assert.equal(safety.isReady(), false);
 });
+
+test('diagnostics allow only fixed codes, including wrapped authentication failures', () => {
+  const secret = 'PRIVATE_PASSWORD_SENTINEL';
+  assert.equal(safety.diagnosticCode({ code: 'STAGING_TARGET_MISMATCH', message: secret, stack: secret }), 'STAGING_TARGET_MISMATCH');
+  assert.equal(safety.diagnosticCode({ code: 'STAGING_' + secret, message: secret }), 'STAGING_ENVIRONMENT_FAILED');
+  assert.equal(safety.diagnosticCode({ name: 'MongooseServerSelectionError', reason: { servers: new Map([['secret-host', { error: { cause: { code: 18, message: secret } } }]]) } }), 'STAGING_AUTHENTICATION_FAILED');
+  const circular = { message: secret }; circular.cause = circular;
+  assert.equal(safety.diagnosticCode(circular), 'STAGING_ENVIRONMENT_FAILED');
+  assert.equal(safety.isReady(), false);
+});
+
+test('normal startup helper import leaves transports, defaults and exception handlers unchanged', () => {
+  const script = `
+    const assert=require('node:assert/strict');
+    delete process.env.PHASE2_STAGING;
+    const net=require('node:net'),http=require('node:http'),mongoose=require('mongoose'),dotenv=require('dotenv');
+    const before=[net.Socket.prototype.connect,http.request,global.fetch,dotenv.config,mongoose.get('autoIndex'),mongoose.get('autoCreate'),process.listenerCount('uncaughtException'),process.listenerCount('unhandledRejection')];
+    const safety=require('./server/staging/phase2-safety');
+    safety.attach({use(){assert.fail('normal middleware changed');}});
+    assert.equal(safety.isReady(),false);
+    assert.deepEqual([net.Socket.prototype.connect,http.request,global.fetch,dotenv.config,mongoose.get('autoIndex'),mongoose.get('autoCreate'),process.listenerCount('uncaughtException'),process.listenerCount('unhandledRejection')],before);
+    assert.equal(mongoose.connection.readyState,0);
+  `;
+  const result=spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'../../..'),encoding:'utf8',timeout:10000});
+  assert.equal(result.status,0,result.stderr);
+});
+
+test('actual staging entrypoint reports sanitized failure stages without database access', () => {
+  const cases = [
+    ['flag', 'STAGING_FLAG_REQUIRED'], ['service', 'STAGING_SERVICE_NAME_MISMATCH'],
+    ['jwt', 'STAGING_JWT_SECRET_REQUIRED'], ['uri', 'STAGING_TARGET_MISMATCH'],
+    ['uri-decode', 'STAGING_URI_VALIDATION_FAILED'], ['dns', 'STAGING_ATLAS_DNS_FAILED'],
+    ['isolation', 'STAGING_EXTERNAL_ISOLATION_FAILED'], ['network', 'STAGING_ATLAS_NETWORK_FAILED'],
+    ['authentication', 'STAGING_AUTHENTICATION_FAILED'], ['authorization', 'STAGING_AUTHORIZATION_FAILED'],
+    ['identity', 'STAGING_AUTHORIZATION_MISMATCH'], ['ping', 'STAGING_ATLAS_PING_FAILED'],
+    ['egress', 'STAGING_EXTERNAL_CONNECTION_BLOCKED'], ['application', 'STAGING_APPLICATION_LOADING_FAILED'],
+    ['async-driver', 'STAGING_ATLAS_NETWORK_FAILED']
+  ];
+  for (const [mode, expected] of cases) {
+    const script = `
+      const Module=require('node:module');const original=Module._load;
+      const mode=${JSON.stringify(mode)};
+      const secret='PRIVATE_PASSWORD_SENTINEL';
+      const failure=code=>Object.assign(new Error(secret+' mongodb+srv://secret:password@private-host/private'),{code});
+      if(mode==='flag')delete process.env.PHASE2_STAGING;
+      if(mode==='service')process.env.RENDER_SERVICE_NAME='wrong';
+      if(mode==='jwt')process.env.JWT_SECRET='short';
+      if(mode==='uri')process.env.MONGODB_URI=process.env.MONGODB_URI.replace('phase2-test','prod');
+      if(mode==='uri-decode')process.env.MONGODB_URI=process.env.MONGODB_URI.replace('colab_phase2_tester:','bad%zz:');
+      const info={authenticatedUsers:[{user:mode==='identity'?'wrong':'colab_phase2_tester'}],authenticatedUserRoles:[{role:'readWrite',db:'colab-esports-phase2-test'}],authenticatedUserPrivileges:[{resource:{db:'colab-esports-phase2-test',collection:''},actions:['find','insert','update','remove']}]};
+      const fake={set(){},async disconnect(){},connection:{db:{databaseName:'colab-esports-phase2-test',async command(command){if(mode==='ping'&&command.ping)throw failure();if(mode==='authorization'&&command.connectionStatus)throw failure(13);return command.ping?{ok:1}:{authInfo:info};}}},async connect(){if(mode==='network')throw failure('ETIMEDOUT');if(mode==='authentication')throw Object.assign(failure(),{name:'MongooseServerSelectionError',reason:{servers:new Map([['hidden',{error:failure(18)}]])}});if(mode==='egress')throw failure('STAGING_EXTERNAL_CONNECTION_BLOCKED');}};
+      Module._load=function(request,parent){
+        if(request==='mongoose')return fake;
+        if(request==='node:http2'&&mode==='isolation')throw failure();
+        if(request==='../index'&&parent?.filename.endsWith('phase2-start.cjs')){
+          if(mode==='application')throw failure();
+          if(mode==='async-driver'){setImmediate(()=>{throw failure('ECONNRESET');});return {};}
+          throw new Error('UNEXPECTED_APPLICATION_LOAD');
+        }
+        return original.apply(this,arguments);
+      };
+      const dns=require('node:dns').promises;
+      dns.resolveSrv=async()=>{if(mode==='dns')throw failure('ENOTFOUND');return [{name:'fixture.mongodb.net',port:27017}];};
+      dns.lookup=async()=>[{address:'127.0.0.1'}];
+      require('./server/staging/phase2-start.cjs');
+    `;
+    const env = {};
+    for (const [key, value] of Object.entries(process.env)) if (/^(path|systemroot|windir|comspec|temp|tmp|pathext|userprofile|localappdata|appdata)$/i.test(key)) env[key] = value;
+    Object.assign(env, { PHASE2_STAGING: 'true', MONGODB_URI: uri, JWT_SECRET: 'synthetic-test-secret-at-least-32-characters' });
+    const result = spawnSync(process.execPath, ['-e', script], { cwd: path.resolve(__dirname, '../../..'), env, encoding: 'utf8', timeout: 10000 });
+    assert.equal(result.status, 1, mode);
+    assert.equal(result.stdout, '', mode);
+    assert.equal(result.stderr, expected + '\n', mode);
+    assert.doesNotMatch(result.stderr, /PRIVATE_PASSWORD_SENTINEL|mongodb|private-host|password|\bat .*:\d+/);
+  }
+});
