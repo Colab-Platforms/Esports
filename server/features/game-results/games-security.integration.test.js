@@ -92,6 +92,28 @@ test('public game reads retain their existing response shapes and active filteri
   assert.equal((await debug.json()).totalCount, 2);
 });
 
+test('successful game creation invalidates active and featured Redis catalogues; rejected creates preserve them', async t => {
+  const redis = require('../../services/redisService');
+  const cache = new Map();
+  t.mock.method(redis, 'get', async key => cache.get(key));
+  t.mock.method(redis, 'set', async (key, value) => { cache.set(key, value); });
+  const invalidate = t.mock.method(redis, 'delete', async key => cache.delete(key));
+  await request('GET', '/api/games');
+  await request('GET', '/api/games/featured');
+  assert.equal(cache.size, 2);
+  assert.equal((await request('POST', '/api/games', {
+    id: 'valorant', name: 'Valorant', description: 'Synthetic tactical game', featured: true
+  }, tokenFor('admin'))).status, 201);
+  assert.deepEqual(invalidate.mock.calls.map(call => call.arguments[0]), ['games:all:active', 'games:featured']);
+  assert.equal(cache.size, 0);
+  assert.ok((await (await request('GET', '/api/games')).json()).data.games.some(game => game.id === 'valorant'));
+  assert.ok((await (await request('GET', '/api/games/featured')).json()).some(game => game.id === 'valorant'));
+  assert.equal(cache.size, 2);
+  assert.equal((await request('POST', '/api/games', { id: 'invalid', name: 'Missing description' }, tokenFor('admin'))).status, 500);
+  assert.equal(invalidate.mock.callCount(), 2);
+  assert.equal(cache.size, 2);
+});
+
 for (const role of ['admin', 'moderator', 'designer']) {
   test(`${role} retains create, edit, stats, activation and delete functionality`, async () => {
     const token = tokenFor(role);

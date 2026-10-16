@@ -4,6 +4,15 @@ import { motion } from 'framer-motion';
 import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
+const invalidateGamesCache = () => {
+  try {
+    localStorage.removeItem('games_cache');
+  } catch (error) {
+    // A storage restriction must not turn a successful save into a failure.
+    console.error('Could not invalidate games cache');
+  }
+};
+
 const GamesManagement = () => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +33,7 @@ const GamesManagement = () => {
 
   const fetchGames = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/games`);
+      const response = await fetch(`${API_URL}/api/games`, { cache: 'no-store' });
       const data = await response.json();
       
       // Handle new response format
@@ -62,6 +71,7 @@ const GamesManagement = () => {
       });
 
       if (response.ok) {
+        invalidateGamesCache();
         toast.success(editingGame ? 'Game updated!' : 'Game created!');
         fetchGames();
         resetForm();
@@ -99,6 +109,7 @@ const GamesManagement = () => {
       });
 
       if (response.ok) {
+        invalidateGamesCache();
         toast.success('Game deleted!');
         fetchGames();
       }

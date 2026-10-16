@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { selectAuth } from '../../store/slices/authSlice';
 import { motion } from 'framer-motion';
 import { FiGrid, FiAward, FiUsers, FiBarChart2, FiSettings, FiTrendingUp, FiActivity } from 'react-icons/fi';
 import api from '../../services/api';
 
 const AdminDashboard = () => {
+  const { user } = useSelector(selectAuth);
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeTournaments: 0,
@@ -74,6 +77,20 @@ const AdminDashboard = () => {
   };
 
   const adminSections = [
+    ...(['admin', 'moderator'].includes(user?.role) ? [{
+      title: 'Result Management',
+      description: 'Manage competitive match results and final standings',
+      icon: FiAward,
+      link: '/admin/results',
+      color: 'from-purple-500 to-pink-500'
+    }] : []),
+    ...(['admin', 'moderator', 'designer'].includes(user?.role) ? [{
+      title: 'Explore Content',
+      description: 'Manage the Explore feed',
+      icon: FiGrid,
+      link: '/admin/explore',
+      color: 'from-blue-500 to-cyan-500'
+    }] : []),
     {
       title: 'Games Management',
       description: 'Add, edit, or remove games',
