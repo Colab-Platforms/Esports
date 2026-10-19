@@ -60,7 +60,7 @@ test.before(async () => {
   for (const Model of [User, Team, Tournament, Registration, Claim, Result, Final, ...Object.values(service.models)]) await Model.createCollection();
   for (const Model of [Claim, Result, Final, ...Object.values(service.models)]) await Model.createIndexes();
   await Registration.collection.createIndex({ tournamentId: 1, userId: 1 });
-  for (const [fields, opts] of Registration.schema.indexes().filter(([, opts]) => opts.name?.startsWith('uniq_registration_payment'))) await Registration.collection.createIndex(fields, opts);
+  for (const [fields, opts] of Registration.schema.indexes().filter(([, opts]) => opts.unique && opts.name)) await Registration.collection.createIndex(fields, opts);
   const app = express();
   app.use('/api/valorant-payments/webhook', express.raw({ type: 'application/json' }), require('./payment-webhook.routes'));
   app.use(express.json()); app.use('/api/valorant-payments', require('./payment.routes'));
@@ -272,8 +272,14 @@ test('financial activity prevents tournament deletion and paid rejection permits
   const f = await fixture(); const { checkout } = await payable(f); const output = await verify(f, checkout, paymentFor(checkout));
   await assert.rejects(service.deleteUnusedTournament(f.tournament._id), { code: 'PAYMENT_ACTIVITY_EXISTS' });
   await registration.transition({ registrationId: output.registrationId, actor: { userId: admin._id, role: 'admin' }, action: 'reject', reason: 'Fictional roster rejection' });
-  await service.createIntent({ ...f.args, idempotencyKey: 'new-paid-attempt-key' }); assert.equal(await Registration.countDocuments({ status: 'rejected' }), 1);
+  const nextIntent = await service.createIntent({ ...f.args, idempotencyKey: 'new-paid-attempt-key' }); assert.equal(await Registration.countDocuments({ status: 'rejected' }), 1);
   assert.equal(await Review.countDocuments(), 1); assert.equal(await Intent.countDocuments(), 2); assert.equal((await Tournament.findById(f.tournament._id)).currentParticipants, 1);
+  const nextCheckout = await service.createOrder({ userId: f.args.userId, intentId: nextIntent._id, idempotencyKey: 'new-paid-order-key' }, options());
+  const next = await verify(f, nextCheckout, paymentFor(nextCheckout));
+  assert.notEqual(String(next.registrationId), String(output.registrationId));
+  assert.equal(await Registration.countDocuments(), 2);
+  assert.equal(await Receipt.countDocuments(), 2);
+  assert.equal((await Registration.findById(next.registrationId)).registrationFlow, 'valorant_v1');
 });
 
 test('real SDK transport is bounded and disables inherited proxies and redirects without connecting', () => {

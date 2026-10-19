@@ -1,5 +1,16 @@
 # Valorant registration candidate: free and paid
 
+Production index repair: PR #9 is now merged into `origin/main` at `5626ff4`.
+The supplied hosted audit found all six financial collections missing and the
+legacy unique owner index present. The accompanying repair adds explicit index
+audit/provisioning and an owner-policy migration, plus a server-owned immutable
+registrationFlow marker for new Valorant registrations. Follow
+[the production procedure](payment-index-setup/README.md) before enabling checkout.
+This supersedes the original nonunique-owner-index proposal below; historical
+and non-Valorant rows retain unique ownership. No production writes have been
+performed by this local repair. Registration auto-indexing is now disabled;
+other models retain their previous policy.
+
 Branch: release/valorant-free-registration. Draft PR #9.
 Base: 70111b5d2e47a896a9d081dbfca3536d63b6bf63.
 Free-registration foundation: b6bb6f837c9716e66eca154c3ddb229b93307ac6.
@@ -96,13 +107,15 @@ Public teams expose names/status/dates only. Own history includes own payment,
 receipt and limited refund status. Staff roster access remains admin/moderator;
 refund decisions/provider IDs are admin-only. Paid/free eligibility stays server-side.
 
-## Additive database requirements (not executed)
+## Database requirements (not executed locally against production)
 
 indexes.json contains exact schema-derived definitions for review, not an executor.
 Complete candidate scope: seven collections (claims plus six financial collections),
-38 secondary indexes plus seven automatic _id_ indexes if all are newly created.
+40 secondary indexes plus seven automatic _id_ indexes if all are newly created
+(including the two replacement owner indexes in the production repair).
 If the former free-only plan was already provisioned, compare and create only missing
-approved additions. Preserve setup_check and every existing collection/index.
+approved additions. Preserve setup_check and all existing collections. The only
+index-removal exception is the explicit owner-policy migration described below.
 
 New financial collections: registrationintents, paymentorders, paymentevents,
 paymentreceipts, paymentnotificationintents, paymentrefundreviews. Claims use the
@@ -115,21 +128,27 @@ Existing tournamentregistrations needs the previously proposed nonunique
 valorant_roster_user_status and the unique partial objectId indexes
 uniq_registration_payment_intent and uniq_registration_payment_order. Historical
 records without payment/roster remain valid. No User/Team schema migration exists.
-No automatic syncIndexes(), drop, replacement or backfill is permitted.
+Two partial unique owner indexes preserve legacy ownership and new active Valorant
+ownership. New Valorant rows get registrationFlow:valorant_v1. No historical
+backfill or automatic syncIndexes()/drop/replacement is permitted.
 
 Every paid write entry checks the physical unique claim/financial/payment-link
-indexes. Missing/incompatible definitions return 503 before accepting new checkout.
-New financial models have autoIndex:false and autoCreate:false. Existing main
-model auto-index behavior is otherwise unchanged: provision/review additive indexes
-BEFORE deployment, or explicitly review automatic-index startup policy.
+indexes, including both replacement owner indexes and absence of the unconditional
+legacy unique index. Missing/incompatible definitions return 503 before checkout.
+New financial models have autoIndex:false and autoCreate:false. Registration now
+also disables autoIndex; all other model policies remain unchanged. Deploy the
+reviewed fix with checkout paused, then run the explicit provisioning procedure.
 
 A separately authorized production read-only audit must confirm transactions,
-nonunique legacy owner index for rejected-history retries, legacy active Valorant
+the revised owner-index policy, legacy active Valorant
 records/participants/counters, references and claim ownership/index compatibility.
 If the actual tournamentId/userId index is unique, retry after rejection may capture
 money then fail registration; this is NO-GO until an owner-approved index-policy
-resolution. This candidate never drops that index. Legacy rows without authoritative
-rosters or counter consistency fail closed; do not silently migrate them.
+resolution. The explicit --migrate-legacy-owner operation creates/verifies both
+replacement indexes before dropping only tournamentId_1_userId_1, requires paused
+checkout, and rewrites no rows. See the production procedure for deployment order
+and recovery limits. Legacy rows without authoritative rosters or counter
+consistency fail closed; do not silently migrate them.
 
 ## Activation and isolation
 

@@ -48,6 +48,7 @@ test.before(async () => {
   for (const Model of [User, Team, Tournament, Registration, Claim, Result, Final]) await Model.createCollection();
   await Claim.createIndexes(); await Result.createIndexes(); await Final.createIndexes();
   await Registration.collection.createIndex({ tournamentId: 1, userId: 1 });
+  for (const [fields, opts] of Registration.schema.indexes().filter(([, opts]) => opts.name?.includes('registration_owner'))) await Registration.collection.createIndex(fields, opts);
   await Registration.collection.createIndex({ 'roster.userId': 1, status: 1 }, { name: 'valorant_roster_user_status' });
   const app = express(); app.use(express.json());
   app.use('/api/valorant-registration', require('./registration.routes'));

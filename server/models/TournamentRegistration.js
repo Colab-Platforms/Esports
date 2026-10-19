@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const ownerPolicy = require('../features/valorant-registration/owner-index-policy');
 
 const tournamentRegistrationSchema = new mongoose.Schema({
   tournamentId: {
@@ -11,6 +12,7 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'User ID is required']
   },
+  registrationFlow: { type: String, enum: [ownerPolicy.flow], immutable: true, default: undefined },
   
   // Team Details (4-5 players per team for BGMI: 3 required + 1 optional substitute)
   teamName: {
@@ -169,13 +171,18 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     default: Date.now
   }
 }, {
+  // Owner-index changes are provisioned explicitly, never during deployment.
+  autoIndex: false,
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// Compound unique index to prevent duplicate registrations
-tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 }, { unique: true });
+// Preserve lifetime uniqueness for historical/legacy rows; only new Valorant
+// attempts can retain rejected history and create a fresh active registration.
+for (const { key, ...options } of [ownerPolicy.legacy, ownerPolicy.active]) {
+  tournamentRegistrationSchema.index(key, options);
+}
 
 // Indexes for efficient queries
 tournamentRegistrationSchema.index({ tournamentId: 1, status: 1 });

@@ -15,6 +15,7 @@ const Receipt = require('./payment-receipt.model');
 const Notification = require('./payment-notification-intent.model');
 const Review = require('./refund-review.model');
 const features = require('../../config/paymentFeatures');
+const ownerPolicy = require('../valorant-registration/owner-index-policy');
 const { RazorpayAdapter } = require('./razorpay.adapter');
 const { createRegistrationError: fail } = require('../valorant-registration/roster');
 const financialModels = [Intent, Order, Event, Receipt, Notification, Review];
@@ -38,6 +39,11 @@ async function assertIndexes() {
     let physical;
     try { physical = await Model.collection.listIndexes().toArray(); }
     catch { throw fail('PAYMENT_INDEX_REQUIRED', 'Reviewed payment database provisioning is required', 503); }
+    // A rejected registration is retained. This legacy index would let a retry
+    // pay, then prevent inserting its new registration during settlement.
+    if (Model === Registration && physical.some(ownerPolicy.isUnconditionalOwnerIndex)) {
+      throw fail('PAYMENT_INDEX_REQUIRED', 'Legacy unique registration owner index requires reviewed compatibility resolution', 503);
+    }
     for (const [fields, options] of Model.schema.indexes().filter(([, opts]) => opts.unique && opts.name)) {
       if (!indexesEqual(physical.find(i => i.name === options.name), fields, options)) throw fail('PAYMENT_INDEX_REQUIRED', 'A required payment index is missing or incompatible', 503);
     }
@@ -190,7 +196,7 @@ async function settle(orderId, payment, options = {}) {
     }
     if (tournament.currentParticipants !== await Registration.countDocuments({ tournamentId: tournament._id, status: { $in: registration.ACTIVE } }).session(session()) + await registration.heldReservations(tournament._id, session())) throw fail('CAPACITY_STATE_MISMATCH', 'Capacity requires review before settlement', 409);
     const row = new Registration({ tournamentId: intent.tournamentId, userId: intent.captainUserId, teamId: intent.teamId,
-      ...intent.rosterSnapshot.toObject(), status: 'pending', payment: { status: 'paid', intentId: intent._id, paymentOrderId: order._id, amountMinor: order.amountMinor, currency: 'INR', paidAt: order.capturedAt } });
+      ...intent.rosterSnapshot.toObject(), registrationFlow: ownerPolicy.flow, status: 'pending', payment: { status: 'paid', intentId: intent._id, paymentOrderId: order._id, amountMinor: order.amountMinor, currency: 'INR', paidAt: order.capturedAt } });
     const held = await Claim.find({ intentId: intent._id, registrationId: null }).session(session()).lean();
     const expected = new Set([`team:${intent.teamId}`, ...row.roster.flatMap(p => [`user:${p.userId}`, `riot:${p.normalizedRiotId}`])]);
     if (held.length !== 13 || expected.size !== 13 || held.some(c => String(c.tournamentId) !== String(intent.tournamentId) || !expected.has(`${c.type}:${c.value}`))) throw fail('CLAIM_STATE_MISMATCH', 'Roster claims do not match the payment reservation', 409);

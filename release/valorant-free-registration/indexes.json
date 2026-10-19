@@ -1,5 +1,5 @@
 {
-  "operations": "review only; additive-only; separate owner approval and compatibility audit required before any hosted execution",
+  "operations": "Reviewed definitions for explicit provisioning; owner-policy migration is separately opt-in, requires paused checkout and deployed compatible code; no automatic hosted execution",
   "collections": [
     {
       "name": "tournamentregistrationclaims",
@@ -336,6 +336,23 @@
   "existingCollectionAdditions": [
     {
       "collection": "tournamentregistrations",
+      "name": "uniq_legacy_registration_owner",
+      "key": { "tournamentId": 1, "userId": 1 },
+      "unique": true,
+      "partialFilterExpression": { "registrationFlow": null }
+    },
+    {
+      "collection": "tournamentregistrations",
+      "name": "uniq_active_valorant_registration_owner",
+      "key": { "tournamentId": 1, "userId": 1 },
+      "unique": true,
+      "partialFilterExpression": {
+        "registrationFlow": "valorant_v1",
+        "status": { "$in": ["pending", "images_uploaded", "verified"] }
+      }
+    },
+    {
+      "collection": "tournamentregistrations",
       "name": "valorant_roster_user_status",
       "key": {
         "roster.userId": 1,
@@ -370,6 +387,6 @@
       }
     }
   ],
-  "existingIndexes": "Preserve existing physical indexes. Verify legacy owner index is non-unique for rejected-history retry; never syncIndexes/dropIndexes.",
+  "existingIndexes": "Preserve existing physical indexes. Explicit reviewed migration may drop only tournamentId_1_userId_1 after both replacement owner indexes are verified. Never syncIndexes/dropIndexes or rewrite historical rows.",
   "automaticIdIndexes": "One _id_ index per newly created collection; not a secondary index."
 }

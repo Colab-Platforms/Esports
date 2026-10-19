@@ -82,7 +82,8 @@ async function register({ tournamentId, teamId, userId }) {
         throw fail('REGISTRATION_CLOSED', 'Registration is closed', 409);
       }
       const { snapshot } = await prepare(tournament, session, userId, teamId);
-      const registration = new Registration({ tournamentId, userId, teamId, ...snapshot, status: 'pending' });
+      const registration = new Registration({ tournamentId, userId, teamId, ...snapshot, status: 'pending',
+        registrationFlow: require('./owner-index-policy').flow });
       const claims = [{ type: 'team', value: String(teamId) }, ...snapshot.roster.flatMap(member => [
         { type: 'user', value: String(member.userId) }, { type: 'riot', value: member.normalizedRiotId }
       ])].map(claim => ({ tournamentId, registrationId: registration._id, ...claim }));
