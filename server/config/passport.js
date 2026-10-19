@@ -1,7 +1,9 @@
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const SteamStrategy = require('passport-steam').Strategy;
 const User = require('../models/User');
+const googleProvider = require('../services/auth/providers/google.provider');
+const steamProvider = require('../services/auth/providers/steam.provider');
+const facebookProvider = require('../services/auth/providers/facebook.provider');
+const xboxProvider = require('../services/auth/providers/xbox.provider');
 
 // Serialize user for session
 passport.serializeUser((user, done) => {
@@ -18,166 +20,32 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Google OAuth Strategy
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && 
-    process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' && 
-    process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret') {
-  
-  passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`
-  }, async (accessToken, refreshToken, profile, done) => {
-    try {
-      console.log('🔍 Google OAuth Profile:', profile);
-      console.log(' Callback URL used:', `${process.env.SERVER_URL}/api/auth/google/callback`);
-      
-      // Validate profile data
-      if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
-        return done(new Error('No email provided by Google'), null);
-      }
-      
-      const email = profile.emails[0].value;
-      console.log('📧 Email:', email);
-      
-      // Check if user already exists with this Google ID
-      console.log('🔎 Checking for existing Google ID...');
-      let user = await User.findOne({ 'socialAccounts.google.id': profile.id });
-      
-      if (user) {
-        console.log('✅ Existing Google user found:', user.username);
-        return done(null, user);
-      }
-      
-      console.log('🔎 Checking for existing email...');
-      // Use direct MongoDB query to avoid Mongoose validation issues
-      const userDoc = await User.collection.findOne({ email: email });
-      
-      if (userDoc) {
-        console.log('🔗 User with email exists, fixing data and linking Google account...');
-        
-        // Direct MongoDB update to fix the schema issue
-        await User.collection.updateOne(
-          { _id: userDoc._id },
-          { 
-            $set: { 
-              'gameIds.bgmi': '',
-              'socialAccounts.google': {
-                id: profile.id,
-                email: email,
-                name: profile.displayName,
-                picture: profile.photos?.[0]?.value || '',
-                isConnected: true,
-                connectedAt: new Date()
-              }
-            }
-          }
-        );
-        
-        // Now fetch the clean user with Mongoose
-        const cleanUser = await User.findById(userDoc._id);
-        console.log('✅ Google account linked and data fixed for user:', cleanUser.username);
-        return done(null, cleanUser);
-      }
-      
-      console.log('👤 Creating new user...');
-      
-      // Generate unique username
-      let baseUsername = profile.displayName.replace(/\s+/g, '').toLowerCase();
-      let username = baseUsername;
-      let counter = 1;
-      
-      // Ensure username uniqueness
-      while (await User.findOne({ username: username })) {
-        counter++;
-        username = baseUsername + counter;
-      }
-      
-      console.log('� New username:', username);
-      
-      const newUser = new User({
-        username: username,
-        fullName: profile.displayName,
-        email: email,
-        avatarUrl: profile.photos?.[0]?.value || '',
-        socialAccounts: {
-          google: {
-            id: profile.id,
-            email: email,
-            name: profile.displayName,
-            picture: profile.photos?.[0]?.value || '',
-            isConnected: true,
-            connectedAt: new Date()
-          }
-        },
-        isEmailVerified: true, // Google emails are verified
-        authProvider: 'google'
-        // Don't set phone field for OAuth users - let it be undefined
-      });
-      
-      console.log('💾 Saving new user to database...');
-      await newUser.save();
-      console.log('🎉 New Google user created:', newUser.username, 'ID:', newUser._id);
-      done(null, newUser);
-      
-    } catch (error) {
-      console.error('❌ Google OAuth error:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error stack:', error.stack);
-      done(error, null);
-    }
-  }));
-} else {
-  console.warn('⚠️ Google OAuth not configured - missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
-}
+// Google OAuth Strategy - registration + profile normalization now live in
+// services/auth/providers/google.provider.js. The verify callback there
+// hands back a normalized identity, not a User document; routes/auth.js's
+// /google/callback resolves that identity to an application User via
+// services/auth/auth.service.js (see the architecture migration, Phase 3).
+googleProvider.configure(passport);
 
-// Steam Strategy (already exists but updating)
-passport.use(new SteamStrategy({
-  returnURL: process.env.STEAM_RETURN_URL || 'http://localhost:5001/api/auth/steam/return',
-  realm: process.env.STEAM_REALM || 'http://localhost:5001/',
-  apiKey: process.env.STEAM_API_KEY
-}, async (identifier, profile, done) => {
-  try {
-    console.log('🔍 Steam Profile:', profile);
-    
-    // Extract Steam ID from identifier
-    const steamId = identifier.split('/').pop();
-    
-    // Check if user already exists with this Steam ID
-    let user = await User.findOne({ 'steamProfile.steamId': steamId });
-    
-    if (user) {
-      console.log('✅ Existing Steam user found:', user.username);
-      return done(null, user);
-    }
-    
-    // Create new user or link to existing user
-    // For now, create new user - you can modify this logic
-    const newUser = new User({
-      username: profile.displayName.replace(/\s+/g, '').toLowerCase() + Math.floor(Math.random() * 1000),
-      email: `${steamId}@steam.local`, // Temporary email
-      avatarUrl: profile.photos[2].value, // Full size avatar
-      steamProfile: {
-        steamId: steamId,
-        displayName: profile.displayName,
-        profileUrl: profile._json.profileurl,
-        avatar: profile.photos[2].value,
-        country: profile._json.loccountrycode,
-        state: profile._json.locstatecode,
-        realName: profile._json.realname
-      },
-      authProvider: 'steam'
-      // Don't set phone field for OAuth users - let it be undefined
-    });
-    
-    await newUser.save();
-    console.log('🎉 New Steam user created:', newUser.username);
-    done(null, newUser);
-    
-  } catch (error) {
-    console.error('❌ Steam OAuth error:', error);
-    done(error, null);
-  }
-}));
+// Steam Strategy - registration + profile normalization now live in
+// services/auth/providers/steam.provider.js, mirroring the Google adapter.
+// The verify callback there hands back a normalized identity, not a User
+// document. passport-steam's returnURL is fixed at registration time, so
+// there's a single real callback (routes/auth.js's /steam/return) for both
+// login and connect - it branches on a session-recorded connect intent set
+// by routes/accounts.js's /steam/connect/start (see account-linking.service.js).
+steamProvider.configure(passport);
+
+// Facebook OAuth Strategy - same adapter pattern as Google/Steam. Facebook
+// can return no email (declined permission, or none on the account) -
+// facebook.provider.js's normalizeProfile already accounts for that.
+facebookProvider.configure(passport);
+
+// Xbox Strategy - generic OAuth2 (not passport-microsoft: this flow is
+// deliberately Xbox-scoped only, not a general "Sign in with Microsoft" -
+// see providers.config.js and xbox.provider.js for why). The verify
+// callback there does its own Xbox Live XSTS exchange with the access
+// token rather than calling a standard profile endpoint.
+xboxProvider.configure(passport);
 
 module.exports = passport;

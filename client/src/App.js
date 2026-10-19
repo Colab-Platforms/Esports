@@ -68,6 +68,7 @@ import CS2Page from './pages/CS2Page';
 import FreeFirePage from './pages/FreeFirePage';
 
 import SteamSettingsPage from './pages/SteamSettingsPage';
+import ConnectedAccountsPage from './pages/ConnectedAccountsPage';
 // import SplashScreen from './components/common/SplashScreen';
 import SplashScreen from './components/common/PremiumSplashScreen';
 
@@ -688,6 +689,8 @@ function App() {
               } 
             />
             
+            <Route path="/connected-accounts" element={<ProtectedRoute><ConnectedAccountsPage /></ProtectedRoute>} />
+
             {/* Match Routes */}
             <Route 
               path="/matches" 

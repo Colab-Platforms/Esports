@@ -7,7 +7,7 @@ import { selectAuth } from '../../store/slices/authSlice';
 import notificationService from '../../services/notificationService';
 import SteamConnectionWidget from '../steam/SteamConnectionWidget';
 import SteamLinkingModal from './SteamLinkingModal';
-import { getSteamAuthUrl } from '../../utils/apiConfig';
+import { startSteamConnect } from '../../utils/apiConfig';
 
 const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }) => {
   const dispatch = useDispatch();
@@ -120,10 +120,9 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
   };
 
   const handleSteamLink = () => {
-    const userId = user?.id || user?._id;
     const tournamentId = tournament?._id || tournament?.id;
-    
-    if (!userId) {
+
+    if (!user) {
       setError('Please login again to continue');
       return;
     }
@@ -134,11 +133,11 @@ const TournamentRegistration = ({ tournament, selectedTeam, onClose, onSuccess }
       return;
     }
 
-    console.log('🎮 Redirecting to Steam auth for tournament:', tournamentId);
+    console.log('🎮 Starting Steam connect for tournament:', tournamentId);
     setShowSteamModal(false);
-    
-    // Direct redirect to Steam OAuth - uses dynamic URL
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${tournamentId}`);
+
+    startSteamConnect(`/tournaments/${tournamentId}`)
+      .catch(() => setError('Failed to start Steam connection. Please try again.'));
   };
 
   const handleInputChange = (e) => {

@@ -5,6 +5,7 @@ import { FiSettings } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import GameIcon from '../components/common/GameIcon';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import toast from 'react-hot-toast';
 import TournamentCardProfessional from '../components/tournaments/TournamentCardProfessional';
 import { fetchTournaments, clearError } from '../store/slices/tournamentSlice';
 import { selectAuth } from '../store/slices/authSlice';
@@ -12,7 +13,7 @@ import SteamConnectionModal from '../components/steam/SteamConnectionModal';
 import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
 
 
-import { getSteamAuthUrl } from '../utils/apiConfig';
+import { startSteamConnect } from '../utils/apiConfig';
 import { getServerStatusBadge, getServerStats } from '../utils/cs2ServerStatus';
 
 const CS2Page = () => {
@@ -163,7 +164,7 @@ const CS2Page = () => {
     setShowSteamModal(false);
     
     // Direct redirect to Steam OAuth - uses dynamic URL
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?._id}`);
+    startSteamConnect(`/tournaments/${selectedTournament?._id}`).catch(() => toast.error('Failed to start Steam connection. Please try again.'));
   };
 
 

@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
+const { MongoStore } = require('connect-mongo');
 const passport = require('passport');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -140,6 +141,9 @@ const oauthLimiter = rateLimit({
 app.use('/api/', limiter);
 app.use('/api/auth/google', oauthLimiter);
 app.use('/api/auth/steam', oauthLimiter);
+app.use('/api/auth/facebook', oauthLimiter);
+app.use('/api/auth/xbox', oauthLimiter);
+app.use('/api/auth/exchange', oauthLimiter);
 
 // Razorpay signatures cover the original bytes; this must precede JSON parsing.
 app.use('/api/valorant-payments/webhook', express.raw({ type: 'application/json', limit: '256kb' }), require('./features/payments/payment-webhook.routes'));
@@ -171,14 +175,26 @@ app.use(compression({
 const noCache = require('./middleware/noCache');
 app.use('/api', noCache);
 
-// Session middleware (required for Steam OAuth)
+// Persist OAuth state/connect intents across instances and rolling deployments.
+const configuredSameSite = (process.env.SESSION_COOKIE_SAMESITE || '').toLowerCase();
 app.use(session({
-  secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+  store: MongoStore.create({
+    clientPromise: new Promise((resolve, reject) => {
+      mongoose.connection.once('connected', () => resolve(mongoose.connection.getClient()));
+      mongoose.connection.once('error', reject);
+    }),
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60,
+    ...(phase2Staging.isReady() ? { autoRemove: 'disabled' } : {})
+  }),
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
     httpOnly: true,
+    sameSite: ['lax', 'strict', 'none'].includes(configuredSameSite)
+      ? configuredSameSite : (process.env.NODE_ENV === 'production' ? 'none' : 'lax'),
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -247,6 +263,8 @@ app.use(checkBannedUser);
 
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/accounts', require('./routes/accounts'));
+app.use('/api/cs2/eligibility', require('./routes/cs2Eligibility'));
 app.use('/api/games', require('./routes/games'));
 // app.use('/api/steam', require('./routes/steam'));
 app.use('/api/users', require('./routes/users'));

@@ -14,7 +14,8 @@ for (const [key, value] of Object.entries(process.env)) {
   if (/^(path|systemroot|windir|comspec|temp|tmp|pathext|userprofile|localappdata|appdata|programfiles|programfiles\(x86\)|programdata|systemdrive|MONGOMS_SYSTEM_BINARY|MONGOMS_DOWNLOAD_DIR)$/i.test(key)) env[key] = value;
 }
 Object.assign(env, { NODE_ENV: 'test', REDIS_DISABLED: 'true', MONGOMS_VERSION: '8.2.6' });
-const result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', ...collect(path.join(root, 'server/features'))], {
+const result = spawnSync(process.execPath, ['--test', '--test-concurrency=1',
+  ...collect(path.join(root, 'server/features')), ...collect(path.join(root, 'server/services/auth'))], {
   cwd: root, env, stdio: 'inherit'
 });
 if (result.error) console.error(result.error.message);

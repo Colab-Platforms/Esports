@@ -4,6 +4,7 @@ import { FiExternalLink, FiCheck, FiX, FiRefreshCw, FiAlertCircle, FiDownload, F
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../../store/slices/authSlice';
 import api from '../../services/api';
+import { startSteamConnect } from '../../utils/apiConfig';
 
 const SteamConnectionWidget = ({ 
     onConnectionSuccess, 
@@ -77,8 +78,7 @@ const SteamConnectionWidget = ({
     };
 
     const connectSteam = async () => {
-        const userId = user?.id || localStorage.getItem('userId');
-        if (!userId) {
+        if (!user) {
             setError('Please log in first');
             return;
         }
@@ -93,8 +93,7 @@ const SteamConnectionWidget = ({
     };
 
     const proceedWithSteamAuth = () => {
-        const userId = user?.id || localStorage.getItem('userId');
-        window.location.href = `/api/steam/auth?state=${userId}`;
+        startSteamConnect().catch(() => setError('Failed to start Steam connection. Please try again.'));
     };
 
     const openSteamApp = () => {

@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,63})+$/, 'Please enter a valid email']
   },
   phone: {
     type: String,
@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema({
   },
   authProvider: {
     type: String,
-    enum: ['local', 'google', 'steam'],
+    enum: ['local', 'google', 'steam', 'facebook', 'xbox'],
     default: 'local'
   },
   avatarUrl: {

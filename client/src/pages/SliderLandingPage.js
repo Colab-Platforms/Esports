@@ -15,7 +15,7 @@ import { getRandomBanner } from '../assets/tournamentBanners';
 import OptimizedImage from '../components/common/OptimizedImage';
 import HeroImageSlider from '../components/common/HeroImageSlider';
 import SteamLinkingModal from '../components/tournaments/SteamLinkingModal';
-import { getSteamAuthUrl } from '../utils/apiConfig';
+import { startSteamConnect } from '../utils/apiConfig';
 import { getPlayerCountText } from '../utils/cs2ServerStatus';
 import GameIcon from '../components/common/GameIcon';
 
@@ -235,9 +235,7 @@ const SliderLandingPage = () => {
   };
 
   const handleSteamLink = () => {
-    const userId = user?.id || user?._id;
-    
-    if (!userId) {
+    if (!user) {
       notificationService.showCustomNotification(
         'error',
         'Authentication Error',
@@ -248,7 +246,13 @@ const SliderLandingPage = () => {
     }
 
     setShowSteamModal(false);
-    window.location.href = getSteamAuthUrl(userId, `/tournaments/${selectedTournament?.id}`);
+    startSteamConnect(`/tournaments/${selectedTournament?.id}`).catch(() => {
+      notificationService.showCustomNotification(
+        'error',
+        'Error',
+        'Failed to start Steam connection. Please try again.'
+      );
+    });
   };
 
   const handleJoinTournament = (tournament) => {

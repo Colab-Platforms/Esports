@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FiEdit3 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
@@ -38,6 +38,8 @@ const ProfileSettingsPage = () => {
             Manage your account information and preferences
           </p>
         </div>
+
+        <div className="text-center mb-6"><Link to="/connected-accounts" className="text-gaming-gold hover:underline">Manage connected accounts</Link></div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

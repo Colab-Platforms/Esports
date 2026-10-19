@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiExternalLink, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import api from '../../services/api';
-import { getSteamAuthUrl } from '../../utils/apiConfig';
+import { startSteamConnect } from '../../utils/apiConfig';
 
 const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) => {
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   const checkSteamStatus = useCallback(async () => {
     try {
       setLoading(true);
-      const status = await api.get('/api/steam/status');
+      const status = await api.get('/api/accounts/steam/status');
       setSteamStatus(status);
       
       // If already connected and eligible, close modal
@@ -80,13 +80,13 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
         
         // Wait a moment then redirect to web OAuth as fallback - uses dynamic URL
         setTimeout(() => {
-          window.location.href = getSteamAuthUrl(userId);
+          startSteamConnect().catch(() => setError('Failed to start Steam connection. Please try again.'));
         }, 1500);
         
       } catch (error) {
         console.log('Steam app not available, using web OAuth');
         // Fallback to web OAuth - uses dynamic URL
-        window.location.href = getSteamAuthUrl(userId);
+        startSteamConnect().catch(() => setError('Failed to start Steam connection. Please try again.'));
       }
     };
 
@@ -108,7 +108,7 @@ const SteamConnectionModal = ({ isOpen, onClose, onSuccess, gameType = 'cs2' }) 
   const checkEligibility = async () => {
     try {
       setLoading(true);
-      const eligibility = await api.get('/api/steam/cs2/eligibility');
+      const eligibility = await api.get('/api/cs2/eligibility');
       
       if (eligibility.eligible) {
         connectionCallbacks.current.onSuccess(eligibility);
