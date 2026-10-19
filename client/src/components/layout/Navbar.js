@@ -136,6 +136,7 @@ const Navbar = () => {
     }
     if (["admin", "moderator"].includes(user.role)) {
       links.push({ to: "/admin/results", label: "Result Management" });
+      links.push({ to: "/admin/valorant-registrations", label: "Valorant Registrations" });
     }
 
     return links;

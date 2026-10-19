@@ -35,10 +35,22 @@ test('external transports are blocked and installing the network guard is revers
   assert.equal(net.Socket.prototype.connect, original);
 });
 
-test('request policy preserves competitive routes and blocks registration, providers and payment side effects', () => {
+test('request policy preserves competitive routes and blocks legacy registration, providers and payment side effects', () => {
   const id = '64f000000000000000000001';
   for (const [method, url] of [['GET', '/api/explore'], ['GET', '/api/players/player/statistics'], ['GET', '/api/tournaments'], ['GET', '/api/teams'], ['POST', '/api/auth/login'], ['POST', '/api/freefire-results'], ['PUT', '/api/valorant-results/' + id], ['POST', '/api/admin/tournaments/' + id + '/final-results/publish'], ['POST', '/api/bgmi-matches/' + id + '/verify/' + id]]) assert.equal(safety.requestAllowed(method, url), true, url);
   for (const [method, url] of [['POST', '/api/bgmi-registration/' + id + '/register'], ['PUT', '/api/bgmi-registration/admin/' + id + '/status'], ['POST', '/api/whatsapp/send-message'], ['GET', '/api/auth/google'], ['GET', '/API/AUTH/GOOGLE'], ['POST', '/api/auth/send-email-otp'], ['GET', '/api/upload'], ['POST', '/api/store/buy/' + id], ['POST', '/api/admin/withdrawals/' + id + '/approve'], ['POST', '/api/bgmi-matches/' + id + '/screenshot'], ['POST', '/api/users/friend-request']]) assert.equal(safety.requestAllowed(method, url), false, url);
+});
+
+test('isolated staging permits free Valorant lifecycle/profile checks and keeps external side effects blocked', () => {
+  const id = '64f000000000000000000001';
+  for (const action of ['register', 'verify', 'reject', 'cancel']) assert.equal(safety.requestAllowed('POST', `/api/valorant-registration/${id}/${action}`), true);
+  assert.equal(safety.requestAllowed('PUT', '/api/auth/profile'), true);
+  assert.equal(safety.requestAllowed('GET', '/api/auth/profile'), true);
+  for (const [method, path] of [['POST', '/api/registration-intents'], ['POST', '/api/payments'],
+    ['POST', '/api/teams'], ['POST', '/api/auth/register'], ['POST', '/api/whatsapp/send-message'],
+    ['POST', `/api/valorant-registration/${id}/refund`], ['DELETE', `/api/valorant-registration/${id}`]]) {
+    assert.equal(safety.requestAllowed(method, path), false);
+  }
 });
 
 function preparedChild(mode) {

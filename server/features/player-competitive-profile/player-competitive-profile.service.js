@@ -246,7 +246,7 @@ const getPlayerCompetitiveProfile = async (username) => {
   }
 
   const registrationFilter = {
-    userId: user._id,
+    $or: [{ userId: user._id }, { 'roster.userId': user._id }],
     status: { $in: PUBLIC_REGISTRATION_STATUSES }
   };
 

@@ -6,6 +6,7 @@ import { FiArrowLeft, FiShare2, FiUsers, FiAward, FiInfo } from "react-icons/fi"
 import { selectAuth } from "../../store/slices/authSlice";
 import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
 import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
+import ValorantRegistrationStatus from "../../components/tournaments/ValorantRegistrationStatus";
 import api from "../../services/api";
 import GameIcon from "../../components/common/GameIcon";
 import { getRandomBanner } from "../../assets/tournamentBanners";
@@ -161,6 +162,8 @@ const SingleTournamentPage = () => {
 
       if (tournament?.gameType === "bgmi") {
         endpoint = `/api/bgmi-registration/tournament/${id}/teams`;
+      } else if (tournament?.gameType === "valorant") {
+        endpoint = `/api/valorant-registration/tournament/${id}/teams`;
       }
 
       const data = await secureRequest.get(endpoint);
@@ -768,6 +771,9 @@ const SingleTournamentPage = () => {
             }
             throw new Error(err.message || 'Registration failed');
           }
+        } else if (gameType === "valorant") {
+          if (tournament.entryFee !== 0) throw new Error('Paid Valorant registration is not available');
+          await api.post(`/api/valorant-registration/${tournament._id}/register`, { teamId: team._id });
         } else if (gameType === "cs2") {
           const steamId =
             leaderInfo.gameId ||
@@ -1679,6 +1685,17 @@ const SingleTournamentPage = () => {
             </button>
           ))}
         </div>
+
+        {tournament?.gameType === 'valorant' && <ValorantRegistrationStatus
+          tournamentId={tournament._id}
+          revision={registeredTeams.length}
+          onChanged={async () => {
+            setIsUserRegistered(false);
+            await fetchRegisteredTeams();
+            const fresh = await secureRequest.get(`/api/tournaments/${id}`);
+            if (fresh.data?.tournament) setTournament(previous => ({ ...previous, currentParticipants: fresh.data.tournament.currentParticipants, participants: fresh.data.tournament.participants }));
+          }}
+        />}
 
         {/* Full Width Content */}
         <div className="w-full">{renderTabContent()}</div>

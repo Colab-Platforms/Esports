@@ -36,6 +36,7 @@ const tournamentRegistrationSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    riotId: { name: { type: String, trim: true }, tag: { type: String, trim: true } },
     phone: {
       type: String,
       required: [true, 'Team leader phone is required'],
@@ -57,7 +58,8 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     freeFireId: {
       type: String,
       trim: true
-    }
+    },
+    riotId: { name: { type: String, trim: true }, tag: { type: String, trim: true } }
   }],
   
   // Substitute Player (optional - 1 backup player)
@@ -65,12 +67,25 @@ const tournamentRegistrationSchema = new mongoose.Schema({
     type: {
       name: { type: String, trim: true },
       bgmiId: { type: String, trim: true },
-      freeFireId: { type: String, trim: true }
+      freeFireId: { type: String, trim: true },
+      riotId: { name: { type: String, trim: true }, tag: { type: String, trim: true } }
     },
     default: null
   },
   
   // Registration Status
+  // Optional on historical/non-Valorant records. Filled from saved users by the
+  // free Valorant service, never accepted as a client-authored roster.
+  roster: {
+    type: [new mongoose.Schema({
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      username: { type: String, required: true },
+      riotId: { type: String, required: true },
+      normalizedRiotId: { type: String, required: true },
+      role: { type: String, enum: ['starter', 'substitute'], required: true }
+    }, { _id: false })],
+    default: undefined
+  },
   status: {
     type: String,
     enum: ['pending', 'images_uploaded', 'verified', 'rejected'],
@@ -156,6 +171,7 @@ tournamentRegistrationSchema.index({ tournamentId: 1, userId: 1 }, { unique: tru
 tournamentRegistrationSchema.index({ tournamentId: 1, status: 1 });
 tournamentRegistrationSchema.index({ userId: 1 });
 tournamentRegistrationSchema.index({ teamId: 1, status: 1 });
+tournamentRegistrationSchema.index({ 'roster.userId': 1, status: 1 }, { name: 'valorant_roster_user_status' });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
 
@@ -202,17 +218,32 @@ tournamentRegistrationSchema.virtual('allTeamMembers').get(function() {
 
 // Pre-save middleware to update tournament participant count
 tournamentRegistrationSchema.pre('save', async function(next) {
-  // Ensure exactly 3 team members (plus leader = 4 total, plus optional substitute = 5 max)
-  if (this.teamMembers.length !== 3) {
-    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
-  }
-  
   // Get tournament to check game type
   const Tournament = require('./Tournament');
-  const tournament = await Tournament.findById(this.tournamentId);
+  const tournament = await Tournament.findById(this.tournamentId).session(this.$session());
   
   if (!tournament) {
     return next(new Error('Tournament not found'));
+  }
+
+  if (tournament.gameType === 'valorant') {
+    const { parseManualRiotId } = require('../features/valorant-registration/roster');
+    const roster = this.roster || [];
+    if (this.teamMembers.length !== 4 || roster.length !== 6 ||
+        roster.filter(member => member.role === 'starter').length !== 5 ||
+        roster.filter(member => member.role === 'substitute').length !== 1 ||
+        new Set(roster.map(member => String(member.userId))).size !== 6 ||
+        new Set(roster.map(member => member.normalizedRiotId)).size !== 6 ||
+        !roster.some(member => member.role === 'starter' && String(member.userId) === String(this.userId))) {
+      return next(new Error('Valorant requires five distinct starters including the captain and one substitute'));
+    }
+    try {
+      for (const member of roster) {
+        if (parseManualRiotId(member.riotId).normalized !== member.normalizedRiotId) throw new Error('Invalid normalized Riot ID');
+      }
+    } catch (error) { return next(error); }
+  } else if (this.teamMembers.length !== 3) {
+    return next(new Error('Team must have exactly 3 members (plus leader = 4 total players)'));
   }
   
   // Validate unique IDs based on game type

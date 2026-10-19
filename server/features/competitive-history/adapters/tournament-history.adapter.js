@@ -90,7 +90,7 @@ const getTournamentHistory = async ({ user, limit, models = {} }) => {
   const queryLimit = Math.max(limit * 2, limit);
 
   const registrationFilter = {
-    userId: user._id,
+    $or: [{ userId: user._id }, { 'roster.userId': user._id }],
     status: { $in: PUBLIC_REGISTRATION_STATUSES }
   };
 

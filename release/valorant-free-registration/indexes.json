@@ -1,0 +1,25 @@
+{
+  "collection": "tournamentregistrationclaims",
+  "operations": "additive-only; owner approval required before hosted execution",
+  "indexes": [
+    {
+      "name": "uniq_tournament_registration_claim",
+      "key": { "tournamentId": 1, "type": 1, "value": 1 },
+      "unique": true
+    },
+    {
+      "name": "registrationId_1",
+      "key": { "registrationId": 1 },
+      "unique": false
+    }
+  ],
+  "existingCollectionAdditions": [
+    {
+      "collection": "tournamentregistrations",
+      "name": "valorant_roster_user_status",
+      "key": { "roster.userId": 1, "status": 1 },
+      "unique": false
+    }
+  ],
+  "existingIndexes": "preserve all existing physical registration, tournament, team and user indexes"
+}

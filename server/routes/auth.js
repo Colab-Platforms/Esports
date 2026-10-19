@@ -1147,6 +1147,17 @@ router.put('/profile', auth, async (req, res) => {
     console.log('📝 Profile update request:', req.body);
 
     const { username, email, phone, bio, country, state, favoriteGame, profileVisibility, avatarUrl, socialAccounts, gameIds, bgmiIgnName, bgmiUid, freeFireIgnName, freeFireUid } = req.body;
+    let valorantId;
+    if (gameIds !== undefined && (gameIds === null || typeof gameIds !== 'object' || Array.isArray(gameIds))) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_GAME_IDS', message: 'gameIds must be an object' } });
+    }
+    if (gameIds?.valorant !== undefined) {
+      try {
+        valorantId = gameIds.valorant === '' ? '' : require('../features/valorant-registration/roster').parseManualRiotId(gameIds.valorant).display;
+      } catch (error) {
+        return res.status(400).json({ success: false, error: { code: 'MALFORMED_RIOT_ID', message: 'Riot ID must use PlayerName#TAG format (name 1-30, tag 1-10 characters)' } });
+      }
+    }
     const user = await User.findById(req.user.userId);
 
     if (!user) {
@@ -1291,6 +1302,7 @@ router.put('/profile', auth, async (req, res) => {
     // Update game IDs - Handle steam and other games
     if (gameIds !== undefined) {
       if (!user.gameIds) user.gameIds = {};
+      if (valorantId !== undefined) user.gameIds.valorant = valorantId;
 
       if (gameIds.steam !== undefined) {
         user.gameIds.steam = gameIds.steam;

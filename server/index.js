@@ -263,6 +263,7 @@ app.use('/api', require('./features/statistics/statistics.routes'));
 app.use('/api/leaderboards', require('./features/leaderboards/leaderboards.routes'));
 app.use('/api/freefire-results', require('./features/freefire-results/freefire-results.routes'));
 app.use('/api/valorant-results', require('./features/valorant-results/valorant-results.routes'));
+app.use('/api/valorant-registration', require('./features/valorant-registration/registration.routes'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/referral', require('./routes/referral'));

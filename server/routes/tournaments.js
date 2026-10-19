@@ -552,7 +552,8 @@ router.get('/:id', async (req, res) => {
         if (!isUserRegistered) {
           const bgmiOrFfReg = await TournamentRegistration.findOne({
             tournamentId: tournament._id,
-            userId: decoded.userId
+            userId: decoded.userId,
+            ...(tournament.gameType === 'valorant' ? { status: { $in: ['pending', 'images_uploaded', 'verified'] } } : {})
           });
           if (bgmiOrFfReg) isUserRegistered = true;
         }
@@ -1757,6 +1758,10 @@ router.post('/:id/join', auth, [
 
     const { gameId, teamName = '' } = req.body;
 
+    if (tournament.gameType === 'valorant') {
+      return res.status(409).json({ success: false, error: { code: 'USE_VALORANT_REGISTRATION_API', message: 'Register a saved Valorant team through the Valorant registration flow' } });
+    }
+
     // CS2 Tournament - Validate Steam Connection
     if (tournament.gameType === 'cs2') {
       const steamId = user.gameIds?.steam || user.steamProfile?.steamId;
@@ -1900,6 +1905,9 @@ router.delete('/:id/leave', auth, async (req, res) => {
     }
 
     // Remove participant from tournament
+    if (tournament.gameType === 'valorant') {
+      return res.status(409).json({ success: false, error: { code: 'USE_VALORANT_REGISTRATION_API', message: 'Cancel the pending Valorant registration through the Valorant registration flow' } });
+    }
     await tournament.removeParticipant(req.user.userId);
 
     // TODO: Refund entry fee to wallet (will be implemented in wallet system)
@@ -2030,7 +2038,7 @@ router.get('/:id/registration-status', auth, async (req, res) => {
     const userId = req.user.userId;
 
     // Check participants array (CS2/Valorant)
-    const tournament = await Tournament.findById(tournamentId).select('participants');
+    const tournament = await Tournament.findById(tournamentId).select('participants gameType');
     if (!tournament) {
       return res.status(404).json({ success: false, error: { message: 'Tournament not found' } });
     }
@@ -2039,7 +2047,8 @@ router.get('/:id/registration-status', auth, async (req, res) => {
 
     // Also check TournamentRegistration (BGMI/FreeFire)
     if (!isRegistered) {
-      const reg = await TournamentRegistration.findOne({ tournamentId, userId });
+      const reg = await TournamentRegistration.findOne({ tournamentId, userId,
+        ...(tournament.gameType === 'valorant' ? { status: { $in: ['pending', 'images_uploaded', 'verified'] } } : {}) });
       if (reg) isRegistered = true;
     }
 

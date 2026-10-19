@@ -66,7 +66,7 @@ const getPlayerParticipationOverview = async ({ user, models }) => {
   const TeamModel = models.Team || Team;
 
   const registrationFilter = {
-    userId: user._id,
+    $or: [{ userId: user._id }, { 'roster.userId': user._id }],
     status: { $in: PUBLIC_REGISTRATION_STATUSES }
   };
 
