@@ -35,6 +35,41 @@ async function assertClaimIndex() {
   }
 }
 
+
+async function heldReservations(tournamentId, session) {
+  return require('../registration-intents/registration-intent.model').countDocuments({ tournamentId,
+    'reservation.capacityReserved': true, 'reservation.capacityReleased': false, status: { $ne: 'fulfilled' }
+  }).session(session);
+}
+async function prepare(tournament, session, userId, teamId) {
+  const tournamentId = tournament._id;
+  if (!['upcoming', 'registration_open'].includes(tournament.status) || !(tournament.registrationDeadline > new Date())) throw fail('REGISTRATION_CLOSED', 'Registration is closed', 409);
+  // Serialize against existing Team edits without changing its schema.
+  const team = await Team.findOneAndUpdate({ _id: teamId, game: 'valorant', captain: userId, isActive: true },
+    { $inc: { __v: 1 } }, { new: true, session });
+  if (!team) throw fail('NOT_TEAM_CAPTAIN', 'An active Valorant team owned by you is required', 403);
+  const users = await User.find({ _id: { $in: team.members.map(member => member.userId) }, isActive: true })
+    .select('username fullName email phone gameIds').session(session).lean();
+  const roster = buildRosterSnapshot({ team, users });
+  const captainUser = users.find(user => String(user._id) === String(userId));
+  const snapshot = buildValorantRegistrationSnapshot({ team, rosterSnapshot: roster, captainUser });
+  if (!/^[6-9]\d{9}$/.test(snapshot.whatsappNumber)) throw fail('CAPTAIN_PHONE_REQUIRED', 'The captain must save a valid phone number in Profile Settings');
+  const active = await Registration.find({ tournamentId, status: { $in: ACTIVE } }).session(session).lean();
+  if (active.some(row => !Array.isArray(row.roster) || row.roster.length !== 6 || !row.teamId) ||
+      tournament.participants.some(participant => !active.some(row => String(row.userId) === String(participant.userId)))) {
+    throw fail('LEGACY_VALORANT_REVIEW_REQUIRED', 'Existing Valorant participants require a separate compatibility review', 409);
+  }
+  if (tournament.currentParticipants !== active.length + await heldReservations(tournamentId, session)) throw fail('CAPACITY_STATE_MISMATCH', 'Participant count requires review before registration', 409);
+  const userIds = new Set(snapshot.roster.map(member => String(member.userId)));
+  const riotIds = new Set(snapshot.roster.map(member => member.normalizedRiotId));
+  if (active.some(row => String(row.userId) === String(userId) || String(row.teamId) === String(teamId) ||
+      row.roster.some(member => userIds.has(String(member.userId)) || riotIds.has(member.normalizedRiotId)))) {
+    throw fail('REGISTRATION_CONFLICT', 'This team, player or Riot ID is already registered', 409);
+  }
+
+  return { snapshot };
+}
+
 async function register({ tournamentId, teamId, userId }) {
   if (!mongoose.isValidObjectId(tournamentId) || !mongoose.isValidObjectId(teamId)) throw fail('INVALID_ID', 'Valid tournament and team IDs are required');
   await assertClaimIndex();
@@ -46,28 +81,7 @@ async function register({ tournamentId, teamId, userId }) {
       if (!['upcoming', 'registration_open'].includes(tournament.status) || !(tournament.registrationDeadline > new Date())) {
         throw fail('REGISTRATION_CLOSED', 'Registration is closed', 409);
       }
-      // Serialize against existing Team edits without changing its schema.
-      const team = await Team.findOneAndUpdate({ _id: teamId, game: 'valorant', captain: userId, isActive: true },
-        { $inc: { __v: 1 } }, { new: true, session });
-      if (!team) throw fail('NOT_TEAM_CAPTAIN', 'An active Valorant team owned by you is required', 403);
-      const users = await User.find({ _id: { $in: team.members.map(member => member.userId) }, isActive: true })
-        .select('username fullName email phone gameIds').session(session).lean();
-      const roster = buildRosterSnapshot({ team, users });
-      const captainUser = users.find(user => String(user._id) === String(userId));
-      const snapshot = buildValorantRegistrationSnapshot({ team, rosterSnapshot: roster, captainUser });
-      if (!/^[6-9]\d{9}$/.test(snapshot.whatsappNumber)) throw fail('CAPTAIN_PHONE_REQUIRED', 'The captain must save a valid phone number in Profile Settings');
-      const active = await Registration.find({ tournamentId, status: { $in: ACTIVE } }).session(session).lean();
-      if (active.some(row => !Array.isArray(row.roster) || row.roster.length !== 6 || !row.teamId) ||
-          tournament.participants.some(participant => !active.some(row => String(row.userId) === String(participant.userId)))) {
-        throw fail('LEGACY_VALORANT_REVIEW_REQUIRED', 'Existing Valorant participants require a separate compatibility review', 409);
-      }
-      if (tournament.currentParticipants !== active.length) throw fail('CAPACITY_STATE_MISMATCH', 'Participant count requires review before registration', 409);
-      const userIds = new Set(snapshot.roster.map(member => String(member.userId)));
-      const riotIds = new Set(snapshot.roster.map(member => member.normalizedRiotId));
-      if (active.some(row => String(row.userId) === String(userId) || String(row.teamId) === String(teamId) ||
-          row.roster.some(member => userIds.has(String(member.userId)) || riotIds.has(member.normalizedRiotId)))) {
-        throw fail('REGISTRATION_CONFLICT', 'This team, player or Riot ID is already registered', 409);
-      }
+      const { snapshot } = await prepare(tournament, session, userId, teamId);
       const registration = new Registration({ tournamentId, userId, teamId, ...snapshot, status: 'pending' });
       const claims = [{ type: 'team', value: String(teamId) }, ...snapshot.roster.flatMap(member => [
         { type: 'user', value: String(member.userId) }, { type: 'riot', value: member.normalizedRiotId }
@@ -98,7 +112,8 @@ async function transition({ registrationId, actor, action, reason = '' }) {
     const session = transactions.currentSession();
     const row = await Registration.findById(registrationId).session(session);
     const tournament = await Tournament.findById(source.tournamentId).session(session);
-    assertFree(tournament);
+    if (!tournament || tournament.gameType !== 'valorant') throw fail('TOURNAMENT_NOT_FOUND', 'Valorant tournament not found', 404);
+    if (tournament.entryFee > 0 && row?.payment?.status !== 'paid') throw fail('PAYMENT_REQUIRED', 'Captured payment is required', 409);
     if (!row || !Array.isArray(row.roster) || row.roster.length !== 6) throw fail('LEGACY_VALORANT_REVIEW_REQUIRED', 'Registration requires a compatibility review', 409);
     const cancel = action === 'cancel';
     if (cancel ? String(row.userId) !== String(actor.userId) : !['admin', 'moderator'].includes(actor.role)) {
@@ -120,7 +135,10 @@ async function transition({ registrationId, actor, action, reason = '' }) {
     if (status === 'rejected') {
       const count = await Registration.countDocuments({ tournamentId: tournament._id, status: { $in: ACTIVE } }).session(session);
       // Preserve the same fail-closed counter check used on registration.
-      if (tournament.currentParticipants !== count + 1) throw fail('CAPACITY_STATE_MISMATCH', 'Participant count requires review', 409);
+      if (tournament.currentParticipants !== count + 1 + await heldReservations(tournament._id, session)) throw fail('CAPACITY_STATE_MISMATCH', 'Participant count requires review', 409);
+      if (row.payment?.status === 'paid') await require('../payments/refund-review.model').findOneAndUpdate(
+        { paymentOrderId: row.payment.paymentOrderId }, { $setOnInsert: { registrationId: row._id, reason: cancel ? 'captain_cancelled' : 'roster_rejected' } },
+        { upsert: true, new: true, session, setDefaultsOnInsert: true });
       await Claim.deleteMany({ registrationId: row._id }).session(session);
       await Tournament.updateOne({ _id: tournament._id }, { $inc: { currentParticipants: -1 }, $pull: { participants: { userId: row.userId } } }, { session });
     }
@@ -130,4 +148,4 @@ async function transition({ registrationId, actor, action, reason = '' }) {
   return committed;
 }
 
-module.exports = { register, transition, assertFree, assertClaimIndex, ACTIVE };
+module.exports = { register, transition, assertFree, assertClaimIndex, ACTIVE, prepare, heldReservations, invalidateTournamentCache };

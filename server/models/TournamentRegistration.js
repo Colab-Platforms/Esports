@@ -76,6 +76,16 @@ const tournamentRegistrationSchema = new mongoose.Schema({
   // Registration Status
   // Optional on historical/non-Valorant records. Filled from saved users by the
   // free Valorant service, never accepted as a client-authored roster.
+  payment: {
+    type: new mongoose.Schema({
+      status: { type: String, enum: ['paid'], required: true },
+      intentId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      paymentOrderId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      amountMinor: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
+      currency: { type: String, enum: ['INR'], required: true },
+      paidAt: { type: Date, required: true }
+    }, { _id: false }), default: undefined
+  },
   roster: {
     type: [new mongoose.Schema({
       userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -174,6 +184,10 @@ tournamentRegistrationSchema.index({ teamId: 1, status: 1 });
 tournamentRegistrationSchema.index({ 'roster.userId': 1, status: 1 }, { name: 'valorant_roster_user_status' });
 tournamentRegistrationSchema.index({ status: 1 });
 tournamentRegistrationSchema.index({ verifiedBy: 1 });
+for (const [field, name] of [['intentId', 'uniq_registration_payment_intent'], ['paymentOrderId', 'uniq_registration_payment_order']]) {
+  tournamentRegistrationSchema.index({ [`payment.${field}`]: 1 }, { unique: true,
+    partialFilterExpression: { [`payment.${field}`]: { $type: 'objectId' } }, name });
+}
 
 // Virtual to check if all images are uploaded (8 images total)
 tournamentRegistrationSchema.virtual('allImagesUploaded').get(function() {

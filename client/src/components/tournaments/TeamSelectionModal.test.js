@@ -32,10 +32,16 @@ test('shows captain-owned Valorant teams and allows a complete free 5+1 roster',
 });
 test.each([
   ['missing substitute', members.slice(0, 5), 0, /five starters and one substitute/],
-  ['paid tournament', members, 100, /Paid Valorant registration is not available/]
+  ['invalid fee', members, -1, /Tournament fee is invalid/]
 ])('blocks %s before submitting', async (_, roster, fee, message) => {
   const onRegister = setup(roster, fee); fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
   expect(await screen.findByText(message)).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole('button', { name: /register/i })).toBeDisabled());
   expect(onRegister).not.toHaveBeenCalled();
+});
+
+test('complete paid Valorant roster can proceed to server-owned checkout', async () => {
+  const onRegister = setup(members, 500); fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
+  fireEvent.click(screen.getByRole('button', { name: /register/i }));
+  expect(onRegister).toHaveBeenCalledTimes(1);
 });

@@ -34,7 +34,10 @@ const tournamentSchema = new mongoose.Schema({
     type: Number,
     default: 0, // Free tournaments by default
     min: [0, 'Entry fee cannot be negative'],
-    max: [0, 'All tournaments are free'] // Enforce free tournaments
+    validate: {
+      validator(value) { return this.gameType === 'valorant' ? Number.isSafeInteger(value * 100) && value >= 0 && value <= 10000 : value === 0; },
+      message: 'Only Valorant supports paid entry; fee must be valid INR between 0 and 10000'
+    }
   },
   prizePool: {
     type: Number,

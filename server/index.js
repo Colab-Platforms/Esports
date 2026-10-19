@@ -141,6 +141,8 @@ app.use('/api/', limiter);
 app.use('/api/auth/google', oauthLimiter);
 app.use('/api/auth/steam', oauthLimiter);
 
+// Razorpay signatures cover the original bytes; this must precede JSON parsing.
+app.use('/api/valorant-payments/webhook', express.raw({ type: 'application/json', limit: '256kb' }), require('./features/payments/payment-webhook.routes'));
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -264,6 +266,7 @@ app.use('/api/leaderboards', require('./features/leaderboards/leaderboards.route
 app.use('/api/freefire-results', require('./features/freefire-results/freefire-results.routes'));
 app.use('/api/valorant-results', require('./features/valorant-results/valorant-results.routes'));
 app.use('/api/valorant-registration', require('./features/valorant-registration/registration.routes'));
+app.use('/api/valorant-payments', require('./features/payments/payment.routes'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/referral', require('./routes/referral'));
@@ -493,5 +496,8 @@ server.listen(PORT, () => {
   console.log(`🔗 Client URL: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
   
   // Start tournament status scheduler
-  if (!phase2Staging.isReady()) tournamentScheduler.start();
+  if (!phase2Staging.isReady()) {
+    tournamentScheduler.start();
+    require('./features/payments/payment-worker').start();
+  }
 });

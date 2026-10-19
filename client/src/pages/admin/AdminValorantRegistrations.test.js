@@ -16,9 +16,9 @@ beforeEach(() => {
 test.each(['user', 'designer'])('%s cannot view roster-management controls or issue requests', role => {
   renderAs(role); expect(screen.getByText(/Admin or moderator access/)).toBeInTheDocument(); expect(api.get).not.toHaveBeenCalled();
 });
-test.each(['admin', 'moderator'])('%s can verify and reject free registrations through the isolated API', async role => {
+test.each(['admin', 'moderator'])('%s can review free and paid registrations through the isolated API', async role => {
   renderAs(role); await screen.findByRole('option', { name: 'Free Cup' });
-  expect(screen.queryByRole('option', { name: 'Paid Cup' })).not.toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Paid Cup' })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Tournament'), { target: { value: 'cup' } });
   fireEvent.click(await screen.findByRole('button', { name: 'Verify roster' }));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/api/valorant-registration/registration/verify', { reason: '' }));

@@ -7,6 +7,7 @@ import { selectAuth } from "../../store/slices/authSlice";
 import SteamLinkingModal from "../../components/tournaments/SteamLinkingModal";
 import TeamSelectionModal from "../../components/tournaments/TeamSelectionModal";
 import ValorantRegistrationStatus from "../../components/tournaments/ValorantRegistrationStatus";
+import { registerPaidTeam } from "../../services/valorantPaymentService";
 import api from "../../services/api";
 import GameIcon from "../../components/common/GameIcon";
 import { getRandomBanner } from "../../assets/tournamentBanners";
@@ -772,8 +773,11 @@ const SingleTournamentPage = () => {
             throw new Error(err.message || 'Registration failed');
           }
         } else if (gameType === "valorant") {
-          if (tournament.entryFee !== 0) throw new Error('Paid Valorant registration is not available');
-          await api.post(`/api/valorant-registration/${tournament._id}/register`, { teamId: team._id });
+          if (tournament.entryFee > 0) {
+            await registerPaidTeam({ tournament, team, user });
+          } else {
+            await api.post(`/api/valorant-registration/${tournament._id}/register`, { teamId: team._id });
+          }
         } else if (gameType === "cs2") {
           const steamId =
             leaderInfo.gameId ||

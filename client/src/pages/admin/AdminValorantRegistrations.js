@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { selectAuth } from '../../store/slices/authSlice';
 import api from '../../services/api';
+import ValorantRefundReviews from '../../components/tournaments/ValorantRefundReviews';
 
 const dataOf = response => response.data?.data || response.data || response;
 export default function AdminValorantRegistrations() {
@@ -18,8 +19,8 @@ export default function AdminValorantRegistrations() {
   useEffect(() => {
     if (!canManage) return;
     let active = true;
-    api.get('/api/tournaments?admin=true&gameType=valorant&entryFeeMax=0&limit=100').then(response => {
-      if (active) setTournaments((dataOf(response).tournaments || []).filter(t => t.gameType === 'valorant' && t.entryFee === 0));
+    api.get('/api/tournaments?admin=true&gameType=valorant&limit=100').then(response => {
+      if (active) setTournaments((dataOf(response).tournaments || []).filter(t => t.gameType === 'valorant'));
     }).catch(() => { if (active) setError('Could not load tournaments'); });
     return () => { active = false; };
   }, [canManage]);
@@ -43,7 +44,8 @@ export default function AdminValorantRegistrations() {
   if (!canManage) return <p className="p-6">Admin or moderator access is required.</p>;
   return <main className="max-w-5xl mx-auto p-6 space-y-4">
     <h1 className="text-2xl font-bold">Valorant Registrations</h1>
-    <p>Free tournaments only. Verify saved rosters before publishing competitive results.</p>
+    <p>Verify saved rosters before publishing competitive results. Paid entries require captured payment.</p>
+    <ValorantRefundReviews role={user?.role} />
     <label className="block">Tournament
       <select className="block bg-gaming-dark border p-2" value={selected} onChange={e => { setSelected(e.target.value); setPage(1); }} disabled={busy}>
         <option value="">Select tournament</option>
@@ -59,6 +61,7 @@ export default function AdminValorantRegistrations() {
       <h2>{row.teamName} — {row.status}</h2>
       <ul>{(row.roster || []).map(member => <li key={member.userId}>{member.username}: {member.riotId} ({member.role})</li>)}</ul>
       {row.rejectionReason && <p>{row.rejectionReason}</p>}
+      {row.payment?.status === 'paid' && <p>Payment captured: ₹{row.payment.amountMinor / 100}. Rejection opens manual refund review.</p>}
       {['pending', 'images_uploaded'].includes(row.status) && <div className="flex gap-3">
         <button className="btn-gaming" disabled={busy} onClick={() => actOnRegistration(row, 'verify')}>Verify roster</button>
         <button className="btn-gaming" disabled={busy || !reason.trim()} onClick={() => actOnRegistration(row, 'reject')}>Reject registration</button>

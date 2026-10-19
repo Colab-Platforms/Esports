@@ -96,7 +96,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       if (members.filter(member => !member.isSubstitute).length !== 5 || members.filter(member => member.isSubstitute).length !== 1) {
         warnings.push('Valorant requires five starters and one substitute. Edit your team roster first.');
       }
-      if (tournament?.entryFee !== 0) warnings.push('Paid Valorant registration is not available.');
+      if (typeof tournament?.entryFee !== 'number' || tournament.entryFee < 0 || tournament.entryFee > 10000 || !Number.isSafeInteger(tournament.entryFee * 100)) warnings.push('Tournament fee is invalid.');
     }
     const needsName = gameType !== 'cs2' && gameType !== 'valorant';
     selectedTeam.members?.forEach(m => {

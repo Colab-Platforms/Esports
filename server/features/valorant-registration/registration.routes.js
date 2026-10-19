@@ -21,9 +21,18 @@ router.get('/my-registrations', auth, route(async (req, res) => {
   const filter = { userId: req.user.userId, 'roster.0': { $exists: true } };
   if (req.query.tournamentId !== undefined) { validId(req.query.tournamentId); filter.tournamentId = req.query.tournamentId; }
   const rows = await Registration.find(filter)
-    .select('tournamentId teamId teamName status registeredAt rejectionReason roster')
+    .select('tournamentId teamId teamName status registeredAt rejectionReason roster payment')
     .populate('tournamentId', 'name gameType status').sort({ registeredAt: -1 }).limit(100).lean();
-  res.json({ success: true, data: { registrations: rows.filter(row => row.tournamentId?.gameType === 'valorant') } });
+  const registrations = await Promise.all(rows.filter(row => row.tournamentId?.gameType === 'valorant').map(async row => {
+    if (!row.payment?.paymentOrderId) return row;
+    const { Receipt, Review } = require('../payments/payment.service').models;
+    const [receipt, refundReview] = await Promise.all([
+      Receipt.findOne({ paymentOrderId: row.payment.paymentOrderId }).select('receiptNumber amountMinor currency capturedAt').lean(),
+      Review.findOne({ paymentOrderId: row.payment.paymentOrderId }).select('status providerStatus refundedAt').lean()
+    ]);
+    return { ...row, receipt, refundReview };
+  }));
+  res.json({ success: true, data: { registrations } });
 }));
 
 router.get('/tournament/:tournamentId/teams', route(async (req, res) => {
@@ -43,7 +52,7 @@ router.get('/admin/tournament/:tournamentId', auth, requireResultManager, route(
   if (!Number.isInteger(page) || page < 1 || page > 100000) return res.status(400).json({ success: false, error: { code: 'INVALID_PAGE' } });
   const filter = { tournamentId: tournament._id };
   const [registrations, total] = await Promise.all([
-    Registration.find(filter).select('userId teamId teamName status registeredAt rejectionReason roster')
+    Registration.find(filter).select('userId teamId teamName status registeredAt rejectionReason roster payment')
       .sort({ registeredAt: -1, _id: -1 }).skip((page - 1) * 100).limit(100).lean(),
     Registration.countDocuments(filter)
   ]);

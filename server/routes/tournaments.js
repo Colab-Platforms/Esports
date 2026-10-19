@@ -1271,6 +1271,12 @@ router.put('/:id', auth, async (req, res) => {
       isLiveStreamEnabled: tournament.isLiveStreamEnabled
     });
 
+    // Paid Valorant fee changes share the registration/result lock. Never unlock
+    // the fee by changing a tournament's game type after activity has begun.
+    if (tournament.gameType === 'valorant' || req.body.gameType === 'valorant') {
+      if (req.body.gameType && req.body.gameType !== tournament.gameType) return res.status(409).json({ success: false, error: { code: 'GAME_TYPE_LOCKED', message: 'Valorant tournament game type cannot be changed' } });
+    }
+
     // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
@@ -1326,7 +1332,9 @@ router.put('/:id', auth, async (req, res) => {
 
     console.log('💾 Saving tournament to database...');
     // Save with validation disabled for participants (to avoid enum errors from seed data)
-    const savedTournament = await tournament.save({ validateModifiedOnly: true });
+    const savedTournament = tournament.gameType === 'valorant'
+      ? await require('../features/payments/payment.service').saveTournamentUpdate(tournament)
+      : await tournament.save({ validateModifiedOnly: true });
     console.log('✅ Tournament saved successfully!');
     
     await savedTournament.populate('createdBy', 'username avatarUrl');
@@ -1366,6 +1374,7 @@ router.put('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
+    if (['TOURNAMENT_FEE_LOCKED', 'INVALID_FEE'].includes(error.code)) return res.status(error.status || 400).json({ success: false, error: { code: error.code, message: error.message } });
     console.error('❌ Tournament update error:', error);
     console.error('❌ Error name:', error.name);
     console.error('❌ Error message:', error.message);
@@ -1999,7 +2008,11 @@ router.delete('/:id', auth, async (req, res) => {
     }
 
     // Delete the tournament
-    await Tournament.findByIdAndDelete(req.params.id);
+    if (tournament.gameType === 'valorant') {
+      await require('../features/payments/payment.service').deleteUnusedTournament(tournament._id);
+    } else {
+      await Tournament.findByIdAndDelete(req.params.id);
+    }
 
     // Invalidate tournament cache after deletion
     console.log('🔄 Invalidating tournament cache after deletion...');
@@ -2017,6 +2030,7 @@ router.delete('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
+    if (error.code === 'PAYMENT_ACTIVITY_EXISTS') return res.status(409).json({ success: false, error: { code: error.code, message: error.message } });
     console.error('Tournament delete error:', error);
     res.status(500).json({
       success: false,
