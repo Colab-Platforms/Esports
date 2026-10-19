@@ -101,10 +101,12 @@ function requestAllowed(method, path) {
   path = path.toLowerCase(); // Match Express's default case-insensitive routing.
   // OAuth, mail/debug and external integration reads are not smoke-test APIs.
   if (/^\/api\/(?:whatsapp|upload|bgmi-images|debug|wallet|store|referral)(?:\/|$)/.test(path)) return false;
-  if (path.startsWith('/api/auth/') && !['/api/auth/login', '/api/auth/me'].includes(path)) return false;
+  if (path.startsWith('/api/auth/') && !['/api/auth/login', '/api/auth/me', '/api/auth/profile'].includes(path)) return false;
   if (/steam|cloudinary|webhook/i.test(path)) return false;
   if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true;
   if (method === 'POST' && path === '/api/auth/login') return true;
+  if (method === 'PUT' && path === '/api/auth/profile') return true;
+  if (method === 'POST' && /^\/api\/valorant-registration\/[a-f0-9]{24}\/(?:register|verify|reject|cancel)$/.test(path)) return true;
   if (['POST', 'PUT'].includes(method) && /^\/api\/(?:freefire-results|valorant-results)(?:\/[a-f0-9]{24}(?:\/(?:verify|void))?)?$/.test(path)) return true;
   if (method === 'POST' && /^\/api\/admin\/tournaments\/[a-f0-9]{24}\/final-results\/(?:preview|publish|void)$/.test(path)) return true;
   return method === 'POST' && (path === '/api/bgmi-matches' || /^\/api\/bgmi-matches\/[a-f0-9]{24}\/(?:submit-result|verify\/[a-f0-9]{24})$/.test(path));

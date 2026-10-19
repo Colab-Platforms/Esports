@@ -48,6 +48,7 @@ import TeamsPage from './pages/TeamsPage';
 import PublicProfile from './pages/PublicProfile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import GamesManagement from './pages/admin/GamesManagement';
+import AdminValorantRegistrations from './pages/admin/AdminValorantRegistrations';
 import TournamentManagement from './pages/admin/TournamentManagement';
 import ClaimsManager from './pages/admin/ClaimsManager';
 import ImageUploadPage from './pages/admin/ImageUploadPage';
@@ -559,6 +560,7 @@ function App() {
             <Route path="/tournament-results" element={<TournamentResultsPage />} />
             <Route path="/competitive-leaderboards" element={<CompetitiveLeaderboardPage />} />
             <Route path="/admin/results" element={<AdminRoute><AdminGameResults /></AdminRoute>} />
+            <Route path="/admin/valorant-registrations" element={<AdminRoute><AdminValorantRegistrations /></AdminRoute>} />
             {/* Colab Coin Routes */}
             <Route 
               path="/wallet" 

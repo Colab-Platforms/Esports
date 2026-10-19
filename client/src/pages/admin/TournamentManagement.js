@@ -732,7 +732,7 @@ const TournamentManagement = () => {
                       className="input-gaming w-full"
                       placeholder="0"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Free tournaments recommended (0)</p>
+                    <p className="text-xs text-gray-500 mt-1">{selectedGameType === 'valorant' ? 'INR per team. Planned paid fee: 500; use 0 for free entry. Fee locks after registration or checkout activity.' : 'Use 0 for free entry.'}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">

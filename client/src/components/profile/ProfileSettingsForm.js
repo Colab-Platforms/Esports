@@ -54,7 +54,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
       ign: user?.gameIds?.freefire?.ign || user?.freeFireIgnName || '',
       uid: user?.gameIds?.freefire?.uid || user?.freeFireUid || ''
     },
-    steam: user?.gameIds?.steam || ''
+    steam: user?.gameIds?.steam || '',
+    valorant: user?.gameIds?.valorant || ''
   });
 
   const indianStates = [
@@ -106,7 +107,8 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
           ign: user.gameIds?.freefire?.ign || user.freeFireIgnName || '',
           uid: user.gameIds?.freefire?.uid || user.freeFireUid || ''
         },
-        steam: user.gameIds?.steam || ''
+        steam: user.gameIds?.steam || '',
+        valorant: user.gameIds?.valorant || ''
       });
     }
   }, [user]);
@@ -178,6 +180,13 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
 
       if (bgmiUidError || freeFireUidError) {
         setError(bgmiUidError || freeFireUidError);
+        setLoading(false);
+        return;
+      }
+
+      const riotHasControlCharacters = Array.from(gameIds.valorant).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
+      if (gameIds.valorant && (riotHasControlCharacters || !/^[^#]{1,30}#[^#]{1,10}$/.test(gameIds.valorant.trim()))) {
+        setError('Valorant Riot ID must use PlayerName#TAG format');
         setLoading(false);
         return;
       }
@@ -520,6 +529,21 @@ const ProfileSettingsForm = ({ embedded = false, initialTab = 'account' }) => {
                   <p className="text-xs text-gray-500 mt-1">Your unique Free Fire user ID for verification (11 digits, numbers only)</p>
                 </div>
               </div>
+            </div>
+
+            <div className="border-t border-gaming-border pt-6 mt-6">
+              <label htmlFor="valorant-riot-id" className="block text-white font-medium mb-4">Valorant Riot ID</label>
+              <input
+                id="valorant-riot-id"
+                type="text"
+                value={gameIds.valorant}
+                onChange={e => handleGameIdChange('valorant', null, e.target.value)}
+                disabled={!isEditing}
+                maxLength={41}
+                placeholder="PlayerName#TAG"
+                className="w-full px-3 py-2 bg-gaming-dark text-white border border-gaming-border rounded-lg disabled:text-gray-400"
+              />
+              <p className="text-xs text-gray-500 mt-1">Saved manually for Valorant registration; this does not verify Riot account ownership.</p>
             </div>
 
             {/* Steam Section */}

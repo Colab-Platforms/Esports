@@ -1,0 +1,375 @@
+{
+  "operations": "review only; additive-only; separate owner approval and compatibility audit required before any hosted execution",
+  "collections": [
+    {
+      "name": "tournamentregistrationclaims",
+      "indexes": [
+        {
+          "name": "uniq_tournament_registration_claim",
+          "key": {
+            "tournamentId": 1,
+            "type": 1,
+            "value": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "registrationId_1",
+          "key": {
+            "registrationId": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "intentId_1",
+          "key": {
+            "intentId": 1
+          },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "registrationintents",
+      "indexes": [
+        {
+          "name": "captainUserId_1_createdAt_-1",
+          "key": {
+            "captainUserId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        },
+        {
+          "name": "tournamentId_1_status_1",
+          "key": {
+            "tournamentId": 1,
+            "status": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "reservation.expiresAt_1_status_1",
+          "key": {
+            "reservation.expiresAt": 1,
+            "status": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "uniq_live_intent_per_team_captain_tournament",
+          "key": {
+            "tournamentId": 1,
+            "teamId": 1,
+            "captainUserId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "blocksNewIntent": true
+          }
+        },
+        {
+          "name": "uniq_fulfilled_registration",
+          "key": {
+            "fulfilledRegistrationId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "fulfilledRegistrationId": {
+              "$type": "objectId"
+            }
+          }
+        },
+        {
+          "name": "uniq_intent_idempotency_per_captain",
+          "key": {
+            "captainUserId": 1,
+            "idempotencyKey": 1
+          },
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "paymentorders",
+      "indexes": [
+        {
+          "name": "intentId_1_createdAt_-1",
+          "key": {
+            "intentId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        },
+        {
+          "name": "tournamentId_1_status_1",
+          "key": {
+            "tournamentId": 1,
+            "status": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "captainUserId_1_createdAt_-1",
+          "key": {
+            "captainUserId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        },
+        {
+          "name": "uniq_gateway_order_id",
+          "key": {
+            "gateway": 1,
+            "gatewayOrderId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "gatewayOrderId": {
+              "$type": "string"
+            }
+          }
+        },
+        {
+          "name": "uniq_gateway_payment_id",
+          "key": {
+            "gateway": 1,
+            "gatewayPaymentId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "gatewayPaymentId": {
+              "$type": "string"
+            }
+          }
+        },
+        {
+          "name": "uniq_payment_order_idempotency_per_intent",
+          "key": {
+            "intentId": 1,
+            "idempotencyKey": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "uniq_live_payment_order_per_intent",
+          "key": {
+            "intentId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "isLiveOrder": true
+          }
+        },
+        {
+          "name": "providerCreateAttemptId_1",
+          "key": {
+            "providerCreateAttemptId": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "providerReceipt_1_status_1",
+          "key": {
+            "providerReceipt": 1,
+            "status": 1
+          },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "paymentevents",
+      "indexes": [
+        {
+          "name": "uniq_gateway_event_id",
+          "key": {
+            "gateway": 1,
+            "gatewayEventId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "gatewayOrderId_1",
+          "key": {
+            "gatewayOrderId": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "gatewayPaymentId_1",
+          "key": {
+            "gatewayPaymentId": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "processingStatus_1_createdAt_1",
+          "key": {
+            "processingStatus": 1,
+            "createdAt": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "lockedUntil_1_processingStatus_1",
+          "key": {
+            "lockedUntil": 1,
+            "processingStatus": 1
+          },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "paymentreceipts",
+      "indexes": [
+        {
+          "name": "uniq_payment_receipt_number",
+          "key": {
+            "receiptNumber": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "uniq_receipt_payment_order",
+          "key": {
+            "paymentOrderId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "uniq_receipt_tournament_registration",
+          "key": {
+            "tournamentRegistrationId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "captainUserId_1_createdAt_-1",
+          "key": {
+            "captainUserId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        },
+        {
+          "name": "tournamentId_1_createdAt_-1",
+          "key": {
+            "tournamentId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "paymentnotificationintents",
+      "indexes": [
+        {
+          "name": "uniq_payment_notification_intent",
+          "key": {
+            "type": 1,
+            "paymentOrderId": 1,
+            "recipientUserId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "status_1_nextAttemptAt_1",
+          "key": {
+            "status": 1,
+            "nextAttemptAt": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "receiptId_1",
+          "key": {
+            "receiptId": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "recipientUserId_1_createdAt_-1",
+          "key": {
+            "recipientUserId": 1,
+            "createdAt": -1
+          },
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "paymentrefundreviews",
+      "indexes": [
+        {
+          "name": "uniq_refund_review_payment_order",
+          "key": {
+            "paymentOrderId": 1
+          },
+          "unique": true
+        },
+        {
+          "name": "status_1_createdAt_1",
+          "key": {
+            "status": 1,
+            "createdAt": 1
+          },
+          "unique": false
+        },
+        {
+          "name": "uniq_review_gateway_refund",
+          "key": {
+            "gatewayRefundId": 1
+          },
+          "unique": true,
+          "partialFilterExpression": {
+            "gatewayRefundId": {
+              "$type": "string"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "existingCollectionAdditions": [
+    {
+      "collection": "tournamentregistrations",
+      "name": "valorant_roster_user_status",
+      "key": {
+        "roster.userId": 1,
+        "status": 1
+      },
+      "unique": false
+    },
+    {
+      "collection": "tournamentregistrations",
+      "name": "uniq_registration_payment_intent",
+      "key": {
+        "payment.intentId": 1
+      },
+      "unique": true,
+      "partialFilterExpression": {
+        "payment.intentId": {
+          "$type": "objectId"
+        }
+      }
+    },
+    {
+      "collection": "tournamentregistrations",
+      "name": "uniq_registration_payment_order",
+      "key": {
+        "payment.paymentOrderId": 1
+      },
+      "unique": true,
+      "partialFilterExpression": {
+        "payment.paymentOrderId": {
+          "$type": "objectId"
+        }
+      }
+    }
+  ],
+  "existingIndexes": "Preserve existing physical indexes. Verify legacy owner index is non-unique for rejected-history retry; never syncIndexes/dropIndexes.",
+  "automaticIdIndexes": "One _id_ index per newly created collection; not a secondary index."
+}

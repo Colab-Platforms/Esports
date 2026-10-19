@@ -35,6 +35,9 @@ test.each([null, 'user', 'designer', 'moderator', 'admin'])('navigation preserve
   const resultLinks = screen.queryAllByRole('link', { name: /result management/i });
   expect(resultLinks).toHaveLength(['admin', 'moderator'].includes(role) ? 2 : 0);
   resultLinks.forEach(link => expect(link).toHaveAttribute('href', '/admin/results'));
+  const valorantLinks = screen.queryAllByRole('link', { name: /valorant registrations/i });
+  expect(valorantLinks).toHaveLength(['admin', 'moderator'].includes(role) ? 2 : 0);
+  valorantLinks.forEach(link => expect(link).toHaveAttribute('href', '/admin/valorant-registrations'));
   const exploreLinks = screen.queryAllByRole('link', { name: /explore content/i });
   expect(exploreLinks).toHaveLength(privileged ? 2 : 0);
   exploreLinks.forEach(link => expect(link).toHaveAttribute('href', '/admin/explore'));

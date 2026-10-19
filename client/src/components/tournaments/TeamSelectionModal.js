@@ -59,6 +59,7 @@ const getGameInfo = (memberUser, gameType) => {
 
 const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegister }) => {
   const user = useSelector(selectUser);
+  const userId = user?._id || user?.id;
   const dispatch = useDispatch();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +91,13 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const memberWarnings = useMemo(() => {
     if (!selectedTeam) return [];
     const warnings = [];
+    if (gameType === 'valorant') {
+      const members = selectedTeam.members || [];
+      if (members.filter(member => !member.isSubstitute).length !== 5 || members.filter(member => member.isSubstitute).length !== 1) {
+        warnings.push('Valorant requires five starters and one substitute. Edit your team roster first.');
+      }
+      if (typeof tournament?.entryFee !== 'number' || tournament.entryFee < 0 || tournament.entryFee > 10000 || !Number.isSafeInteger(tournament.entryFee * 100)) warnings.push('Tournament fee is invalid.');
+    }
     const needsName = gameType !== 'cs2' && gameType !== 'valorant';
     selectedTeam.members?.forEach(m => {
       if (!m.userId) return;
@@ -103,7 +111,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, gameType, needsPhone, phoneNumber, getMemberInfo, fields.nameLabel, fields.idLabel]);
+  }, [selectedTeam, gameType, needsPhone, phoneNumber, getMemberInfo, fields.nameLabel, fields.idLabel, tournament?.entryFee]);
 
   const fetchTeams = useCallback(async (selectId = null) => {
     try {
@@ -113,7 +121,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       });
       if (response.data.success) {
         const allTeams = response.data.data.teams || [];
-        const filtered = allTeams.filter(t => t.game === gameType);
+        const filtered = allTeams.filter(t => t.game === gameType && (gameType !== 'valorant' || String(t.captain?._id || t.captain) === String(userId)));
         setTeams(filtered);
         if (selectId) {
           const found = filtered.find(t => t._id === selectId);
@@ -125,7 +133,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
     } finally {
       setLoading(false);
     }
-  }, [API_URL, gameType, token]);
+  }, [API_URL, gameType, token, userId]);
 
   useEffect(() => {
     fetchTeams();

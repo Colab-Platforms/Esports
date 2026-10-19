@@ -9,6 +9,7 @@ const whatsappService = require('../services/whatsappService');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+require('../features/valorant-registration/legacy-boundary')(router);
 
 // Debug logging for route loading
 console.log('🎮 BGMI Registration routes loading...');

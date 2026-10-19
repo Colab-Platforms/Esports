@@ -552,7 +552,8 @@ router.get('/:id', async (req, res) => {
         if (!isUserRegistered) {
           const bgmiOrFfReg = await TournamentRegistration.findOne({
             tournamentId: tournament._id,
-            userId: decoded.userId
+            userId: decoded.userId,
+            ...(tournament.gameType === 'valorant' ? { status: { $in: ['pending', 'images_uploaded', 'verified'] } } : {})
           });
           if (bgmiOrFfReg) isUserRegistered = true;
         }
@@ -1270,6 +1271,12 @@ router.put('/:id', auth, async (req, res) => {
       isLiveStreamEnabled: tournament.isLiveStreamEnabled
     });
 
+    // Paid Valorant fee changes share the registration/result lock. Never unlock
+    // the fee by changing a tournament's game type after activity has begun.
+    if (tournament.gameType === 'valorant' || req.body.gameType === 'valorant') {
+      if (req.body.gameType && req.body.gameType !== tournament.gameType) return res.status(409).json({ success: false, error: { code: 'GAME_TYPE_LOCKED', message: 'Valorant tournament game type cannot be changed' } });
+    }
+
     // Update tournament fields (excluding participants to avoid validation errors)
     const allowedUpdates = [
       'name', 'description', 'gameType', 'mode', 'format', 'entryFee',
@@ -1325,7 +1332,9 @@ router.put('/:id', auth, async (req, res) => {
 
     console.log('💾 Saving tournament to database...');
     // Save with validation disabled for participants (to avoid enum errors from seed data)
-    const savedTournament = await tournament.save({ validateModifiedOnly: true });
+    const savedTournament = tournament.gameType === 'valorant'
+      ? await require('../features/payments/payment.service').saveTournamentUpdate(tournament)
+      : await tournament.save({ validateModifiedOnly: true });
     console.log('✅ Tournament saved successfully!');
     
     await savedTournament.populate('createdBy', 'username avatarUrl');
@@ -1365,6 +1374,7 @@ router.put('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
+    if (['TOURNAMENT_FEE_LOCKED', 'INVALID_FEE'].includes(error.code)) return res.status(error.status || 400).json({ success: false, error: { code: error.code, message: error.message } });
     console.error('❌ Tournament update error:', error);
     console.error('❌ Error name:', error.name);
     console.error('❌ Error message:', error.message);
@@ -1757,6 +1767,10 @@ router.post('/:id/join', auth, [
 
     const { gameId, teamName = '' } = req.body;
 
+    if (tournament.gameType === 'valorant') {
+      return res.status(409).json({ success: false, error: { code: 'USE_VALORANT_REGISTRATION_API', message: 'Register a saved Valorant team through the Valorant registration flow' } });
+    }
+
     // CS2 Tournament - Validate Steam Connection
     if (tournament.gameType === 'cs2') {
       const steamId = user.gameIds?.steam || user.steamProfile?.steamId;
@@ -1900,6 +1914,9 @@ router.delete('/:id/leave', auth, async (req, res) => {
     }
 
     // Remove participant from tournament
+    if (tournament.gameType === 'valorant') {
+      return res.status(409).json({ success: false, error: { code: 'USE_VALORANT_REGISTRATION_API', message: 'Cancel the pending Valorant registration through the Valorant registration flow' } });
+    }
     await tournament.removeParticipant(req.user.userId);
 
     // TODO: Refund entry fee to wallet (will be implemented in wallet system)
@@ -1991,7 +2008,11 @@ router.delete('/:id', auth, async (req, res) => {
     }
 
     // Delete the tournament
-    await Tournament.findByIdAndDelete(req.params.id);
+    if (tournament.gameType === 'valorant') {
+      await require('../features/payments/payment.service').deleteUnusedTournament(tournament._id);
+    } else {
+      await Tournament.findByIdAndDelete(req.params.id);
+    }
 
     // Invalidate tournament cache after deletion
     console.log('🔄 Invalidating tournament cache after deletion...');
@@ -2009,6 +2030,7 @@ router.delete('/:id', auth, async (req, res) => {
     });
 
   } catch (error) {
+    if (error.code === 'PAYMENT_ACTIVITY_EXISTS') return res.status(409).json({ success: false, error: { code: error.code, message: error.message } });
     console.error('Tournament delete error:', error);
     res.status(500).json({
       success: false,
@@ -2030,7 +2052,7 @@ router.get('/:id/registration-status', auth, async (req, res) => {
     const userId = req.user.userId;
 
     // Check participants array (CS2/Valorant)
-    const tournament = await Tournament.findById(tournamentId).select('participants');
+    const tournament = await Tournament.findById(tournamentId).select('participants gameType');
     if (!tournament) {
       return res.status(404).json({ success: false, error: { message: 'Tournament not found' } });
     }
@@ -2039,7 +2061,8 @@ router.get('/:id/registration-status', auth, async (req, res) => {
 
     // Also check TournamentRegistration (BGMI/FreeFire)
     if (!isRegistered) {
-      const reg = await TournamentRegistration.findOne({ tournamentId, userId });
+      const reg = await TournamentRegistration.findOne({ tournamentId, userId,
+        ...(tournament.gameType === 'valorant' ? { status: { $in: ['pending', 'images_uploaded', 'verified'] } } : {}) });
       if (reg) isRegistered = true;
     }
 
