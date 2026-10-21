@@ -143,7 +143,7 @@ const Navbar = () => {
   };
 
   const authenticatedLinks = [
-    // Dashboard removed - moved to profile dropdown
+    { to: "/dashboard", label: "DASHBOARD", icon: FiGrid },
   ];
 
   return (

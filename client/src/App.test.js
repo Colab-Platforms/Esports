@@ -26,7 +26,7 @@ beforeEach(() => { sessionStorage.setItem('hasSeenSplash', 'true'); });
 test.each([
   ['/login', 'Sign in'], ['/explore', 'Explore feed'], ['/leaderboard', 'Player and CS2 leaderboards'],
   ['/competitive-leaderboards', 'Competitive team rankings'], ['/tournament-results', 'Tournament results'],
-  ['/admin/results', 'Sign in'], ['/admin/explore', 'Sign in']
+  ['/admin/results', 'Sign in'], ['/admin/explore', 'Sign in'], ['/dashboard', 'Sign in']
 ])('preserves route %s and its access boundary', (route, title) => {
   render(<Provider store={store}><MemoryRouter initialEntries={[route]}><App /></MemoryRouter></Provider>);
   expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();

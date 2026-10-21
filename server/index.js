@@ -264,6 +264,7 @@ app.use(checkBannedUser);
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/accounts', require('./routes/accounts'));
+app.use('/api/competition-dashboard', require('./features/competition-dashboard/competition-dashboard.routes'));
 app.use('/api/cs2/eligibility', require('./routes/cs2Eligibility'));
 app.use('/api/games', require('./routes/games'));
 // app.use('/api/steam', require('./routes/steam'));

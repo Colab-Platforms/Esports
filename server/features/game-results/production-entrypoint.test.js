@@ -76,6 +76,9 @@ test('production entrypoint excludes discontinued CS2 writes and preserves neigh
     const session = JSON.parse(login.body).data;
     assert.equal(session.user.id, player._id.toString());
     assert.equal((await request('/api/auth/profile', { headers: { Authorization: `Bearer ${session.token}` } })).status, 200);
+    const dashboard = await request('/api/competition-dashboard', { headers: { Authorization: `Bearer ${session.token}` } });
+    assert.equal(dashboard.status, 200, dashboard.body);
+    assert.equal(JSON.parse(dashboard.body).data.player.id, player._id.toString());
     for (const [method, url] of [['POST', '/api/games'], ['PUT', '/api/games/synthetic'],
       ['DELETE', '/api/games/synthetic'], ['PATCH', '/api/games/synthetic/stats'], ['POST', '/api/games/admin/activate-all']]) {
       for (const [headers, expected] of [[{}, 401], [{ Authorization: `Bearer ${session.token}` }, 403]]) {
@@ -85,7 +88,7 @@ test('production entrypoint excludes discontinued CS2 writes and preserves neigh
     }
     for (const [url, status] of [
       ['/api/health', 200], ['/api/explore', 200], ['/api/games', 200],
-      ['/api/admin/dashboard', 401], ['/api/bgmi-registration/my-registrations', 401],
+      ['/api/admin/dashboard', 401], ['/api/competition-dashboard', 401], ['/api/bgmi-registration/my-registrations', 401],
       ['/api/freefire-registration/my-registrations', 401],
       ['/api/tournaments/results-directory?gameType=bgmi', 200], ['/api/leaderboards/bgmi', 200],
       ['/api/players/nobody/competitive-profile', 404], ['/api/teams/invalid/competitive-profile', 404],
