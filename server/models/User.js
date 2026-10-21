@@ -154,6 +154,11 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  activityStreak: { type: Number, default: 0, min: 0 },
+  longestActivityStreak: { type: Number, default: 0, min: 0 },
+  totalActiveDays: { type: Number, default: 0, min: 0 },
+  lastActivityAt: { type: Date, default: null },
+  lastActivityDayKey: { type: String, default: null },
   totalEarnings: {
     type: Number,
     default: 0
@@ -319,6 +324,9 @@ userSchema.index({ totalEarnings: -1 });
 userSchema.index({ level: -1 });
 userSchema.index({ 'steamProfile.steamId': 1 }); // For CS2 player matching
 userSchema.index({ 'gameIds.steam': 1 }); // For CS2 player matching
+
+userSchema.index({ isActive: 1, profileVisibility: 1, lastActivityDayKey: -1,
+  activityStreak: -1, longestActivityStreak: -1, totalActiveDays: -1 });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

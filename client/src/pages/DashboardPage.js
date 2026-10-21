@@ -11,7 +11,8 @@ import {
   FiShield,
   FiTarget,
   FiTrendingUp,
-  FiUsers
+  FiUsers,
+  FiZap
 } from 'react-icons/fi';
 import api from '../services/api';
 
@@ -260,11 +261,133 @@ const ActivityItem = ({ item }) => (
   </Link>
 );
 
+const StreakPerformerRow = ({ performer }) => {
+  const initials = (performer.displayName || performer.username || 'CE').slice(0, 2).toUpperCase();
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-gaming-charcoal/70 border border-gaming-border p-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+          performer.rank <= 3 ? 'bg-gaming-gold text-black' : 'bg-gaming-dark text-gray-300'
+        }`}>
+          {performer.rank}
+        </div>
+        {performer.avatar ? (
+          <img
+            src={performer.avatar}
+            alt={`${performer.displayName || performer.username} avatar`}
+            className="h-10 w-10 rounded-full object-cover border border-gaming-border"
+          />
+        ) : (
+          <div className="h-10 w-10 rounded-full bg-gaming-gold/10 text-gaming-gold border border-gaming-border flex items-center justify-center text-sm font-bold">
+            {initials}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-white font-semibold truncate">{performer.displayName || performer.username}</p>
+          <p className="text-xs text-gray-500 truncate">@{performer.username}</p>
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-gaming-gold font-bold">{performer.activityStreak}</p>
+        <p className="text-xs text-gray-500">days</p>
+      </div>
+    </div>
+  );
+};
+
+const StreakLeaderboard = ({ streakLeaderboard, loading, error, onRetry }) => {
+  const performers = streakLeaderboard?.leaderboard || [];
+  const currentUser = streakLeaderboard?.currentUser;
+
+  return (
+    <MotionSection delay={0.2} className="card-gaming p-5 sm:p-6">
+      <SectionHeader
+        title="Top Streak Performers"
+        action={<FiZap className="text-gaming-gold h-5 w-5" />}
+      />
+      {currentUser && <p className="text-sm text-gray-400 mb-4">Your activity streak: {currentUser.activityStreak} days · Best: {currentUser.longestActivityStreak} days</p>}
+      <p className="text-xs text-gray-500 mb-4">Daily activity follows India Standard Time. Wallet rewards are separate.</p>
+      {error ? (
+        <div><p className="text-sm text-gray-400">Activity streaks are unavailable. Please try again.</p>
+          <button type="button" onClick={onRetry} className="btn btn-ghost btn-sm mt-2">Retry streaks</button></div>
+      ) : loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 rounded-lg bg-gaming-charcoal/70 animate-pulse" />
+          ))}
+        </div>
+      ) : performers.length > 0 ? (
+        <>
+          <div className="space-y-3">
+            {performers.map((performer) => (
+              <StreakPerformerRow key={performer.userId} performer={performer} />
+            ))}
+          </div>
+          {currentUser && currentUser.rank && !performers.some((performer) => performer.rank === currentUser.rank) && (
+            <div className="mt-4 rounded-lg border border-gaming-gold/30 bg-gaming-gold/10 p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs text-gaming-gold font-semibold uppercase">Your rank</p>
+                <p className="text-white font-bold">#{currentUser.rank}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-gaming-gold font-bold">{currentUser.activityStreak}</p>
+                <p className="text-xs text-gray-400">day streak</p>
+              </div>
+            </div>
+          )}
+          {currentUser && !currentUser.rank && (
+            <p className="mt-4 text-sm text-gray-400">
+              {currentUser.activityStreak > 0
+                ? 'Your streak is active, but it is not ranked on the public performers list.'
+                : 'Visit again today to start building your activity streak.'}
+            </p>
+          )}
+        </>
+      ) : (
+        <EmptyState
+          title="No active streaks yet"
+          description="The leaderboard will appear as players return on consecutive days."
+        />
+      )}
+    </MotionSection>
+  );
+};
+
 const DashboardPage = () => {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const requestId = useRef(0);
+  const streakRequestId = useRef(0);
+  const [streakLeaderboard, setStreakLeaderboard] = useState(null);
+  const [streakLoading, setStreakLoading] = useState(true);
+  const [streakError, setStreakError] = useState(false);
+  const loadStreakLeaderboard = useCallback(async () => {
+    const id = ++streakRequestId.current;
+    setStreakLoading(true);
+    setStreakError(false);
+    try {
+      // The app also checks in; the endpoint is atomic and safe to call twice.
+      await api.checkInActivityStreak();
+      const response = await api.getActivityStreakLeaderboard({ limit: 5 });
+      if (!response?.success || !Array.isArray(response.data?.leaderboard)) throw new Error('Invalid streak response');
+      if (streakRequestId.current === id) setStreakLeaderboard(response.data);
+    } catch (error) {
+      if (streakRequestId.current === id) setStreakError(true);
+    } finally {
+      if (streakRequestId.current === id) setStreakLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStreakLeaderboard();
+    window.addEventListener('activity-streak-updated', loadStreakLeaderboard);
+    return () => {
+      streakRequestId.current += 1;
+      window.removeEventListener('activity-streak-updated', loadStreakLeaderboard);
+    };
+  }, [loadStreakLeaderboard]);
 
   const loadDashboard = useCallback(async () => {
     const id = ++requestId.current;
@@ -411,6 +534,8 @@ const DashboardPage = () => {
                 />
               )}
             </MotionSection>
+
+            <StreakLeaderboard streakLeaderboard={streakLeaderboard} loading={streakLoading} error={streakError} onRetry={loadStreakLeaderboard} />
 
             <MotionSection delay={0.22} className="card-gaming p-5 sm:p-6">
               <SectionHeader

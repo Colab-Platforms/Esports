@@ -16,7 +16,11 @@ const mount = (strict = false) => render(<MemoryRouter>{strict ? <StrictMode><Da
 beforeAll(() => {
   window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
 });
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  api.checkInActivityStreak.mockResolvedValue({ success: true, data: { checkedInToday: true } });
+  api.getActivityStreakLeaderboard.mockResolvedValue({ success: true, data: { leaderboard: [], currentUser: { rank: null, activityStreak: 1, longestActivityStreak: 1 } } });
+});
 
 test('empty dashboard explains each empty state and links to existing routes', async () => {
   api.getCompetitionDashboard.mockResolvedValue(emptyDashboard());
@@ -66,4 +70,29 @@ test('a stale StrictMode response cannot replace the current successful result',
   await act(async () => { rejectOld(new Error('Stale request')); });
   expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Fictional Player' })).toBeInTheDocument();
+});
+
+test('streak performers and own rank are displayed independently of wallet rewards', async () => {
+  api.getCompetitionDashboard.mockResolvedValue(emptyDashboard());
+  api.getActivityStreakLeaderboard.mockResolvedValue({ success: true, data: {
+    leaderboard: [{ userId: 'top-player', username: 'TopPlayer', displayName: 'TopPlayer', activityStreak: 12, rank: 1 }],
+    currentUser: { rank: 8, activityStreak: 4, longestActivityStreak: 6 }
+  } });
+  mount();
+  expect(await screen.findByText('TopPlayer')).toBeInTheDocument();
+  expect(screen.getByText('#8')).toBeInTheDocument();
+  expect(screen.getByText('Your activity streak: 4 days · Best: 6 days')).toBeInTheDocument();
+  expect(screen.getByText(/Wallet rewards are separate/)).toBeInTheDocument();
+  expect(api.checkInActivityStreak).toHaveBeenCalled();
+});
+
+test('failed streak request keeps dashboard available and can be retried', async () => {
+  api.getCompetitionDashboard.mockResolvedValue(emptyDashboard());
+  api.getActivityStreakLeaderboard.mockRejectedValueOnce(new Error('Unavailable'));
+  mount();
+  const retry = await screen.findByRole('button', { name: 'Retry streaks' });
+  expect(screen.getByRole('heading', { name: 'Fictional Player' })).toBeInTheDocument();
+  expect(screen.queryByText('No active streaks yet')).not.toBeInTheDocument();
+  fireEvent.click(retry);
+  expect(await screen.findByText('No active streaks yet')).toBeInTheDocument();
 });

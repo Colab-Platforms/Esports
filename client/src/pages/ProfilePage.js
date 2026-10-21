@@ -192,8 +192,8 @@ const GeneralTab = ({ user }) => {
       bgColor: 'bg-green-400/10'
     },
     {
-      title: 'Login Streak',
-      value: `${user?.loginStreak || 0} days`,
+      title: 'Activity Streak',
+      value: `${user?.activityStreak || 0} days`,
       icon: FiAward,
       color: 'text-blue-400',
       bgColor: 'bg-blue-400/10'
