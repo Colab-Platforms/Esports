@@ -70,8 +70,11 @@ test('public profile retains its existing friend-request action beside competiti
     ? { data: { success: true, data: { tournaments: [] } } }
     : { data: { _id: 'friend-user', username: 'friend-player', fullName: 'Friend Player', games: [], friends: [], stats: {}, gameIds: {} } }));
   axios.post.mockResolvedValue({ data: { success: true } });
-  api.getPlayerCompetitiveProfile.mockRejectedValue(new Error('No competitive data'));
-  api.getPlayerCompetitiveHistory.mockResolvedValue({ data: { history: [] } });
+  api.getPlayerCompetitiveProfile.mockResolvedValue({ success: true, data: {
+    player: { username: 'friend-player', displayName: 'Friend Player' },
+    accounts: [], games: [], overview: {}, teams: [], tournamentHistory: [], achievements: []
+  } });
+  api.getPlayerCompetitiveHistory.mockResolvedValue({ success: true, data: { history: [] } });
   api.getPlayerStatistics.mockResolvedValue({ data: {} });
   render(<MemoryRouter initialEntries={['/player/friend-player']}><Routes><Route path="/player/:username" element={<PublicProfile />} /></Routes></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: /add friend/i }));

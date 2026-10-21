@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   FiUser, 
@@ -116,7 +116,12 @@ const ProfilePage = () => {
               </div>
             </div>
             
-            {/* Read-only profile - no edit button */}
+            <div className="flex flex-wrap gap-3">
+              {user?.username && user?.profileVisibility === 'public' && (
+                <Link to={`/player/${encodeURIComponent(user.username)}`} className="btn btn-ghost">View public profile</Link>
+              )}
+              <Link to="/teams" className="btn btn-ghost">Players &amp; Teams</Link>
+            </div>
           </div>
         </div>
       </div>
