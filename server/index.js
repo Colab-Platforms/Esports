@@ -231,6 +231,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/colab-esp
     // Check tournaments collection
     const tournamentsCount = await mongoose.connection.collection('tournaments').countDocuments();
     console.log(`🏆 Tournaments in database: ${tournamentsCount}`);
+    if (!phase2Staging.isReady()) require('./features/payments/payment-receipt-email.scheduler').startReceiptEmailScheduler();
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
@@ -520,4 +521,11 @@ server.listen(PORT, () => {
     tournamentScheduler.start();
     require('./features/payments/payment-worker').start();
   }
+});
+
+
+// Stop receipt polling when the hosting platform terminates this process.
+process.once('SIGTERM', () => {
+  require('./features/payments/payment-receipt-email.scheduler').stopReceiptEmailScheduler();
+  server.close(() => mongoose.connection.close(false).finally(() => process.exit(0)));
 });

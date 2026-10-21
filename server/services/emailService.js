@@ -284,6 +284,13 @@ The Colab Esports Team
       return { success: false, error: error.message };
     }
   }
+  getResendClient() {
+    return this.resend;
+  }
+
+  getConfiguredFromAddress() {
+    return process.env.RESEND_FROM_EMAIL || '';
+  }
 }
 
 module.exports = new EmailService();

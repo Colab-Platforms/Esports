@@ -130,6 +130,25 @@ test('captured payment creates one paid pending registration/receipt and transfe
   const cup = await Tournament.findById(f.tournament._id); assert.equal(cup.currentParticipants, 1); assert.equal(cup.participants.length, 1);
   assert.equal((await Intent.findById(intent._id)).status, 'fulfilled');
 });
+
+test('main settlement outbox is compatible with receipt delivery and retries cannot duplicate it', async () => {
+  const f = await fixture();
+  await User.updateOne({ _id: f.users[0]._id }, { email: 'captain+receipt@receipts.test', isEmailVerified: true });
+  const { checkout } = await payable(f), payment = paymentFor(checkout);
+  await verify(f, checkout, payment);
+  const calls = [];
+  const { processReceiptNotificationBatch } = require('./payment-receipt-email.service');
+  const sender = { from: 'Colab <receipts@sender.test>', send: async payload => {
+    calls.push(payload); return { data: { id: 'mock-receipt-email' } };
+  } };
+  const result = await processReceiptNotificationBatch({ sender, options: { ignoreFeatureFlag: true, batchSize: 1 } });
+  assert.equal(result[0].action, 'sent'); assert.equal(calls[0].payload.to, 'captain+receipt@receipts.test');
+  assert.match(calls[0].payload.text, /INR 500.00/);
+  await verify(f, checkout, payment);
+  await processReceiptNotificationBatch({ sender, options: { ignoreFeatureFlag: true, batchSize: 1 } });
+  assert.equal(calls.length, 1); assert.equal(await Receipt.countDocuments(), 1);
+  assert.equal(await Registration.countDocuments(), 1); assert.equal(await Notification.countDocuments(), 1);
+});
 for (const [name, patch] of [['amount', { amount: 1 }], ['currency', { currency: 'USD' }], ['order', { order_id: 'order_other' }]]) test(`verification rejects mismatched ${name}`, async () => {
   const f = await fixture(); const { checkout } = await payable(f); const payment = paymentFor(checkout, 'captured', patch);
   await assert.rejects(verify(f, checkout, payment), { code: 'PAYMENT_MISMATCH' }); assert.equal(await Registration.countDocuments(), 0);

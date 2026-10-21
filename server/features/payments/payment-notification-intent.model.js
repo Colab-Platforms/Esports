@@ -16,7 +16,7 @@ const paymentNotificationIntentSchema = new Schema({
     required: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid recipient email']
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please enter a valid recipient email']
   },
   status: {
     type: String,

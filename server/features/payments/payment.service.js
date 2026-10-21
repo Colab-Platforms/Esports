@@ -216,7 +216,7 @@ async function settle(orderId, payment, options = {}) {
     } }, { upsert: true, new: true, session: session() });
     const captain = await User.findById(intent.captainUserId).session(session()).select('email');
     if (captain?.email) await Notification.findOneAndUpdate({ type: 'payment_receipt_email', paymentOrderId: order._id, recipientUserId: intent.captainUserId },
-      { $setOnInsert: { receiptId: receipt._id, recipientEmail: captain.email, status: 'pending' } }, { session: session(), upsert: true, new: true });
+      { $setOnInsert: { receiptId: receipt._id, recipientEmail: captain.email, status: 'pending', maxAttempts: features.paymentReceiptEmailMaxAttempts } }, { session: session(), upsert: true, new: true });
     return { paymentStatus: 'captured', registrationId: row._id, registrationStatus: 'pending' };
   });
   await registration.invalidateTournamentCache(source.tournamentId); return result;
