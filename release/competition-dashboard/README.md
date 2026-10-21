@@ -1,8 +1,9 @@
 # Competition Dashboard release
 
 Source: dev's Competition Hub (`8e13825`), adapted to production main after the
-OAuth release (`9cd36db`). The page uses the existing protected `/dashboard`
-route. Logged-in users now have a DASHBOARD navigation link on desktop and mobile.
+OAuth release (`9cd36db`). The dashboard is now a Competition Dashboard tab
+under My Profile at `/profile?tab=dashboard`. The protected `/dashboard` route
+redirects there, and there is no separate dashboard navbar entry.
 
 ## Included behavior
 
@@ -67,3 +68,6 @@ accounts. Aggregations use MongoDB `$lookup` pipelines and `$unionWith`; they ru
 on the same MongoDB deployment as the existing app. No production data was
 accessed or changed to prepare this release. Recovery is a source revert; there
 is no data migration to undo.
+# Navigation update
+
+The Competition Dashboard now lives in My Profile as a tab beside General, My Tournaments and Profile Settings. Open `/profile?tab=dashboard` directly; the old authenticated `/dashboard` route redirects there. Desktop and mobile navbar entries have been removed. Dashboard data loads only when its profile tab is selected, and the embedded layout uses the profile page's width and spacing. The existing API, Activity Streak and other dashboard features remain available.

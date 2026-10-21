@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
   FiUser, 
@@ -12,7 +12,8 @@ import {
   FiInstagram,
   FiLinkedin,
   FiExternalLink,
-  FiSettings
+  FiSettings,
+  FiGrid
 } from 'react-icons/fi';
 import { selectAuth } from '../store/slices/authSlice';
 import UserAvatar from '../components/common/UserAvatar';
@@ -21,16 +22,26 @@ import api from '../services/api';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/common/ToastContainer';
 import ProfileSettingsForm from '../components/profile/ProfileSettingsForm';
+import DashboardPage from './DashboardPage';
 
 const ProfilePage = () => {
   const { user } = useSelector(selectAuth);
-  const [activeTab, setActiveTab] = useState('general');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab = ['general', 'dashboard', 'tournaments', 'settings'].includes(requestedTab) ? requestedTab : 'general';
+  const setActiveTab = tab => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'general') next.delete('tab');
+    else next.set('tab', tab);
+    setSearchParams(next);
+  };
   const [userTournaments, setUserTournaments] = useState([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
   const tabs = [
     { id: 'general', label: 'General', icon: FiUser },
+    { id: 'dashboard', label: 'Competition Dashboard', icon: FiGrid },
     { id: 'tournaments', label: 'My Tournaments', icon: FiAward },
     { id: 'settings', label: 'Profile Settings', icon: FiSettings }
   ];
@@ -129,12 +140,13 @@ const ProfilePage = () => {
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="border-b border-gaming-border">
-          <nav className="flex space-x-8">
+          <nav aria-label="Profile sections" className="flex gap-3 sm:gap-8 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                className={`flex shrink-0 items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                   activeTab === tab.id
                     ? 'border-gaming-gold text-gaming-gold'
                     : 'border-transparent text-gray-400 hover:text-white hover:border-gray-300'
@@ -150,6 +162,7 @@ const ProfilePage = () => {
 
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'dashboard' && <DashboardPage embedded />}
         {activeTab === 'general' && (
           <GeneralTab user={user} />
         )}

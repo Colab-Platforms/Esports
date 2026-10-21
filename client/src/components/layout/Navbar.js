@@ -142,10 +142,6 @@ const Navbar = () => {
     return links;
   };
 
-  const authenticatedLinks = [
-    { to: "/dashboard", label: "DASHBOARD", icon: FiGrid },
-  ];
-
   return (
     <nav className="bg-theme-bg-card border-b border-theme-border sticky top-0 z-50 backdrop-blur-sm transition-colors duration-300">
       <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -268,19 +264,6 @@ const Navbar = () => {
               </div>
             )}
 
-            {isAuthenticated &&
-              authenticatedLinks.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`font-display font-semibold transition-colors duration-200 ${isActiveLink(link.to)
-                      ? "text-theme-accent border-b-2 border-theme-accent pb-1"
-                      : "text-theme-text-secondary hover:text-theme-accent"
-                    }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
           </div>
 
           {/* Desktop Auth Section - Shows from 1280px+ */}
@@ -566,22 +549,6 @@ const Navbar = () => {
                     <div className="text-xs font-semibold text-theme-text-muted uppercase tracking-wider mb-3 mt-6">
                       Account
                     </div>
-                    {authenticatedLinks.map((link) => (
-                      <Link
-                        key={link.to}
-                        to={link.to}
-                        className={`flex items-center space-x-3 px-3 py-3 rounded-lg transition-colors duration-200 ${isActiveLink(link.to)
-                            ? "bg-theme-accent/10 text-theme-accent border-l-4 border-theme-accent"
-                            : "text-theme-text-secondary hover:text-theme-accent hover:bg-theme-bg-hover"
-                          }`}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        <link.icon className="w-5 h-5" />
-                        <span className="font-display font-semibold">
-                          {link.label}
-                        </span>
-                      </Link>
-                    ))}
 
                     {/* My Profile Link */}
                     <Link

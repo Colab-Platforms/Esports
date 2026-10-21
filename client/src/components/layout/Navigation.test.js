@@ -33,8 +33,7 @@ test.each([null, 'user', 'designer', 'moderator', 'admin'])('navigation preserve
   fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
   expect(screen.getAllByRole('link', { name: 'EXPLORE' })).toHaveLength(2);
   const dashboardLinks = screen.queryAllByRole('link', { name: 'DASHBOARD' });
-  expect(dashboardLinks).toHaveLength(role ? 2 : 0);
-  dashboardLinks.forEach(link => expect(link).toHaveAttribute('href', '/dashboard'));
+  expect(dashboardLinks).toHaveLength(0);
   const resultLinks = screen.queryAllByRole('link', { name: /result management/i });
   expect(resultLinks).toHaveLength(['admin', 'moderator'].includes(role) ? 2 : 0);
   resultLinks.forEach(link => expect(link).toHaveAttribute('href', '/admin/results'));

@@ -78,9 +78,9 @@ const EmptyState = ({ title, description, action }) => (
   </div>
 );
 
-const DashboardSkeleton = () => (
-  <div className="min-h-screen bg-gaming-dark py-8">
-    <div className="container-gaming space-y-6">
+const DashboardSkeleton = ({ embedded }) => (
+  <div className={embedded ? '' : 'min-h-screen bg-gaming-dark py-8'}>
+    <div className={embedded ? 'space-y-6' : 'container-gaming space-y-6'}>
       <div className="card-gaming p-6 animate-pulse">
         <div className="h-8 bg-gaming-slate rounded w-64 mb-4" />
         <div className="h-4 bg-gaming-slate rounded w-full max-w-xl" />
@@ -354,7 +354,7 @@ const StreakLeaderboard = ({ streakLeaderboard, loading, error, onRetry }) => {
   );
 };
 
-const DashboardPage = () => {
+const DashboardPage = ({ embedded = false }) => {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -420,12 +420,12 @@ const DashboardPage = () => {
     ];
   }, [dashboard]);
 
-  if (loading) return <DashboardSkeleton />;
+  if (loading) return <DashboardSkeleton embedded={embedded} />;
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gaming-dark py-8">
-        <div className="container-gaming">
+      <div className={embedded ? '' : 'min-h-screen bg-gaming-dark py-8'}>
+        <div className={embedded ? '' : 'container-gaming'}>
           <div className="card-gaming p-8 text-center">
             <h1 className="text-3xl font-gaming font-bold text-white">Competition Hub</h1>
             <p className="text-gray-400 mt-3">{error}</p>
@@ -447,8 +447,8 @@ const DashboardPage = () => {
   const wallet = dashboard?.wallet || {};
 
   return (
-    <div className="min-h-screen bg-gaming-dark py-8">
-      <div className="container-gaming space-y-6">
+    <div className={embedded ? '' : 'min-h-screen bg-gaming-dark py-8'}>
+      <div className={embedded ? 'space-y-6' : 'container-gaming space-y-6'}>
         <PlayerHeader player={player} verifiedAccounts={verifiedAccounts} />
 
         <MotionSection delay={0.05} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

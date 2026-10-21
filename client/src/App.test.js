@@ -18,6 +18,7 @@ jest.mock('./features/explore/pages/ExplorePage', () => () => <h1>Explore feed</
 jest.mock('./pages/CompetitiveLeaderboardPage', () => () => <h1>Competitive team rankings</h1>);
 jest.mock('./pages/TournamentResultsPage', () => () => <h1>Tournament results</h1>);
 jest.mock('./pages/HomePage', () => () => <h1>Home</h1>);
+jest.mock('./pages/ProfilePage', () => () => <h1>My Profile</h1>);
 jest.mock('./pages/admin/AdminGameResults', () => () => <h1>Result Management</h1>);
 jest.mock('./features/explore/pages/ExploreContentManagement', () => () => <h1>Explore Content</h1>);
 
@@ -39,7 +40,8 @@ test.each([
   ['moderator', '/admin/explore', 'Explore Content'],
   ['designer', '/admin/explore', 'Explore Content'],
   ['user', '/admin/results', 'Home'],
-  ['user', '/admin/explore', 'Home']
+  ['user', '/admin/explore', 'Home'],
+  ['user', '/dashboard', 'My Profile']
 ])('resolves %s access to %s through the existing route guard', (role, route, title) => {
   const roleStore = configureStore({ reducer: { auth }, preloadedState: {
     auth: { isAuthenticated: true, isLoading: false, user: { role } }

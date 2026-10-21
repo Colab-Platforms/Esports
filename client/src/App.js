@@ -31,7 +31,6 @@ import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import OAuthSuccess from './pages/auth/OAuthSuccess';
 import OAuthError from './pages/auth/OAuthError';
-import DashboardPage from './pages/DashboardPage';
 import TournamentsPage from './pages/tournaments/TournamentsPage';
 
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -482,7 +481,7 @@ function App() {
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <DashboardPage />
+                    <Navigate to="/profile?tab=dashboard" replace />
                   </motion.div>
                 </ProtectedRoute>
               } 
