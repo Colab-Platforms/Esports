@@ -76,7 +76,7 @@ test.beforeEach(async () => {
   delete process.env.VALORANT_CHECKOUT_PAUSED;
   admin = await User.create({ username: `pay-admin-${++sequence}`, fullName: 'Fiction Administrator', email: `admin-${sequence}@example.com`, authProvider: 'google', role: 'admin' });
   adapter = new RazorpayAdapter({ keyId: 'rzp_test_disposable', keySecret: secret, webhookSecret: secret, client: {
-    orders: { create: async data => { const row = { ...data, id: `order_${++sequence}`, status: 'created', amount_paid: 0 }; orders.set(row.id, row); return row; },
+    orders: { create: async data => { const row = { ...data, id: `order_${++sequence}`, status: 'created', amount_paid: 0, attempts: 0 }; orders.set(row.id, row); return row; },
       fetch: async id => orders.get(id), all: async ({ receipt }) => ({ items: [...orders.values()].filter(o => o.receipt === receipt) }),
       fetchPayments: async id => { const items = [...payments.values()].filter(p => p.order_id === id); return { items, count: items.length }; } },
     payments: { fetch: async id => payments.get(id) }, refunds: { fetch: async id => refunds.get(id) }
@@ -208,8 +208,104 @@ test('payment order reuse and uncertain provider creation never create another c
   const g = await fixture(); const reserve = await service.createIntent(g.args); const create = adapter.createOrder.bind(adapter);
   adapter.createOrder = async data => { await create(data); throw new Error('secret-provider-error'); };
   await assert.rejects(service.createOrder({ userId: g.users[0]._id, intentId: reserve._id, idempotencyKey: 'uncertain-key-123' }, options()), { code: 'PAYMENT_REQUIRES_RECONCILIATION' });
-  await assert.rejects(service.createOrder({ userId: g.users[0]._id, intentId: reserve._id, idempotencyKey: 'uncertain-key-456' }, options()), { code: 'PAYMENT_REQUIRES_RECONCILIATION' });
+  const recovered = await service.createOrder({ userId: g.users[0]._id, intentId: reserve._id, idempotencyKey: 'uncertain-key-456' }, options());
+  assert.equal(recovered.razorpayOrderId, [...orders.values()][1].id);
   assert.equal(orders.size, 2); await service.reconcile(options()); assert.ok((await Order.findOne({ intentId: reserve._id })).gatewayOrderId);
+});
+
+const expireForRecovery = intent => Intent.updateOne({ _id: intent._id }, { $set: { 'reservation.expiresAt': new Date(Date.now() - 1000) } });
+const recoverFor = (f, intent) => service.recoverCheckout({ userId: f.users[0]._id, intentId: intent._id }, options());
+
+test('abandoned recovery releases exactly one slot and thirteen claims under concurrent requests', async () => {
+  const f = await fixture(); const { intent, checkout } = await payable(f);
+  await expireForRecovery(intent);
+  const results = await Promise.all([recoverFor(f, intent), recoverFor(f, intent)]);
+  assert.ok(results.every(result => result.canCreateNewIntent));
+  assert.equal((await Tournament.findById(f.tournament._id)).currentParticipants, 0);
+  assert.equal(await Claim.countDocuments(), 0);
+  const order = await Order.findById(checkout.paymentOrderId);
+  assert.equal(order.status, 'cancelled'); assert.equal(order.isLiveOrder, false);
+  assert.equal(await Receipt.countDocuments(), 0); assert.equal(await Registration.countDocuments(), 0);
+  const replacement = await service.createIntent({ ...f.args, idempotencyKey: 'replacement-checkout-key' });
+  assert.notEqual(String(replacement._id), String(intent._id));
+  assert.equal((await Tournament.findById(f.tournament._id)).currentParticipants, 1);
+});
+
+test('expired reservation without a provider order can recover, but a live reservation cannot', async () => {
+  const f = await fixture(); const intent = await service.createIntent(f.args);
+  assert.equal((await recoverFor(f, intent)).reason, 'reservation_not_expired');
+  await expireForRecovery(intent);
+  assert.equal((await recoverFor(f, intent)).canCreateNewIntent, true);
+  assert.equal(await Order.countDocuments(), 0); assert.equal(await Claim.countDocuments(), 0);
+});
+
+test('recovery is owned by the authenticated captain and respects payment flags', async () => {
+  const f = await fixture(); const { intent } = await payable(f); await expireForRecovery(intent);
+  await assert.rejects(service.recoverCheckout({ userId: admin._id, intentId: intent._id }, options()), { code: 'INTENT_NOT_FOUND' });
+  assert.equal((await request('/api/valorant-payments/intents/' + intent._id + '/recover', 'POST', {})).status, 401);
+  assert.equal((await request('/api/valorant-payments/intents/' + intent._id + '/recover', 'POST', { userId: f.users[0]._id }, admin)).status, 404);
+  process.env.VALORANT_PAYMENTS_ENABLED = 'false';
+  await assert.rejects(recoverFor(f, intent), { code: 'PAYMENTS_DISABLED' });
+  assert.equal(await Claim.countDocuments(), 13);
+});
+
+for (const state of ['authorized', 'captured', 'failed', 'incomplete', 'outage', 'mismatched', 'attempted', 'missing-count']) {
+  test(`recovery preserves reservations when provider evidence is ${state}`, async () => {
+    const f = await fixture(); const { intent, checkout } = await payable(f); await expireForRecovery(intent);
+    if (['authorized', 'captured', 'failed'].includes(state)) paymentFor(checkout, state);
+    if (state === 'incomplete') adapter.fetchOrderPayments = async () => ({ count: 1, items: [] });
+    if (state === 'outage') adapter.fetchOrder = async () => { throw Error('provider-secret-marker'); };
+    if (state === 'mismatched') orders.get(checkout.razorpayOrderId).amount = 1;
+    if (state === 'attempted') orders.get(checkout.razorpayOrderId).attempts = 1;
+    if (state === 'missing-count') adapter.fetchOrderPayments = async () => ({ items: [] });
+    const result = await recoverFor(f, intent);
+    assert.equal(result.canCreateNewIntent, false);
+    assert.doesNotMatch(JSON.stringify(result), /provider-secret-marker/);
+    if (state === 'captured') {
+      assert.equal(result.reviewRequired, true); assert.equal(await Review.countDocuments(), 1);
+      assert.equal(await Registration.countDocuments(), 0); assert.equal(await Receipt.countDocuments(), 0);
+    } else {
+      assert.equal((await Tournament.findById(f.tournament._id)).currentParticipants, 1);
+      assert.equal(await Claim.countDocuments(), 13);
+    }
+  });
+}
+
+test('saved webhook evidence prevents abandoned recovery until reconciliation', async () => {
+  const f = await fixture(); const { intent, checkout } = await payable(f); await expireForRecovery(intent);
+  await Event.create({ gateway: 'razorpay', gatewayEventId: 'evt_recovery_pending', eventType: 'payment.authorized',
+    gatewayOrderId: checkout.razorpayOrderId, signatureVerified: true, payloadHash: 'synthetic-hash' });
+  assert.equal((await recoverFor(f, intent)).reason, 'payment_evidence_requires_reconciliation');
+  assert.equal(await Claim.countDocuments(), 13);
+});
+
+test('a capture after recovery preserves the replacement reservation and opens an independent refund review', async () => {
+  const f = await fixture(); const { intent, checkout } = await payable(f); await expireForRecovery(intent);
+  await recoverFor(f, intent);
+  const replacement = await service.createIntent({ ...f.args, idempotencyKey: 'replacement-late-capture' });
+  await event(paymentFor(checkout), 'evt_after_recovery');
+  assert.equal(await Review.countDocuments(), 1); assert.equal(await Registration.countDocuments(), 0);
+  assert.equal((await Intent.findById(intent._id)).status, 'capture_late_review');
+  assert.equal(await Claim.countDocuments({ intentId: replacement._id }), 13);
+  assert.equal((await Tournament.findById(f.tournament._id)).currentParticipants, 1);
+});
+
+test('uncertain order lookup cannot attach mismatched or ambiguous provider orders', async () => {
+  for (const scenario of ['ambiguous', 'mismatch']) {
+    const f = await fixture(); const intent = await service.createIntent(f.args);
+    const create = adapter.createOrder.bind(adapter);
+    adapter.createOrder = async data => { await create(data); throw new Error('lost response'); };
+    await assert.rejects(service.createOrder({ userId: f.users[0]._id, intentId: intent._id, idempotencyKey: 'unknown-order-test' }, options()));
+    const local = await Order.findOne({ intentId: intent._id });
+    const original = [...orders.values()].find(row => row.receipt === local.providerReceipt);
+    if (scenario === 'ambiguous') orders.set('order_duplicate', { ...original, id: 'order_duplicate' });
+    else original.notes.intentId = String(new mongoose.Types.ObjectId());
+    await assert.rejects(service.createOrder({ userId: f.users[0]._id, intentId: intent._id, idempotencyKey: 'unknown-order-retry' }, options()));
+    assert.equal((await Order.findById(local._id)).gatewayOrderId, null);
+    assert.equal(await Order.countDocuments({ intentId: intent._id }), 1);
+    // Restore the normal create method for the next independent fixture.
+    adapter.createOrder = create;
+  }
 });
 test('failed webhook processing retries the same event and invalid signatures create no event', async () => {
   const f = await fixture(); const { checkout } = await payable(f); const payment = paymentFor(checkout); const rawBody = eventBody(payment);

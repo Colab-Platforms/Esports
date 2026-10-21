@@ -125,7 +125,20 @@ async function createOrder({ userId, intentId, idempotencyKey }, options) {
     intent.paymentOrderId = local._id; intent.status = 'payment_order_created'; await intent.save({ session: session() });
     created = true; return local;
   });
-  if (!created && !order.gatewayOrderId) throw fail('PAYMENT_REQUIRES_RECONCILIATION', 'Order creation is pending or uncertain; do not start another payment', 409);
+  if (!created && !order.gatewayOrderId) {
+    // A lost response must never trigger a second provider create request.
+    const response = await adapter.findOrdersByReceipt(order.providerReceipt);
+    if (!Array.isArray(response?.items) || response.items.length !== 1) throw fail('PAYMENT_REQUIRES_RECONCILIATION', 'Order creation is pending or uncertain; do not start another payment', 409);
+    const remote = response.items[0]; checkProviderOrder(order, remote);
+    await locked(order.tournamentId, async () => {
+      await Order.updateOne({ _id: order._id, gatewayOrderId: null,
+        status: { $in: ['provider_create_pending', 'provider_create_unknown'] } },
+      { $set: { gatewayOrderId: remote.id, status: 'created', lastError: '' } }, { session: session() });
+    });
+    const fresh = await Order.findById(order._id);
+    if (!fresh.gatewayOrderId) throw fail('PAYMENT_REQUIRES_RECONCILIATION', 'Order still requires reconciliation', 409);
+    order.gatewayOrderId = fresh.gatewayOrderId;
+  }
   if (created) {
     let remote;
     try {
@@ -154,6 +167,69 @@ async function release(intent, reason) {
   if (updated.modifiedCount !== 1) throw fail('CAPACITY_STATE_MISMATCH', 'Reservation count requires review', 409);
   intent.reservation.capacityReleased = true; intent.reservation.releasedAt = new Date(); intent.reservation.releaseReason = reason;
   intent.status = 'expired_unpaid'; intent.blocksNewIntent = false; await intent.save({ session: session() });
+}
+
+// Port of dev's abandoned-checkout recovery using main's tournament transaction
+// lock and late-capture review policy. Provider calls stay outside transactions.
+async function recoverCheckout({ userId, intentId }, options = {}) {
+  enabled(); validId(intentId); await assertIndexes();
+  const intent = await Intent.findOne({ _id: intentId, captainUserId: userId });
+  if (!intent) throw fail('INTENT_NOT_FOUND', 'Reservation not found', 404);
+  const response = (reason, extra = {}) => ({ intentId: intent._id, canCreateNewIntent: false, reason, ...extra });
+  if (intent.status === 'fulfilled') return response('registration_already_exists', { registrationId: intent.fulfilledRegistrationId });
+  if (intent.status === 'capture_late_review') return response('payment_requires_review', { reviewRequired: true });
+  const order = await Order.findOne({ intentId: intent._id }).sort({ createdAt: -1 });
+  if (order?.status === 'captured' || order?.fulfillmentStatus === 'captured_unfulfilled') return response('payment_requires_review', { reviewRequired: true });
+  if (intent.status === 'expired_unpaid' && intent.reservation.capacityReleased) return response('reservation_already_expired', { canCreateNewIntent: true });
+  if (!['reserved', 'payment_order_created'].includes(intent.status) || intent.reservation.capacityReleased) return response('reservation_requires_reconciliation');
+  if (intent.reservation.expiresAt > new Date()) return response('reservation_not_expired');
+  const evidence = async (currentOrder, activeSession) => {
+    const conditions = [{ intentId: intent._id }];
+    if (currentOrder) {
+      conditions.push({ paymentOrderId: currentOrder._id });
+      if (currentOrder.gatewayOrderId) conditions.push({ gatewayOrderId: currentOrder.gatewayOrderId });
+    }
+    return Boolean(await Event.exists({ $or: conditions }).session(activeSession) ||
+      await Registration.exists({ $or: [{ 'payment.intentId': intent._id },
+        ...(currentOrder ? [{ 'payment.paymentOrderId': currentOrder._id }] : [])] }).session(activeSession));
+  };
+  if (await evidence(order, null)) return response('payment_evidence_requires_reconciliation');
+  if (order) {
+    if (order.status !== 'created' || !order.gatewayOrderId || order.gatewayPaymentId || order.fulfillmentStatus !== 'not_started') return response('payment_order_requires_reconciliation');
+    const adapter = gateway(options);
+    let remote, payments;
+    try {
+      remote = await adapter.fetchOrder(order.gatewayOrderId); checkProviderOrder(order, remote);
+      const collection = await adapter.fetchOrderPayments(order.gatewayOrderId);
+      if (!Array.isArray(collection?.items) || !Number.isInteger(collection.count) || collection.count < 0 || collection.count !== collection.items.length) return response('provider_state_unavailable');
+      payments = collection.items;
+      for (const payment of payments) checkProviderPayment(order, payment);
+    } catch { return response('provider_state_unavailable'); }
+    const captures = payments.filter(payment => payment.status === 'captured');
+    if (captures.length > 1) return response('multiple_captures_require_reconciliation', { reviewRequired: true });
+    if (captures.length === 1) {
+      const result = await settle(order._id, captures[0], options);
+      return response(result.reviewRequired ? 'payment_requires_review' : 'captured_payment_recovered', result);
+    }
+    if (payments.some(payment => payment.status === 'authorized')) return response('authorized_payment_requires_reconciliation');
+    if (remote.status !== 'created' || Number(remote.amount_paid) !== 0 || Number(remote.attempts) !== 0 || payments.length !== 0) return response('provider_order_not_abandoned');
+  }
+  const recovered = await locked(intent.tournamentId, async () => {
+    const fresh = await Intent.findById(intent._id).session(session());
+    if (!fresh || !['reserved', 'payment_order_created'].includes(fresh.status) || fresh.reservation.capacityReleased || fresh.reservation.expiresAt > new Date()) return false;
+    const freshOrder = await Order.findOne({ intentId: intent._id, isLiveOrder: true }).session(session());
+    if ((!order && freshOrder) || (order && (!freshOrder || String(freshOrder._id) !== String(order._id) || freshOrder.gatewayOrderId !== order.gatewayOrderId ||
+      freshOrder.status !== 'created' || freshOrder.gatewayPaymentId || freshOrder.fulfillmentStatus !== 'not_started'))) return false;
+    if (await evidence(freshOrder, session())) return false;
+    await release(fresh, 'expired_unpaid_abandoned_checkout');
+    if (freshOrder) await Order.updateOne({ _id: freshOrder._id }, { $set: { status: 'cancelled', isLiveOrder: false, lastVerifiedAt: new Date(), lastError: '' } }, { session: session() });
+    return true;
+  });
+  if (recovered) await registration.invalidateTournamentCache(intent.tournamentId);
+  const fresh = await Intent.findById(intent._id);
+  return response(recovered ? 'abandoned_checkout_recovered' : 'state_changed_before_recovery', {
+    canCreateNewIntent: recovered || Boolean(fresh?.status === 'expired_unpaid' && fresh?.reservation.capacityReleased)
+  });
 }
 
 async function settle(orderId, payment, options = {}) {
@@ -189,7 +265,13 @@ async function settle(orderId, payment, options = {}) {
     const expired = intent.reservation.expiresAt <= new Date() || intent.reservation.capacityReleased || !['upcoming', 'registration_open'].includes(tournament.status);
     if (expired) {
       if (!intent.reservation.capacityReleased) await release(intent, 'late_capture');
-      intent.status = 'capture_late_review'; intent.blocksNewIntent = true; await intent.save({ session: session() });
+      // An older expired checkout can capture after a replacement reservation
+      // was created. Keep its refund review without colliding with that live
+      // intent's unique guard or releasing the replacement's roster claims.
+      intent.status = 'capture_late_review';
+      intent.blocksNewIntent = !await Intent.exists({ _id: { $ne: intent._id }, tournamentId: intent.tournamentId,
+        teamId: intent.teamId, captainUserId: intent.captainUserId, blocksNewIntent: true }).session(session());
+      await intent.save({ session: session() });
       order.fulfillmentStatus = 'captured_unfulfilled'; await order.save({ session: session() });
       await Review.findOneAndUpdate({ paymentOrderId: order._id }, { $setOnInsert: { reason: 'late_capture' } }, { session: session(), upsert: true, new: true });
       return { paymentStatus: 'captured', reviewRequired: true, registrationId: null };
@@ -389,5 +471,5 @@ async function reviewRefund({ actor, reviewId, decision, reason, refundId }, opt
   });
 }
 
-module.exports = { createIntent, createOrder, verify, webhook, reconcile, reviewRefund, changeFee, saveTournamentUpdate, deleteUnusedTournament, assertIndexes, amountFor,
+module.exports = { createIntent, createOrder, recoverCheckout, verify, webhook, reconcile, reviewRefund, changeFee, saveTournamentUpdate, deleteUnusedTournament, assertIndexes, amountFor,
   models: { Intent, Order, Event, Receipt, Notification, Review } };

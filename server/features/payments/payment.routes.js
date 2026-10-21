@@ -21,6 +21,7 @@ const route = handler => async (req, res) => {
 router.use(auth);
 router.post('/intents', route(req => service.createIntent({ ...req.body, userId: req.user.userId })));
 router.post('/intents/:intentId/order', route(req => service.createOrder({ intentId: req.params.intentId, userId: req.user.userId, idempotencyKey: req.body.idempotencyKey })));
+router.post('/intents/:intentId/recover', route(req => service.recoverCheckout({ intentId: req.params.intentId, userId: req.user.userId })));
 router.post('/verify', route(req => service.verify({ ...req.body, userId: req.user.userId })));
 router.get('/my-attempts', route(async req => {
   if (!mongoose.isValidObjectId(req.query.tournamentId)) throw Object.assign(new Error('Invalid tournament'), { status: 400, code: 'INVALID_ID' });

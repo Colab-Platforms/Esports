@@ -14,6 +14,42 @@ beforeEach(() => {
   opened = undefined;
 });
 afterEach(() => { delete window.Razorpay; });
+
+const expiredIntent = () => ({ _id: 'expired-intent', status: 'payment_order_created',
+  reservation: { expiresAt: new Date(Date.now() - 1000).toISOString() } });
+
+test('an expired abandoned checkout starts a replacement only after server confirmation', async () => {
+  api.get.mockResolvedValue({ data: { intent: expiredIntent() } });
+  api.post.mockResolvedValueOnce({ data: { canCreateNewIntent: true, reason: 'abandoned_checkout_recovered' } });
+  opened = () => checkout.handler({ razorpay_order_id: 'order_fiction', razorpay_payment_id: 'pay_fiction', razorpay_signature: 'fiction-signature' });
+  await expect(registerPaidTeam(args)).resolves.toMatchObject({ registrationId: 'registration' });
+  expect(api.post.mock.calls[0]).toEqual(['/api/valorant-payments/intents/expired-intent/recover', {}]);
+  expect(api.post.mock.calls[1][0]).toBe('/api/valorant-payments/intents');
+});
+
+test.each([
+  [{ canCreateNewIntent: false }, /do not pay again/],
+  [{ canCreateNewIntent: false, reviewRequired: true }, /administrator must review/]
+])('uncertain or late payments never create a replacement checkout', async (result, message) => {
+  api.get.mockResolvedValue({ data: { intent: expiredIntent() } });
+  api.post.mockResolvedValueOnce({ data: result });
+  await expect(registerPaidTeam(args)).rejects.toThrow(message);
+  expect(api.post).toHaveBeenCalledTimes(1); expect(window.Razorpay).not.toHaveBeenCalled();
+});
+
+test('recovery returning an existing registration avoids another payment', async () => {
+  api.get.mockResolvedValue({ data: { intent: expiredIntent() } });
+  api.post.mockResolvedValueOnce({ data: { registrationId: 'recovered-registration' } });
+  await expect(registerPaidTeam(args)).resolves.toEqual({ registrationId: 'recovered-registration' });
+  expect(api.post).toHaveBeenCalledTimes(1); expect(window.Razorpay).not.toHaveBeenCalled();
+});
+
+test('an unavailable recovery service never falls back to a fresh payment', async () => {
+  api.get.mockResolvedValue({ data: { intent: expiredIntent() } });
+  api.post.mockRejectedValueOnce(new Error('Recovery unavailable'));
+  await expect(registerPaidTeam(args)).rejects.toThrow('Recovery unavailable');
+  expect(api.post).toHaveBeenCalledTimes(1); expect(window.Razorpay).not.toHaveBeenCalled();
+});
 test('checkout uses server order and confirms only through backend verification', async () => {
   opened = () => checkout.handler({ razorpay_order_id: 'order_fiction', razorpay_payment_id: 'pay_fiction', razorpay_signature: 'fiction-signature' });
   await expect(registerPaidTeam(args)).resolves.toEqual({ registrationId: 'registration', registrationStatus: 'pending' });

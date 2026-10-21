@@ -21,6 +21,14 @@ export async function registerPaidTeam({ tournament, team, user }) {
   let { intent } = dataOf(await api.get(`/api/valorant-payments/active?tournamentId=${encodeURIComponent(tournament._id)}&teamId=${encodeURIComponent(team._id)}`));
   if (intent?.fulfilledRegistrationId) return { registrationId: intent.fulfilledRegistrationId };
   if (intent?.status === 'capture_late_review') throw new Error('Payment received after expiry. An administrator must review the payment; do not pay again.');
+  const expiresAt = intent?.reservation?.expiresAt;
+  if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+    const recovery = dataOf(await api.post(`/api/valorant-payments/intents/${intent._id}/recover`, {}));
+    if (recovery?.registrationId) return { registrationId: recovery.registrationId };
+    if (recovery?.reviewRequired) throw new Error('Payment received after expiry. An administrator must review the payment; do not pay again.');
+    if (!recovery?.canCreateNewIntent) throw new Error('Your previous payment is being checked. Refresh registration status before retrying; do not pay again.');
+    intent = null;
+  }
   if (!intent) intent = dataOf(await api.post('/api/valorant-payments/intents', {
     tournamentId: tournament._id, teamId: team._id, idempotencyKey: requestKey()
   }));
