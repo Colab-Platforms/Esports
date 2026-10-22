@@ -55,6 +55,26 @@ const StatItem = ({ label, icon, children, highlight, green }) => {
   );
 };
 
+const getEntryFeePresentation = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return { label: "Fee unavailable", isFree: false };
+  }
+
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return { label: "Fee unavailable", isFree: false };
+  }
+
+  if (amount === 0) {
+    return { label: "FREE", isFree: true };
+  }
+
+  return {
+    label: `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })} / team`,
+    isFree: false,
+  };
+};
+
 const TimerCard = ({ title, color, targetDate }) => {
   const isOrange = color === "orange";
 
@@ -142,6 +162,7 @@ const SingleTournamentPage = () => {
       setActiveTab(tab);
     }
   }, [location.search]);
+  const entryFee = getEntryFeePresentation(tournament?.entryFee);
 
   // Share tournament function
   const handleShareTournament = React.useCallback(() => {
@@ -1422,8 +1443,13 @@ const SingleTournamentPage = () => {
                         {tournament?.region || "India"}
                       </StatItem>
 
-                      <StatItem label="Entry Fee" icon="💰" green>
-                        FREE
+                      <StatItem
+                        label="Entry Fee"
+                        icon="💰"
+                        green={entryFee.isFree}
+                        highlight={!entryFee.isFree && entryFee.label !== "Fee unavailable"}
+                      >
+                        {entryFee.label}
                       </StatItem>
                     </div>
 
