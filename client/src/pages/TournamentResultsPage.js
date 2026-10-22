@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaCalendarAlt, FaChevronDown, FaExternalLinkAlt, FaImage, FaMedal, FaSyncAlt, FaTrophy } from 'react-icons/fa';
@@ -14,7 +14,7 @@ const GAME_TABS = [
 const PAGE_SIZE = 12;
 
 const formatDate = (value) => {
-  if (!value) return 'Not published';
+  if (!value || !Number.isFinite(new Date(value).getTime())) return 'Date unavailable';
   return new Date(value).toLocaleDateString();
 };
 
@@ -107,7 +107,7 @@ const TournamentResultAccordion = ({ tournament, index, expanded, onToggle }) =>
         </div>
         <div className="shrink-0 flex items-center gap-3">
           <span className={`hidden sm:inline-flex border rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${statusClass(tournament.resultStatus)}`}>
-            {tournament.resultStatus === 'needs_republish' ? 'Needs republish' : 'Published'}
+            {tournament.resultStatus === 'needs_republish' ? 'Awaiting review' : 'Published'}
           </span>
           <FaChevronDown className={`text-theme-text-secondary transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
@@ -121,7 +121,7 @@ const TournamentResultAccordion = ({ tournament, index, expanded, onToggle }) =>
             <div className="flex items-center justify-between gap-3 mb-3">
               <h4 className="text-sm font-bold text-theme-text-primary uppercase tracking-wide">Published Winners</h4>
               <span className={`sm:hidden border rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${statusClass(tournament.resultStatus)}`}>
-                {tournament.resultStatus === 'needs_republish' ? 'Needs republish' : 'Published'}
+                {tournament.resultStatus === 'needs_republish' ? 'Awaiting review' : 'Published'}
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -162,8 +162,10 @@ const TournamentResultAccordion = ({ tournament, index, expanded, onToggle }) =>
   </motion.article>
 );
 
-const TournamentResultsPage = () => {
-  const [selectedGame, setSelectedGame] = useState('bgmi');
+const TournamentResultsPage = ({ gameType, embedded = false }) => {
+  const [localGame, setSelectedGame] = useState('bgmi');
+  const selectedGame = gameType || localGame;
+  const requestId = useRef(0);
   const [page, setPage] = useState(1);
   const [directory, setDirectory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -175,7 +177,8 @@ const TournamentResultsPage = () => {
     [selectedGame]
   );
 
-  const fetchDirectory = async () => {
+  const fetchDirectory = useCallback(async () => {
+    const id = ++requestId.current;
     try {
       setLoading(true);
       setError('');
@@ -184,19 +187,22 @@ const TournamentResultsPage = () => {
         page,
         limit: PAGE_SIZE
       });
-      setDirectory(response.data);
+      if (!response?.success || !Array.isArray(response.data?.tournaments)) throw new Error('Invalid results response');
+      if (requestId.current === id) setDirectory(response.data);
     } catch (err) {
-      setError(err.message || 'Failed to load tournament results');
-      setDirectory(null);
+      if (requestId.current === id) {
+        setError('Published results are temporarily unavailable. Please try again.');
+        setDirectory(null);
+      }
     } finally {
-      setLoading(false);
+      if (requestId.current === id) setLoading(false);
     }
-  };
+  }, [selectedGame, page]);
 
   useEffect(() => {
     fetchDirectory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGame, page]);
+    return () => { requestId.current += 1; };
+  }, [fetchDirectory]);
 
   const handleGameChange = (gameType) => {
     setSelectedGame(gameType);
@@ -208,8 +214,9 @@ const TournamentResultsPage = () => {
   const pagination = directory?.pagination || { page, total: 0, hasMore: false };
 
   return (
-    <div className="min-h-screen bg-theme-bg-primary py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className={embedded ? '' : 'min-h-screen bg-theme-bg-primary py-8'}>
+      <div className={embedded ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}>
+        {!embedded && <>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -221,7 +228,7 @@ const TournamentResultsPage = () => {
                 Tournament Results
               </h1>
               <p className="text-theme-text-secondary max-w-2xl">
-                Browse official published final standings by tournament. Global competitive rankings are preserved for a future Rankings view.
+                Browse official published winners and final standings by tournament.
               </p>
             </div>
             <button
@@ -254,6 +261,8 @@ const TournamentResultsPage = () => {
           </div>
         </div>
 
+        </>}
+
         <section className="bg-theme-bg-card rounded-xl border border-theme-border p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
@@ -262,6 +271,7 @@ const TournamentResultsPage = () => {
                 {pagination.total || 0} tournament{pagination.total === 1 ? '' : 's'} with published final results.
               </p>
             </div>
+            {embedded && <button type="button" className="btn btn-ghost btn-sm" onClick={fetchDirectory} disabled={loading}>Refresh published results</button>}
           </div>
 
           {loading ? (
