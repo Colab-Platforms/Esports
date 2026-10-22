@@ -17,6 +17,28 @@ const GAME_FIELDS = {
   valorant: { idLabel: 'Valorant ID', nameLabel: 'IGN', idKey: 'valorantId', nameKey: 'name' },
 };
 
+const getValorantFeeInfo = (entryFee) => {
+  const isValid = typeof entryFee === 'number' && Number.isFinite(entryFee) &&
+    entryFee >= 0 && entryFee <= 10000 && Number.isSafeInteger(entryFee * 100);
+
+  if (!isValid) {
+    return {
+      isInvalid: true,
+      requiresPayment: false,
+      label: 'Unavailable',
+      helperText: 'Tournament fee is not configured correctly.'
+    };
+  }
+
+  const requiresPayment = entryFee > 0;
+  return {
+    isInvalid: false,
+    requiresPayment,
+    label: requiresPayment ? `₹${entryFee.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : 'FREE',
+    helperText: requiresPayment ? 'Payment required to register this team.' : 'No payment required for registration.'
+  };
+};
+
 const getGameInfo = (memberUser, gameType) => {
   const u = memberUser;
   if (!u) return { name: '', gameId: '' };
@@ -74,6 +96,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
   const gameType = tournament?.gameType;
   const needsPhone = gameType === 'bgmi' || gameType === 'freefire' || gameType === 'ff';
   const fields = GAME_FIELDS[gameType] || GAME_FIELDS.bgmi;
+  const feeInfo = useMemo(() => getValorantFeeInfo(tournament?.entryFee), [tournament?.entryFee]);
 
   const selectedTeam = useMemo(() => teams.find(t => t._id === selectedTeamId), [teams, selectedTeamId]);
 
@@ -96,7 +119,7 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       if (members.filter(member => !member.isSubstitute).length !== 5 || members.filter(member => member.isSubstitute).length !== 1) {
         warnings.push('Valorant requires five starters and one substitute. Edit your team roster first.');
       }
-      if (typeof tournament?.entryFee !== 'number' || tournament.entryFee < 0 || tournament.entryFee > 10000 || !Number.isSafeInteger(tournament.entryFee * 100)) warnings.push('Tournament fee is invalid.');
+      if (feeInfo.isInvalid) warnings.push('Tournament fee is invalid.');
     }
     const needsName = gameType !== 'cs2' && gameType !== 'valorant';
     selectedTeam.members?.forEach(m => {
@@ -111,7 +134,13 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
       warnings.push('Valid WhatsApp number is required');
     }
     return warnings;
-  }, [selectedTeam, gameType, needsPhone, phoneNumber, getMemberInfo, fields.nameLabel, fields.idLabel, tournament?.entryFee]);
+  }, [selectedTeam, gameType, needsPhone, phoneNumber, getMemberInfo, fields.nameLabel, fields.idLabel, feeInfo.isInvalid]);
+
+  const registrationBlockReason = useMemo(() => {
+    if (!selectedTeam) return 'Select a team';
+    if (registering) return 'Registration is in progress';
+    return memberWarnings[0] || '';
+  }, [selectedTeam, registering, memberWarnings]);
 
   const fetchTeams = useCallback(async (selectId = null) => {
     try {
@@ -279,6 +308,38 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
               <p className="text-gray-400 text-xs">Choose a {gameType?.toUpperCase()} team or create a new one</p>
             </div>
           </div>
+
+          {gameType === 'valorant' && (
+            <div className={`rounded-lg p-3 border ${
+              feeInfo.isInvalid
+                ? 'bg-red-900/20 border-red-500/30'
+                : feeInfo.requiresPayment
+                  ? 'bg-gaming-gold/10 border-gaming-gold/40'
+                  : 'bg-green-500/10 border-green-500/30'
+            }`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-white text-sm font-semibold">
+                    {feeInfo.isInvalid
+                      ? 'Registration fee unavailable'
+                      : feeInfo.requiresPayment
+                        ? 'Entry fee per team'
+                        : 'Free registration'}
+                  </p>
+                  <p className="text-gray-400 text-xs">{feeInfo.helperText}</p>
+                </div>
+                <div className={`text-lg font-bold ${
+                  feeInfo.isInvalid
+                    ? 'text-red-300'
+                    : feeInfo.requiresPayment
+                      ? 'text-gaming-gold'
+                      : 'text-green-400'
+                }`}>
+                  {feeInfo.label}
+                </div>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="text-center py-8 text-gray-400">Loading your teams...</div>
@@ -520,23 +581,35 @@ const TeamSelectionModal = ({ tournament, token, registering, onClose, onRegiste
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-border p-6 flex space-x-3 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={registering}
-            className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleProceed}
-            disabled={!selectedTeam || registering || memberWarnings.length > 0}
-            className="flex-1 py-2 bg-gaming-gold hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
-          >
-            {registering ? 'Registering...' : 'Register Team'}
-          </button>
+        <div className="sticky bottom-0 bg-gaming-dark border-t border-gaming-border p-6 shrink-0">
+          {registrationBlockReason && (
+            <div className="mb-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100 flex items-center gap-2">
+              <FiAlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{registrationBlockReason}</span>
+            </div>
+          )}
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={registering}
+              className="flex-1 py-2 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleProceed}
+              disabled={Boolean(registrationBlockReason)}
+              className="flex-1 py-2 bg-gaming-gold hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
+            >
+              {registering
+                ? 'Registering...'
+                : gameType === 'valorant' && feeInfo.requiresPayment
+                  ? `Pay ${feeInfo.label}`
+                  : 'Register Team'}
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>

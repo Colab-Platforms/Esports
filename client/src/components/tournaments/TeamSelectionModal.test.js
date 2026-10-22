@@ -24,8 +24,13 @@ const setup = (teamMembers = members, entryFee = 0) => {
 };
 beforeEach(() => { jest.clearAllMocks(); });
 test('shows captain-owned Valorant teams and allows a complete free 5+1 roster', async () => {
-  const onRegister = setup(); fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
+  const onRegister = setup();
+  expect(await screen.findByText('Free registration')).toBeInTheDocument();
+  expect(screen.getByText('FREE')).toBeInTheDocument();
+  expect(screen.getByText('Select a team')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
   expect(screen.queryByText('Another Captain Team')).not.toBeInTheDocument();
+  expect(screen.queryByText('Select a team')).not.toBeInTheDocument();
   const registerButton = screen.getByRole('button', { name: /register/i });
   expect(registerButton).toBeEnabled(); fireEvent.click(registerButton);
   expect(onRegister).toHaveBeenCalledWith(expect.objectContaining({ _id: 'team' }), expect.any(String), {});
@@ -35,13 +40,16 @@ test.each([
   ['invalid fee', members, -1, /Tournament fee is invalid/]
 ])('blocks %s before submitting', async (_, roster, fee, message) => {
   const onRegister = setup(roster, fee); fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
-  expect(await screen.findByText(message)).toBeInTheDocument();
+  expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
   await waitFor(() => expect(screen.getByRole('button', { name: /register/i })).toBeDisabled());
   expect(onRegister).not.toHaveBeenCalled();
 });
 
 test('complete paid Valorant roster can proceed to server-owned checkout', async () => {
-  const onRegister = setup(members, 500); fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
-  fireEvent.click(screen.getByRole('button', { name: /register/i }));
+  const onRegister = setup(members, 500);
+  expect(await screen.findByText('Entry fee per team')).toBeInTheDocument();
+  expect(screen.getByText('₹500')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('heading', { name: 'Owned Team' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Pay ₹500' }));
   expect(onRegister).toHaveBeenCalledTimes(1);
 });
