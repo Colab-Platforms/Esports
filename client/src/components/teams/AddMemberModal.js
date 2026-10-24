@@ -150,7 +150,6 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
                 <UserAvatar user={selectedUser} size="sm" />
                 <div className="flex-1">
                   <p className="text-white font-medium">{selectedUser.username}</p>
-                  <p className="text-gray-400 text-sm">{selectedUser.email}</p>
                 </div>
                 <button
                   onClick={() => setSelectedUser(null)}
@@ -183,7 +182,6 @@ const AddMemberModal = ({ team, token, onClose, onSuccess }) => {
                   <UserAvatar user={player} size="xs" />
                   <div className="flex-1 text-left">
                     <p className="text-white font-medium">{player.username}</p>
-                    <p className="text-gray-400 text-xs">{player.email}</p>
                   </div>
                 </motion.button>
               ))
