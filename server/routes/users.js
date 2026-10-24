@@ -75,7 +75,8 @@ router.get('/players', auth, async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const cacheKey = `players:v4:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
+    // Use a new namespace so cached player lists containing emails cannot be served.
+    const cacheKey = `players:v5:${currentUserId}:${search || 'all'}:${game || 'all'}:${pageNum}:${limitNum}`;
 
     // Try to get from cache only if not requesting fresh data
     if (!fresh) {
@@ -146,7 +147,6 @@ router.get('/players', auth, async (req, res) => {
         {
           $project: {
             username: 1,
-            email: 1,
             avatarUrl: 1,
             level: 1,
             currentRank: 1,
@@ -167,7 +167,7 @@ router.get('/players', auth, async (req, res) => {
     } else {
       // Regular query without search
       players = await User.find(query)
-        .select('username email avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
+        .select('username avatarUrl level currentRank tournamentsWon favoriteGame bio country friends games gameIds bgmiIgnName bgmiUid freeFireIgnName freeFireUid')
         .skip(skip)
         .limit(limitNum)
         .lean();
@@ -206,7 +206,6 @@ router.get('/players', auth, async (req, res) => {
         _id: player._id,
         id: player._id,
         username: player.username,
-        email: player.email,
         avatarUrl: player.avatarUrl,
         level: player.level,
         currentRank: player.currentRank,
