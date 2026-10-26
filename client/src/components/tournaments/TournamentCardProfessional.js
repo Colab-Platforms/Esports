@@ -4,12 +4,38 @@ import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import CountdownTimer from "../common/CountdownTimer";
+import GameIcon from "../common/GameIcon";
 import SteamLinkingModal from "./SteamLinkingModal";
 import { selectAuth } from "../../store/slices/authSlice";
 import notificationService from "../../services/notificationService";
 import { startSteamConnect } from "../../utils/apiConfig";
 
 
+const FALLBACK_BANNERS = {
+  cs2: "https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp",
+  freefire: "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775282348379.webp?v=1775290118",
+  bgmi: "https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058",
+};
+
+// Stable per-tournament number so tournaments without their own banner don't all look identical.
+const hashString = (value = "") => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
+
+const getFallbackBanner = (tournament, gameType) => {
+  const hash = hashString(String(tournament._id || tournament.name || ""));
+  const hue = hash % 360;
+  const key = gameType === "ff" ? "freefire" : gameType;
+  return {
+    image: FALLBACK_BANNERS[key] || FALLBACK_BANNERS.bgmi,
+    tint: `linear-gradient(135deg, hsl(${hue}, 65%, 28%) 0%, hsl(${(hue + 50) % 360}, 55%, 12%) 100%)`,
+    position: `${20 + (hash % 61)}% ${20 + ((hash >> 8) % 61)}%`,
+  };
+};
 
 const TournamentCardProfessional = ({
   tournament,
@@ -23,7 +49,6 @@ const TournamentCardProfessional = ({
   const navigate = useNavigate();
   const { isAuthenticated, user } = useSelector(selectAuth);
   const [showSteamModal, setShowSteamModal] = useState(false);
-  const isRegistrationClosed = tournament.status === "registration_closed";
 
   const handleSteamLink = React.useCallback(() => {
     if (!user) {
@@ -140,6 +165,29 @@ const TournamentCardProfessional = ({
     navigate(`/tournaments/${tournament._id}`);
   }, [isAuthenticated, tournament, user, navigate]);
 
+  const fallbackBanner = getFallbackBanner(tournament, gameType);
+
+  const maxSlots = Number(tournament.maxParticipants) || 0;
+  const filledSlots = Math.min(Number(tournament.currentParticipants) || 0, maxSlots);
+  const slotsPercent = maxSlots > 0 ? Math.round((filledSlots / maxSlots) * 100) : 0;
+  const slotsFull = maxSlots > 0 && filledSlots >= maxSlots;
+
+  const now = Date.now();
+  let countdown = null;
+  if (
+    tournament.status === "registration_open" &&
+    tournament.registrationDeadline &&
+    new Date(tournament.registrationDeadline).getTime() > now
+  ) {
+    countdown = { label: "REGISTRATION CLOSES IN", target: tournament.registrationDeadline };
+  } else if (
+    showTimer &&
+    tournament.status !== "completed" &&
+    tournament.startDate &&
+    new Date(tournament.startDate).getTime() > now
+  ) {
+    countdown = { label: "STARTS IN", target: tournament.startDate };
+  }
 
   return (
 
@@ -153,89 +201,48 @@ const TournamentCardProfessional = ({
           "polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)",
       }}
     >
-      {/* Background Image */}
+      {/* Background Image - the tournament's own banner, else a per-tournament tinted fallback */}
       <div className="absolute inset-0">
         {tournament.bannerImage ? (
           <img
             src={tournament.bannerImage}
-            alt={tournament.name}
+            alt=""
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-        ) : gameType === "cs2" ? (
-          <img
-            src="https://gameplayscassi.com.br/wp-content/smush-webp/2023/03/Rumores-indicam-que-a-beta-do-Counter-Strike-2-pode-ser-lancada-em-1o-de-abril..jpg.webp"
-            alt={tournament.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : gameType === "freefire" || gameType === "ff" ? (
-          <img
-            src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/generated-image-1775282348379.webp?v=1775290118"
-            alt={tournament.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        )
-          :
-          (
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: fallbackBanner.tint }} />
             <img
-              src="https://cdn.shopify.com/s/files/1/0636/5226/6115/files/bgmi.jpg?v=1768032058"
-              alt={tournament.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              src={fallbackBanner.image}
+              alt=""
+              style={{ objectPosition: fallbackBanner.position }}
+              className="w-full h-full object-cover opacity-40 mix-blend-luminosity group-hover:scale-105 transition-transform duration-500"
             />
-          )
-        }
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/85" />
-      </div>
-
-      {/* Top Left - Registration Closed Chip & Timer */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
-        {isRegistrationClosed && (
-          <div className="px-3 py-1.5 border border-gaming-gold/60 text-xs font-display font-bold text-gaming-gold">
-            REGISTRATION CLOSED
-          </div>
+          </>
         )}
-
-        {/* Timer - Show if tournament hasn't started yet and showTimer is true */}
-        {showTimer &&
-          tournament?.startDate &&
-          new Date(tournament.startDate) > new Date() && (
-            <div className="px-3 py-1.5 backdrop-blur-md border border-gaming-gold/70 rounded-full text-xs font-display font-bold text-white">
-              <CountdownTimer
-                targetDate={tournament.startDate}
-                format="compact"
-                size="sm"
-                showLabels={false}
-                className="text-white"
-              />
-            </div>
-          )}
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/60 to-black/90" />
       </div>
 
       {/* Content Container */}
       <div className="absolute inset-0 flex flex-col justify-between p-5">
-        {/* Top Section - Status Badge */}
-        {!isRegistrationClosed && (
-          <div className="flex justify-end">
+        <div>
+          {/* Game + status */}
+          <div className="flex justify-between items-center gap-2 mb-3">
+            <GameIcon gameType={gameType} size="sm" />
             <div
               className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}
             >
               {tournament.status === "completed"
                 ? "FINISHED"
-                : tournament.status.replace("_", " ").toUpperCase()}
+                : tournament.status.replace(/_/g, " ").toUpperCase()}
             </div>
           </div>
-        )}
 
-        {/* Middle Section - Tournament Name */}
-        <div className="flex flex-col items-center justify-center text-center">
-          {gameType === "cs2" && (
-            <h3 className="text-white font-display text-2xl font-bold mb-2 line-clamp-2 drop-shadow-lg tracking-wide">
-              {tournament.name}
-            </h3>
-          )}
-          {/* <div className="text-gaming-gold font-display text-xs font-bold tracking-widest opacity-80">
-            {tournament.mode?.toUpperCase() || 'SQUAD'}
-          </div> */}
+          {/* Tournament name - first thing on every card */}
+          <h3 className="text-white font-display text-xl sm:text-2xl font-bold leading-tight line-clamp-2 drop-shadow-lg tracking-wide">
+            {tournament.name}
+          </h3>
         </div>
 
         {/* Bottom Section - Info Bar */}
@@ -243,7 +250,7 @@ const TournamentCardProfessional = ({
           {!hideBottomInfo && (
             <>
               {/* Prize Pool & Entry Fee Row */}
-              <div className="flex justify-between items-center text-xs">
+              <div className="flex justify-between items-center text-sm">
                 {gameType !== "cs2" && (
                   <div className="flex items-center space-x-1.5">
                     <span className="text-gaming-gold font-display font-bold">
@@ -264,60 +271,71 @@ const TournamentCardProfessional = ({
                 </div>
               </div>
 
-              {/* Players & Registration Row */}
-              <div className="flex justify-between items-center text-xs">
-                {user?.role === 'admin' && <div className="flex items-center space-x-1.5">
-                  <span className="text-gaming-gold font-display font-bold">
-                    PLAYERS:
-                  </span>
-                  <span className="text-white font-display font-bold">
-                    {tournament.currentParticipants}/
-                    {tournament.maxParticipants}
-                  </span>
-                </div>}
-                {gameType !== "cs2" && (
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-gaming-gold font-display font-bold">
-                      REG:
+              {/* Slots filled + progress bar */}
+              {gameType !== "cs2" && maxSlots > 0 && (
+                <div>
+                  <div className="flex justify-between items-center text-sm mb-1">
+                    <span className="text-white font-display font-bold">
+                      {filledSlots}/{maxSlots} slots
                     </span>
-                    <span className="text-gaming-neon font-display font-bold">
-                      {Math.round(
-                        (tournament.currentParticipants /
-                          tournament.maxParticipants) *
-                        100,
-                      )}
-                      %
+                    <span className="text-gray-300 font-display text-xs">
+                      {slotsFull ? "FULL" : `${maxSlots - filledSlots} left`}
                     </span>
                   </div>
-                )}
-              </div>
+                  <div
+                    className="h-2 w-full rounded-full bg-white/15 overflow-hidden"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={maxSlots}
+                    aria-valuenow={filledSlots}
+                    aria-label="Slots filled"
+                  >
+                    <div
+                      className={`h-full rounded-full ${slotsFull ? "bg-red-500" : "bg-gaming-gold"}`}
+                      style={{ width: `${slotsPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Countdown: registration deadline while open, otherwise time to start */}
+              {countdown && (
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-gaming-gold font-display font-bold text-xs">
+                    {countdown.label}
+                  </span>
+                  <CountdownTimer
+                    targetDate={countdown.target}
+                    format="compact"
+                    size="sm"
+                    showLabels={false}
+                    className="text-white"
+                  />
+                </div>
+              )}
 
               {/* Divider Line */}
               {gameType !== "cs2" && (
                 <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />
               )}
 
-              {/* Dates Row */}
+              {/* Dates Row (with year) */}
               {gameType !== "cs2" && (
-                <div className="flex justify-between items-center text-xs">
+                <div className="flex justify-between items-center">
                   <div>
                     <div className="text-gaming-gold font-display font-bold text-xs">
                       REG DEADLINE
                     </div>
-                    <div className="text-white font-display text-xs">
-                      {
-                        formatDate(tournament.registrationDeadline).split(
-                          ",",
-                        )[0]
-                      }
+                    <div className="text-white font-display text-sm">
+                      {formatDate(tournament.registrationDeadline)}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-gaming-gold font-display font-bold text-xs">
                       STARTS
                     </div>
-                    <div className="text-white font-display text-xs">
-                      {formatDate(tournament.startDate).split(",")[0]}
+                    <div className="text-white font-display text-sm">
+                      {formatDate(tournament.startDate)}
                     </div>
                   </div>
                 </div>

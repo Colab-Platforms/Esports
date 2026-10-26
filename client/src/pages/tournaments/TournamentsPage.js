@@ -21,6 +21,12 @@ import {
 const BANNER_POLL_INTERVAL_MS = 45000;
 const BANNER_AUTO_ADVANCE_MS = 8000;
 
+// Open = anything still to play; Past = finished. Sent to the API as comma-separated statuses.
+const STATUS_FILTERS = {
+  open: 'registration_open,upcoming,active,registration_closed',
+  past: 'completed,cancelled'
+};
+
 const BANNER_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 // Locale-independent "DD MON" formatting so the date always reads day-first regardless of browser locale.
@@ -48,13 +54,14 @@ const TournamentsPage = () => {
   const bannerTournaments = useSelector(selectBannerTournaments);
 
   const [currentBanner, setCurrentBanner] = useState(0);
-  const [activeStatusTab, setActiveStatusTab] = useState('all');
+  // 'open' = everything still running or upcoming; 'past' = finished tournaments
+  const [activeStatusTab, setActiveStatusTab] = useState('open');
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6; // 6 tournaments per page
+  const itemsPerPage = 12; // 12 tournaments per page
 
   // Fetch admin-featured tournaments for the banner carousel, then keep polling
   // so a newly-published tournament shows up without a manual refresh. Polling
@@ -111,14 +118,8 @@ const TournamentsPage = () => {
 
   // Fetch tournaments on component mount and when filters or page change
   useEffect(() => {
-    console.log('Fetching tournaments with filters:', {
-      status: activeStatusTab === 'all' ? undefined : activeStatusTab,
-      gameType: activeCategoryTab === 'all' ? undefined : activeCategoryTab,
-      page: currentPage,
-      limit: itemsPerPage
-    });
     dispatch(fetchTournaments({
-      status: activeStatusTab === 'all' ? undefined : activeStatusTab,
+      status: STATUS_FILTERS[activeStatusTab],
       gameType: activeCategoryTab === 'all' ? undefined : activeCategoryTab,
       page: currentPage,
       limit: itemsPerPage
@@ -190,10 +191,17 @@ const TournamentsPage = () => {
   }, [currentPage]);
 
   // Client-side filtering for search
-  const filteredTournaments = tournaments.filter(tournament => {
-    const matchesSearch = tournament.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  // Open-for-registration first, then upcoming, live, and closed; past ones newest-ended first.
+  const STATUS_PRIORITY = { registration_open: 0, upcoming: 1, active: 2, registration_closed: 3 };
+  const filteredTournaments = tournaments
+    .filter(tournament => tournament.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (activeStatusTab === 'past') {
+        return new Date(b.startDate) - new Date(a.startDate);
+      }
+      const byStatus = (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9);
+      return byStatus || new Date(a.startDate) - new Date(b.startDate);
+    });
 
   // Tournament background gradients based on game type
   const getBackgroundGradient = (gameType) => {
@@ -210,19 +218,8 @@ const TournamentsPage = () => {
   };
 
   const statusTabs = [
-    { id: 'all', label: 'ALL' },
-    { id: 'upcoming', label: 'UPCOMING' },
-    { id: 'registration_open', label: 'OPEN' },
-    { id: 'active', label: 'ACTIVE' },
-    { id: 'completed', label: 'COMPLETED' }
-  ];
-
-  const categoryTabs = [
-    { id: 'all', label: 'ALL GAMES' },
-    { id: 'bgmi', label: 'BGMI' },
-    { id: 'freefire', label: 'FREE FIRE' },
-    { id: 'valorant', label: 'VALORANT' },
-    { id: 'cs2', label: 'CS2' }
+    { id: 'open', label: 'OPEN' },
+    { id: 'past', label: 'PAST' }
   ];
 
   const nextBanner = () => {
@@ -249,7 +246,9 @@ const TournamentsPage = () => {
   return (
     <div className="min-h-screen bg-gaming-dark">
       {/* Hero Banner Carousel - live countdown to each admin-featured tournament */}
-      <section className="relative h-[75vh] min-h-[600px] max-h-[820px] overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark">
+      <section className={`relative overflow-hidden bg-gradient-to-br from-gaming-dark via-gaming-charcoal to-gaming-dark ${
+        bannerTournaments.length > 0 ? 'h-[75vh] min-h-[600px] max-h-[820px]' : ''
+      }`}>
         {bannerTournaments.length > 0 && bannerTournaments[currentBanner] ? (
           <>
           {(() => {
@@ -358,17 +357,16 @@ const TournamentsPage = () => {
           )}
           </>
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-            <div className="text-6xl mb-4">
-              <GameIcon gameType="valorant" size="2xl" />
+          <div className="flex items-center justify-center gap-3 px-4 py-4 text-center">
+            <GameIcon gameType="valorant" size="md" />
+            <div className="text-left">
+              <h2 className="text-xl font-gaming font-bold text-white leading-tight">
+                Tournaments Hub
+              </h2>
+              <p className="text-gray-400 text-sm">
+                Compete in exciting tournaments and win amazing prizes
+              </p>
             </div>
-            <h2 className="text-3xl font-gaming font-bold text-white mb-2">
-              Tournaments Hub
-            </h2>
-            <p className="text-gray-400 max-w-md">
-              Compete in exciting tournaments and win amazing prizes
-            </p>
-
           </div>
         )}
       </section>
@@ -393,6 +391,25 @@ const TournamentsPage = () => {
               className="w-full pl-9 pr-3 py-2 bg-gaming-card border border-gaming-border rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gaming-gold focus:border-transparent"
             />
           </div>
+        </div>
+
+        {/* Open / Past tabs */}
+        <div className="mb-4 flex gap-2" role="tablist">
+          {statusTabs.map(tab => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeStatusTab === tab.id}
+              onClick={() => setActiveStatusTab(tab.id)}
+              className={`px-5 py-2 rounded-lg font-gaming font-bold text-sm transition-colors duration-200 ${
+                activeStatusTab === tab.id
+                  ? 'bg-gaming-gold text-black'
+                  : 'bg-gaming-card text-gray-300 hover:text-white border border-gaming-border hover:border-gaming-gold'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Tournament Categories Tabs */}
@@ -485,7 +502,7 @@ const TournamentsPage = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => dispatch(fetchTournaments({
-                    status: activeStatusTab === 'all' ? undefined : activeStatusTab,
+                    status: STATUS_FILTERS[activeStatusTab],
                     gameType: activeCategoryTab === 'all' ? undefined : activeCategoryTab
                   }))}
                   className="btn-gaming"
