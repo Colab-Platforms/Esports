@@ -171,7 +171,8 @@ function App() {
   const location = useLocation();
   const { showToast, streakData, claiming, handleClaim, handleClose } = useDailyStreak();
   useActivityStreakCheckIn();
-  
+  const [installVisible, setInstallVisible] = React.useState(false);
+
   // Check if splash has been shown before (only show once per session)
   const [showSplash, setShowSplash] = React.useState(() => {
     const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
@@ -273,7 +274,8 @@ function App() {
       <div className="min-h-screen bg-gaming-dark text-white flex flex-col transition-colors duration-300">
       {/* Navigation */}
       <Navbar />
-      <InstallPWA />
+      {/* Only one floating prompt at a time: the install pill yields to the streak toast */}
+      <InstallPWA suppressed={showToast} onVisibleChange={setInstallVisible} />
 
       {/* Daily Streak Toast */}
       {showToast && (
@@ -289,7 +291,7 @@ function App() {
       )}
       
       {/* Main Content */}
-      <main className="flex-1">
+      <main className={`flex-1 ${showToast || installVisible ? 'pb-28' : ''}`}>
         <AnimatePresence mode="wait">
           <Routes>
             {/* Public Routes */}

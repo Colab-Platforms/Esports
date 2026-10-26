@@ -14,17 +14,50 @@ const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches ||
   window.navigator.standalone === true;
 
-const InstallPWA = () => {
+const DISMISSED_KEY = 'pwaInstallDismissed';
+const ENGAGED_KEY = 'pwaInstallEngaged';
+export const PWA_ENGAGEMENT_EVENT = 'pwaEngagement';
+
+// Call after a meaningful action (e.g. joining a tournament) to allow the install prompt.
+export const markPwaEngaged = () => {
+  try {
+    localStorage.setItem(ENGAGED_KEY, 'true');
+  } catch (e) { /* storage unavailable */ }
+  window.dispatchEvent(new Event(PWA_ENGAGEMENT_EVENT));
+};
+
+const readFlag = (key) => {
+  try {
+    return localStorage.getItem(key) === 'true';
+  } catch (e) {
+    return false;
+  }
+};
+
+// `suppressed` hides the prompt while another floating prompt is on screen.
+// `onVisibleChange` lets the page reserve space so the pill never covers content.
+const InstallPWA = ({ suppressed = false, onVisibleChange }) => {
   const [promptInstall, setPromptInstall] = useState(null);
-  const [showBanner, setShowBanner] = useState(false);
+  const [canPrompt, setCanPrompt] = useState(false);
+  const [dismissed, setDismissed] = useState(() => readFlag(DISMISSED_KEY));
+  const [engaged, setEngaged] = useState(() => readFlag(ENGAGED_KEY));
   const [showIOSModal, setShowIOSModal] = useState(false);
 
-  useEffect(() => {
-    // Already installed → do nothing
-    if (isStandalone()) return;
+  const showBanner = canPrompt && engaged && !dismissed && !suppressed;
 
-    // User already dismissed this session
-    if (sessionStorage.getItem('pwaInstallDismissed')) return;
+  useEffect(() => {
+    if (onVisibleChange) onVisibleChange(showBanner);
+  }, [showBanner, onVisibleChange]);
+
+  useEffect(() => {
+    const handleEngaged = () => setEngaged(true);
+    window.addEventListener(PWA_ENGAGEMENT_EVENT, handleEngaged);
+    return () => window.removeEventListener(PWA_ENGAGEMENT_EVENT, handleEngaged);
+  }, []);
+
+  useEffect(() => {
+    // Already installed or previously dismissed → do nothing
+    if (isStandalone() || readFlag(DISMISSED_KEY)) return;
 
     // ── Android / Windows / Desktop Chrome / Edge ──────────────────────────
     // The global script in index.html captures the event before React mounts.
@@ -38,14 +71,14 @@ const InstallPWA = () => {
 
       if (nativePrompt && typeof nativePrompt.prompt === 'function') {
         setPromptInstall(nativePrompt);
-        setShowBanner(true);
+        setCanPrompt(true);
       }
     };
 
     // Already captured before React mounted?
     if (window.__pwaInstallPrompt) {
       setPromptInstall(window.__pwaInstallPrompt);
-      setShowBanner(true);
+      setCanPrompt(true);
     }
 
     // Listen for future prompt events (first load) and our custom relay
@@ -55,7 +88,7 @@ const InstallPWA = () => {
     // ── iOS Safari ─────────────────────────────────────────────────────────
     // iOS never fires beforeinstallprompt. Show the banner with instructions.
     if (isIOS()) {
-      setShowBanner(true);
+      setCanPrompt(true);
     }
 
     return () => {
@@ -81,22 +114,26 @@ const InstallPWA = () => {
         // Whether accepted or dismissed, clean up
         window.__pwaInstallPrompt = null;
         setPromptInstall(null);
-        setShowBanner(false);
+        persistDismissed();
       } catch (err) {
         console.error('[PWA] prompt() error:', err);
       }
     }
   };
 
-  const handleDismiss = () => {
-    setShowBanner(false);
-    sessionStorage.setItem('pwaInstallDismissed', 'true');
+  // Dismissal is kept across visits (localStorage), not just the session.
+  const persistDismissed = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(DISMISSED_KEY, 'true');
+    } catch (e) { /* storage unavailable */ }
   };
+
+  const handleDismiss = () => persistDismissed();
 
   const handleIOSClose = () => {
     setShowIOSModal(false);
-    setShowBanner(false);
-    sessionStorage.setItem('pwaInstallDismissed', 'true');
+    persistDismissed();
   };
 
   // Don't render anything if already installed
