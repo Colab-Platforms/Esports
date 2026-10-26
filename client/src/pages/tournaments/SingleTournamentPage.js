@@ -31,7 +31,6 @@ import {
   getPlayerStats,
 } from "../../utils/cs2ServerStatus";
 import notificationService from "../../services/notificationService";
-import { markPwaEngaged } from "../../components/common/InstallPWA";
 import secureRequest from "../../utils/secureRequest";
 import valorantPaymentService from "../../services/valorantPaymentService";
 
@@ -801,7 +800,6 @@ const SingleTournamentPage = () => {
     setIsUserRegistered(true);
     resetPaymentFlow();
     fetchRegisteredTeams();
-    markPwaEngaged();
     notificationService.showCustomNotification(
       "success",
       "Registration Successful!",

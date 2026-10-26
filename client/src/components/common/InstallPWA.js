@@ -14,50 +14,17 @@ const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches ||
   window.navigator.standalone === true;
 
-const DISMISSED_KEY = 'pwaInstallDismissed';
-const ENGAGED_KEY = 'pwaInstallEngaged';
-export const PWA_ENGAGEMENT_EVENT = 'pwaEngagement';
-
-// Call after a meaningful action (e.g. joining a tournament) to allow the install prompt.
-export const markPwaEngaged = () => {
-  try {
-    localStorage.setItem(ENGAGED_KEY, 'true');
-  } catch (e) { /* storage unavailable */ }
-  window.dispatchEvent(new Event(PWA_ENGAGEMENT_EVENT));
-};
-
-const readFlag = (key) => {
-  try {
-    return localStorage.getItem(key) === 'true';
-  } catch (e) {
-    return false;
-  }
-};
-
-// `suppressed` hides the prompt while another floating prompt is on screen.
-// `onVisibleChange` lets the page reserve space so the pill never covers content.
-const InstallPWA = ({ suppressed = false, onVisibleChange }) => {
+const InstallPWA = () => {
   const [promptInstall, setPromptInstall] = useState(null);
-  const [canPrompt, setCanPrompt] = useState(false);
-  const [dismissed, setDismissed] = useState(() => readFlag(DISMISSED_KEY));
-  const [engaged, setEngaged] = useState(() => readFlag(ENGAGED_KEY));
+  const [showBanner, setShowBanner] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
 
-  const showBanner = canPrompt && engaged && !dismissed && !suppressed;
-
   useEffect(() => {
-    if (onVisibleChange) onVisibleChange(showBanner);
-  }, [showBanner, onVisibleChange]);
+    // Already installed → do nothing
+    if (isStandalone()) return;
 
-  useEffect(() => {
-    const handleEngaged = () => setEngaged(true);
-    window.addEventListener(PWA_ENGAGEMENT_EVENT, handleEngaged);
-    return () => window.removeEventListener(PWA_ENGAGEMENT_EVENT, handleEngaged);
-  }, []);
-
-  useEffect(() => {
-    // Already installed or previously dismissed → do nothing
-    if (isStandalone() || readFlag(DISMISSED_KEY)) return;
+    // User already dismissed this session
+    if (sessionStorage.getItem('pwaInstallDismissed')) return;
 
     // ── Android / Windows / Desktop Chrome / Edge ──────────────────────────
     // The global script in index.html captures the event before React mounts.
@@ -71,14 +38,14 @@ const InstallPWA = ({ suppressed = false, onVisibleChange }) => {
 
       if (nativePrompt && typeof nativePrompt.prompt === 'function') {
         setPromptInstall(nativePrompt);
-        setCanPrompt(true);
+        setShowBanner(true);
       }
     };
 
     // Already captured before React mounted?
     if (window.__pwaInstallPrompt) {
       setPromptInstall(window.__pwaInstallPrompt);
-      setCanPrompt(true);
+      setShowBanner(true);
     }
 
     // Listen for future prompt events (first load) and our custom relay
@@ -88,7 +55,7 @@ const InstallPWA = ({ suppressed = false, onVisibleChange }) => {
     // ── iOS Safari ─────────────────────────────────────────────────────────
     // iOS never fires beforeinstallprompt. Show the banner with instructions.
     if (isIOS()) {
-      setCanPrompt(true);
+      setShowBanner(true);
     }
 
     return () => {
@@ -114,26 +81,22 @@ const InstallPWA = ({ suppressed = false, onVisibleChange }) => {
         // Whether accepted or dismissed, clean up
         window.__pwaInstallPrompt = null;
         setPromptInstall(null);
-        persistDismissed();
+        setShowBanner(false);
       } catch (err) {
         console.error('[PWA] prompt() error:', err);
       }
     }
   };
 
-  // Dismissal is kept across visits (localStorage), not just the session.
-  const persistDismissed = () => {
-    setDismissed(true);
-    try {
-      localStorage.setItem(DISMISSED_KEY, 'true');
-    } catch (e) { /* storage unavailable */ }
+  const handleDismiss = () => {
+    setShowBanner(false);
+    sessionStorage.setItem('pwaInstallDismissed', 'true');
   };
-
-  const handleDismiss = () => persistDismissed();
 
   const handleIOSClose = () => {
     setShowIOSModal(false);
-    persistDismissed();
+    setShowBanner(false);
+    sessionStorage.setItem('pwaInstallDismissed', 'true');
   };
 
   // Don't render anything if already installed
