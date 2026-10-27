@@ -494,18 +494,18 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
       {/* Top Left - Registration Closed Chip & Timer */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between">
         {isRegistrationClosed && (
-          <div className="px-3 py-1.5 border border-gaming-gold/60 rounded-full text-xs font-display font-bold text-gaming-gold">
+          <div className="px-3 py-1.5 border border-gaming-gold/60 rounded-full text-base font-display font-bold text-gaming-gold">
             REGISTRATION CLOSED
           </div>
         )}
         
         {/* Timer - Show if tournament hasn't started yet */}
         {tournament?.startDate && new Date(tournament.startDate) > new Date() && (
-          <div className="px-3 py-1.5 backdrop-blur-md border border-blue-200/50 rounded-full text-xs font-display font-bold text-white">
+          <div className="px-3 py-1.5 backdrop-blur-md border border-blue-200/50 rounded-full text-base font-display font-bold text-white">
             <CountdownTimer 
               targetDate={tournament.startDate}
               format="compact"
-              size="sm"
+              size="md"
               showLabels={false}
               className="text-white"
             />
@@ -518,7 +518,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
         {/* Top Section - Status Badge */}
         {!isRegistrationClosed && (
           <div className="flex justify-end">
-            <div className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}>
+            <div className={`px-2.5 py-1 rounded-full text-base font-display font-bold ${getStatusColor(tournament.status)}`}>
               {tournament.status === 'completed' ? 'FINISHED' : tournament.status.replace('_', ' ').toUpperCase()}
             </div>
           </div>
@@ -537,7 +537,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
         {/* Bottom Section - Info Bar */}
         <div className="space-y-2.5">
           {/* Prize Pool & Entry Fee Row */}
-          <div className="flex justify-between items-center text-xs">
+          <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-base">
             <div className="flex items-center space-x-1.5">
               <span className="text-gaming-gold font-display font-bold">PRIZE:</span>
               <span className="text-white font-display font-bold">₹{(tournament.prizePool / 1000).toFixed(0)}K</span>
@@ -549,7 +549,7 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
           </div>
 
           {/* Players & Registration Row */}
-          <div className="flex justify-between items-center text-xs">
+          <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-base">
             <div className="flex items-center space-x-1.5">
               <span className="text-gaming-gold font-display font-bold">PLAYERS:</span>
               <span className="text-white font-display font-bold">{tournament.currentParticipants}/{tournament.maxParticipants}</span>
@@ -564,21 +564,21 @@ const TournamentCard = React.memo(({ tournament, navigate, getModeIcon, getStatu
           <div className="h-px bg-gradient-to-r from-gaming-gold/20 via-gaming-gold/40 to-gaming-gold/20" />
 
           {/* Dates Row */}
-          <div className="flex justify-between items-center text-xs">
+          <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-base">
             <div>
-              <div className="text-gaming-gold font-display font-bold text-xs">REG DEADLINE</div>
-              <div className="text-white font-display text-xs">{formatDate(tournament.registrationDeadline).split(',')[0]}</div>
+              <div className="text-gaming-gold font-display font-bold text-base">REG DEADLINE</div>
+              <div className="text-white font-display text-base">{formatDate(tournament.registrationDeadline).split(',')[0]}</div>
             </div>
             <div className="text-right">
-              <div className="text-gaming-gold font-display font-bold text-xs">STARTS</div>
-              <div className="text-white font-display text-xs">{formatDate(tournament.startDate).split(',')[0]}</div>
+              <div className="text-gaming-gold font-display font-bold text-base">STARTS</div>
+              <div className="text-white font-display text-base">{formatDate(tournament.startDate).split(',')[0]}</div>
             </div>
           </div>
 
           {/* View Details Button - Glassy Effect */}
           <button
             onClick={() => navigate(`/tournaments/${tournament._id}`)}
-            className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+            className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-base rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
           >
             VIEW DETAILS →
           </button>

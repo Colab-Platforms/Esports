@@ -228,10 +228,10 @@ const TournamentCardProfessional = ({
       <div className="absolute inset-0 flex flex-col justify-between p-5">
         <div>
           {/* Game + status */}
-          <div className="flex justify-between items-center gap-2 mb-3">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
             <GameIcon gameType={gameType} size="sm" />
             <div
-              className={`px-2.5 py-1 rounded-full text-xs font-display font-bold ${getStatusColor(tournament.status)}`}
+              className={`px-2.5 py-1 rounded-full text-base font-display font-bold ${getStatusColor(tournament.status)}`}
             >
               {tournament.status === "completed"
                 ? "FINISHED"
@@ -250,7 +250,7 @@ const TournamentCardProfessional = ({
           {!hideBottomInfo && (
             <>
               {/* Prize Pool & Entry Fee Row */}
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-base">
                 {gameType !== "cs2" && (
                   <div className="flex items-center space-x-1.5">
                     <span className="text-gaming-gold font-display font-bold">
@@ -274,11 +274,11 @@ const TournamentCardProfessional = ({
               {/* Slots filled + progress bar */}
               {gameType !== "cs2" && maxSlots > 0 && (
                 <div>
-                  <div className="flex justify-between items-center text-sm mb-1">
+                  <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1 text-base mb-1">
                     <span className="text-white font-display font-bold">
                       {filledSlots}/{maxSlots} slots
                     </span>
-                    <span className="text-gray-300 font-display text-xs">
+                    <span className="text-gray-300 font-display text-base">
                       {slotsFull ? "FULL" : `${maxSlots - filledSlots} left`}
                     </span>
                   </div>
@@ -300,14 +300,14 @@ const TournamentCardProfessional = ({
 
               {/* Countdown: registration deadline while open, otherwise time to start */}
               {countdown && (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-gaming-gold font-display font-bold text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-base">
+                  <span className="text-gaming-gold font-display font-bold text-base">
                     {countdown.label}
                   </span>
                   <CountdownTimer
                     targetDate={countdown.target}
                     format="compact"
-                    size="sm"
+                    size="md"
                     showLabels={false}
                     className="text-white"
                   />
@@ -321,20 +321,20 @@ const TournamentCardProfessional = ({
 
               {/* Dates Row (with year) */}
               {gameType !== "cs2" && (
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-1">
                   <div>
-                    <div className="text-gaming-gold font-display font-bold text-xs">
+                    <div className="text-gaming-gold font-display font-bold text-base">
                       REG DEADLINE
                     </div>
-                    <div className="text-white font-display text-sm">
+                    <div className="text-white font-display text-base">
                       {formatDate(tournament.registrationDeadline)}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-gaming-gold font-display font-bold text-xs">
+                    <div className="text-gaming-gold font-display font-bold text-base">
                       STARTS
                     </div>
-                    <div className="text-white font-display text-sm">
+                    <div className="text-white font-display text-base">
                       {formatDate(tournament.startDate)}
                     </div>
                   </div>
@@ -358,7 +358,7 @@ const TournamentCardProfessional = ({
                 disabled={
                   tournament?.status !== "active"
                 }
-                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-sm rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${tournament?.status !== "active"
+                className={`w-full py-2.5 px-3 bg-gaming-gold hover:bg-yellow-500 text-black font-display font-bold text-base rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40 ${tournament?.status !== "active"
                     ? "opacity-50 cursor-not-allowed"
                     : "cursor-pointer"
                   }`}
@@ -373,7 +373,7 @@ const TournamentCardProfessional = ({
               {/* VIEW DETAILS Button */}
               <button
                 onClick={() => navigate(`/tournaments/${tournament._id}`)}
-                className="w-full py-2 px-3 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+                className="w-full py-2 px-3 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-base rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
               >
                 VIEW DETAILS →
               </button>
@@ -381,7 +381,7 @@ const TournamentCardProfessional = ({
           ) : (
             <button
               onClick={() => navigate(`/tournaments/${tournament._id}`)}
-              className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-xs rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
+              className="w-full py-2 px-3 mt-2 bg-white/10 backdrop-blur-md border border-white/20 hover:border-gaming-gold/60 hover:bg-white/20 text-white font-display font-bold text-base rounded-lg transition-all duration-300 shadow-lg hover:shadow-gaming-gold/40"
             >
               VIEW DETAILS →
             </button>
