@@ -309,21 +309,6 @@ const GamesPage = () => {
                                 {game.description}
                             </p>
 
-                            {/* Stats */}
-                            <div className="grid grid-cols-3 gap-4 max-w-md text-sm">
-                                <div>
-                                    <div className="text-gaming-gold font-bold text-lg">{game.tournaments}</div>
-                                    <div className="text-gray-400">Tournaments</div>
-                                </div>
-                                <div>
-                                    <div className="text-gaming-gold font-bold text-lg">{game.activePlayers}</div>
-                                    <div className="text-gray-400">Players</div>
-                                </div>
-                                <div>
-                                    <div className="text-gaming-gold font-bold text-lg">{game.totalPrize}</div>
-                                    <div className="text-gray-400">Prize Pool</div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </motion.div>

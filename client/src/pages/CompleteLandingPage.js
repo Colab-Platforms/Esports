@@ -33,7 +33,7 @@ const CompleteLandingPage = () => {
     totalPlayers: '0',
     activeTournaments: '0',
     totalPrizes: '₹0',
-    totalMatches: '0'
+    completedTournaments: '0'
   });
   const [servers, setServers] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
@@ -85,7 +85,7 @@ const CompleteLandingPage = () => {
         console.log('🔄 Page became visible, checking cache age...');
         
         // Check cache age directly using localStorage
-        const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+        const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats-exact-v1', 'cs2-servers'];
         const now = Date.now();
         let isStale = false;
         
@@ -115,7 +115,7 @@ const CompleteLandingPage = () => {
       console.log('🔄 Window focused, checking cache age...');
       
       // Check cache age directly using localStorage
-      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats-exact-v1', 'cs2-servers'];
       const now = Date.now();
       let isStale = false;
       
@@ -158,7 +158,7 @@ const CompleteLandingPage = () => {
       console.log('🔄 User navigated to homepage, checking cache age...');
       
       // Check cache age directly using localStorage
-      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+      const criticalKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats-exact-v1', 'cs2-servers'];
       const now = Date.now();
       let isStale = false;
       
@@ -275,7 +275,7 @@ const CompleteLandingPage = () => {
     console.log('🔄 Initializing data...');
     
     // Check if we have valid cached data for all critical sections
-    const criticalDataKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats', 'cs2-servers'];
+    const criticalDataKeys = ['cs2-leaderboard', 'bgmi-scoreboards', 'platform-stats-exact-v1', 'cs2-servers'];
     const cachedDataStatus = criticalDataKeys.map(key => ({
       key,
       hasCache: getCachedData(key) !== null
@@ -327,7 +327,7 @@ const CompleteLandingPage = () => {
     }
 
     // Load platform stats from cache
-    const cachedStats = getCachedData('platform-stats');
+    const cachedStats = getCachedData('platform-stats-exact-v1');
     if (cachedStats) {
       console.log('📦 Loaded platform stats from cache');
       setStats(cachedStats);
@@ -684,7 +684,7 @@ const CompleteLandingPage = () => {
   const fetchPlatformStats = async () => {
     try {
       // Check cache first
-      const cachedData = getCachedData('platform-stats');
+      const cachedData = getCachedData('platform-stats-exact-v1');
       if (cachedData) {
         console.log('📦 Using cached platform stats');
         setStats(cachedData);
@@ -706,12 +706,12 @@ const CompleteLandingPage = () => {
           totalPlayers: usersData.success ? usersData.count.toString() : '0',
           activeTournaments: statsData.data.activeTournaments || '0',
           totalPrizes: statsData.data.totalPrizes || '₹0',
-          totalMatches: statsData.data.totalTransactions || '0'
+          completedTournaments: statsData.data.completedTournaments ?? '0'
         };
         
         console.log('✅ Platform stats fetched:', newStats);
         setStats(newStats);
-        setCachedData('platform-stats', newStats);
+        setCachedData('platform-stats-exact-v1', newStats);
       }
     } catch (error) {
       console.error('❌ Error fetching stats:', error);
@@ -908,9 +908,9 @@ const CompleteLandingPage = () => {
               </div>
               <div>
                 <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
-                  {stats.totalMatches}
+                  {stats.completedTournaments}
                 </div>
-                <div className="text-gray-400 text-sm">Matches Played</div>
+                <div className="text-gray-400 text-sm">Completed Tournaments</div>
               </div>
               <div>
                 <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
@@ -922,7 +922,7 @@ const CompleteLandingPage = () => {
                 <div className="text-3xl font-gaming font-bold text-gaming-gold mb-1">
                   {stats.activeTournaments}
                 </div>
-                <div className="text-gray-400 text-sm">Active Tournaments</div>
+                <div className="text-gray-400 text-sm">{Number(stats.activeTournaments) === 1 ? 'Active Tournament' : 'Active Tournaments'}</div>
               </div>
             </div>
           </motion.div>

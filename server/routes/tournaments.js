@@ -281,7 +281,7 @@ router.get('/stats', async (req, res) => {
     const cacheKey = 'platform:stats';
     const cachedStats = await redisService.get(cacheKey);
     
-    if (cachedStats) {
+    if (cachedStats?.numberFormatVersion === 1) {
       console.log('✅ Platform stats found in cache');
       return res.json({
         success: true,
@@ -314,19 +314,12 @@ router.get('/stats', async (req, res) => {
     const totalPrizes = totalPrizePool[0]?.total || 0;
 
     // Format numbers for display
-    const formatNumber = (num) => {
-      if (num >= 100000) return `${Math.floor(num / 1000)}K+`;
-      if (num >= 1000) return `${Math.floor(num / 1000)}K+`;
-      return `${num}+`;
-    };
+    const formatNumber = (num) => num.toLocaleString('en-IN');
 
-    const formatCurrency = (amount) => {
-      if (amount >= 100000) return `₹${Math.floor(amount / 100000)}L+`;
-      if (amount >= 1000) return `₹${Math.floor(amount / 1000)}K+`;
-      return `₹${amount}+`;
-    };
+    const formatCurrency = (amount) => `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
     const statsData = {
+      numberFormatVersion: 1,
       totalPlayers: formatNumber(totalUsers),
       activeTournaments: activeTournaments.toString(),
       completedTournaments: completedTournaments.toString(),
